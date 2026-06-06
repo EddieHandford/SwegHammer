@@ -1,0 +1,60 @@
+Loading registry…
+Registry loaded. Walking unit entries…
+
+Scanned 496 unit entries across 7 factions.
+
+==============================================================================
+TABLE 1 — Per-faction anti-tank output left on the table
+  'choice groups biased' = groups where mapper picked a weaker anti-tank option
+  'total EV-vs-tank lost' = sum of (dropped EV-vs-tank - picked EV-vs-tank) over
+  all such groups; larger = more anti-tank output suppressed by the picker
+==============================================================================
+Faction                     Biased groups  Total EV lost  Units affected
+------------------------------------------------------------------------
+Aeldari                                 9           8.05               9
+Drukhari                                9           7.50               9
+Astra Militarum                        13           6.06              13 <<< UNDER-SHOOTER
+Adeptus Astartes                       15           4.86              15
+Adeptus Mechanicus                      5           2.47               5 <<< UNDER-SHOOTER
+Imperial Knights                        2           1.87               2
+World Eaters                            3           0.66               3
+
+==============================================================================
+TABLE 2 — Top 10 worst individual cases (largest anti-tank EV loss per group)
+  EV = expected damage per activation;  'Marine EV' = what the picker optimises
+  'Tank EV' = expected damage vs Toughness 11 / 2+ save heavy vehicle
+==============================================================================
+Unit                         Weapon                          MrEV      TkEV      Gap
+------------------------------------------------------------------------------------
+[Aeldari] Revenant Titan     PICKED: Sonic Lance            15.83      4.22         
+                             DROPPED: Revenant Pulsar       13.33      7.11     2.89
+
+[Aeldari] Wraithknight       PICKED: Suncannon              12.50      3.33         
+                             DROPPED: Heavy Wraithcannon     10.27      5.70     2.37
+
+[Adeptus Mechanicus] Onager Dunecrawler PICKED: ➤ Eradication beamer - focused      8.77      2.34         
+                             DROPPED: Neutron laser          8.25      4.58     2.24
+
+[Drukhari] Voidraven Bomber  PICKED: Dark Scythe             8.00      2.22         
+                             DROPPED: Void Lance             7.33      4.07     1.85
+
+[Drukhari] Talos             PICKED: Twin Splinter Cannon      3.04      0.34         
+                             DROPPED: Twin heat lance        3.03      1.69     1.35
+
+[Imperial Knights] Knight Crusader PICKED: Avenger gatling cannon     16.00      4.00         
+                             DROPPED: Thermal cannon         9.33      5.19     1.19
+
+[Drukhari] Raven Strike Fighter [Legends] PICKED: Splinterstorm cannon      7.15      0.79         
+                             DROPPED: Dark lance             3.06      1.63     0.84
+
+[Adeptus Astartes] Sicaran Arcus [Legends] PICKED: Arcus multi-launcher      3.11      0.52         
+                             DROPPED: Hunter-killer missile      2.43      1.30     0.78
+
+[Drukhari] Raider            PICKED: Disintegrator Cannon      3.33      0.89         
+                             DROPPED: Dark Lance             3.06      1.63     0.74
+
+[Drukhari] Ravager           PICKED: Disintegrator Cannon      3.33      0.89         
+                             DROPPED: Dark Lance             3.06      1.63     0.74
+
+Note: EV-vs-Marine uses expected_damage_through_baseline() (no wound roll, 3+ save).
+      EV-vs-Tank uses Strength vs Toughness 11 wound table + 2+ save - armour penetration modifier.

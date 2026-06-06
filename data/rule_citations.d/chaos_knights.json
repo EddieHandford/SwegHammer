@@ -1,4 +1,20 @@
 {
+  "ICONOCLAST_FIEFDOM.dread_tyrants_aura": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-knights/#Iconoclast-Fiefdom",
+    "rule_name": "Dread Tyrants (Aura) — Dreaded Masters / Iconoclast Fiefdom detachment rule",
+    "quoted_text": "TITANIC CHAOS KNIGHTS units from your army have the following abilities: Dread Tyrants (Aura): While a friendly DAMNED unit is within 9\" of this unit, each time a model in that unit makes an attack, re-roll a Hit roll of 1 and re-roll a Wound roll of 1.",
+    "trigger": "Attacker is a Chaos Knights unit whose name starts with 'War Dog' (proxy for the DAMNED keyword, which BSData does not yet capture as a static unit keyword) AND the army's detachment carries dread_tyrants_aura=True AND at least one alive friendly TITANIC Chaos Knights unit is within 9\" of the attacker.",
+    "effect": "att_reroll_hit_ones and att_reroll_wound_ones are both set True for that attack in Unit.attack. APPROXIMATION: uses 'War Dog' name-prefix as proxy for the DAMNED keyword; strictly correct because DAMNED is only held by War Dog units in an Iconoclast Fiefdom army.",
+    "scope": "phase-gated"
+  },
+  "simulator.extra_melee_profiles": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Fight-Phase",
+    "rule_name": "Multi-melee-weapon Fight phase resolution and [Extra Attacks] core keyword",
+    "quoted_text": "If a model has more than one melee weapon, it can split its attacks between different targets, but if it does, all of the attacks from each weapon must be made against the same target. [...] Extra Attacks: A weapon with the [EXTRA ATTACKS] ability is resolved in addition to the model's other melee attacks; the Attacks characteristic of an [EXTRA ATTACKS] weapon is added to the model's Attacks for its normal melee weapons. Each time a model is making its attacks, it must first make the attacks from its [EXTRA ATTACKS] weapons separately from any others, and any other restrictions or permissions that apply to the model's attacks do not apply to attacks made with its [EXTRA ATTACKS] weapons.",
+    "trigger": "datasheet carries MORE THAN ONE melee weapon profile simultaneously (Knight Abominant Electroscourge + Balemace; Knight Rampager Reaper chainsword + Warpstrike claw; Knight Despoiler Warpstrike claw + Reaper chainsword; War Dog Karnivore Slaughterclaw + Reaper chaintalon; Imperial Knight Gallant Thunderstrike gauntlet + Reaper chainsword), or one of those weapons has the [EXTRA ATTACKS] keyword (Balemace). UnitProfile.extra_melee_profiles is populated for these chassis via data/overrides.json; the BSData mapper currently captures only one melee profile per datasheet. Chassis whose two melee weapons are wargear REPLACEMENTS (Knight Desecrator, War Dog Stalker, Imperial Knight Paladin/Errant/Warden/Preceptor — each allows Reaper chainsword to be replaced with a Thunderstrike gauntlet or equivalent) carry only the single mapped profile and do NOT populate extra_melee_profiles.",
+    "effect": "Unit.attack's melee branch, after resolving the primary melee_* profile, additionally resolves each entry in UnitProfile.extra_melee_profiles as a separate attack-resolution pass against the same engaged target. Each pass uses its own attacks / weapon_damage_per_shot / hit_probability / ap / strength / sustained_hits / lethal_hits / devastating_wounds / lance / precision / anti_keywords. Damage from all passes is summed and applied as one Fight-phase output. This is the ADDITIVE companion to the MUTEX `simulator.multi_profile_weapon_selection` picker that handles ranged alt-modes.",
+    "scope": "weapon-keyword"
+  },
   "simulator.harbingers_of_dread": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-knights/",
     "rule_name": "Harbingers of Dread (Dread abilities: Deathly Terror + Doom)",

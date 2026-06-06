@@ -13,10 +13,10 @@ alive-units state at round-start, the secondary scorer computes per-side delta
 at round-end, returning the secondary VP each side scored that round.
 
 Citations:
-    - simulator.secondary_bring_it_down (Wahapedia Pariah Nexus secondary)
-    - simulator.secondary_no_prisoners (Wahapedia Pariah Nexus secondary)
-    - simulator.secondary_engage_on_all_fronts (Wahapedia Pariah Nexus tactical)
-    - simulator.secondary_behind_enemy_lines (Wahapedia Pariah Nexus tactical)
+    - simulator.secondary_bring_it_down (Chapter Approved 2025-26 Fixed secondary)
+    - simulator.secondary_no_prisoners (Chapter Approved 2025-26 Tactical-only secondary — banned as a Fixed pick)
+    - simulator.secondary_engage_on_all_fronts (Chapter Approved 2025-26 tactical)
+    - simulator.secondary_behind_enemy_lines (Chapter Approved 2025-26 tactical)
 """
 from __future__ import annotations
 
@@ -24,8 +24,108 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple
 
 if TYPE_CHECKING:
+    from .army import Army
     from .units import Unit
     from .map import Map
+
+
+# Pool of recognised Pariah Nexus secondary keys. Used by `pick_secondaries`
+# (assigns 2 Fixed + 2 Tactical to each army at battle start) and the
+# `chosen` gate in `score_round_delta` / `score_position_delta`.
+#
+# Fixed Secondaries pool (CA-2025-26 tournament legal, pick 2):
+#   bring_it_down       — MONSTER/VEHICLE kill credit
+#   cull_the_horde      — kill credit for 13+model squads
+#   assassination       — CHARACTER kill credit (wound-bracket split)
+# NOTE: no_prisoners is NOT a valid Fixed pick in CA-2025-26 tournament play
+# (see quoted_text in data/rule_citations.d/secondaries_pariah_nexus.json for
+# `simulator.secondary_no_prisoners`). It is a Tactical-only mission card.
+# It remains in TACTICAL_SECONDARY_KEYS and TACTICAL_DECK_POOL so it can still
+# be drawn and scored on the Tactical track.
+# Tactical Secondaries (pool of 9+, draw 2 per round in real play):
+#   engage_on_all_fronts — board-spread victory points
+#   behind_enemy_lines   — opponent deployment zone victory points
+#   no_prisoners         — generic unit-kill credit (Tactical only in tournament)
+# Source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
+# Cited as `simulator.secondary_selection`.
+FIXED_SECONDARY_KEYS: Tuple[str, ...] = (
+    "bring_it_down", "cull_the_horde", "assassination",
+)
+TACTICAL_SECONDARY_KEYS: Tuple[str, ...] = (
+    "engage_on_all_fronts", "behind_enemy_lines",
+    # Wave 74: Cleanse is an action-based tactical secondary. Its scoring +
+    # action assignment live in code/simulator.py (Battle._score_cleanse /
+    # _assign_cleanse_actions, env-gated SWEG_ACTIONS); registering the key here
+    # lets `pick_secondaries` add it to an army's chosen tuple.
+    "cleanse",
+    # Wave 75: Sabotage — action in No Man's Land (3 VP) or the enemy DZ (6 VP).
+    # Scoring + assignment in code/simulator.py (Battle._score_sabotage /
+    # _assign_sabotage_actions, env-gated SWEG_S2).
+    "sabotage",
+    # No Prisoners is a Tactical-only card in CA-2025-26 tournament play (banned
+    # as a Fixed pick). Registered here so the legacy pick_secondaries path can
+    # include it in a Tactical army's chosen tuple and so ALL_SECONDARY_KEYS
+    # keeps a complete union.
+    "no_prisoners",
+)
+# Wave 83 Tier A: the objective-holding / board-control secondaries. Scoring +
+# zone classification live in code/simulator.py (Battle._score_board_secondaries,
+# env-gated SWEG_TIER_A); registering the keys here lets `pick_secondaries` add
+# them to an army's chosen tuple. The real Pariah Nexus take-and-hold cards — the
+# scoring paths a body army uses to out-score a durable camper. Source:
+# https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/
+BOARD_SECONDARY_KEYS: Tuple[str, ...] = (
+    "secure_no_mans_land",
+    "defend_stronghold",
+    "extend_battle_lines",
+    "storm_hostile_objective",
+    "area_denial",
+)
+ALL_SECONDARY_KEYS: Tuple[str, ...] = (
+    FIXED_SECONDARY_KEYS + TACTICAL_SECONDARY_KEYS + BOARD_SECONDARY_KEYS
+)
+
+# M2 (wave 119) — the real 2-card Tactical Mission deck (env-gated SWEG_TAC_DECK).
+#
+# CA-2025-26 v1.5: at game start each player secretly chooses Fixed OR Tactical
+# Missions. A TACTICAL army builds a deck of Secondary Mission cards, draws two
+# into a held hand at the start of its first Command phase, and from each
+# subsequent Command phase redraws back up to two; any card it scored 1+ VP from
+# is discarded ("achieved") and replaced. So a Tactical army scores at most its
+# TWO HELD cards per round — not the whole pile.
+#
+# The deck pool below is the Tactical / action / take-and-hold set the simulator
+# already scores (the 3 Fixed KILL cards — bring_it_down, cull_the_horde,
+# assassination — are the FIXED track's pool and are NOT in this deck; No
+# Prisoners IS in this deck because it is a Tactical-only card in CA-2025-26
+# tournament play). Each card here is routed to its existing scorer by
+# `Battle._score_one_card`. This is the union of:
+#   * No Prisoners (generic unit-kill credit, Tactical only in tournament),
+#   * the two position Tactical cards (Engage on All Fronts, Behind Enemy Lines),
+#   * the two action cards (Cleanse, Sabotage), and
+#   * the five Tier-A take-and-hold board cards.
+# Source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
+# (deck mechanic) + the per-card sources already cited in
+# data/rule_citations.d/secondaries_pariah_nexus.json. Cited as
+# `simulator.tactical_secondary_deck`.
+TACTICAL_DECK_POOL: Tuple[str, ...] = (
+    "no_prisoners",
+    "engage_on_all_fronts",
+    "behind_enemy_lines",
+    "cleanse",
+    "sabotage",
+    "secure_no_mans_land",
+    "defend_stronghold",
+    "extend_battle_lines",
+    "storm_hostile_objective",
+    "area_denial",
+)
+# TODO M2 Stage C: the CA-2025-26 Tactical deck also contains several action
+# cards the simulator does not yet model — Establish Locus, Recover Assets, and
+# A Tempting Target. Adding them requires verbatim card text (not yet captured in
+# the repo — the planned data/reference/wahapedia_ca2025-26.txt does not exist)
+# plus a new scoring check + citation per card. Left as a TODO rather than
+# invented; the deck runs on the nine already-faithful cards above.
 
 
 # Per-round VP caps (Pariah Nexus rule text, tuned 2026-05-20).
@@ -38,325 +138,68 @@ if TYPE_CHECKING:
 # Tuned to match real Pariah Nexus magnitudes: ~3 VP per qualifying
 # event with smaller per-round caps. This brings total secondary VP
 # per game to ~40 (vs ~75 primary), matching the real-meta ratio.
-BRING_IT_DOWN_CAP_PER_ROUND: int = 8
-NO_PRISONERS_CAP_PER_ROUND: int = 5
+BRING_IT_DOWN_CAP_PER_ROUND: int = 18  # CA-2025-26 has NO per-round cap; 18 = effectively unbounded (under the 40-VP secondary total cap)
+NO_PRISONERS_CAP_PER_ROUND: int = 5    # CA-2025-26: 2 VP/unit "up to 5 VP" — matches
 ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND: int = 3
-BEHIND_ENEMY_LINES_CAP_PER_ROUND: int = 3
-CULL_THE_HORDE_CAP_PER_ROUND: int = 3
-ASSASSINATION_CAP_PER_ROUND: int = 4
+BEHIND_ENEMY_LINES_CAP_PER_ROUND: int = 4   # CA-2025-26 BEL tops out at 4 VP (2+ units)
+CULL_THE_HORDE_CAP_PER_ROUND: int = 15  # CA-2025-26 Cull has NO per-round cap; 15 = effectively unbounded in practice, still under the 40-VP secondary total cap
+ASSASSINATION_CAP_PER_ROUND: int = 12  # CA-2025-26 has NO per-round cap; 12 = effectively unbounded (under the 40-VP secondary total cap)
 
-# VP per qualifying kill (matches real Pariah Nexus rule magnitudes).
-BRING_IT_DOWN_VP_PER_KILL: int = 3    # 3 VP per enemy MONSTER/VEHICLE destroyed
-NO_PRISONERS_VP_PER_UNIT: int = 3     # 3 VP per enemy UNIT destroyed
-CULL_THE_HORDE_VP_PER_UNIT: int = 3   # 3 VP per enemy horde-unit destroyed
-ASSASSINATION_VP_PER_CHAR: int = 3    # 3 VP per enemy CHARACTER destroyed
-ASSASSINATION_WARLORD_BONUS_VP: int = 1  # +1 VP if enemy Warlord destroyed (real Pariah Nexus rule)
+# VP per qualifying kill. Re-aligned to the CHAPTER APPROVED 2025-26 deck (wave 91,
+# the deck the May-2026 calibration target was played under). No Prisoners 2 VP/unit
+# (was 3) and Cull the Horde 5 VP/unit (was 3) are CA-2025-26 values, ≥2-source-verified
+# (wahapedia chapter-approved-2025-26 + Goonhammer CA-2025 review + GW Tournament Companion).
+# CA-2025-26 Bring It Down (Fixed): 2 VP base, +2 if the destroyed unit's total
+# Wounds characteristic is 15+, +2 if 20+, to a maximum of 6 VP per unit.
+BRING_IT_DOWN_VP_PER_KILL: int = 2    # base 2 VP per destroyed MONSTER/VEHICLE
+BRING_IT_DOWN_VP_BONUS: int = 2       # +2 at 15+ total wounds, +2 again at 20+
+BRING_IT_DOWN_VP_MAX_PER_UNIT: int = 6
+NO_PRISONERS_VP_PER_UNIT: int = 2     # CA-2025-26: 2 VP per enemy UNIT destroyed (up to 5/turn)
+CULL_THE_HORDE_VP_PER_UNIT: int = 5   # CA-2025-26: 5 VP per qualifying INFANTRY unit destroyed
+# CA-2025-26 Assassination (Fixed): 4 VP for a destroyed CHARACTER with 4+ Wounds,
+# 3 VP for one with fewer than 4 Wounds. NO Warlord bonus (removed in CA-2025-26).
+ASSASSINATION_VP_PER_CHAR: int = 3    # 3 VP for a <4-wound CHARACTER
+ASSASSINATION_VP_4PLUS_WOUNDS: int = 4  # 4 VP for a 4+-wound CHARACTER
+ASSASSINATION_WARLORD_BONUS_VP: int = 0  # CA-2025-26: no Warlord bonus
 
-# SC4-B — position-tracking secondary thresholds.
-# Real Pariah Nexus Engage on All Fronts (Wahapedia):
-#   "Score 2 VP if you have one or more units from your army wholly within
-#    two table quarters. Score 3 VP instead if you have one or more units
-#    from your army wholly within three different table quarters. Score 5 VP
-#    instead if you have one or more units from your army wholly within all
-#    four table quarters."
-# Real Pariah Nexus Behind Enemy Lines: "Score 4 VP if you have one or more
-# qualifying units in your opponent's deployment zone at the end of your
-# Command phase."
-# Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/
+# SC4-B — position-tracking secondary thresholds. Re-aligned to CHAPTER APPROVED
+# 2025-26 (wave 91; ≥2-source-verified: wahapedia chapter-approved-2025-26 +
+# Goonhammer CA-2025 review + Bell of Lost Souls).
+# CA-2025-26 Engage on All Fronts: "1 VP for units wholly within two table
+#   quarters, 2 VP for three quarters, 4 VP for all four quarters." (Was Pariah
+#   Nexus 2/3/5 at 2/3/4 — CA-2025-26 adds a 1-VP floor at 2 quarters and lowers
+#   the 3/4-quarter tiers.)
+# CA-2025-26 Behind Enemy Lines (UNCHANGED from Pariah Nexus): "3 VP if one
+#   non-AIRCRAFT unit is wholly within the opponent's deployment zone, 4 VP if
+#   two or more are." (Was modelled as a flat 4 — now tiered 3 / 4.)
+# Source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
 # Cited as `simulator.secondary_engage_on_all_fronts` and
 # `simulator.secondary_behind_enemy_lines`.
 ENGAGE_QUADRANTS_REQUIRED: int = 2    # minimum quadrants to score any Engage VP
-ENGAGE_VP_TWO_QUADRANTS: int = 2      # 2 VP for 2 quadrants
-ENGAGE_VP_THREE_QUADRANTS: int = 3    # 3 VP for 3 quadrants
-ENGAGE_VP_FOUR_QUADRANTS: int = 5     # 5 VP for all 4 quadrants
-BEHIND_ENEMY_LINES_VP: int = 4        # 4 VP if any alive unit in enemy DZ (real rule)
-ENGAGE_ON_ALL_FRONTS_VP: int = 3      # legacy alias (still used by tests); equals 3-quadrant tier
+ENGAGE_VP_TWO_QUADRANTS: int = 1      # CA-2025-26: 1 VP for 2 quadrants
+ENGAGE_VP_THREE_QUADRANTS: int = 2    # CA-2025-26: 2 VP for 3 quadrants
+ENGAGE_VP_FOUR_QUADRANTS: int = 4     # CA-2025-26: 4 VP for all 4 quadrants
+BEHIND_ENEMY_LINES_VP: int = 4        # CA-2025-26: 4 VP if TWO+ units in enemy DZ
+BEHIND_ENEMY_LINES_VP_SINGLE: int = 3  # CA-2025-26: 3 VP if ONE unit in enemy DZ
+ENGAGE_ON_ALL_FRONTS_VP: int = 2      # legacy alias (still used by tests); equals the 3-quadrant tier
 
 # SC4-C — horde-threshold + character-flag.
-CULL_THE_HORDE_MIN_MODELS: int = 10   # unit counts as "horde" if started 10+ strong
+# CA-2025-26 Cull the Horde: qualifying = INFANTRY unit Starting Strength 13+
+# (including attached Leaders). The sim uses the squad's starting model count as
+# the proxy (attached-Leader inclusion not separately modelled). Was Pariah Nexus
+# 20+ models / 25+ wounds; the sim previously used 10.
+CULL_THE_HORDE_MIN_MODELS: int = 13   # CA-2025-26: started 13+ models
 
-# CUSTODES-UNPARK — elite-army secondary modifier.
-#
-# Real-meta context: Adeptus Custodes runs ~6-12 elite squads (Wardens,
-# Custodian Guard, Allarus, Trajann, Caladius) at a 2000pt list. Each
-# unit's destruction is proportionally a much larger share of the army
-# than for a horde faction. The Pariah Nexus secondary card text
-# ("Score 2 VP if any enemy units destroyed, +1 per destroyed unit, cap
-# 5") and Bring it Down (cap 8) and Assassination (cap 4) describe a
-# scoring envelope that the per-round caps already largely fill against
-# elite armies — but the underlying SIM symmetry (3 VP/kill cap 5 for
-# No Prisoners regardless of defender shape) under-represents the real
-# strategic asymmetry: in tournament play, opponents bias secondary
-# selection toward kill-event cards specifically because Custodes
-# losses are predictable and capped on opportunity. The sim's
-# round-snapshot delta misses this list-selection effect.
-#
-# The CUSTODES_DEFENDER_KILL_VP_MULTIPLIER scales up the opponent's
-# kill-event secondaries (Bring it Down, No Prisoners, Assassination)
-# when the side being scored against is Adeptus Custodes. Cull the
-# Horde is left alone — Custodes never has 10+model units so it
-# already cannot concede this secondary. Caps are also scaled by the
-# same multiplier so the cap-to-fill ratio is preserved.
-#
-# Faction-gated (not model-count-gated) because:
-#   (a) Knights and Custodes both run sub-15-model armies but have
-#       opposite simulator residuals (Knights under-perform; gating
-#       by model count would worsen Knights).
-#   (b) The behavioural asymmetry is specifically about Custodes'
-#       elite-CHARACTER-heavy detachment (Auric Champions) which
-#       compounds offensive uplift on small squads, not a generic
-#       low-model-count effect.
-#
-# Citation: APPROXIMATION layered on top of the same Pariah Nexus
-# secondary text already cited as `simulator.secondary_bring_it_down`,
-# `simulator.secondary_no_prisoners`, and `simulator.secondary_assassination`.
-# The multiplier is cited separately as
-# `simulator.secondary_elite_army_modifier` so the cite-audit can find it.
-CUSTODES_DEFENDER_KILL_VP_MULTIPLIER: float = 1.5
-CUSTODES_FACTION_TAG: str = "Adeptus Custodes"
-
-# DRK-DIAG-9 — mobile-army attacker secondary damper.
-#
-# Mirror of CUSTODES-UNPARK but applied to the SCORING side rather than
-# the defending side, and in the OPPOSITE direction (damping rather
-# than uplift). Drukhari has been parked structurally at +27-31pt
-# over-perf vs gated tournament rate for the entire Stage 1
-# calibration loop after every per-rule audit (DRK-DIAG-2 through
-# DRK-DIAG-8, DRK-ARCH-1, DRK-DISEMBARK, DRK-FINAL-2, DRK-AI). Real-
-# meta Drukhari sits ~52.4% win-rate vs simulator 83.3% — the
-# unaccounted residual is structural-scoring rather than per-rule.
-#
-# The behavioural asymmetry being modelled: Drukhari at 2000pt is the
-# fastest mobile-elite army in 10e — Skysplinter Assault detachment
-# specifically incentivises Raider/Venom spam, and every Wych / Reaver
-# unit moves 14"+ before advance. Mobility makes the position-based
-# Tactical secondaries (Engage on All Fronts: span 2/3/4 quadrants;
-# Behind Enemy Lines: project into enemy DZ) almost free to score
-# round 1 onwards — the sim already gives Drukhari these secondaries
-# every alternating round per LC-2 because the unit positions trivially
-# satisfy the conditions. Real-meta Drukhari players don't score these
-# at the sim rate because (a) commitment-to-quadrants exposes fragile
-# units to wipe responses, (b) BEL "wholly within" enemy DZ is harder
-# to maintain when the opponent's screen reaches the DZ edge, and
-# (c) Cull the Horde is hard to convert in real play because Drukhari
-# damage output overflows on single horde squads but the per-round cap
-# eats the overflow.
-#
-# DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER scales DOWN Drukhari's own
-# scoring on Engage / BEL / Cull (0.75x — the original DRK-DIAG-9
-# multiplier). Kill-event Bring it Down / No Prisoners / Assassination
-# are scaled separately by the (gentler) OFFENSIVE multiplier below
-# rather than left alone, because DRK-DIAG-10 found the sim still
-# over-converts ALL offensive secondaries, not just mobility/Cull.
-# Real-meta Drukhari pilots burn fragile units on anti-vehicle alpha
-# strikes; the sim's per-shot W-resolution doesn't model the trade.
-#
-# DRUKHARI_ATTACKER_OFFENSIVE_VP_MULTIPLIER (DRK-DIAG-10) extends the
-# attacker damper to Bring it Down / No Prisoners / Assassination at
-# 0.85x — gentler than the 0.75x mobility multiplier on the
-# conservative-end of the diag-10 risk note (offensive secondaries
-# reflect SOME genuine offensive output, the damper just removes the
-# real-meta over-conversion margin). Per-rule audits clean
-# (DRK-DIAG-5 dual-firing, DRK-DIAG-7 ranged stats) — the residual is
-# in the over-translation of damage events to capped VP, not in any
-# single rule lever.
-#
-# Faction-gated (not detachment- or mobility-gated) because:
-#   (a) Drukhari is the only 10e faction with army-rule mobility
-#       (Combat Drugs Hypex +2" Move army-wide) AND a flagship
-#       transport-spam detachment AND fragile T3/4 W1 base statlines
-#       that punish actual commitment. Aeldari proper has the mobility
-#       but lacks the fragility; Eldar are tougher and play deeper
-#       commit. Custodes Allarus has teleport mobility but isn't
-#       fragile.
-#   (b) Per-rule audits (DRK-DIAG-2/3/4/5/6/7/8) found no missing
-#       defensive rule and no inflated offensive stat. The residual is
-#       not located at any single rule lever — it is distributed
-#       across the secondary-scoring envelope.
-#
-# Marked APPROXIMATION: the "Drukhari over-scores secondaries in the
-# sim relative to real meta" is an observation from the calibration
-# loop, not a Wahapedia rule citation. Same citation pattern as
-# `simulator.secondary_elite_army_modifier` (CUSTODES-UNPARK).
-DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER: float = 0.75
-DRUKHARI_ATTACKER_OFFENSIVE_VP_MULTIPLIER: float = 0.85
-DRUKHARI_FACTION_TAG: str = "Drukhari"
-
-# TYRANIDS-DIAG-6 — monster-mash attacker secondary damper.
-#
-# Mirror of DRK-DIAG-9 pattern (attacker-side damper) applied to
-# Tyranids, but with a wider secondary footprint (Bring it Down + No
-# Prisoners + Cull the Horde + Engage + BEL) reflecting Tyranids'
-# different real-meta over-scoring profile vs Drukhari (which is
-# mobility-focused; Tyranids is monster-mash + horde-anchored).
-#
-# Behavioural observation: Tyranids in the May 2026 Warp Friends
-# tournament sits at ~47% gated win-rate vs simulator ~75.6% (+24.82pt
-# over-perf after 5 prior diag passes: TYRANIDS-DIAG / TYRANIDS-FIX /
-# TYRANIDS-DIAG-2 / TYRANIDS-DIAG-3 / TYRANIDS-DIAG-5 SitW collapse).
-# Per-rule audits found no missing rule and no inflated stat — the
-# residual is not located at any single lever and is structural-scoring
-# rather than per-rule.
-#
-# The behavioural asymmetry being modelled: Tyranids tournament lists
-# are mostly Monster + Synapse-led horde brick (Carnifex, Tyrannofex,
-# Norn Emissary, Genestealer / Termagant Devourer broods). The sim's
-# monster-mash burst over-converts on offensive secondaries vs real
-# meta because:
-#   (a) Bring it Down — sim's per-shot W-resolution doesn't model
-#       real-meta target-priority chaff screens, so Tyranid heavy
-#       hitters stack S-T differential favourably and reliably one-shot
-#       the opponent's MONSTER / VEHICLE chassis.
-#   (b) No Prisoners — Tyranid melee bricks (Genestealers, Devourers)
-#       wipe whole single squads but real tournament Tyranid players
-#       don't reliably set up the alpha-strike vs screened opponents.
-#   (c) Cull the Horde — same model-wipe overshoot on enemy horde
-#       squads; per-round cap eats sim overflow but real-meta
-#       conversion rate is lower.
-#   (d) Engage / BEL — Tyranid horde positioning is mostly Synapse-
-#       anchored (units stay within range of a Synapse source for
-#       coherence and morale rules), so the sim's wide-spread scoring
-#       overstates real-meta Tyranid mobility / spread.
-#
-# TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER scales DOWN Tyranids' own
-# scoring on Bring it Down, No Prisoners, Cull the Horde, Engage on
-# All Fronts, and Behind Enemy Lines. Assassination is NOT scaled —
-# Tyranid CHARACTER kill output is genuine and audited clean.
-#
-# Faction-gated (not detachment- or keyword-gated) because the
-# behavioural divergence is observed across all Tyranid detachments in
-# the calibration loop and the per-rule audits already cleared every
-# faction-rule lever. Marked APPROXIMATION: same citation pattern as
-# `simulator.secondary_elite_army_modifier` (CUSTODES-UNPARK) and
-# `simulator.secondary_drukhari_mobile_modifier` (DRK-DIAG-9).
-TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER: float = 0.75
-TYRANIDS_FACTION_TAG: str = "Tyranids"
-
-# DAEMONS-DIAG-6 - invuln-stacked defender secondary damper.
-#
-# Inversion of CUSTODES-UNPARK: where Custodes is an elite low-count
-# defender that the per-round caps under-punish (multiplier 1.5x UP on
-# defender side), Chaos Daemons is a hyper-resilient defender that the
-# per-round caps OVER-punish in the simulator. Real-meta Chaos Daemons
-# trades durability (army-wide 4++ invulnerable save on every datasheet,
-# 5++ on Greater Daemons against melee, Locus auras for sub-faction
-# defensive uplift, Shadow of Chaos battleshock immunity, deny-the-
-# witch on most psychic) against the simulator per-shot W-resolution
-# which removes Greater Daemon chassis cleanly when an opposing alpha
-# strike rolls average - but real tournament play sees those Greater
-# Daemons survive longer because of (a) cover-vs-invuln-vs-armour best-
-# pick stacking on each saving throw (the simulator current armour-vs-
-# best-fixed choice loses ~10% durability per pass), (b) opponent threat
-# economy spreading damage rather than alpha-striking a single 4++
-# chassis, (c) Shadow-of-Chaos battleshock immunity protecting the
-# Daemon screen from secondary-cascading wipes after a partial kill.
-#
-# Behavioural observation: Chaos Daemons in the May 2026 Warp Friends
-# tournament sits at ~52.6% gated win-rate vs simulator ~31.0% (-21.6pt
-# UNDER-perf after 5 prior DAEMONS-DIAG passes plus 4 god sub-detachment
-# adds plus MR-CHAOS-DAEMONS-LOCUS + MR-I + LEADERABILITY-SCHEMA). Per-
-# rule audits across all those diag passes found no missing rule lever
-# - the residual is structural defender-side scoring, not per-rule.
-# Daemons is the largest single under-performer (excluding parked
-# Imperial Knights / Chaos Knights structural).
-#
-# DAEMONS_DEFENDER_KILL_VP_MULTIPLIER scales DOWN opponent BiD + No
-# Prisoners + Cull the Horde VP scored AGAINST Daemons. Mirror of
-# CUSTODES_DEFENDER_KILL_VP_MULTIPLIER structure (defender-faction-
-# gated, applied to per-kill VP and per-round cap so the cap-to-fill
-# ratio is preserved) but in the OPPOSITE direction (multiplier <1.0
-# rather than >1.0). Assassination is NOT scaled - Daemon Herald
-# CHARACTERs are fragile T4 W4 4++ chassis that genuinely die in real
-# tournament play; the simulator assassination scoring against Daemons
-# is directionally correct.
-#
-# Faction-gated (not keyword-gated) because:
-#   (a) Chaos Daemons is the only 10e faction with universal datasheet
-#       invuln (every Daemon model has 4++ army-wide via the Daemonic
-#       Saves army rule) AND Shadow of Chaos battleshock immunity AND
-#       Locus aura defensive uplift on key models. Death Guard has
-#       Feel No Pain but not universal invuln; Thousand Sons has
-#       invuln on most but Rubrics fail to leverage it across the
-#       roster. The composite defensive envelope is Chaos-Daemons-
-#       specific.
-#   (b) The 5 prior per-rule diag passes (DAEMONS-DIAG / -2 / -3 / -4
-#       / -5) plus the LeaderAbility schema fix plus the Locus / MR-I
-#       passes already cleaned every per-rule lever; the residual is
-#       distributed across the defensive-secondary envelope, not at
-#       any single rule.
-#
-# Marked APPROXIMATION: the "Daemons under-takes secondary kills in the
-# sim relative to real meta" is an observation from the calibration
-# loop, not a Wahapedia rule citation. Same citation pattern as
-# `simulator.secondary_elite_army_modifier` (CUSTODES-UNPARK, the
-# inverted-direction sibling of this damper). Cited as
-# `simulator.secondary_daemons_defender_damper`.
-DAEMONS_DEFENDER_KILL_VP_MULTIPLIER: float = 0.75
-DAEMONS_FACTION_TAG: str = "Chaos Daemons"
-
-# SOROR-LAST-RESORT-DAMPER - balanced-army attacker offensive secondary damper.
-#
-# Mirror of the DRK-DIAG-10 attacker-side offensive damper applied to Adepta
-# Sororitas, with a conservative 0.85x (rather than the 0.75x mobility damper
-# used in DRK-DIAG-9 / TYRANIDS-DIAG-6) reflecting Sororitas' smaller residual
-# (+13-16pt gated MAE vs Drukhari's +27-31pt and Tyranids' +24.8pt pre-damper)
-# and the fact that Sororitas over-perform is structural-scoring rather than
-# model-fragility-driven.
-#
-# Behavioural observation: Adepta Sororitas in the May 2026 Warp Friends
-# tournament sits at ~50.8% gated win-rate vs simulator ~68.2% (+13-16pt
-# over-perf across the entire Stage 1 calibration loop after 6 prior per-rule
-# diag passes: SORORITAS-MORTIFIER-FNP, SOROR-DIAG-2/3/4/5/6, SOROR-KEY-FIX/2,
-# SOROR-MUTEX-2, SOROR-STAT-AUDIT, SOROR-FAB-AUDIT). Per-rule audits across all
-# those passes found no missing rule lever and no inflated stat - the residual
-# is not located at any single rule lever and is structural-scoring rather
-# than per-rule.
-#
-# The behavioural asymmetry being modelled: Sororitas in real meta is a
-# balanced-army faction (not mobility-burst like Drukhari, not elite low-count
-# like Custodes). The sim's per-shot W-resolution overcounts Acts-of-Faith-
-# substituted hits / wounds against secondary-target resolution. Six per-rule
-# diag passes have audited Acts of Faith mechanics (per-attack-call cap),
-# detachment fabrications (clean), unit-level FNP leaks (cleaned), and
-# multi-loadout (Castigator / Exorcist / Immolator / Morvenn Vahl / Insidiants
-# cleaned). The residual is in the over-translation of damage events to
-# capped VP, not in any single rule lever.
-#
-# SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER scales DOWN Sororitas' own
-# scoring on Bring it Down, No Prisoners, Assassination, and Cull the Horde
-# at 0.85x (conservative). Engage and Behind Enemy Lines are also scaled in
-# score_position_delta at 0.85x - Sororitas Repentia / Penitent Engine /
-# Castigator can over-cover via SISTERS-keyword swarm formations that
-# real-meta lists don't actually run.
-#
-# Conservative 0.85x rather than 0.75x because:
-#   (a) Sororitas's over-perform (+13-16pt) is smaller than Drukhari's
-#       (+27-31pt) and Tyranids' (+24.8pt pre-damper).
-#   (b) Sororitas isn't model-fragility-based (T3 W2 1+ save common, but
-#       Acts of Faith re-rolls protect actual durability vs sim's per-shot
-#       W-resolution).
-#   (c) Damper trims the over-conversion margin rather than nulling output;
-#       Sororitas offensive capacity still reflects genuine output.
-#
-# Faction-gated (not detachment- or rule-keyword-gated) because the
-# behavioural divergence is observed across all Sororitas detachments in the
-# calibration loop (Hallowed Martyrs + Bringers of Flame both park at the
-# same +13-16pt residual) and the 6 per-rule diag passes already cleared
-# every faction-rule lever.
-#
-# Composition with other multipliers:
-#   - CUSTODES-UNPARK 1.5x defender uplift composes multiplicatively
-#     (Sororitas vs Custodes -> 1.5 * 0.85 = 1.275x net on BiD/NP/Assassination)
-#   - DAEMONS-DIAG-6 0.75x defender damper composes multiplicatively
-#     (Sororitas vs Daemons -> 0.75 * 0.85 = 0.6375x net on BiD/NP/Cull)
-#
-# Marked APPROXIMATION: same citation pattern as
-# `simulator.secondary_drukhari_mobile_modifier` (DRK-DIAG-10) and
-# `simulator.secondary_tyranids_monster_modifier` (TYRANIDS-DIAG-6) - this is
-# a calibration observation, not a Wahapedia rule. Cited as
-# `simulator.secondary_sororitas_attacker_damper`.
-SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER: float = 0.85
-SORORITAS_FACTION_TAG: str = "Adepta Sororitas"
+# CA-2025-26 Tactical-track kill card flat VP values (scored once per turn if
+# ONE OR MORE qualifying enemy units died, else 0). These are the TACTICAL card
+# values — distinct from the Fixed per-unit accumulation above.
+# Source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
+# Cited as `simulator.secondary_assassination_tactical`,
+#         `simulator.secondary_bring_it_down_tactical`,
+#         `simulator.secondary_cull_the_horde_tactical`.
+ASSASSINATION_TACTICAL_VP: int = 5   # flat 5 VP if one or more CHARACTERs died
+BRING_IT_DOWN_TACTICAL_VP: int = 4   # flat 4 VP if one or more MONSTER/VEHICLE units died
+CULL_THE_HORDE_TACTICAL_VP: int = 5  # flat 5 VP if one or more qualifying INFANTRY units died
 
 
 @dataclass
@@ -373,11 +216,32 @@ class RoundSnapshot:
     starting-strength-≥10 squad — for Cull the Horde) and
     `character_ids_alive` (units carrying CHARACTER keyword — for
     Assassination).
+
+    Per-unit secondary fix (No Prisoners / Cull the Horde):
+    `alive_squad_ids` is the set of squad_id values (int >= 0) that had at
+    least one alive model at snapshot time. A codex unit is considered
+    destroyed this round only when ALL models sharing that squad_id have
+    died — i.e. the squad_id is absent from the current alive set. Lone
+    models (squad_id < 0) are already single-model units; their kills are
+    tracked via `lone_unit_ids_alive` (id-based, unchanged semantics).
+    `horde_squad_ids` is the subset of `alive_squad_ids` whose starting
+    model count was >= CULL_THE_HORDE_MIN_MODELS (checked on any member).
     """
     unit_ids_alive: frozenset
     monster_vehicle_ids_alive: frozenset
     horde_unit_ids_alive: frozenset = frozenset()
     character_ids_alive: frozenset = frozenset()
+    # Per-unit secondary fix fields:
+    alive_squad_ids: frozenset = frozenset()    # squad_id values >= 0 alive at snapshot
+    horde_squad_ids: frozenset = frozenset()    # subset of alive_squad_ids that are horde
+    lone_unit_ids_alive: frozenset = frozenset()  # id(u) for lone models (squad_id < 0)
+    horde_lone_ids_alive: frozenset = frozenset()  # lone ids that also qualify as horde
+    # CA-2025-26 wound-bracket fields (wave 92): MONSTER/VEHICLE ids whose Wounds
+    # characteristic is 15+/20+ (for Bring It Down's 2 +2 +2 brackets), and
+    # CHARACTER ids with 4+ Wounds (for Assassination's 4-vs-3 split).
+    mv_ids_15plus: frozenset = frozenset()
+    mv_ids_20plus: frozenset = frozenset()
+    char_ids_4plus: frozenset = frozenset()
 
 
 def take_snapshot(units: Iterable["Unit"]) -> RoundSnapshot:
@@ -396,11 +260,55 @@ def take_snapshot(units: Iterable["Unit"]) -> RoundSnapshot:
         id(u) for u in alive
         if _is_character(u)
     )
+    # CA-2025-26 wound brackets. Uses the model's Wounds CHARACTERISTIC
+    # (profile.health = the datasheet max), not current wounds. Single-model
+    # MONSTER/VEHICLE (most of them) -> per-model wounds == the unit's total;
+    # multi-model vehicle squadrons under-count (rare, accepted approximation).
+    mv_ids_15plus = frozenset(
+        id(u) for u in alive
+        if _is_monster_or_vehicle(u) and (getattr(u.profile, "health", 0) or 0) >= 15
+    )
+    mv_ids_20plus = frozenset(
+        id(u) for u in alive
+        if _is_monster_or_vehicle(u) and (getattr(u.profile, "health", 0) or 0) >= 20
+    )
+    char_ids_4plus = frozenset(
+        id(u) for u in alive
+        if _is_character(u) and (getattr(u.profile, "health", 0) or 0) >= 4
+    )
+    # Per-unit secondary fix: track squad-level alive state for No Prisoners
+    # and Cull the Horde. A codex unit is only destroyed when its LAST model
+    # dies (all models sharing the same squad_id must be gone). Lone models
+    # (squad_id < 0) are single-model units, tracked by object id separately.
+    squad_alive: set = set()
+    horde_squads: set = set()
+    lone_ids: set = set()
+    horde_lone_ids: set = set()
+    for u in alive:
+        sid = getattr(u, "squad_id", -1)
+        if sid >= 0:
+            squad_alive.add(sid)
+            if _is_horde_unit(u):
+                horde_squads.add(sid)
+        else:
+            lone_ids.add(id(u))
+            # Lone models are single-model units and essentially never qualify
+            # as horde (starting_strength=1 in the real catalogue). Track
+            # anyway so synthetic / edge-case callers are handled correctly.
+            if _is_horde_unit(u):
+                horde_lone_ids.add(id(u))
     return RoundSnapshot(
         unit_ids_alive=unit_ids,
         monster_vehicle_ids_alive=mv_ids,
         horde_unit_ids_alive=horde_ids,
         character_ids_alive=char_ids,
+        alive_squad_ids=frozenset(squad_alive),
+        horde_squad_ids=frozenset(horde_squads),
+        lone_unit_ids_alive=frozenset(lone_ids),
+        horde_lone_ids_alive=frozenset(horde_lone_ids),
+        mv_ids_15plus=mv_ids_15plus,
+        mv_ids_20plus=mv_ids_20plus,
+        char_ids_4plus=char_ids_4plus,
     )
 
 
@@ -432,13 +340,22 @@ def _is_horde_unit(unit: "Unit") -> bool:
     inflating the secondary.
     """
     profile = unit.profile
-    # Prefer explicit field if the mapper populates it.
-    starting = getattr(profile, "starting_strength", None)
-    if starting is None:
+    # WAVE 74 FIX: the populated field on UnitProfile is `max_models` (the
+    # datasheet's maximum squad size — Termagants 20, Boyz 20, Poxwalkers 20,
+    # Cadians 10). The previous code read `starting_strength` / `squad_size` /
+    # `count`, all of which are None in the live catalogue, so this returned
+    # False for every unit and Cull the Horde scored 0 for everyone (a dead
+    # mechanic). A unit whose datasheet allows >= 10 models is horde-capable;
+    # tournament hordes field them at or near max. Fall back to the legacy
+    # fields if a synthetic caller populates them instead.
+    starting = getattr(profile, "max_models", None)
+    if not starting:
+        starting = getattr(profile, "starting_strength", None)
+    if not starting:
         starting = getattr(profile, "squad_size", None)
-    if starting is None:
+    if not starting:
         starting = getattr(profile, "count", None)
-    if starting is None:
+    if not starting:
         starting = 1
     return starting >= CULL_THE_HORDE_MIN_MODELS
 
@@ -460,6 +377,8 @@ def score_round_delta(
     enemy_warlord_uid: Optional[int] = None,
     defender_faction: Optional[str] = None,
     attacker_faction: Optional[str] = None,
+    chosen: Optional[Iterable[str]] = None,
+    tactical: bool = False,
 ) -> Tuple[int, int, int, int]:
     """Compute (bring_it_down_vp, no_prisoners_vp, cull_the_horde_vp,
     assassination_vp) for the snapshotted side against the current enemy
@@ -476,100 +395,52 @@ def score_round_delta(
       * cull_the_horde_vp — kill credit for units that were ≥10 models
       * assassination_vp — kill credit for enemy CHARACTERs
 
-    CUSTODES-UNPARK — when `defender_faction == "Adeptus Custodes"`, the
-    per-kill VP and per-round caps for Bring it Down, No Prisoners, and
-    Assassination are scaled by `CUSTODES_DEFENDER_KILL_VP_MULTIPLIER`
-    (1.5x). Models the elite-army secondary disadvantage: each Custodes
-    unit loss is a proportionally larger share of the army and the
-    opponent's kill-event secondary scoring outpaces the per-round cap.
-    Cull the Horde is left alone (Custodes never has 10+model units, so
-    can't concede that secondary regardless). Cited as
-    `simulator.secondary_elite_army_modifier`.
+    SECONDARY-SELECTION-V1: `chosen` is the iterable of secondary keys this
+    side has selected (per real CA-2025-26, each player picks exactly TWO
+    Fixed Secondaries from the three-card Fixed pool OR uses the Tactical
+    deck, where No Prisoners is available as a Tactical-only card).
+    Any of the four components NOT in `chosen` is zeroed in the return
+    tuple. Passing `chosen=None` means "score all four kill cards" — preserves
+    backward compatibility for callers / tests that don't yet thread the
+    selection through (simulator was updated to always pass the army's
+    `chosen_secondaries`). The None fallback includes no_prisoners so
+    existing scorer-only tests continue to pass (it remains a scoreable
+    card, just not a valid Fixed pick). Cited as
+    `simulator.secondary_selection`.
 
-    DRK-DIAG-9 — when `attacker_faction == "Drukhari"`, Cull the Horde
-    VP scored BY Drukhari is scaled by
-    `DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER` (0.75x). Models the
-    real-meta over-scoring damper: Drukhari's burst damage overflows
-    on single horde squads but the per-round cap eats the overflow,
-    and tournament Drukhari players don't reliably convert Cull at
-    the sim rate. Engage / BEL are scaled in `score_position_delta`
-    via the same `attacker_faction` gate. Cited as
-    `simulator.secondary_drukhari_mobile_modifier`.
+    Fixed-vs-Tactical track split (CA-2025-26):
+      `tactical=False` (default) — FIXED per-unit scoring: each qualifying
+        destroyed unit earns VP individually (current behaviour, unchanged).
+      `tactical=True` — TACTICAL flat per-turn scoring: each of the three
+        kill cards (bring_it_down, cull_the_horde, assassination) scores a
+        flat VP value if ONE OR MORE qualifying enemy units died this turn,
+        else 0. The flat values are:
+          Assassination: 5 VP if one or more enemy CHARACTERs died
+          Bring It Down: 4 VP if one or more enemy MONSTER/VEHICLE units died
+          Cull the Horde: 5 VP if one or more qualifying INFANTRY units died
+        No Prisoners is per-unit-capped (2 VP/unit, max 5/turn) in BOTH
+        tracks — it does not change form when tactical=True. Cited as
+        `simulator.secondary_assassination_tactical`,
+        `simulator.secondary_bring_it_down_tactical`,
+        `simulator.secondary_cull_the_horde_tactical`.
 
-    DRK-DIAG-10 — extends the attacker damper to Bring it Down, No
-    Prisoners, and Assassination via the gentler 0.85x
-    `DRUKHARI_ATTACKER_OFFENSIVE_VP_MULTIPLIER`. After DRK-DIAG-9
-    (+0.30 MAE help from Cull/Engage/BEL damper) Drukhari still parks
-    at +24pt gated MAE — the sim over-converts ALL Drukhari offensive
-    secondaries, not just mobility/Cull, because per-shot W-resolution
-    doesn't model the real-meta fragility trade (burning Wyches/
-    Incubi on anti-vehicle alpha strikes opens the unit to wipe
-    responses that real pilots respect more than the sim's greedy AI).
-    0.85x rather than 0.75x chosen on the conservative end of the
-    diag-10 risk note: offensive output still reflects some genuine
-    capacity. Cited as `simulator.secondary_drukhari_mobile_modifier`
-    (same key — the citation body covers both halves of the damper).
-
-    Composition with CUSTODES-UNPARK: when a Drukhari army attacks an
-    Adeptus Custodes army, both multipliers apply (effective scale
-    1.5 * 0.85 = 1.275x for BiD/NP/Assassination, 1.5 * 1.0 = 1.5x for
-    Cull which is not Drukhari-damped on the attacker side for the
-    Custodes defender because Custodes never concedes Cull). The
-    Drukhari damper reduces but does not erase the Custodes elite
-    asymmetry — appropriate, since real-meta Drukhari-vs-Custodes
-    still favours the kill-event secondaries relative to a
-    Drukhari-vs-horde matchup.
-
-    TYRANIDS-DIAG-6 — when `attacker_faction == "Tyranids"`, Bring it
-    Down, No Prisoners, and Cull the Horde VP scored BY Tyranids are
-    scaled by `TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER` (0.75x).
-    Models the real-meta monster-mash over-scoring damper observed
-    after 5 prior per-rule diag passes: Tyranid Carnifex / Tyrannofex
-    / Norn Emissary stack S-T favourably on enemy MONSTER / VEHICLE
-    chassis, melee bricks wipe single squads, and the sim's per-round
-    cap eats Cull overflow. Real-meta Tyranid conversion is lower
-    because of chaff screens and unreliable alpha-strike setup.
-    Assassination is NOT scaled — CHARACTER kill output is genuine.
-    Engage / BEL are scaled in `score_position_delta` via the same
-    `attacker_faction` gate (Synapse-anchored horde positioning
-    overstates sim spread vs real meta). Cited as
-    `simulator.secondary_tyranids_monster_modifier`.
-
-    DAEMONS-DIAG-6 - when `defender_faction == "Chaos Daemons"`, the
-    opponent Bring it Down, No Prisoners, and Cull the Horde VP plus
-    per-round caps are scaled by `DAEMONS_DEFENDER_KILL_VP_MULTIPLIER`
-    (0.75x DOWN). Inversion of CUSTODES-UNPARK structure (defender-
-    gated, applied to per-kill VP and per-round cap, composes
-    multiplicatively with the CUSTODES `mult` variable) but in the
-    OPPOSITE direction (damper rather than uplift). Models the
-    invuln-stacked-defender over-conversion observed across 5 prior
-    per-rule diag passes plus Locus / MR-I / LeaderAbility schema
-    fixes - Daemons sim WR parks at ~31% vs real ~52.6% (-21.6pt) and
-    per-rule audits all came back clean. Real-meta Daemons gets
-    cover-vs-invuln-vs-armour best-pick stacking, Shadow of Chaos
-    battleshock immunity protecting from cascading wipes, and Locus
-    aura defensive uplift that the sim under-models. Assassination
-    NOT scaled (Daemon Heralds genuinely die). Cull IS scaled (10-
-    model Plaguebearer/Bloodletter/Pink Horror squads over-wiped by
-    sim). Cited as `simulator.secondary_daemons_defender_damper`.
-
-    SOROR-LAST-RESORT-DAMPER - when `attacker_faction == "Adepta Sororitas"`,
-    the scoring side's Bring it Down + No Prisoners + Assassination + Cull
-    the Horde VP plus per-round caps are scaled by the conservative
-    `SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER` (0.85x). Mirror of the
-    DRK-DIAG-10 attacker-side offensive damper at conservative magnitude
-    reflecting Sororitas' smaller residual (+13-16pt vs Drukhari's
-    +27-31pt). Models the structural over-scoring observed across the
-    Stage 1 loop after 6 prior per-rule diag passes (SORORITAS-MORTIFIER-
-    FNP, SOROR-DIAG-2/3/4/5/6, SOROR-KEY-FIX/2, SOROR-MUTEX-2, SOROR-STAT-
-    AUDIT, SOROR-FAB-AUDIT) all came back with no missing rule lever - the
-    residual is in the over-translation of Acts-of-Faith-substituted
-    hits/wounds to capped VP, not at any single rule. Composes
-    multiplicatively with CUSTODES uplift (1.5 * 0.85 = 1.275x) and with
-    DAEMONS defender damper (0.75 * 0.85 = 0.6375x). Engage / BEL also
-    damped in score_position_delta. Cited as
-    `simulator.secondary_sororitas_attacker_damper`.
+    NOTE: `defender_faction` and `attacker_faction` parameters are accepted
+    for API stability (callers in code/simulator.py pass these) but are
+    currently unused. The faction-gated VP multipliers that previously used
+    these parameters were removed as metric-tuning approximations rather than
+    rules-correct calibration (CLAUDE.md §10 — Cite every rule. Don't invent).
+    Secondary VP scoring is restored to the 10e core rules: fixed VP per kill,
+    no per-faction scaling.
     """
+    if chosen is None:
+        # Backward-compat: score all four kill cards (the three valid Fixed
+        # picks + no_prisoners, which is Tactical-only in tournament play but
+        # is still a real card the scorer knows how to score). Tests that call
+        # score_round_delta without a `chosen` argument are unit-testing the
+        # scorer itself, not the picker, so no_prisoners must still score here.
+        chosen_set = frozenset(FIXED_SECONDARY_KEYS) | frozenset(("no_prisoners",))
+    else:
+        chosen_set = frozenset(chosen)
     alive_now_ids = frozenset(
         id(u) for u in enemy_units_now if u.current_health > 0
     )
@@ -577,137 +448,107 @@ def score_round_delta(
         id(u) for u in enemy_units_now
         if u.current_health > 0 and _is_monster_or_vehicle(u)
     )
-    horde_alive_now_ids = frozenset(
-        id(u) for u in enemy_units_now
-        if u.current_health > 0 and _is_horde_unit(u)
-    )
     char_alive_now_ids = frozenset(
         id(u) for u in enemy_units_now
         if u.current_health > 0 and _is_character(u)
     )
 
-    # Killed-this-round = was alive at round start, dead now.
-    units_killed = snapshot.unit_ids_alive - alive_now_ids
+    # Killed-this-round for model-based secondaries (Bring it Down,
+    # Assassination): still id-based — these score per model kill.
     mv_killed = snapshot.monster_vehicle_ids_alive - mv_alive_now_ids
-    horde_killed = snapshot.horde_unit_ids_alive - horde_alive_now_ids
     chars_killed = snapshot.character_ids_alive - char_alive_now_ids
 
-    # CUSTODES-UNPARK — defender-faction-gated VP multiplier on the
-    # kill-event secondaries. Cull the Horde is NOT scaled (Custodes
-    # has no 10+model units to concede). Multiplier is applied to BOTH
-    # the per-kill VP and the per-round cap so the cap-to-fill ratio
-    # is preserved (otherwise a 1.5x per-kill against the same cap
-    # would just bump every multi-kill round to the cap).
-    if defender_faction == CUSTODES_FACTION_TAG:
-        mult = CUSTODES_DEFENDER_KILL_VP_MULTIPLIER
-    else:
-        mult = 1.0
+    # Per-unit secondary fix (No Prisoners, Cull the Horde): a codex unit
+    # is destroyed only when ALL its models are gone. Count distinct destroyed
+    # squad_ids (not individual model ids). Lone models (squad_id < 0) are
+    # already single-model units and are tracked separately by object id.
+    #
+    # Build current alive squad_ids and lone ids from end-of-round state.
+    alive_squad_ids_now: set = set()
+    alive_lone_ids_now: set = set()
+    for u in enemy_units_now:
+        if u.current_health <= 0:
+            continue
+        sid = getattr(u, "squad_id", -1)
+        if sid >= 0:
+            alive_squad_ids_now.add(sid)
+        else:
+            alive_lone_ids_now.add(id(u))
 
-    # DAEMONS-DIAG-6 - defender-faction-gated VP DAMPER on the kill-event
-    # secondaries when the side being scored against is Chaos Daemons.
-    # Inversion of CUSTODES-UNPARK structure (defender-gated, applied to
-    # per-kill VP and per-round cap, composes multiplicatively with the
-    # CUSTODES `mult` variable above) but in the OPPOSITE direction
-    # (0.75x DOWN vs 1.5x UP). Models the invuln-stacked-defender
-    # over-conversion observed across 5 prior per-rule diag passes:
-    # Daemons sim WR parks at ~31% vs real ~52.6% (-21.6pt) and per-rule
-    # audits across DAEMONS-DIAG / -2 / -3 / -4 / -5 + MR-CHAOS-DAEMONS-
-    # LOCUS + MR-I + LEADERABILITY-SCHEMA all came back clean - the
-    # residual is structural defender-side scoring. Real-meta Daemons
-    # gets cover-vs-invuln-vs-armour best-pick stacking, Shadow of
-    # Chaos battleshock immunity protecting from cascading wipes, and
-    # Locus aura defensive uplift that the simulator per-shot
-    # W-resolution under-models. Cull the Horde is INCLUDED (Daemons
-    # does field 10-model Plaguebearer / Bloodletter / Pink Horror
-    # squads that the sim over-wipes vs real-meta 5++ + Daemonic
-    # invuln durability - different from Custodes where Cull was
-    # excluded for the opposite reason of no 10+ model units).
-    # Assassination NOT scaled (Daemon Heralds are fragile and
-    # genuinely die in real meta). Cited as
-    # `simulator.secondary_daemons_defender_damper`.
-    if defender_faction == DAEMONS_FACTION_TAG:
-        daemons_def_mult = DAEMONS_DEFENDER_KILL_VP_MULTIPLIER
-    else:
-        daemons_def_mult = 1.0
+    # Squad units destroyed = squad_id was alive at snapshot, no surviving
+    # model carries that squad_id now.
+    destroyed_squads = snapshot.alive_squad_ids - alive_squad_ids_now
+    destroyed_horde_squads = snapshot.horde_squad_ids - alive_squad_ids_now
+    # Lone units destroyed (single-model units — still id-based, unchanged).
+    destroyed_lones = snapshot.lone_unit_ids_alive - alive_lone_ids_now
+    destroyed_horde_lones = snapshot.horde_lone_ids_alive - alive_lone_ids_now
 
-    # DRK-DIAG-9 — attacker-side damper on Cull the Horde when the
-    # scoring side is Drukhari. Burst-damage overflow on single horde
-    # squads is eaten by the per-round cap in sim, but real-meta
-    # Drukhari players don't reliably trigger Cull at the sim rate.
-    # DRK-DIAG-10 — additionally apply the (gentler) offensive damper
-    # to Bring it Down / No Prisoners / Assassination when Drukhari is
-    # the scoring side. Composes multiplicatively with the
-    # CUSTODES-UNPARK defender multiplier (mult) — Drukhari attacking
-    # Custodes still gets some elite uplift, just reduced.
-    if attacker_faction == DRUKHARI_FACTION_TAG:
-        drk_attacker_mult = DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER
-        drk_offensive_mult = DRUKHARI_ATTACKER_OFFENSIVE_VP_MULTIPLIER
-    else:
-        drk_attacker_mult = 1.0
-        drk_offensive_mult = 1.0
+    # Total destroyed codex units for No Prisoners = squad kills + lone kills.
+    units_killed_count = len(destroyed_squads) + len(destroyed_lones)
+    # Cull the Horde counts horde squads + any lone-model units that somehow
+    # qualify as horde (rare in the real catalogue, but handled for correctness).
+    horde_killed_count = len(destroyed_horde_squads) + len(destroyed_horde_lones)
 
-    # TYRANIDS-DIAG-6 — attacker-side damper on Bring it Down + No
-    # Prisoners + Cull the Horde when the scoring side is Tyranids.
-    # Monster-mash overflow on enemy MONSTER/VEHICLE + melee-brick
-    # wipes overstate real-meta Tyranid conversion rates; per-rule
-    # audits across 5 prior diag passes confirmed no missing rule
-    # lever, so the residual is approximated via the secondary
-    # envelope. Mirror of DRK-DIAG-9 with wider footprint reflecting
-    # Tyranids' monster-mash profile vs Drukhari's mobility profile.
-    if attacker_faction == TYRANIDS_FACTION_TAG:
-        tyr_attacker_mult = TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER
-    else:
-        tyr_attacker_mult = 1.0
-
-    # SOROR-LAST-RESORT-DAMPER - attacker-side damper on Bring it Down +
-    # No Prisoners + Assassination + Cull the Horde when the scoring
-    # side is Adepta Sororitas. Conservative 0.85x reflecting smaller
-    # residual (+13-16pt vs Drukhari +27-31pt). Six prior per-rule diag
-    # passes (SORORITAS-MORTIFIER-FNP, SOROR-DIAG-2/3/4/5/6, SOROR-KEY-
-    # FIX/2, SOROR-MUTEX-2, SOROR-STAT-AUDIT, SOROR-FAB-AUDIT) all came
-    # back with no missing rule lever - the residual is in over-
-    # translation of Acts-of-Faith-substituted damage events to capped
-    # VP. Composes multiplicatively with all other multipliers.
-    if attacker_faction == SORORITAS_FACTION_TAG:
-        soror_attacker_mult = SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER
-    else:
-        soror_attacker_mult = 1.0
-
-    bring_it_down_vp = min(
-        int(BRING_IT_DOWN_CAP_PER_ROUND * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
-        int(len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
-    )
+    # CA-2025-26 Bring It Down scoring — split by track:
+    #   FIXED (tactical=False): per destroyed MONSTER/VEHICLE, 2 VP + 2 (15+ total
+    #     wounds) + 2 (20+), capped at 6 per unit; no per-round cap.
+    #   TACTICAL (tactical=True): flat 4 VP if one or more MONSTER/VEHICLE units
+    #     were destroyed this turn, else 0.
+    # Cited as `simulator.secondary_bring_it_down` (Fixed) and
+    # `simulator.secondary_bring_it_down_tactical` (Tactical).
+    bring_it_down_vp = 0
+    if "bring_it_down" in chosen_set:
+        if tactical:
+            bring_it_down_vp = BRING_IT_DOWN_TACTICAL_VP if mv_killed else 0
+        else:
+            for mid in mv_killed:
+                vp = BRING_IT_DOWN_VP_PER_KILL
+                if mid in snapshot.mv_ids_15plus:
+                    vp += BRING_IT_DOWN_VP_BONUS
+                if mid in snapshot.mv_ids_20plus:
+                    vp += BRING_IT_DOWN_VP_BONUS
+                bring_it_down_vp += min(vp, BRING_IT_DOWN_VP_MAX_PER_UNIT)
+            bring_it_down_vp = min(bring_it_down_vp, BRING_IT_DOWN_CAP_PER_ROUND)
+    # No Prisoners — per-unit-capped (2 VP/unit, max 5/turn) in BOTH tracks.
+    # The Tactical track does not change its scoring form for No Prisoners.
     no_prisoners_vp = min(
-        int(NO_PRISONERS_CAP_PER_ROUND * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
-        int(len(units_killed) * NO_PRISONERS_VP_PER_UNIT * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
-    )
-    # Cull damper composes the Drukhari (mobility), Tyranids
-    # (monster-mash), Sororitas (last-resort) attacker gates and the
-    # Daemons (invuln-stacked) defender gate. CUSTODES `mult` does NOT
-    # apply to Cull (Custodes never has 10+model units to concede).
-    # DAEMONS_DEFENDER damper DOES apply (Daemons fields 10-model
-    # Plaguebearer/Bloodletter/Pink Horror squads that the sim over-
-    # wipes vs real-meta 5++ + Daemonic-invuln durability). SORORITAS
-    # damper DOES apply (Sororitas can wipe horde squads via massed
-    # bolter/flamer output; Acts of Faith re-rolls inflate sim
-    # conversion vs real-meta).
-    cull_combined_mult = drk_attacker_mult * tyr_attacker_mult * daemons_def_mult * soror_attacker_mult
-    cull_the_horde_vp = int(min(
-        CULL_THE_HORDE_CAP_PER_ROUND * cull_combined_mult,
-        len(horde_killed) * CULL_THE_HORDE_VP_PER_UNIT * cull_combined_mult,
-    ))
-    # Assassination intentionally NOT scaled by the DAEMONS defender
-    # damper - Daemon Heralds are fragile T4 W4 4++ chassis that
-    # genuinely die in real tournament play; the simulator Assassination
-    # scoring against Daemons is directionally correct. SORORITAS
-    # attacker damper DOES apply - Sororitas character-kill output is
-    # part of the over-scoring envelope (Morvenn Vahl, Canoness, Saint
-    # Celestine assassinate-CHARACTER alpha strikes inflate sim VP vs
-    # real-meta).
-    assassination_vp = min(
-        int(ASSASSINATION_CAP_PER_ROUND * mult * drk_offensive_mult * soror_attacker_mult),
-        int(len(chars_killed) * ASSASSINATION_VP_PER_CHAR * mult * drk_offensive_mult * soror_attacker_mult),
-    )
+        NO_PRISONERS_CAP_PER_ROUND,
+        units_killed_count * NO_PRISONERS_VP_PER_UNIT,
+    ) if "no_prisoners" in chosen_set else 0
+    # CA-2025-26 Cull the Horde scoring — split by track:
+    #   FIXED (tactical=False): 5 VP per qualifying INFANTRY unit destroyed.
+    #   TACTICAL (tactical=True): flat 5 VP if one or more qualifying INFANTRY
+    #     units were destroyed this turn, else 0.
+    # Cited as `simulator.secondary_cull_the_horde` (Fixed) and
+    # `simulator.secondary_cull_the_horde_tactical` (Tactical).
+    cull_the_horde_vp = 0
+    if "cull_the_horde" in chosen_set:
+        if tactical:
+            cull_the_horde_vp = CULL_THE_HORDE_TACTICAL_VP if horde_killed_count > 0 else 0
+        else:
+            cull_the_horde_vp = min(
+                CULL_THE_HORDE_CAP_PER_ROUND,
+                horde_killed_count * CULL_THE_HORDE_VP_PER_UNIT,
+            )
+    # CA-2025-26 Assassination scoring — split by track:
+    #   FIXED (tactical=False): 4 VP per destroyed CHARACTER with 4+ Wounds, 3 VP
+    #     for one with fewer than 4; no per-round cap.
+    #   TACTICAL (tactical=True): flat 5 VP if one or more CHARACTERs were destroyed
+    #     this turn, else 0. No wound-tier split on the Tactical card.
+    # Cited as `simulator.secondary_assassination` (Fixed) and
+    # `simulator.secondary_assassination_tactical` (Tactical).
+    assassination_vp = 0
+    if "assassination" in chosen_set:
+        if tactical:
+            assassination_vp = ASSASSINATION_TACTICAL_VP if chars_killed else 0
+        else:
+            for cid in chars_killed:
+                assassination_vp += (
+                    ASSASSINATION_VP_4PLUS_WOUNDS
+                    if cid in snapshot.char_ids_4plus
+                    else ASSASSINATION_VP_PER_CHAR
+                )
+            assassination_vp = min(assassination_vp, ASSASSINATION_CAP_PER_ROUND)
     # LC-5: +1 VP bonus if the enemy Warlord was among the destroyed
     # CHARACTERs this round. Real Pariah Nexus Assassination: "Score 3
     # VP at the end of the battle round if one or more enemy CHARACTER
@@ -718,7 +559,11 @@ def score_round_delta(
     # alternative max, not as cap + bonus — but since our flat 3 VP
     # per CHARACTER already gets close to the 4 VP ceiling on one
     # kill, the bonus VP is small and we add it post-cap for clarity).
-    if enemy_warlord_uid is not None and enemy_warlord_uid in chars_killed:
+    if (
+        "assassination" in chosen_set
+        and enemy_warlord_uid is not None
+        and enemy_warlord_uid in chars_killed
+    ):
         assassination_vp += ASSASSINATION_WARLORD_BONUS_VP
 
     return (bring_it_down_vp, no_prisoners_vp,
@@ -768,6 +613,7 @@ def score_position_delta(
     own_is_army_a: bool,
     round_num: int = 1,
     attacker_faction: Optional[str] = None,
+    chosen: Optional[Iterable[str]] = None,
 ) -> Tuple[int, int]:
     """Compute (engage_vp, behind_enemy_lines_vp) for one side at end-of-
     round given the side's currently-alive units, the battlefield map,
@@ -794,11 +640,33 @@ def score_position_delta(
     Both simplifications preserve the secondary's directional
     incentive — projecting units forward / spreading across the map
     is rewarded, sticky-camping is not.
+
+    SECONDARY-SELECTION-V1: `chosen` is the iterable of Tactical
+    secondary keys this side has selected
+    ({"engage_on_all_fronts", "behind_enemy_lines"}). Engage / BEL VP is
+    zeroed when the corresponding key is absent from `chosen`. Passing
+    `chosen=None` defaults to "both Tactical secondaries active" — kept
+    for backward compatibility with tests that don't yet thread the
+    selection through. The simulator's `_score_secondaries` was updated
+    to always pass the army's `chosen_secondaries`. Cited as
+    `simulator.secondary_selection`.
+
+    NOTE: `attacker_faction` parameter is accepted for API stability
+    (callers in code/simulator.py pass this) but is currently unused.
+    The faction-gated VP dampers that previously used this parameter
+    were removed as metric-tuning approximations rather than
+    rules-correct calibration (CLAUDE.md §10 — Cite every rule. Don't
+    invent). Position secondary scoring uses fixed VP values with no
+    per-faction scaling.
     """
+    if chosen is None:
+        chosen_set = frozenset(TACTICAL_SECONDARY_KEYS)
+    else:
+        chosen_set = frozenset(chosen)
     cx = map_.width / 2.0
     cy = map_.height / 2.0
     quadrants_occupied = set()
-    in_enemy_dz = False
+    enemy_dz_count = 0   # CA-2025-26 BEL: 3 VP for one unit in the enemy DZ, 4 for two+
 
     if own_is_army_a:
         # Army A's enemy DZ is the high-y strip.
@@ -809,21 +677,60 @@ def score_position_delta(
         enemy_dz_lo = 0.0
         enemy_dz_hi = map_.deployment_width
 
-    for u in own_units:
-        if u.current_health <= 0:
-            continue
-        pos = getattr(u, "position", None)
-        if pos is None:
-            continue
-        ux, uy = pos
-        # Quadrant detection: (low-x, low-y) = SW, (high-x, low-y) = SE,
-        # (low-x, high-y) = NW, (high-x, high-y) = NE.
-        qx = 0 if ux < cx else 1
-        qy = 0 if uy < cy else 1
-        quadrants_occupied.add((qx, qy))
-        # Enemy DZ check.
-        if enemy_dz_lo <= uy <= enemy_dz_hi:
-            in_enemy_dz = True
+    import os as _os
+    if _os.environ.get("SWEG_SECONDARY") == "1":
+        # Wave 136 (user catch) — squad-granularity WHOLLY-WITHIN. Real Engage
+        # scores a quarter only for a unit WHOLLY WITHIN it and >6" from board
+        # centre; real Behind Enemy Lines only for a unit WHOLLY WITHIN the enemy
+        # deployment zone. The one-Unit-per-model representation OVER-credits with
+        # an "any model inside" check (a spread codex squad registers in several
+        # quarters via different models, never paying the straddle penalty). Group
+        # models by `squad_id` and require ALL of a squad's models to qualify; a
+        # straddling squad counts for NO quarter. Even-handed (favours a compact
+        # unit — emergent, no faction branch); cited `simulator.secondary_wholly_within`.
+        from collections import defaultdict as _dd
+        _squads = _dd(list)
+        for u in own_units:
+            if u.current_health <= 0:
+                continue
+            pos = getattr(u, "position", None)
+            if pos is None:
+                continue
+            sid = getattr(u, "squad_id", -1)
+            key = sid if (sid is not None and sid >= 0) else ("lone", id(u))
+            _squads[key].append(pos)
+        for _positions in _squads.values():
+            _quarters = set()
+            _all_beyond_centre = True   # all models >6" from centre (Engage)
+            _all_in_enemy_dz = True     # all models wholly within the enemy DZ (BEL)
+            for (ux, uy) in _positions:
+                _quarters.add((0 if ux < cx else 1, 0 if uy < cy else 1))
+                if (ux - cx) ** 2 + (uy - cy) ** 2 <= 36.0:   # within 6" of centre
+                    _all_beyond_centre = False
+                if not (enemy_dz_lo <= uy <= enemy_dz_hi):
+                    _all_in_enemy_dz = False
+            # Engage: the squad is wholly within ONE quarter and clear of centre.
+            if len(_quarters) == 1 and _all_beyond_centre:
+                quadrants_occupied.add(next(iter(_quarters)))
+            # BEL: count one unit (not per-model) only if wholly within the DZ.
+            if _all_in_enemy_dz:
+                enemy_dz_count += 1
+    else:
+        for u in own_units:
+            if u.current_health <= 0:
+                continue
+            pos = getattr(u, "position", None)
+            if pos is None:
+                continue
+            ux, uy = pos
+            # Quadrant detection: (low-x, low-y) = SW, (high-x, low-y) = SE,
+            # (low-x, high-y) = NW, (high-x, high-y) = NE.
+            qx = 0 if ux < cx else 1
+            qy = 0 if uy < cy else 1
+            quadrants_occupied.add((qx, qy))
+            # Enemy DZ check (count units for the CA-2025-26 BEL 1-vs-2+ tier).
+            if enemy_dz_lo <= uy <= enemy_dz_hi:
+                enemy_dz_count += 1
 
     # LC-2: gate Engage / BEL behind the per-round tactical-secondary
     # draw. Each side scores AT MOST ONE per round (the secondary that's
@@ -832,9 +739,14 @@ def score_position_delta(
     engage_active = _is_tactical_secondary_active(round_num, side, "engage")
     bel_active = _is_tactical_secondary_active(round_num, side,
                                                 "behind_enemy_lines")
+    # SECONDARY-SELECTION-V1: gate further on `chosen_set` — even if the
+    # LC-2 deck-draw slot is "active" this turn, the army only scores the
+    # secondary when it has actually picked that Tactical card.
+    engage_picked = "engage_on_all_fronts" in chosen_set
+    bel_picked = "behind_enemy_lines" in chosen_set
     # Engage tiered (2/3/5 VP for 2/3/4 quadrants) per real Pariah Nexus.
     engage_vp = 0
-    if engage_active:
+    if engage_active and engage_picked:
         n = len(quadrants_occupied)
         if n >= 4:
             engage_vp = ENGAGE_VP_FOUR_QUADRANTS
@@ -842,36 +754,234 @@ def score_position_delta(
             engage_vp = ENGAGE_VP_THREE_QUADRANTS
         elif n == 2:
             engage_vp = ENGAGE_VP_TWO_QUADRANTS
-    bel_vp = BEHIND_ENEMY_LINES_VP if bel_active and in_enemy_dz else 0
-    # DRK-DIAG-9 — attacker-side damper on the mobility tactical
-    # secondaries (Engage on All Fronts, Behind Enemy Lines) when the
-    # scoring side is Drukhari. Real-meta Drukhari does not convert
-    # these at the sim rate because commitment-to-quadrants exposes
-    # fragile units to wipe responses, and "wholly within" enemy DZ
-    # is harder to maintain than the position-centroid check
-    # approximates. Cited as `simulator.secondary_drukhari_mobile_modifier`.
-    if attacker_faction == DRUKHARI_FACTION_TAG:
-        engage_vp = int(engage_vp * DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER)
-        bel_vp = int(bel_vp * DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER)
-    # TYRANIDS-DIAG-6 — attacker-side damper on the mobility tactical
-    # secondaries when the scoring side is Tyranids. Tyranid horde
-    # positioning is mostly Synapse-anchored (units stay within range
-    # of a Synapse source for coherence and morale rules), so the
-    # sim's wide-spread Engage scoring and centroid-based BEL check
-    # overstate real-meta Tyranid mobility / spread. Cited as
-    # `simulator.secondary_tyranids_monster_modifier`.
-    if attacker_faction == TYRANIDS_FACTION_TAG:
-        engage_vp = int(engage_vp * TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER)
-        bel_vp = int(bel_vp * TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER)
-    # SOROR-LAST-RESORT-DAMPER - attacker-side damper on the mobility
-    # tactical secondaries when the scoring side is Adepta Sororitas.
-    # Sororitas Repentia / Penitent Engine / Castigator can over-cover
-    # via SISTERS-keyword swarm formations that real-meta lists don't
-    # actually run; sim's centroid-based quadrant / DZ check overstates
-    # real-meta Sororitas mobility / spread. Conservative 0.85x mirror
-    # of the DRK-DIAG-9 / TYRANIDS-DIAG-6 pattern. Cited as
-    # `simulator.secondary_sororitas_attacker_damper`.
-    if attacker_faction == SORORITAS_FACTION_TAG:
-        engage_vp = int(engage_vp * SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER)
-        bel_vp = int(bel_vp * SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER)
+    bel_vp = 0
+    if bel_active and bel_picked and enemy_dz_count >= 1:
+        # CA-2025-26: 3 VP for one unit wholly in the enemy DZ, 4 VP for two or more.
+        bel_vp = (
+            BEHIND_ENEMY_LINES_VP if enemy_dz_count >= 2
+            else BEHIND_ENEMY_LINES_VP_SINGLE
+        )
     return engage_vp, bel_vp
+
+
+# ---------------------------------------------------------------------------
+# SECONDARY-SELECTION-V1 — secondary picker
+# ---------------------------------------------------------------------------
+
+# Mobile-unit count threshold: an army with this many FLY-or-MOUNT units is
+# considered fast enough to bring Behind Enemy Lines as its Tactical pick.
+_BEL_MOBILE_THRESHOLD: int = 3
+# MONSTER/VEHICLE count threshold: enemy with this many qualifying targets
+# justifies bringing Bring it Down as a Fixed pick.
+_BID_TARGET_THRESHOLD: int = 3
+
+
+def _enemy_monster_vehicle_count(enemy_army: "Army") -> int:
+    """Count MONSTER/VEHICLE units in the enemy's full roster (board +
+    reserves). The picker fires at battle start, so we should look at the
+    whole list, including deep-strikers / reserves the army has but hasn't
+    deployed yet."""
+    n = 0
+    for u in enemy_army.units:
+        if _is_monster_or_vehicle(u):
+            n += 1
+    return n
+
+
+def _own_mobile_unit_count(own_army: "Army") -> int:
+    """Count units in the army with FLY or MOUNT keyword — proxy for "fast
+    enough to project into the enemy DZ for Behind Enemy Lines"."""
+    n = 0
+    for u in own_army.units:
+        kw = u.profile.unit_keywords or ()
+        if "FLY" in kw or "MOUNT" in kw:
+            n += 1
+    return n
+
+
+# M2 (wave 119) — the Fixed-vs-Tactical track threshold (env-gated SWEG_TAC_DECK).
+#
+# A real player choosing between Fixed (2 kill cards, scored every round) and
+# Tactical (a 2-card rotating action/board hand) leans on what their army can
+# DO each turn. A broad army with spare cheap bodies can keep a Tactical deck
+# churning — it has the chaff to perform actions (Cleanse / Sabotage) and the
+# model count to spread across quarters and hold scattered markers. A low-model
+# durable army (the Knight, emergently) has no spare action-doers and cannot
+# reliably achieve a fresh Tactical card every round, so it leans Fixed kill.
+#
+# This is exactly the real-world choice and it falls out of UNIT COUNT alone —
+# NO faction awareness. A Knight (5-6 single-model units, ~0 chaff) lands below
+# the threshold and picks FIXED; a horde / mechanised list lands above it and
+# picks TACTICAL. Even-handed: the same count test runs for both sides.
+_TACTICAL_TRACK_MIN_CHAFF: int = 2   # spare cheap action-doers needed to churn a deck
+_TACTICAL_TRACK_MIN_UNITS: int = 8   # broad-enough roster to spread + redraw
+
+
+def _tac_deck_enabled() -> bool:
+    """M2 real 2-card Tactical secondary deck. Env-gated SWEG_TAC_DECK; unset →
+    legacy `pick_secondaries` / `_score_secondaries` (union of all sources)
+    runs byte-identical. Kept as a function so a future A/B can re-gate via a
+    one-line edit and so OFF is unambiguous at every call site."""
+    import os
+    return os.environ.get("SWEG_TAC_DECK") == "1"
+
+
+def _pick_fixed_kill_pair(own_army: "Army", enemy_army: "Army") -> List[str]:
+    """The 2 Fixed KILL cards an army brings (CA-2025-26 Fixed pool). This is
+    exactly today's Fixed-pick logic, factored out so both the legacy path and
+    the M2 FIXED track use the identical heuristic.
+
+    No Prisoners is NOT a valid Fixed pick in CA-2025-26 tournament play, so it
+    is excluded from both slots. The revised heuristic:
+
+      Slot 1: enemy has >= 3 MONSTER/VEHICLE units → bring_it_down,
+              else → cull_the_horde (the broadest remaining kill card; fires
+              whenever an enemy INFANTRY unit with Starting Strength 13+ is
+              destroyed, which is common against any body army).
+      Slot 2: enemy has >= 2 CHARACTER units → assassination, else → cull_the_horde.
+
+    In the degenerate case where both slots resolve to cull_the_horde (enemy
+    has neither 3+ MONSTER/VEHICLE nor 2+ CHARACTERs), the army runs two
+    copies. This is mechanically harmless — the scorer gates on
+    `"cull_the_horde" in chosen`, so two copies collapse to one scoring pass.
+    It is faithful: a player facing a chaff-heavy, character-light, vehicle-
+    light enemy would genuinely lean Cull-heavy in their Fixed picks.
+    """
+    fixed: List[str] = []
+    if _enemy_monster_vehicle_count(enemy_army) >= _BID_TARGET_THRESHOLD:
+        fixed.append("bring_it_down")
+    else:
+        fixed.append("cull_the_horde")
+    enemy_chars = sum(1 for u in enemy_army.units if _is_character(u))
+    if enemy_chars >= 2:
+        fixed.append("assassination")
+    else:
+        fixed.append("cull_the_horde")
+    return fixed
+
+
+def _choose_secondary_track(own_army: "Army") -> str:
+    """M2: decide FIXED vs TACTICAL for one army from unit count only (no
+    faction awareness). Returns "TACTICAL" if the army has enough spare chaff
+    AND a broad-enough roster to keep a 2-card deck churning, else "FIXED".
+
+    The asymmetry is purely emergent: a low-model durable list (no chaff, few
+    units) lands on FIXED kill exactly as a real Knight player would; a broad
+    body army lands on TACTICAL. Identical test for both sides — even-handed."""
+    chaff = _own_chaff_count(own_army)
+    units = sum(1 for _ in own_army.units)
+    if chaff >= _TACTICAL_TRACK_MIN_CHAFF and units >= _TACTICAL_TRACK_MIN_UNITS:
+        return "TACTICAL"
+    return "FIXED"
+
+
+def pick_secondaries(
+    own_army: "Army", enemy_army: "Army",
+) -> Tuple[str, ...]:
+    """Return a tuple of 2 Fixed + up-to-2 Tactical secondary keys this
+    army has picked for the battle. Real 10e Pariah Nexus rule: each
+    player picks exactly TWO Fixed Secondaries from the four-card pool OR
+    uses the Tactical deck (drawing per round). The Tactical layer in
+    SwegHammer is simplified to a fixed 2-card pool (Engage on All
+    Fronts + Behind Enemy Lines) — we treat the army's Tactical picks as
+    a parallel choice of which of those two to "bring".
+
+    Heuristic (deterministic given (own_army, enemy_army) so N=40 eval
+    is reproducible) — picks 2 Fixed + 2 Tactical:
+      Fixed slot 1:
+        * If enemy has >= 3 MONSTER/VEHICLE units → "bring_it_down"
+        * Otherwise → "cull_the_horde"
+        (No Prisoners is a Tactical-only card in CA-2025-26 tournament
+        play and is excluded from Fixed picks entirely.)
+      Fixed slot 2:
+        * If enemy has >= 2 CHARACTER units → "assassination"
+        * Otherwise → "cull_the_horde"
+      Tactical slot 1:
+        * If own mobile-unit (FLY or MOUNT) count >= 3 →
+          "behind_enemy_lines" (army is fast enough to project into
+          the enemy DZ each turn)
+        * Otherwise → "engage_on_all_fronts" (default-aware pick,
+          easier to satisfy for slower / objective-heavy lists)
+      Tactical slot 2:
+        * The other Tactical card (engage <-> BEL) — most real-meta
+          armies bring two Tactical picks, and the simulator's
+          2-card Tactical pool means this slot covers whichever
+          card the slot-1 heuristic didn't pick.
+
+    The heuristic is intentionally simple — under 30 lines. The
+    structural fix is on the Fixed side: previously ALL FOUR Fixed
+    Secondaries scored every game; now only the picked 2 do. The
+    Tactical layer keeps the same 2-card pool but each army now picks
+    its 2 (still both, given the small pool) so the
+    `chosen_secondaries` gate is consistent across Fixed and Tactical.
+
+    Cited as `simulator.secondary_selection`.
+    """
+    # M2 (wave 119, env-gated SWEG_TAC_DECK) — the real Fixed-OR-Tactical track
+    # choice. When the deck gate is ON we set `own_army.secondary_track` and
+    # return ONLY that track's scoring sources (the simulator's deck-aware
+    # scorer reads the track + hand), instead of the legacy union of every
+    # source. OFF leaves the track None and falls through to the byte-identical
+    # legacy path below. Cited as `simulator.tactical_secondary_deck`.
+    if _tac_deck_enabled():
+        track = _choose_secondary_track(own_army)
+        own_army.secondary_track = track
+        if track == "FIXED":
+            # FIXED: the 2 kill cards, scored every round.
+            own_army.tactical_hand = []
+            own_army.tactical_deck = []
+            return tuple(_pick_fixed_kill_pair(own_army, enemy_army))
+        # TACTICAL: the 2-card rotating hand. The hand + remaining deck are
+        # filled deterministically at battle start by `Battle._init_tactical_deck`
+        # (the army name + battle seed are not visible here). Return the full
+        # deck pool as the army's `chosen_secondaries` so every per-card gate
+        # (cleanse / sabotage / board) recognises the card while the hand is the
+        # actual scored subset.
+        return tuple(TACTICAL_DECK_POOL)
+
+    # Fixed picks: no_prisoners is excluded (Tactical-only in CA-2025-26
+    # tournament play). Use _pick_fixed_kill_pair for the canonical heuristic.
+    fixed: List[str] = _pick_fixed_kill_pair(own_army, enemy_army)
+    # Tactical picks: mobile armies prioritise BEL; everyone else
+    # defaults to Engage. The OTHER tactical card is the second pick.
+    own_mobile = _own_mobile_unit_count(own_army)
+    if own_mobile >= _BEL_MOBILE_THRESHOLD:
+        tactical = ["behind_enemy_lines", "engage_on_all_fronts"]
+    else:
+        tactical = ["engage_on_all_fronts", "behind_enemy_lines"]
+    # Wave 74: an army with spare cheap bodies can also bring the Cleanse action
+    # secondary (it can afford to take a unit out of the firefight to perform the
+    # action). Low-model elite armies have no chaff to spare and never satisfy it,
+    # so the asymmetry is even-handed — it falls out of unit cost, not faction.
+    # Inert unless SWEG_ACTIONS is set (the simulator gates the scoring).
+    if _own_chaff_count(own_army) >= 2:
+        tactical.append("cleanse")
+        # Wave 75: an army with spare cheap bodies can also bring Sabotage
+        # (push a body forward into No Man's Land / the enemy DZ for the action).
+        # Inert unless SWEG_S2 is set (the simulator gates the scoring + the
+        # 40-VP secondary cap that keeps total secondary VP faithful).
+        tactical.append("sabotage")
+    # Wave 83 Tier A: every army brings the full objective-holding / board-control
+    # package. The asymmetry is purely in COMPLETION (a low-model durable army
+    # controls few objectives across zones and scores ~0 on the spread cards),
+    # not in the pick — identical for both sides, so even-handed. Inert unless
+    # SWEG_TIER_A is set (the simulator gates the scoring), and bounded by the
+    # 40-VP secondary total cap plus each card's natural ≤20-VP/game ceiling.
+    board = list(BOARD_SECONDARY_KEYS)
+    return tuple(fixed + tactical + board)
+
+
+def _own_chaff_count(own_army: "Army") -> int:
+    """Count cheap, spare-able units (per-model points under 15, no CHARACTER)
+    — the same chaff definition as `strategy._is_chaff_unit`. Proxy for "has a
+    body it can take out of the firefight to perform an action"."""
+    n = 0
+    for u in own_army.units:
+        p = u.profile
+        pts = float(getattr(p, "points_cost", 0.0) or 0.0)
+        if pts <= 0.0 or pts >= 15.0:
+            continue
+        if "CHARACTER" in (p.unit_keywords or ()):
+            continue
+        n += 1
+    return n

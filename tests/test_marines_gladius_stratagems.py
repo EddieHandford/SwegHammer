@@ -173,7 +173,10 @@ class GladiusDispatcherTests(unittest.TestCase):
         battle._current_round = 2
         return battle, a, b
 
-    def test_storm_of_fire_sets_plus_one_to_hit_shooting(self):
+    def test_storm_of_fire_sets_sustained_hits(self):
+        # ST-1 corrected Storm of Fire from the +1-to-hit proxy to
+        # transient_sustained_hits, which matches the codex "SUSTAINED HITS 1"
+        # text (only fires on natural 6s, not a full hit-threshold shift).
         battle, a, b = self._build_battle()
         battle._try_storm_of_fire(a, b)
         # Storm of Fire pre-filters to units with real ranged DPA before
@@ -182,7 +185,7 @@ class GladiusDispatcherTests(unittest.TestCase):
         # but per_shot_damage=1.0 with 1 attack at 2/3 hit means it has
         # ranged DPA too (0.67). Intercessor wins on ranged DPA.
         attacker = next(u for u in a.units if u.profile.name == "Intercessor Squad")
-        self.assertTrue(attacker.transient_plus_one_to_hit_shooting)
+        self.assertGreaterEqual(attacker.transient_sustained_hits, 1)
         self.assertEqual(a.command_points, 5)
 
     def test_armour_of_contempt_sets_plus_one_save(self):
@@ -218,11 +221,17 @@ class GladiusDispatcherTests(unittest.TestCase):
         # 2 CP spend, not 1.
         self.assertEqual(a.command_points, 4)
 
-    def test_adaptive_strategy_sets_plus_one_to_wound_melee(self):
+    def test_adaptive_strategy_spends_cp_no_buff(self):
+        # SC5-9 audit: Adaptive Strategy became a deliberate no-op because
+        # Combat Doctrines were corrected to utility-only mechanics (no +1 to
+        # wound). The stratagem still spends 1 command point (the CP economy
+        # and AI scheduler must see the activation), but no transient buff is
+        # applied — per-unit doctrine state is below current modelling
+        # capability. Confirmed no wound flag leaks through.
         battle, a, b = self._build_battle()
         battle._try_adaptive_strategy(a, b)
         attacker = next(u for u in a.units if u.profile.name == "Bladeguard Veterans")
-        self.assertTrue(attacker.transient_plus_one_to_wound_melee)
+        self.assertFalse(attacker.transient_plus_one_to_wound_melee)
         self.assertEqual(a.command_points, 5)
 
     def test_non_marine_faction_skips_spend(self):

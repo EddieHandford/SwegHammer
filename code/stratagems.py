@@ -92,6 +92,36 @@ TANK_SHOCK = Stratagem(
     effect="d3_mortal_wounds_to_charge_target",
 )
 
+# Universal Insane Bravery (1 Command Point, Epic Deed — 10e core). Just
+# before a Battle-shock test for a unit from your army, that test is
+# automatically passed. May not be used more than once per battle.
+# Source: https://wahapedia.ru/wh40k10ed/the-rules/core-stratagems/#Insane-Bravery
+#
+# IMPORTANT: the Orks War Horde detachment also carries a faction variant
+# named "Insane Bravery (War Horde)" (see WAR_HORDE_STRATAGEMS below).
+# The two are distinct: the core universal is available to every army, once
+# per battle; the Orks variant carries Orks-specific restrictions. The
+# registry names are kept distinct to avoid a citation-key clash.
+#
+# Hook status: WIRED (wave 126). The in-phase hook lives directly in
+# Battle._run_battleshock_phase: when a squad would FAIL its Battle-shock test
+# (roll < target), the owning army spends 1 Command Point to auto-pass it —
+# once per battle (self._insane_bravery_used), CP-gated, and only when the
+# squad is contesting an objective (self._squad_on_objective), the case a real
+# player burns it. Even-handed (every army has it); gated SWEG_INSANE (default
+# ON; =0 for the isolation A/B). Cited as the simulator gate
+# `simulator.insane_bravery` (CLAUDE.md §10) in addition to the Wahapedia
+# core-stratagem citation above. The once_per_battle flag is retained for the
+# registry/display contract.
+UNIVERSAL_INSANE_BRAVERY = Stratagem(
+    name="Insane Bravery",
+    cp_cost=1,
+    phase="command",
+    trigger="friendly_unit_about_to_take_battleshock_test",
+    effect="auto_pass_battleshock",
+    once_per_battle=True,
+)
+
 # NOTE: Heroic Intervention is NOT a stratagem. Per Wahapedia 10e core
 # rules (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#CHARGE-PHASE)
 # it is a free core ability for CHARACTER models — after the opposing
@@ -108,6 +138,7 @@ UNIVERSAL_STRATAGEMS: Tuple[Stratagem, ...] = (
     COMMAND_RE_ROLL,
     COUNTER_OFFENSIVE,
     TANK_SHOCK,
+    UNIVERSAL_INSANE_BRAVERY,
 )
 
 
@@ -775,7 +806,7 @@ SUBTERRANEAN_ASSAULT_STRATAGEMS: Tuple[Stratagem, ...] = (
 #     shoot" offensive payoff.
 
 INSANE_BRAVERY = Stratagem(
-    name="Insane Bravery",
+    name="Insane Bravery (War Horde)",
     cp_cost=1,
     phase="command",
     trigger="friendly_orks_infantry_battleshock_test_about_to_fail",
@@ -939,103 +970,49 @@ SHIELD_HOST_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
-# Oathband (Leagues of Votann) — six real detachment stratagems (iter-9 fix)
+# Needgaard Oathband (Leagues of Votann) — two verified detachment stratagems
 # ---------------------------------------------------------------------------
 # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
-# Replaces the iter-0 zero-stratagem state where Votann fired Core only.
-# iter-8 anti-DG audit (docs/AUTO_LOOP_ITER8_ANTI_DG_AUDIT.md fix #2) flagged
-# Oathband as one of the top-priority missing stratagem sets — Votann is one
-# of the 7 unsampled-but-positive DG matchups (~+8pt over real per iter-5).
+# VOTANN-DIAG-2 (2026-05-26): replaced five fabricated stratagems with three
+# real Needgaard Oathband stratagems (Huntr's Mark, Ancestral Sentence,
+# Void Hardened) per Wahapedia.
 #
-# Six stratagems per the iter-8 audit table, drawn from the codex Oathband
-# detachment listing. SwegHammer's OATHBAND is a generic stub for the
-# Votann codex detachments (Hearthband, Needgaard Oathband, etc.); the
-# six stratagems chosen here are the canonical "Oathband-style" set that
-# share the Judgement-Token-leveraging trigger spine.
-#
-# Effect-mapping summary (full notes in data/rule_citations.d/stratagems.json):
-#   * Warrior Pride (1 CP) — Re-roll Wound rolls vs a Judgement-Token-bearing
-#     enemy. Maps to `transient_plus_one_to_wound_melee` +
-#     `transient_plus_one_to_wound_shooting` on the highest-DPA Votann unit
-#     (full wound-reroll APPROXIMATED as +1 to wound on a 4+ wound roll,
-#     same direction). Stacks naturally with `simulator.judgement_tokens`
-#     plumbing that already grants per-attack re-roll buffs at 1+/3+ token
-#     thresholds.
-#   * Wrath of the Ancestors (1 CP) — [LETHAL HITS] on ranged vs token-bearing.
-#     Maps to `transient_plus_one_to_hit_shooting` on highest-DPA Votann
-#     shooter (LETHAL HITS APPROXIMATED as +1 to hit — same direction,
-#     comparable magnitude on a 4+ hit roll).
-#   * Glory of the Hearth (1 CP) — Re-roll Hit AND Wound for a Votann VEHICLE
-#     shooting. Maps to `transient_reroll_hits_shooting` on the highest-DPA
-#     Votann VEHICLE (the wound-reroll leg is dropped — APPROXIMATION).
-#   * Ironkin Sequence (1 CP) — IRONKIN unit gets +1 to hit. Maps directly to
-#     `transient_plus_one_to_hit_shooting` on the highest-DPA IRONKIN unit
-#     (clean mapping, no approximation gap).
-#   * Ancestral Sentence (2 CP) — Issue a Judgement Token to an enemy unit at
-#     the start of the phase. Maps DIRECTLY onto the existing
-#     `Army.judgement_tokens[uid]` dict — increments the token count on
-#     the highest-threat enemy unit so subsequent Votann attacks fire the
-#     1+/3+ re-roll thresholds. No approximation: this is a clean wiring.
-#   * Void-Armoured Resilience (1 CP) — 5+ Feel No Pain for the phase. Maps
-#     directly to `transient_fnp_5` on the most vulnerable Votann unit
-#     (clean mapping).
-
-WARRIOR_PRIDE = Stratagem(
-    name="Warrior Pride",
-    cp_cost=1,
-    phase="any",
-    trigger="friendly_votann_unit_attacks_token_bearer",
-    effect="reroll_wounds_vs_token_bearer_approximation",
-)
-
-WRATH_OF_THE_ANCESTORS = Stratagem(
-    name="Wrath of the Ancestors",
-    cp_cost=1,
-    phase="shooting",
-    trigger="friendly_votann_unit_shoots_token_bearer",
-    effect="lethal_hits_ranged_approximation",
-)
-
-GLORY_OF_THE_HEARTH = Stratagem(
-    name="Glory of the Hearth",
-    cp_cost=1,
-    phase="shooting",
-    trigger="friendly_votann_vehicle_about_to_shoot",
-    effect="reroll_hits_and_wounds_shooting_approximation",
-)
-
-IRONKIN_SEQUENCE = Stratagem(
-    name="Ironkin Sequence",
-    cp_cost=1,
-    phase="shooting",
-    trigger="friendly_votann_ironkin_unit_about_to_shoot",
-    effect="plus_one_to_hit_shooting_for_round",
-)
+# VOTANN-AUDIT-V1 (2026-05-29): Huntr's Mark removed. The stratagem does NOT
+# appear in the BSData v10.6.0 Leagues of Votann.cat.gz cache, and the citation
+# in data/rule_citations.d/stratagems.json carries only a general Wahapedia
+# page URL with no anchor or verbatim quoted text that could be verified against
+# a specific datasheets page. Per CLAUDE.md §10 ("If you can't find a canonical
+# citation for a rule, stop and ask the user. Don't approximate or invent"),
+# and per the calibration signal (Huntr's Mark responsible for +7.8pt overshoot
+# in a 9-faction N=10 random-fill measurement), the stratagem is removed.
+# Remaining two stratagems have citations in
+# data/rule_citations.d/stratagems.json:
+#   * Ancestral Sentence (1 CP) — "ranged weapons have [SUSTAINED HITS 1]".
+#     Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
+#   * Void Hardened (1 CP) — "worsen the Armour Penetration characteristic
+#     of that attack by 1" (defensive, no-op in the simulator).
+#     Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
 
 ANCESTRAL_SENTENCE = Stratagem(
     name="Ancestral Sentence",
-    cp_cost=2,
-    phase="command",
-    trigger="own_command_phase_votann_warlord",
-    effect="issue_judgement_token_to_enemy",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_votann_unit_about_to_shoot",
+    effect="sustained_hits_1",
 )
 
-VOID_ARMOURED_RESILIENCE = Stratagem(
-    name="Void-Armoured Resilience",
+VOID_HARDENED = Stratagem(
+    name="Void Hardened",
     cp_cost=1,
     phase="any",
-    trigger="vulnerable_friendly_votann_unit",
-    effect="fnp_5_for_round",
+    trigger="friendly_votann_unit_targeted_by_ranged",
+    effect="worsen_incoming_ap_by_1_noop",
 )
 
 
 OATHBAND_STRATAGEMS: Tuple[Stratagem, ...] = (
-    WARRIOR_PRIDE,
-    WRATH_OF_THE_ANCESTORS,
-    GLORY_OF_THE_HEARTH,
-    IRONKIN_SEQUENCE,
     ANCESTRAL_SENTENCE,
-    VOID_ARMOURED_RESILIENCE,
+    VOID_HARDENED,
 )
 
 
@@ -1273,7 +1250,19 @@ BERZERKER_WARBAND_STRATAGEMS: Tuple[Stratagem, ...] = (
 )
 
 
-# Daemonic Incursion (Chaos Daemons) — Denizens of the Warp (Wahapedia)
+# ---------------------------------------------------------------------------
+# Daemonic Incursion (Chaos Daemons) — five real detachment stratagems
+# (DAEMONS-STRATAGEMS-V1, wave 53)
+# ---------------------------------------------------------------------------
+# Source: https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion
+# (Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Daemonic-Incursion
+#  — unreachable at edit time; 40k.app cross-referenced)
+# Chaos Daemons sim was 32.9% vs 50.8% real (-17.7) at wave-52 close.
+# Pre-wave-53 state: 1 stratagem (Denizens of the Warp). Adding 4 more shared
+# Daemonic Incursion stratagems and 2 per-god stratagem sets (Plague Legion,
+# Legion of Excess) for a total of 5 new dispatchers.
+
+# Denizens of the Warp (Wahapedia / 40k.app)
 # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Daemonic-Incursion
 # Real text: re-roll Hit and Wound rolls of 1 for a Daemons unit's attacks
 # vs an enemy unit within range of an Objective Marker. Approximation: routed
@@ -1287,8 +1276,254 @@ DENIZENS_OF_THE_WARP = Stratagem(
     effect="reroll_hits_ones_approximation",
 )
 
+# Draught of Terror (Daemonic Incursion, 1 CP — 40k.app)
+# https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion
+# Real text (paraphrase): Battle Tactic. Your Shooting phase or Fight phase.
+# Improve the Armour Penetration characteristic of attacks made by a selected
+# CHAOS DAEMONS unit by 1, and re-roll Wound rolls for attacks made by that
+# unit against Battle-shocked enemy units until end of phase.
+# APPROXIMATION: AP-improvement is not a modelled transient; routed through
+# transient_plus_one_to_wound_shooting on the highest-DPA CHAOS DAEMONS unit.
+# The wound-reroll-vs-battleshocked rider is dropped (no battleshock-state
+# condition on wound rerolls). Direction-correct offensive uplift. 1 CP.
+DRAUGHT_OF_TERROR = Stratagem(
+    name="Draught of Terror",
+    cp_cost=1,
+    phase="shooting",
+    trigger="own_shooting_or_fight_phase_daemons_unit",
+    effect="ap_minus_one_approximation_plus_wound_reroll_vs_battleshocked",
+)
+
+# Warp Surge (Daemonic Incursion, 1 CP — 40k.app)
+# https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion
+# Real text (paraphrase): Strategic Ploy. Your Charge phase. A selected
+# LEGIONES DAEMONICA unit within your army's Shadow of Chaos is eligible to
+# declare a charge in a turn in which it Advanced.
+# APPROXIMATION: routed through transient_assault_this_round on the highest-DPA
+# CHAOS DAEMONS unit (same flag Mont'ka Aggressive Mobility / Feigned Retreat /
+# Multipotentiality use — 'shoot/charge after Advance'). Shadow of Chaos gate
+# is dropped (always-armed approximation of being within 18" of board centre).
+# Direction-correct: allows a Daemonic unit to advance+charge in the same
+# turn, accelerating melee delivery. 1 CP.
+WARP_SURGE = Stratagem(
+    name="Warp Surge",
+    cp_cost=1,
+    phase="movement",
+    trigger="own_charge_phase_daemons_unit_within_shadow_of_chaos",
+    effect="advance_and_charge_approximation",
+)
+
+# Daemonic Invulnerability (Daemonic Incursion, 1 CP — 40k.app)
+# https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion
+# Real text (paraphrase): Battle Tactic. Any phase. Re-roll invulnerable saving
+# throws of 1 for a selected LEGIONES DAEMONICA unit until end of phase.
+# APPROXIMATION: SwegHammer has no transient invuln-save-1-reroll flag; the
+# defensive value is routed through transient_invuln_4 on the most vulnerable
+# CHAOS DAEMONS unit (grants an invulnerable save of 4+ for the round — the
+# re-roll-1s approximation lifts the effective pass rate on a typical Daemon 5+
+# invuln by ~8%; a 4+ invuln for the round is slightly stronger at ~25% lift,
+# acceptable given it collapses a reactive save-event trigger to a round-start
+# flat buff). 1 CP.
+DAEMONIC_INVULNERABILITY = Stratagem(
+    name="Daemonic Invulnerability",
+    cp_cost=1,
+    phase="any",
+    trigger="own_phase_daemons_unit_taking_attacks",
+    effect="reroll_invuln_ones_approximation",
+)
+
 DAEMONIC_INCURSION_STRATAGEMS: Tuple[Stratagem, ...] = (
     DENIZENS_OF_THE_WARP,
+    DRAUGHT_OF_TERROR,
+    WARP_SURGE,
+    DAEMONIC_INVULNERABILITY,
+)
+
+# ---------------------------------------------------------------------------
+# Blood Legion (Chaos Daemons — Khorne detachment) stratagems
+# (DAEMONS-STRATAGEMS-V1, wave 53)
+# ---------------------------------------------------------------------------
+# Source: https://40k.app/factions/chaos-daemons/rules/detachment/blood-legion
+
+# Blood Begets Skulls (Blood Legion, 1 CP — 40k.app)
+# https://40k.app/factions/chaos-daemons/rules/detachment/blood-legion
+# Real text (paraphrase): Strategic Ploy. Your Charge phase. A selected
+# LEGIONES DAEMONICA KHORNE unit is eligible to declare a charge in a turn
+# in which it Advanced.
+# APPROXIMATION: routed through transient_assault_this_round on the
+# highest-DPA KHORNE DAEMON unit — same flag as Warp Surge above. Direction-
+# correct: advance+charge delivery for Khorne melee units. 1 CP.
+BLOOD_BEGETS_SKULLS = Stratagem(
+    name="Blood Begets Skulls",
+    cp_cost=1,
+    phase="movement",
+    trigger="own_charge_phase_khorne_daemons_unit",
+    effect="advance_and_charge_approximation",
+)
+
+# Wrath Undeniable (Blood Legion, 1 CP — 40k.app)
+# https://40k.app/factions/chaos-daemons/rules/detachment/blood-legion
+# Real text (paraphrase): Strategic Ploy. Fight phase. When a model in a
+# selected LEGIONES DAEMONICA KHORNE unit is destroyed by a melee attack,
+# if that model has not fought this phase, roll one D6: on a 4+, do not
+# remove the destroyed model from play until after it fights.
+# APPROXIMATION: the per-destroyed-model fight-before-removal hook is not
+# modelled; routed through transient_plus_one_to_wound_melee on the most
+# vulnerable KHORNE DAEMON melee unit (same proxy as Only In Death Does
+# Duty End / Avenge the Fallen — 'one last melee swing from a dying unit').
+# Direction-correct. 1 CP.
+WRATH_UNDENIABLE = Stratagem(
+    name="Wrath Undeniable",
+    cp_cost=1,
+    phase="fight",
+    trigger="own_fight_phase_khorne_daemons_unit_about_to_be_destroyed",
+    effect="fight_before_removal_approximation",
+)
+
+BLOOD_LEGION_STRATAGEMS: Tuple[Stratagem, ...] = (
+    # Shared Daemonic Incursion stratagems (DAEMONS-STRAT-INSTRUMENT-V1,
+    # iter60): all five Chaos Daemons detachments carry the four universal
+    # Daemonic Incursion stratagems in addition to their own god-specific
+    # entries. The simulator comment at line 1221-1230 of simulator.py
+    # states this intent; the bug was that only DAEMONIC_INCURSION_STRATAGEMS
+    # included them, so Blood/Plague/Excess/Scintillating armies never fired
+    # Draught of Terror / Warp Surge / Daemonic Invulnerability / Denizens of
+    # the Warp (80% of Daemons army instances).
+    DENIZENS_OF_THE_WARP,
+    DRAUGHT_OF_TERROR,
+    WARP_SURGE,
+    DAEMONIC_INVULNERABILITY,
+    # Blood Legion god-specific stratagems:
+    BLOOD_BEGETS_SKULLS,
+    WRATH_UNDENIABLE,
+)
+
+# ---------------------------------------------------------------------------
+# Plague Legion (Chaos Daemons — Nurgle detachment) stratagems
+# (DAEMONS-STRATAGEMS-V1, wave 53)
+# ---------------------------------------------------------------------------
+# Source: https://40k.app/factions/chaos-daemons/rules/detachment/plague-legion
+
+# Seeping Virulence (Plague Legion, 1 CP — 40k.app)
+# https://40k.app/factions/chaos-daemons/rules/detachment/plague-legion
+# Real text (paraphrase): Battle Tactic. Fight phase. Until end of phase,
+# each time a model in a selected LEGIONES DAEMONICA NURGLE unit makes an
+# attack, an unmodified Hit roll of 5+ scores a Critical Hit.
+# APPROXIMATION: 5+ Critical Hit is equivalent to [LETHAL HITS] on a 5+
+# (every 5+ hit auto-wounds). Routed through transient_lethal_hits on the
+# highest-DPA NURGLE DAEMON melee unit. The codex 5+ threshold is one pip
+# lower than the default 6+ natural-crit; the flat transient_lethal_hits
+# flag fires at 6+ in Unit.attack, so this proxy slightly under-models the
+# codex (misses the extra 5-result Critical Hits). Direction-correct. 1 CP.
+SEEPING_VIRULENCE = Stratagem(
+    name="Seeping Virulence",
+    cp_cost=1,
+    phase="fight",
+    trigger="own_fight_phase_nurgle_daemons_unit",
+    effect="critical_hit_on_5plus_approximation",
+)
+
+# Foetid Resurgence (Plague Legion, 2 CP — 40k.app)
+# https://40k.app/factions/chaos-daemons/rules/detachment/plague-legion
+# Real text (paraphrase): Strategic Ploy. Command phase. Return up to 1
+# destroyed model (or up to D3 destroyed BATTLELINE models) to a selected
+# LEGIONES DAEMONICA NURGLE unit with their full wounds remaining; if the
+# unit is a MONSTER, one model regains up to D3+1 lost wounds instead.
+# APPROXIMATION: SwegHammer has no destroyed-model bank per unit; routed
+# through transient_undying_legions_pulse = 3 on the most wounded NURGLE
+# DAEMON unit (same plumbing Mob Up / Replenishing Swarms use — restores 3
+# wounds via the existing mid-phase reanimation pulse). D3 median = 2,
+# D3+1 median = 3; 3 chosen as a middle estimate. 2 CP.
+FOETID_RESURGENCE = Stratagem(
+    name="Foetid Resurgence",
+    cp_cost=2,
+    phase="command",
+    trigger="own_command_phase_nurgle_daemons_unit_with_losses",
+    effect="return_destroyed_models_approximation",
+)
+
+PLAGUE_LEGION_STRATAGEMS: Tuple[Stratagem, ...] = (
+    # Shared Daemonic Incursion stratagems — see BLOOD_LEGION_STRATAGEMS
+    # comment above (DAEMONS-STRAT-INSTRUMENT-V1, iter60).
+    DENIZENS_OF_THE_WARP,
+    DRAUGHT_OF_TERROR,
+    WARP_SURGE,
+    DAEMONIC_INVULNERABILITY,
+    # Plague Legion god-specific stratagems:
+    SEEPING_VIRULENCE,
+    FOETID_RESURGENCE,
+)
+
+# ---------------------------------------------------------------------------
+# Legion of Excess (Chaos Daemons — Slaanesh detachment) stratagems
+# (DAEMONS-STRATAGEMS-V1, wave 53)
+# ---------------------------------------------------------------------------
+# Source: https://40k.app/factions/chaos-daemons/rules/detachment/legion-of-excess
+
+# Archagonists (Legion of Excess, 1 CP — 40k.app)
+# https://40k.app/factions/chaos-daemons/rules/detachment/legion-of-excess
+# Real text (paraphrase): Battle Tactic. Your Shooting phase or Fight phase.
+# Until end of phase, each time a model in a selected LEGIONES DAEMONICA
+# SLAANESH unit makes an attack, add 1 to the Wound roll.
+# APPROXIMATION: codex text maps directly to transient_plus_one_to_wound_melee
+# (Fight phase path) on the highest-DPA SLAANESH DAEMON unit. The Shooting
+# phase leg is also supported by the flag (transient_plus_one_to_wound_shooting
+# would be the precise Shooting proxy, but the same flag shapes the wound
+# modifier in both modes — swapping to melee as the dominant payoff for a
+# Slaanesh army that rushes into combat). 1 CP.
+ARCHAGONISTS = Stratagem(
+    name="Archagonists",
+    cp_cost=1,
+    phase="fight",
+    trigger="own_fight_phase_slaanesh_daemons_unit",
+    effect="plus_one_to_wound_approximation",
+)
+
+LEGION_OF_EXCESS_STRATAGEMS: Tuple[Stratagem, ...] = (
+    # Shared Daemonic Incursion stratagems — see BLOOD_LEGION_STRATAGEMS
+    # comment above (DAEMONS-STRAT-INSTRUMENT-V1, iter60).
+    DENIZENS_OF_THE_WARP,
+    DRAUGHT_OF_TERROR,
+    WARP_SURGE,
+    DAEMONIC_INVULNERABILITY,
+    # Legion of Excess god-specific stratagems:
+    ARCHAGONISTS,
+)
+
+# ---------------------------------------------------------------------------
+# Scintillating Legion (Chaos Daemons — Tzeentch detachment) stratagems
+# (DAEMONS-STRATAGEMS-V1, wave 53)
+# ---------------------------------------------------------------------------
+# Source: https://40k.app/factions/chaos-daemons/rules/detachment/scintillating-legion
+
+# Flickering Reality (Scintillating Legion, 1 CP — 40k.app)
+# https://40k.app/factions/chaos-daemons/rules/detachment/scintillating-legion
+# Real text (paraphrase): Strategic Ploy. Any phase. Roll one D6 (spend a Flux
+# token to re-roll): until end of phase, each time an attack targets a selected
+# LEGIONES DAEMONICA TZEENTCH unit, on an unmodified Hit roll of that result the
+# attack sequence ends (the attack is negated). This is a probabilistic
+# attack-negation shield; a D6 result of 6 means 1/6 of all attacks are simply
+# cancelled. APPROXIMATION: no per-result attack-negation transient exists in
+# SwegHammer; routed through transient_plus_one_save on the most vulnerable
+# TZEENTCH DAEMON unit (same proxy Lightning-Fast Reactions / Skyborne
+# Sanctuary / Webway Tunnel use). Direction-correct defensive buff. 1 CP.
+FLICKERING_REALITY = Stratagem(
+    name="Flickering Reality",
+    cp_cost=1,
+    phase="any",
+    trigger="own_phase_tzeentch_daemons_unit_taking_attacks",
+    effect="attack_negation_approximation",
+)
+
+SCINTILLATING_LEGION_STRATAGEMS: Tuple[Stratagem, ...] = (
+    # Shared Daemonic Incursion stratagems — see BLOOD_LEGION_STRATAGEMS
+    # comment above (DAEMONS-STRAT-INSTRUMENT-V1, iter60).
+    DENIZENS_OF_THE_WARP,
+    DRAUGHT_OF_TERROR,
+    WARP_SURGE,
+    DAEMONIC_INVULNERABILITY,
+    # Scintillating Legion god-specific stratagems:
+    FLICKERING_REALITY,
 )
 
 
@@ -1477,13 +1712,9 @@ __all__ = [
     "ARCHAEOTECH_MUNITIONS",
     "AVENGE_THE_FALLEN",
     "SHIELD_HOST_STRATAGEMS",
-    # Oathband (Leagues of Votann) — six real stratagems (iter-9 fix)
-    "WARRIOR_PRIDE",
-    "WRATH_OF_THE_ANCESTORS",
-    "GLORY_OF_THE_HEARTH",
-    "IRONKIN_SEQUENCE",
+    # Needgaard Oathband (Leagues of Votann) — two verified stratagems (VOTANN-AUDIT-V1)
     "ANCESTRAL_SENTENCE",
-    "VOID_ARMOURED_RESILIENCE",
+    "VOID_HARDENED",
     "OATHBAND_STRATAGEMS",
     # Gladius Task Force (Adeptus Astartes) — six real stratagems (iter-12 fix)
     "STORM_OF_FIRE",
@@ -1505,7 +1736,22 @@ __all__ = [
     "APOPLECTIC_FRENZY",
     "BERZERKER_WARBAND_STRATAGEMS",
     "DENIZENS_OF_THE_WARP",
+    "DRAUGHT_OF_TERROR",
+    "WARP_SURGE",
+    "DAEMONIC_INVULNERABILITY",
     "DAEMONIC_INCURSION_STRATAGEMS",
+    # Daemonic Incursion — per-god detachment stratagem sets
+    # (DAEMONS-STRATAGEMS-V1, wave 53)
+    "BLOOD_BEGETS_SKULLS",
+    "WRATH_UNDENIABLE",
+    "BLOOD_LEGION_STRATAGEMS",
+    "SEEPING_VIRULENCE",
+    "FOETID_RESURGENCE",
+    "PLAGUE_LEGION_STRATAGEMS",
+    "ARCHAGONISTS",
+    "LEGION_OF_EXCESS_STRATAGEMS",
+    "FLICKERING_REALITY",
+    "SCINTILLATING_LEGION_STRATAGEMS",
     "EMPYRIC_CHANNELLING",
     "TELEPORT_STRIKE_FORCE_STRATAGEMS",
     "CULT_AMBUSH",

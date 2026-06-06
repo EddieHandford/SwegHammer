@@ -1,12 +1,39 @@
 {
-  "_comment": "Citation for the 10e Leviathan Tournament Companion primary scoring cap: each army may score at most 15 Primary VP per battle round (≤ 3 objectives counted at 5 VP each). Wahapedia source: https://wahapedia.ru/wh40k10ed/the-rules/leviathan-tournament-companion/",
+  "_comment": "Citation for the 10e Chapter Approved 2025-26 v1.5 primary scoring cap (the May-2026 calibration target's deck; source corrected from the Leviathan Tournament Companion per the wave-116 mission-pack audit): each army may score at most 15 Primary VP per battle round (≤ 3 objectives counted at 5 VP each). Wahapedia source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-tournament-companion/",
 
   "simulator.primary_vp_cap_15": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/leviathan-tournament-companion/",
-    "rule_name": "Primary Mission scoring cap",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-tournament-companion/",
+    "rule_name": "Primary Mission per-round scoring cap (CA-2025-26 v1.5)",
     "quoted_text": "At the end of each battle round, if you control one or more objective markers, you score 5 victory points for each objective marker you control, to a maximum of 15 victory points.",
     "trigger": "end of each battle round, when totalling Primary VP for an army",
-    "effect": "the army's Primary VP for that round is capped at 15 (i.e. only the first 3 controlled objectives count at 5 VP each)",
+    "effect": "the army's Primary VP for that round is capped at 15 (i.e. only the first 3 controlled objectives count at 5 VP each). Citation source corrected from the Leviathan Tournament Companion to the Chapter Approved 2025-26 v1.5 pack (the May-2026 calibration target's deck) per the wave-116 mission-pack audit.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.primary_vp_cap_50": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-tournament-companion/",
+    "rule_name": "Primary Mission total VP cap (50 per game)",
+    "quoted_text": "VP SOURCE / MAXIMUM VP: Primary Mission 50VP ... In all cases, any excess VP awarded above these maximums are lost.",
+    "trigger": "deciding the winner — when totalling each army's Primary VP across the whole game",
+    "effect": "M1 (wave 117). Each army's total Primary VP is capped at 50 per game, mirroring the existing 40-VP total Secondary cap. The simulator previously enforced only the per-round 15 cap, so a primary-dominating army (the durable Knight) could run to 4 rounds x 15 = 60 and over-score primary by up to 10. Applied in Battle._decide_winner as min(primary, 50). A real CA-2025-26 rule: kept ON by default (set SWEG_PRIMARY_CAP_50=0 to disable for the isolation A/B). Cited verbatim from the CA-2025-26 v1.5 'Determine Victor' VP-source maximums table.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.primary_vp_entering_round": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-tournament-companion/",
+    "rule_name": "Primary Mission scoring is at the Command phase (per-turn), not a single post-combat snapshot",
+    "quoted_text": "The player going first can score VP for guarding an objective marker they control at the end of their opponent's first, second, third, fourth and fifth turn. The player going second can score VP for guarding an objective marker they control at the end of their opponent's second, third, fourth and fifth turn.",
+    "trigger": "each player scores Primary VP at its own Command-phase / turn boundary, on the objective markers it controls AT THAT MOMENT — i.e. a unit holds an objective from when it takes it until an enemy takes it away, and scores even if the objective is contested away later that battle round",
+    "effect": "env-gated SWEG_ENTERSCORE (wave 111). The alternating-activation round model collapses both players' turns into one interleaved sequence and the baseline scores Primary only once, at end of round AFTER all combat, which credits only the post-combat survivor and erases a fragile army's transient board control (wave-110 instrumentation: 52% of a broad army's entering-round marker control was stripped by in-round combat before the end-of-round score). When set, Primary is scored on the control state ENTERING each of battle rounds 2-5 (before that round's combat) instead — faithfully approximating the per-Command-phase scoring moment. Even-handed: credits whoever holds entering the round, Knight or horde. Same four scoring opportunities (rounds 2-5) and per-round 15 VP cap as the baseline. Gate unset reproduces the end-of-round baseline byte-for-byte.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.primary_vp_command_phase": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-tournament-companion/",
+    "rule_name": "Primary Mission scores at each player's own Command phase (per-player, per-turn)",
+    "quoted_text": "The player going first can score VP for guarding an objective marker they control at the end of their opponent's first, second, third, fourth and fifth turn. The player going second can score VP for guarding an objective marker they control at the end of their opponent's second, third, fourth and fifth turn.",
+    "trigger": "the end of each player's own Command phase (the start of that player's turn), on the objectives that player controls AT THAT MOMENT",
+    "effect": "env-gated SWEG_CMDSCORE (wave 116). The eval already runs the vanilla 10e I-go-you-go round (Battle default RulesConfig.vanilla_10e, alternating_activations False → Battle._run_round_vanilla_turns: first player's full turn, then the second's). The baseline still scores Primary ONCE per round, at end of round after BOTH turns, crediting only the post-combat survivor. When set, Primary is scored per player at its own Command phase (the START of its turn, before its own movement, inside _run_round_vanilla_turns) via Battle._score_objectives(only_for=<that army>) — the real 10e timing, which credits both the static holder (at its Command phase) and the mobile taker (at its next Command phase), unlike any single end-or-start-of-round snapshot. Even-handed, rounds 2-5, per-player 15 VP/round cap unchanged; the end-of-round score is skipped when this is active. Applies only to the IGOUGO path (no clean per-player Command phases under alternating activations). Gate unset reproduces the end-of-round baseline byte-for-byte.",
     "scope": "phase-gated"
   }
 }

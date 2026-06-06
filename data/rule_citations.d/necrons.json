@@ -51,7 +51,7 @@
     "approximation": true
   },
 
-  "UnitProfile.necrodermis": {
+  "unit.necrodermis": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/",
     "rule_name": "Necrodermis (C'tan datasheet ability)",
     "quoted_text": "Each time an attack is allocated to this model, halve the Damage characteristic of that attack (rounding up). Any time an attack is allocated to this model that has a Damage characteristic of 1, it has a Damage characteristic of 0 instead.",
@@ -68,5 +68,23 @@
     "effect": "APPROXIMATION (catalogued but no-op): the simulator has no out-of-sequence shoot hook in the opponent's shooting phase. The Stratagem is registered on the Awakened Dynasty detachment so it shows up in stratagems_for_army() listings and CP economy, but the dispatcher in `_apply_detachment_stratagems` skips it. A future PR could add a `transient_revenge_shoot_pending` slot keyed on the killer's uid if the gap matters for calibration",
     "scope": "phase-gated",
     "approximation": true
+  },
+
+  "CURSED_LEGION.relentless_onslaught": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Cursed-Legion",
+    "rule_name": "Relentless Onslaught (Cursed Legion detachment rule)",
+    "quoted_text": "Each time a NECRONS model from your army makes an attack that targets a unit within range of one or more objective markers, add 1 to the Hit roll. In addition, ranged weapons equipped by NECRONS VEHICLE and NECRONS MOUNTED models (excluding TITANIC models) from your army have the [ASSAULT] ability.",
+    "trigger": "the Cursed Legion detachment is active and either (a) a NECRONS model attacks a target within range of an objective marker, or (b) a NECRONS VEHICLE / MOUNTED (non-TITANIC) ranged weapon fires after Advancing",
+    "effect": "(a) +1 to the Hit roll for that attack (ranged or melee); (b) the [ASSAULT] ability on NECRONS VEHICLE / MOUNTED (excluding TITANIC) ranged weapons, letting them shoot after Advancing. The detachment's further Cryptek-specific clauses are NOT modelled. Rule text is taken from the BSData v10.6.0 cache (Necrons.cat.gz, rule id 1dfc-5377-99ac-a700) because wahapedia.ru is unreachable from agent worktrees (see project memory project-wahapedia-dns.md); the Wahapedia source URL is recorded for human verification per CLAUDE.md rule 6",
+    "scope": "phase-gated"
+  },
+
+  "simulator.relentless_onslaught": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Cursed-Legion",
+    "rule_name": "Relentless Onslaught (Cursed Legion detachment rule) — simulator gates",
+    "quoted_text": "Each time a NECRONS model from your army makes an attack that targets a unit within range of one or more objective markers, add 1 to the Hit roll. In addition, ranged weapons equipped by NECRONS VEHICLE and NECRONS MOUNTED models (excluding TITANIC models) from your army have the [ASSAULT] ability.",
+    "trigger": "a Cursed-Legion NECRONS army; the +1-Hit fires when the attacker is NECRONS and the target is within an objective's control radius (Unit.attack reads `target.on_objective`); the [ASSAULT] window fires when a NECRONS VEHICLE / MOUNTED (non-TITANIC) attacker has Advanced (simulator._do_shoot Advance-lockout)",
+    "effect": "Two gates read Detachment.relentless_onslaught. (1) Unit.attack adds +1 to `hit_mod_delta` for a NECRONS attacker whose target is on an objective, composing with any other +1-to-hit source under the existing 10e ±1 Hit-modifier cap (hit_mod_clamped) — applies to BOTH ranged and melee, with no round restriction. (2) Battle._do_shoot's Advance-lockout exemption (`relentless_onslaught_assault_window`) lets a NECRONS VEHICLE / MOUNTED (non-TITANIC) unit that Advanced still shoot, mirroring the [ASSAULT] grant — the same pathway used by Mont'ka's army_wide_assault_rounds_1_3 and Valourstrike Lance's bold_gallantry. Rule text from the BSData v10.6.0 cache (Necrons.cat.gz, rule id 1dfc-5377-99ac-a700); Wahapedia URL recorded for human verification per CLAUDE.md rule 6",
+    "scope": "phase-gated"
   }
 }

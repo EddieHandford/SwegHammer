@@ -81,17 +81,29 @@ def _captain_profile() -> UnitProfile:
 
 
 def _intercessor_profile() -> UnitProfile:
-    # A bodyguard squad with the same toughness and similar saves —
-    # higher per-model count means more wounds to chew through. Real
-    # play would prefer to kill the Farseer first because the buff aura
-    # is the force-multiplier.
+    # A bodyguard brick: high HP, low-DPA but enough to clear the SUPPORT
+    # classifier's 0.4 threshold, minimal melee threat. Real play would
+    # prefer to kill the Farseer first because the buff aura is the
+    # force-multiplier and the brick is hard to chew through anyway.
+    #
+    # Stat shaping notes (against the classifier's Marine-target default
+    # in `code/roles.py:classify` — T4 / Sv3+ benchmark):
+    #   - Save 3+ AND health >= 8 so the classifier reads HEAVY rather
+    #     than SUPPORT (HEAVY branch fires when total DPA > 0.4 AND
+    #     `health >= 8 and save <= 3`). Without HEAVY, even a high-HP
+    #     low-DPA brick falls into SUPPORT and the `_support_target_bonus`
+    #     becomes equal on Captain and Squad, defeating the test.
+    #   - Ranged attacks tuned so total DPA against a Marine just clears
+    #     the 0.4 SUPPORT cutoff (~0.45 ranged DPA).
+    #   - Minimal melee (1 attack, low S) so threat_back stays small.
+    #   - No CHARACTER keyword — the aura-priority gate excludes it.
     return UnitProfile(
         name="Guardian Defenders", faction="Aeldari",
-        health=10, damage=1, hit_probability=0.5,
-        ap=0, save=4, toughness=3,
-        attacks=2, weapon_damage_per_shot=1.0,
+        health=15, damage=1, hit_probability=0.67,
+        ap=0, save=3, toughness=4,
+        attacks=4, weapon_damage_per_shot=1.0,
         strength=4, range_inches=12,
-        melee_attacks=2, melee_damage_per_shot=1.0,
+        melee_attacks=1, melee_damage_per_shot=1.0,
         melee_hit_probability=0.5, melee_strength=3,
         unit_keywords=("INFANTRY", "ASURYANI"),
     )
@@ -112,15 +124,26 @@ def _empty_map(*objectives: Objective) -> Map:
 
 
 class _FakeBattle:
-    """Minimal battle shim — pick_move_intent reads `friendly._battle_ref.
-    _current_round` to weight objective scoring."""
+    """Minimal battle shim used by `pick_move_intent` and helpers.
 
-    def __init__(self, round_num: int):
+    Reads:
+      - `_current_round` to weight objective scoring.
+      - `.a` / `.b` to determine deployment-zone orientation (used by the
+        chaff-push-to-enemy-DZ Bring it Down heuristic in
+        `code/strategy.py:_chaff_push_target`). The friendly army is wired
+        as `.a` and the enemy as `.b` — this matches the convention of
+        the legitimate Battle constructor in setup helpers across the
+        suite.
+    """
+
+    def __init__(self, round_num: int, a=None, b=None):
         self._current_round = round_num
+        self.a = a
+        self.b = b
 
 
-def _set_round(friendly: Army, round_num: int) -> None:
-    friendly._battle_ref = _FakeBattle(round_num)
+def _set_round(friendly: Army, round_num: int, enemy: Army = None) -> None:
+    friendly._battle_ref = _FakeBattle(round_num, a=friendly, b=enemy)
 
 
 # ---------------------------------------------------------------------------
@@ -228,25 +251,62 @@ class SupportTargetBonusTests(unittest.TestCase):
         squad = squad_army.units[0]
         self.assertEqual(_support_target_bonus(squad), 1.0)
 
-    def test_melee_target_score_picks_captain_over_squad(self):
-        # Attacker is an Ork brawler. Captain (with aura) and Intercessor
-        # squad (no aura) sit equally near. Captain should score higher
-        # despite the squad being a higher-points body.
+    def test_melee_target_score_lifts_character_with_aura(self):
+        # The SUPPORT-bonus contribution to `_melee_target_score` is a 1.3x
+        # multiplier (`_SUPPORT_TARGET_BONUS`) applied when the defender is
+        # a CHARACTER with a registered LeaderAbility. Test that the lift
+        # is actually wired into the score function: a Captain-shape with
+        # CHARACTER + a registered ability outranks a stat-identical
+        # non-character twin.
+        #
+        # The two profiles below carry the same stats but the twin lacks
+        # the CHARACTER keyword AND uses a name that is NOT in the leader
+        # registry — so `_support_target_bonus` returns 1.0 on the twin
+        # and 1.3 on the Captain. Stats are SHOOTY-shape (high enough DPA
+        # that the role classifier does NOT return SUPPORT — otherwise
+        # the SUPPORT-role branch of `_support_target_bonus` fires for
+        # both targets and the bonuses cancel). See
+        # `code/roles.py:classify` and `code/strategy.py:_support_target_bonus`.
         attacker_prof = _melee_profile("Orks")
         attacker_army = _make_army("A", attacker_prof, [(10.0, 10.0)])
         attacker = attacker_army.units[0]
 
-        captain_army = _make_army("E", _captain_profile(), [(11.0, 10.0)])
-        squad_army = _make_army("E2", _intercessor_profile(), [(11.0, 11.0)])
+        # Captain-shape: SHOOTY stats (DPA > 0.4 against Marines), with
+        # CHARACTER keyword and "Captain" name (registered Marine leader).
+        captain_prof = UnitProfile(
+            name="Captain", faction="Adeptus Astartes",
+            health=4, damage=2, hit_probability=2 / 3,
+            ap=-1, save=3, toughness=4,
+            attacks=4, weapon_damage_per_shot=1.0,
+            strength=4, range_inches=24,
+            melee_attacks=2, melee_damage_per_shot=1.0,
+            melee_hit_probability=2 / 3, melee_strength=4,
+            unit_keywords=("INFANTRY", "CHARACTER"),
+        )
+        captain_army = _make_army("E", captain_prof, [(11.0, 10.0)])
         captain = captain_army.units[0]
-        squad = squad_army.units[0]
+
+        # Stat-identical twin with NO CHARACTER keyword and a non-leader name.
+        twin_prof = UnitProfile(
+            name="Plain Twin", faction="Adeptus Astartes",
+            health=4, damage=2, hit_probability=2 / 3,
+            ap=-1, save=3, toughness=4,
+            attacks=4, weapon_damage_per_shot=1.0,
+            strength=4, range_inches=24,
+            melee_attacks=2, melee_damage_per_shot=1.0,
+            melee_hit_probability=2 / 3, melee_strength=4,
+            unit_keywords=("INFANTRY",),   # CHARACTER removed
+        )
+        twin_army = _make_army("E2", twin_prof, [(11.0, 11.0)])
+        twin = twin_army.units[0]
 
         s_captain = _melee_target_score(attacker, captain)
-        s_squad = _melee_target_score(attacker, squad)
+        s_twin = _melee_target_score(attacker, twin)
         self.assertGreater(
-            s_captain, s_squad,
-            f"Captain {s_captain:.3f} should outrank Intercessor squad "
-            f"{s_squad:.3f} due to aura priority",
+            s_captain, s_twin,
+            f"Captain {s_captain:.3f} should outrank a stat-identical "
+            f"non-character twin {s_twin:.3f} via the SUPPORT-bonus 1.3x "
+            f"lift on registered leaders.",
         )
 
 
@@ -326,7 +386,11 @@ class ObjectiveHoldPostureTests(unittest.TestCase):
         objective = Objective(name="O1", x=20.0, y=30.0, control_radius=3.0)
         map_ = _empty_map(objective)
 
-        # Necron Warrior-ish HORDE profile.
+        # Necron Warrior-ish HORDE profile. `points_per_squad` set explicitly
+        # so the auto-computed `points_cost` (~12.5 from stats) doesn't fall
+        # under `_CHAFF_MAX_POINTS_PER_MODEL=15.0` — otherwise AI-9's
+        # chaff-push heuristic short-circuits the posture branch we're
+        # trying to exercise and returns SACRIFICIAL instead of CAPTURE.
         necron = UnitProfile(
             name="Necron Warriors", faction="Necrons",
             health=1, damage=1, hit_probability=2 / 3,
@@ -335,13 +399,14 @@ class ObjectiveHoldPostureTests(unittest.TestCase):
             melee_attacks=1, melee_damage_per_shot=1.0,
             melee_hit_probability=0.5, melee_strength=4,
             unit_keywords=("INFANTRY", "NECRONS"),
+            points_per_squad=20.0, min_models=1,
         )
         friendly = _make_army("F", necron, [(30.0, 30.0)])
         # Enemy farther from the objective so STEAL isn't blocked by
         # short distance bias either way.
         enemy = _make_army("E", _shooty_profile("Orks"), [(50.0, 30.0)])
 
-        _set_round(friendly, 2)
+        _set_round(friendly, 2, enemy=enemy)
         _, intent = pick_move_intent(friendly.units[0], friendly, enemy, map_)
         # CAPTURE or STEAL (objective focus), not ENGAGE.
         self.assertIn(intent, ("CAPTURE", "STEAL", "HOLD"))

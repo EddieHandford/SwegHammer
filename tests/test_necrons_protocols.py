@@ -239,22 +239,38 @@ class ProtocolDispatcherTests(unittest.TestCase):
         self.assertEqual(a.units[0].transient_undying_legions_pulse, 2)
 
     def test_undying_legions_pulse_revives_destroyed_peer(self):
-        """The undying legions pulse should revive a dead peer of the same
-        profile when applied at end of round."""
-        battle, a, b = self._make_battle()
+        """The undying legions pulse revives a dead model in the SAME codex
+        squad. The two Necron Warrior units in the test battle are added via
+        add_unit (each is its own one-model squad), so the pulse on unit 0
+        only draws from unit 0's own dead pool. To test intra-squad revival,
+        we add a two-model squad and kill one member, then pulse the other.
+
+        The original version of this test used the old cross-squad pool that
+        let unit 0's pulse revive unit 1 (a different squad). That behaviour
+        was the bug being fixed; this test now validates the corrected path."""
+        random.seed(0)
+        a = Army("Necrons")
+        # One codex squad of 2 Necron Warriors sharing a squad_id.
+        a.add_squad(_necron_warriors_profile(), 2)
+        a.detachment = AWAKENED_DYNASTY
+        a.command_points = 6
+        b = Army("Enemy")
+        b.add_unit(_heavy_target_profile())
+        battle = Battle(a, b)
         battle._assign_uids()
+        battle._deploy_armies()
         # Initialise per-army initial counts (mirroring Battle.run setup).
         battle._initial_unit_counts = {
             a.name: {"Necron Warriors": 2},
             b.name: {"Knight": 1},
         }
-        # Kill the second Necron Warriors unit.
+        # Kill the second model in the squad.
         a.units[1].current_health = 0.0
         self.assertFalse(a.units[1].is_alive)
-        # Set the pulse on the surviving Necron unit.
+        # Set the pulse on the surviving model of the SAME squad.
         a.units[0].transient_undying_legions_pulse = 1
         battle._apply_undying_legions_pulse()
-        # The dead peer should be revived (current_health > 0).
+        # The dead squad-mate should be revived (current_health > 0).
         self.assertTrue(a.units[1].is_alive)
         # Pulse slot should be cleared after firing.
         self.assertEqual(a.units[0].transient_undying_legions_pulse, 0)

@@ -24,8 +24,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/",
     "rule_name": "Changecaster",
     "quoted_text": "While this model is leading a unit, ranged weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
-    "trigger": "Changecaster is leading a friendly Pink Horrors unit; the led unit makes a ranged attack",
-    "effect": "(approximation) reroll Hit rolls of 1 in aura range. The codex grants [SUSTAINED HITS 1] on the led unit's ranged weapons (+1/6 hits on a natural 6). SwegHammer's LeaderAbility has no `sustained_hits` flag, so this uses the same reroll_hit_ones proxy as TSON Infernal Master's [SUSTAINED HITS 1] grant: reroll-1s yields +1/6 hits, same numerical uplift as sustained-1-on-6, just via a different roll. host_keys gated to chaos_daemons_library_pink_horrors (BSData Changecaster Leader profile: 'PINK HORRORS, BLUE HORRORS' — Pink Horrors is the in-catalogue battleline; Blue Horrors are a sub-unit profile that doesn't surface as a separate UNIT_CATALOG key).",
+    "trigger": "Changecaster is leading a friendly Pink Horrors or Blue Horrors unit (both are legal Leader attachments per BSData v10.6.0: 'PINK HORRORS, BLUE HORRORS'); the led unit makes a ranged attack",
+    "effect": "(approximation) reroll Hit rolls of 1 in aura range. The codex grants [SUSTAINED HITS 1] on the led unit's ranged weapons (+1/6 hits on a natural 6). SwegHammer's LeaderAbility has no `sustained_hits_ranged` flag (schema gap — flagged for follow-up as `sustained_hits_ranged: int` on LeaderAbility), so this uses the same reroll_hit_ones proxy as TSON Infernal Master's [SUSTAINED HITS 1] grant: reroll-1s yields +1/6 hits, same numerical uplift as sustained-1-on-6, just via a different mechanism. DAEMONS-LOCUS-V1 fix: host_keys now correctly includes both chaos_daemons_library_pink_horrors AND chaos_daemons_library_blue_horrors. Both are confirmed separate UNIT_CATALOG keys (verified via UNIT_CATALOG inspection, wave-49). A prior comment incorrectly claimed Blue Horrors did not surface as a separate catalogue key — that comment was wrong and has been removed.",
     "scope": "unit-led",
     "approximation": true
   },
@@ -40,12 +40,30 @@
     "approximation": true
   },
 
+  "LeaderAbility.Keep Counting!": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Spoilpox-Scrivener",
+    "rule_name": "Keep Counting!",
+    "quoted_text": "While this model is leading a unit, melee weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
+    "trigger": "Spoilpox Scrivener is leading a friendly Plaguebearers unit; the led unit makes a melee attack",
+    "effect": "Led Plaguebearers' melee weapons gain [SUSTAINED HITS 1] (each unmodified Hit roll of 6 scores 1 additional hit). Modelled as sustained_hits_melee=1 with host_keys gated to chaos_daemons_library_plaguebearers per the BSData v10.6.0 Spoilpox Scrivener Leader profile (attaches to PLAGUEBEARERS). The sustained_hits_melee schema field was added in wave-50 commit 25af977 specifically so this leader could be added without a follow-up dataclass change. Second BSData ability 'Meet Your Quota!' (+1 Objective Control to the led unit) is not modelled — no oc_bonus_led_unit field exists on LeaderAbility yet.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Tormentbringer (Aura)": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Tormentbringer",
+    "rule_name": "Tormentbringer (Aura)",
+    "quoted_text": "While a friendly Slaanesh Legiones Daemonica unit is within 6\" of this model, melee weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
+    "trigger": "Tormentbringer is on the battlefield; a friendly SLAANESH Legiones Daemonica unit is within 6\" and makes a melee attack",
+    "effect": "Affected Slaanesh Daemons units' melee weapons gain [SUSTAINED HITS 1]. Modelled as sustained_hits_melee=1 with host_keys gated to the SLAANESH Legiones Daemonica catalogue keys (_SLAANESH_DAEMON_HOSTS) rather than empty host_keys, so the aura does not broadcast to non-Slaanesh allies under Daemons of Chaos detachment composition. This is an army-aura within the Slaanesh sub-faction, not a Leader/Bodyguard buff. Tormentbringer's other ability 'Hysterical Frenzy' (a destroyed model in the unit fights after dying) is not modelled — no fight-phase-trigger flag exists.",
+    "scope": "keyword-gated"
+  },
+
   "LeaderAbility.Daemon Lord of Khorne": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster",
     "rule_name": "Daemon Lord of Khorne (Aura)",
     "quoted_text": "While a friendly KHORNE Legiones Daemonica unit is within 6\" of this model, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
     "trigger": "Bloodthirster is on the battlefield; a friendly KHORNE Legiones Daemonica unit is within 6\" of the Bloodthirster and makes a melee attack",
-    "effect": "+1 to the melee Hit roll for the affected unit. Modelled as plus_one_to_hit=True with host_keys gated to the catalogue keys carrying the KHORNE Legiones Daemonica keyword (Bloodletters, Bloodcrushers, Flesh Hounds, Skull Cannon, Khorne Soul Grinder, Skullmaster, Skulltaker, Karanak, Bloodmaster, Rendmaster on Blood Throne) per BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz. (loose-edge) SwegHammer's plus_one_to_hit flag does not distinguish melee from ranged at LeaderAbility level, so the +1 also applies to the rare ranged profiles those units carry (Skull Cannon's Burning Skulls, Khorne Soul Grinder's Phlegm Bombardment). Direction-correct uplift, strictly weaker than fabricating a Strength/AP buff for the other Greater Daemons whose buff stats SwegHammer has no field for.",
+    "effect": "+1 to the melee Hit roll for the affected unit. Modelled as plus_one_to_hit_melee_only=True with host_keys gated to the catalogue keys carrying the KHORNE Legiones Daemonica keyword (Bloodletters, Bloodcrushers, Flesh Hounds, Skull Cannon, Khorne Soul Grinder, Skullmaster, Skulltaker, Karanak, Bloodmaster, Rendmaster on Blood Throne) per BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz. DAEMONS-DIAG-8: narrowed from prior plus_one_to_hit=True (all attack modes) to plus_one_to_hit_melee_only=True (melee only), matching the verbatim codex text which states 'each time a model in that unit makes a melee attack'. The prior broader flag incorrectly boosted the ranged profiles on Skull Cannon (Burning Skulls) and Khorne Soul Grinder (Phlegm Bombardment). The melee-only gate is enforced in code/units.py's attack resolution loop (mode == 'melee' check, same pattern as ORKS-DIAG-3's Warboss 'Might is Right' narrowing).",
     "scope": "keyword-gated"
   },
 
@@ -83,6 +101,24 @@
     "trigger": "Keeper of Secrets is on the battlefield; a friendly SLAANESH Legiones Daemonica unit is within 6\" of the KoS and makes a melee attack",
     "effect": "AP improved by 1 (more negative) on every melee weapon in the affected unit. Modelled as plus_one_ap_melee=True with host_keys gated to the SLAANESH Legiones Daemonica catalogue keys (Daemonettes, Seekers, Fiends, Hellflayers, Slaanesh Soul Grinder, Shalaxi Helbane, Syll'esske, Contorted Epitome, Infernal Enrapturess, The Masque of Slaanesh, Tormentbringer, Tranceweaver) per BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz. The defensive -1-to-Hit-rolls-targeting-this-model bullet on the KoS datasheet (a per-Keeper self-buff) is NOT modelled here — it would need a per-defender hit-modifier slot that the simulator does not currently expose for individual models. The +1 melee AP aura is the main mechanical contribution and is faithful to the codex.",
     "scope": "keyword-gated"
+  },
+
+  "LeaderAbility.Prince of Darkness": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Daemon-Prince-of-Chaos",
+    "rule_name": "Prince of Darkness (Aura)",
+    "quoted_text": "While a friendly LEGIONES DAEMONICA unit is within 6\" of this model, models in that unit have the Stealth ability.",
+    "trigger": "Daemon Prince of Chaos is on the battlefield; a friendly LEGIONES DAEMONICA unit is within 6\" of the Daemon Prince and is the target of a ranged attack",
+    "effect": "-1 to the Hit roll on ranged attacks targeting the affected LEGIONES DAEMONICA unit. Modelled as grants_stealth_aura=True on the LeaderAbility; the -1 modifier is applied DEFENDER-side in code/units.py (tgt_buffs[\"grants_stealth_aura\"]) at the same location as the static target.profile.stealth check (mode != \"melee\" gate). Subject to the 10e ±1 modifier cap — stacks with heavy cover's -1 but the cap collapses the net to -1 either way. host_keys = _LEGIONES_DAEMONICA_HOSTS (union of all four god-aligned rosters plus UNDIVIDED units: Be'lakor, Daemon Prince of Chaos, Daemon Prince of Chaos with Wings). Daemon Prince is a MONSTER with no formal Leader/Bodyguard attachment; the 10e aura wording is \"friendly LEGIONES DAEMONICA unit is within 6\"\" — broadcast to all eligible units in proximity, not restricted to a led bodyguard squad. Faithful direct match to the codex text — no approximation required. BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz confirms the wording verbatim.",
+    "scope": "keyword-gated"
+  },
+
+  "LeaderAbility.Lord of Decapitations": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skulltaker",
+    "rule_name": "Lord of Decapitations",
+    "quoted_text": "While this model is leading a unit, melee weapons equipped by models in that unit have the [DEVASTATING WOUNDS] ability.",
+    "trigger": "Skulltaker is leading a friendly Bloodletters unit (host_keys: chaos_daemons_library_bloodletters); the led unit makes a melee attack (mode == \"melee\") and scores a Critical Wound (unmodified wound roll of 6)",
+    "effect": "Critical Wounds on melee attacks by the led Bloodletters bypass armour and invulnerable saves, dealing damage directly (same as the [DEVASTATING WOUNDS] weapon keyword). Modelled as grants_devastating_wounds_melee=True on the LeaderAbility; the mode==\"melee\" gate is enforced in the attack-resolution loop in code/units.py. Faithful direct match to the codex text — no approximation. BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz confirms the wording verbatim.",
+    "scope": "unit-led"
   },
 
   "LeaderAbility.Rites of Battle": {
@@ -161,8 +197,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/Warboss",
     "rule_name": "Might is Right",
     "quoted_text": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
-    "trigger": "attacker's unit is led by an Ork Warboss in aura range",
-    "effect": "+1 to the Hit roll in aura range. The codex restricts the buff to melee attacks; SwegHammer's leader registry does not yet distinguish melee from ranged when applying offensive auras, so the implementation grants +1-to-hit on all attacks for in-aura units. Strictly stronger than the codex's melee-only effect by the ranged-attack share — known overshoot but direction-correct.",
+    "trigger": "attacker's unit is led by an Ork Warboss or Warboss In Mega Armour (host_keys: orks_boyz, orks_nobz, orks_meganobz) AND the attack is a melee attack (mode == \"melee\"); ranged attacks by the same unit are unaffected. ORKS-DIAG-3: fixed from prior `plus_one_to_hit=True` (all attack modes) to `plus_one_to_hit_melee_only=True` (melee only), matching the codex text. Also added orks_meganobz to host_keys so the Warboss In Mega Armour correctly leads Meganobz.",
+    "effect": "+1 to the Hit roll on melee attacks only",
     "scope": "unit-led"
   },
 
@@ -171,8 +207,8 @@
     "rule_name": "Onslaught",
     "quoted_text": "While a friendly TYRANIDS unit is within 6\" of this model, ranged weapons equipped by models in that unit have the [ASSAULT] and [LETHAL HITS] abilities.",
     "trigger": "attacker's unit is a Tyranids friendly within 6\" of a Hive Tyrant (Hive Tyrant is a Monster, not a formal attached leader)",
-    "effect": "re-roll Wound rolls of 1 in aura range (approximation; the real Onslaught grants ASSAULT and LETHAL HITS to ranged weapons in aura. The simulator does not model the LETHAL HITS keyword on weapons, so reroll-wound-1s stands in as a loose offensive-aura proxy)",
-    "scope": "unit-led"
+    "effect": "NO IMPLEMENTATION. TYRANIDS-DIAG-7 (2026-05-26): dropped the prior `reroll_wound_ones=True` proxy. The real Onslaught grants [ASSAULT] and [LETHAL HITS] to RANGED weapons only. The previous proxy fired `reroll_wound_ones` in both ranged and melee attack resolutions (the `effective_buffs` merge has no mode gate), incorrectly buffing every Tyranid melee attack in range. Additionally, `reroll_wound_ones` is the wrong mechanic — the real effect is [LETHAL HITS] on ranged (natural 6 to hit auto-wounds) plus [ASSAULT] (shoot after Advancing). The `transient_lethal_hits` path exists in the simulator but the `LeaderAbility` schema has no ranged-only lethal-hits field; wiring it army-wide via the existing schema would re-introduce the ranged+melee over-buff in a different form. Ship NO-FLAG per CLAUDE.md §10 (no-flag over fabrication). Will return as `lethal_hits_ranged=True` once the LeaderAbility schema gains a ranged-only lethal-hits slot. Registry entry retained so `lookup_ability('Hive Tyrant')` resolves cleanly per CLAUDE.md §13 and the broadcast-aura convention (empty host_keys) is preserved for when the flag is added.",
+    "scope": "army-wide"
   },
 
   "LeaderAbility.Word of the Phoenix": {
@@ -249,11 +285,12 @@
 
   "LeaderAbility.Arch-Sorcerer of Tzeentch": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Ahriman",
-    "rule_name": "Master of the Rubricae (Psychic) / Arcane Shield-equivalent led-unit buff",
-    "quoted_text": "While a friendly Rubric Marines or Scarab Occult Terminators unit contains this model, each time a Psychic Attack made by a model in that unit targets an enemy unit, you can re-roll the Hit roll.",
-    "trigger": "defender's unit is led by Ahriman in aura range (proximity-gated)",
-    "effect": "4+ invulnerable save aura on Ahriman's led unit (approximation). The real Master of the Rubricae grants a Psychic-attack hit re-roll on the led unit's attacks. SwegHammer does not tag attacks as Psychic vs non-Psychic, so the offensive half is not faithfully wirable; the LeaderAbility instead proxies Ahriman as a durability aura (extra_invuln=4) — direction-correct for a 100pt EPIC HERO PSYKER who in real play makes his Rubric squad more survivable through a mix of his presence and the wider TSON psychic toolkit. iter21 adds this entry to fix TSON sim 30% vs real 54.6% (-24.6pt); previously Ahriman had no leader ability (lookup_ability returned None) and his led Rubric/Tzaangor unit received zero aura.",
-    "scope": "unit-led"
+    "rule_name": "Master of the Rubricae (Psychic)",
+    "quoted_text": "While a friendly Rubric Marines or Tzaangor Enlightened unit contains this model, each time a Psychic Attack made by a model in that unit targets an enemy unit, you can re-roll the Hit roll.",
+    "trigger": "attacker's unit is led by Ahriman in aura range (proximity-gated); the led unit makes a Psychic Attack (ranged weapon with the PSYCHIC keyword) in the Shooting phase",
+    "effect": "(approximation) re-roll Hit rolls of 1 on the led unit's Shooting-phase attacks only. The real Master of the Rubricae grants a full hit re-roll on Psychic Attacks only; SwegHammer does not tag attacks as Psychic vs non-Psychic, so we approximate by (a) proxying the full-reroll with re-roll-1s (same conservative direction used for other TSON leaders), and (b) restricting the re-roll to the Shooting phase via the reroll_hit_ones_shooting_only LeaderAbility field, which units.py applies with a mode != 'melee' guard. TSON-AURA-V2 (iter60): narrowed from the prior reroll_hit_ones=True (all phases) to reroll_hit_ones_shooting_only=True (Shooting-phase only). The codex rule is Psychic-Attack-only, which in 10e means ranged weapons carrying the [PSYCHIC] keyword; melee attacks from Rubric Marines carry no PSYCHIC tag and must receive no re-roll. host_keys = (thousand_sons_rubric_marines, thousand_sons_tzaangor_enlightened) per BSData Chaos - Thousand Sons.cat.gz Ahriman Leader profile: 'This model can be attached to the following unit: Rubric Marines, Tzaangor Enlightened'. TSON-AUDIT-V1 (wave-52): corrected quoted_text — previous version erroneously said 'Scarab Occult Terminators' in the host list; BSData confirms it is Tzaangor Enlightened.",
+    "scope": "unit-led",
+    "approximation": true
   },
 
   "LeaderAbility.Arcane Shield": {
@@ -270,17 +307,19 @@
     "rule_name": "Malefic Maelstrom (Psychic)",
     "quoted_text": "While this model is leading a unit, weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
     "trigger": "attacker's unit is led by an Infernal Master in aura range",
-    "effect": "(approximation) re-roll Hit rolls of 1 on the led unit's weapons. The real Malefic Maelstrom grants [SUSTAINED HITS 1] — each unmodified Hit roll of 6 generates one additional automatic Hit. SwegHammer's leader-aura layer does not expose a per-aura sustained-hits flag at the time of writing (the sustained_hits field lives on UnitProfile, not LeaderAbility), so we proxy with reroll_hit_ones — a similar small offensive uplift. Direction-correct (offensive shooting buff on the led unit). host_keys = (thousand_sons_rubric_marines,) per the codex legal attachment. iter21 — adds the Infernal Master to the leader registry; previously lookup_ability('Infernal Master') returned None and his led Rubric squad received zero aura.",
-    "scope": "unit-led"
+    "effect": "(approximation) re-roll Hit rolls of 1 on the led unit's Shooting-phase attacks only. The real Malefic Maelstrom grants [SUSTAINED HITS 1] — each unmodified Hit roll of 6 generates one additional automatic Hit — applying to all weapons including melee. SwegHammer's leader-aura layer does not expose a per-aura sustained-hits-all-phases flag (the LeaderAbility.sustained_hits_ranged / sustained_hits_melee schema exists but the codex rule grants both together; splitting into ranged+melee separately would require two fields), so we proxy with reroll_hit_ones_shooting_only — a conservative approximation restricting the buff to the Shooting phase where Rubric Marines deal the majority of their damage. TSON-AURA-V2 (iter60): narrowed from prior reroll_hit_ones=True (all phases, including melee) to reroll_hit_ones_shooting_only=True (Shooting-phase only). The melee-leak was inflating TSON win rates beyond the Warp Friends target. host_keys = (thousand_sons_rubric_marines,) per the codex legal attachment. iter21 — adds the Infernal Master to the leader registry; previously lookup_ability('Infernal Master') returned None and his led Rubric squad received zero aura.",
+    "scope": "unit-led",
+    "approximation": true
   },
 
   "LeaderAbility.Marked by Fate": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer-In-Terminator-Armour",
     "rule_name": "Marked by Fate (Psychic)",
     "quoted_text": "At the start of your Shooting phase, select one enemy unit that is visible to this Psyker model. Until the end of the phase, each time a model in this unit makes an attack that targets that enemy unit, add 1 to the Hit roll.",
-    "trigger": "attacker's unit is led by a Sorcerer in Terminator Armour in aura range; codex applies +1 to Hit only against the marked enemy unit, simulator applies +1 to Hit unit-wide as a target-indexed-flag approximation",
-    "effect": "(approximation) unit-wide +1 to Hit on the Sorcerer-in-Terminator-Armour's led squad (Scarab Occult Terminators per BSData host infoLink). APPROXIMATION: the codex Mark-by-Fate effect is target-indexed and per-Shooting-phase; SwegHammer's leader-aura layer does not expose per-target hit-modifier plumbing, so the buff goes unit-wide each round. Direction-correct (offensive shooting buff scaling with the led-unit's volume of fire). host_keys = (thousand_sons_scarab_occult_terminators,) per the BSData Leader infoLink — Scarab Occult Terminators is the codex-legal attachment. iter21 — adds the Sorcerer in Terminator Armour to the leader registry as a TSON-specific entry. Without this, the substring 'Sorcerer' would match the generic CSM Prescience entry (FNP 5 defensive proxy) which is direction-wrong for the TSON datasheet's offensive Marked by Fate.",
-    "scope": "unit-led"
+    "trigger": "attacker's unit is led by a Sorcerer in Terminator Armour in aura range; codex applies +1 to Hit only against the marked enemy unit during the Shooting phase",
+    "effect": "(approximation) unit-wide re-roll hit rolls of 1 on the Sorcerer-in-Terminator-Armour's led squad (Scarab Occult Terminators per BSData host infoLink) during the Shooting phase only. APPROXIMATION: the codex Marked by Fate effect is target-indexed (one designated enemy unit per Shooting phase); SwegHammer has no per-target hit-modifier plumbing so the buff fires unit-wide on the led unit against any target. The phase restriction IS now enforced: TSON-AURA-V2 (iter60) narrowed from reroll_hit_ones=True (all phases, including melee) to reroll_hit_ones_shooting_only=True (Shooting-phase only). The codex text is explicit: 'Until the end of the [Shooting] phase' — melee attacks by Scarab Occult Terminators must receive no re-roll from Marked by Fate. TSON-KOS-MESMERISING wave-44: the prior proxy (plus_one_to_hit=True) was a 3-dimensional over-buff vs codex (added melee + multi-target + multi-phase uplift). Replaced with reroll_hit_ones at that wave; narrowed further to reroll_hit_ones_shooting_only at iter60. host_keys = (thousand_sons_scarab_occult_terminators,) per the BSData Leader infoLink — Scarab Occult Terminators is the codex-legal attachment. iter21 — adds the Sorcerer in Terminator Armour to the leader registry as a TSON-specific entry. Without this, the substring 'Sorcerer' would match the generic CSM Prescience entry (FNP 5 defensive proxy) which is direction-wrong for the TSON datasheet's offensive Marked by Fate.",
+    "scope": "unit-led",
+    "approximation": true
   },
 
   "LeaderAbility.Magnus the Red": {
@@ -319,12 +358,12 @@
     "scope": "unit-led"
   },
 
-  "LeaderAbility.Stoic Vigil": {
+  "LeaderAbility.Master of the Stances": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Shield-captain",
     "rule_name": "Master of the Stances / Strategic Mastery",
     "quoted_text": "Master of the Stances: Once per battle, when this model's unit is selected to fight, it can use this ability. If it does, until that fight is resolved, both Ka'tah Stances are active for that unit, instead of only one. Strategic Mastery: Once per battle round, you can select one model from your army with this ability. That model's unit can be targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP. Leader: This model can be attached to the following units: Custodian Guard, Custodian Wardens.",
-    "trigger": "attacker's unit is led by a Shield-Captain in aura range (BSData Leader text: 'Custodian Guard, Custodian Wardens')",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Shield-Captain offers Ka'tah-stance flexibility and a Stratagem CP discount, neither of which the simulator models. The reroll-1s-to-hit aura is a flavour proxy for Custodes offensive precision). iter24 expanded host_keys from Guard-only to (Guard + Wardens) per the BSData Leader text — Wardens-led squads were previously silently excluded from the aura.",
+    "trigger": "attacker's unit is led by a Shield-Captain in aura range (BSData v10.6.0 Leader text: 'Custodian Guard, Custodian Wardens')",
+    "effect": "NO IMPLEMENTATION. CUSTODES-AUDIT (claude/sim-calibration-6): removed the prior `reroll_hit_ones=True` fabricated proxy. The real Shield-Captain has no offensive hit-reroll aura — 'Master of the Stances' is a once-per-battle fight-phase stance-flexibility trigger (both Ka'tah stances active for one fight resolution) and 'Strategic Mastery' is a once-per-battle-round Stratagem CP discount, matching the same CP-discount pattern as Space Marine Captain 'Rites of Battle' (iter21 drop) and Autarch 'Path of Command' (iter21 drop). Neither ability translates to a per-attack aura in the simulator. The LeaderAbility entry is retained with no offensive flag so lookup_ability resolves cleanly per CLAUDE.md §13 and host_keys gating (Custodian Guard + Wardens) continues to verify 'led by a CHARACTER'. Previously labelled 'Stoic Vigil' — not a real codex ability name; renamed to 'Master of the Stances' per the BSData verbatim ability name.",
     "scope": "unit-led"
   },
 
@@ -347,11 +386,20 @@
   },
 
   "LeaderAbility.Master of the Machine": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/Tech-priest-Dominus",
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Tech-Priest-Dominus",
     "rule_name": "Lord of the Machine Cult",
     "quoted_text": "While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability. If that unit has the ELECTRO-PRIESTS keyword, models in that unit have the Feel No Pain 4+ ability instead.",
-    "trigger": "attacker's unit is led by a Tech-Priest Dominus in aura range",
-    "effect": "re-roll Hit rolls of 1 AND restore 1 wound to the most-wounded friendly each round-end (approximation; the real Lord of the Machine Cult grants Feel No Pain 5+ — a DEFENSIVE buff, plus the unit's heal flavour comes from the Dominus's general AdMech repair role rather than this specific ability. Simulator currently mis-buckets the FNP as offensive reroll-1s; flagged for fnp=5 swap)",
+    "trigger": "target unit is led by a Tech-Priest Dominus; the unit receives damage (host_keys-gated to the single attached unit, Kataphron Breachers)",
+    "effect": "fnp=5 on the led unit (Feel No Pain 5+). ADMECH-DIAG-3 (2026-05-26): removed prior fabricated reroll_hit_ones=True and heal_per_round=1. Replaced with fnp=5. The ELECTRO-PRIESTS Feel No Pain 4+ branch is not implemented (LeaderAbility has no keyword-conditional fnp field); fnp=5 is the floor. ADMECH-DIAG-4 (2026-05-26): APPROXIMATION — Kataphron Breachers and Kataphron Destroyers removed from host_keys. The full BSData list is {Corpuscarii, Fulgurite, Kataphron Breachers, Kataphron Destroyers, Rangers, Vanguard}. The proximity-broadcast model does not enforce the 10e one-attachment-per-unit rule; when both Belisarius Cawl and the Dominus are simultaneously within aura_range, the 6-unit host list caused Feel No Pain 5+ to broadcast to Rangers, Vanguard, Kataphron Breachers, and Kataphron Destroyers concurrently. Kataphron units have no native Feel No Pain (base fnp=7) and the simultaneous grant to them inflated AdMech effective durability well beyond the tournament baseline (the Kataphron Breachers are 3-wound Toughness-5 models — Feel No Pain 5+ significantly increases their survivability). Electro-Priests retain their entries because both have native Feel No Pain 5+ from their own BSData infoLinks; the min() merge means the Dominus aura is a no-op for them and no over-application occurs. ADMECH-DIAG-6 (2026-05-26): APPROXIMATION — Skitarii Rangers and Skitarii Vanguard also removed from host_keys. The archetype list carries 2x Rangers and 2x Vanguard alongside one Dominus. The proximity-broadcast model fires Feel No Pain 5+ on all four units simultaneously when only one should receive it under the real 10e one-attachment-per-unit rule. Four concurrent Feel No Pain 5+ grants on 1-wound Toughness-3 Battleline squads (approximately 33% damage reduction each) inflated AdMech effective durability well beyond the tournament baseline. The prior neuter left only Electro-Priests (already native Feel No Pain 5+), making the aura a no-op. WAVE-147 (2026-06-03): re-pointed host_keys to a SINGLE-occurrence host — Kataphron Breachers appear exactly 1x in the Skitarii Hunter Cohort archetype, so the proximity broadcast reaches exactly one unit, faithfully modelling the real one-attachment FNP 5+ without over-applying (this is the single-unit re-add the ADMECH-DIAG-6 note anticipated once one-attachment could be approximated). Kataphron Breachers have no native Feel No Pain, so the grant is now live on one durable unit rather than a no-op.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Galvanic Field": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Tech-Priest-Manipulus",
+    "rule_name": "Galvanic Field",
+    "quoted_text": "While this model is leading a unit, weapons equipped by models in that unit have the [Lethal Hits] ability.",
+    "trigger": "ranged attacker unit is led by / within aura of a Tech-Priest Manipulus (host_keys-gated to the single attached unit, Kataphron Destroyers)",
+    "effect": "the led unit's ranged weapons gain [LETHAL HITS] (critical hit auto-wounds). Implemented as lethal_hits_ranged=True on the Manipulus LeaderAbility; consumed in code/units.py attack() on the ranged side (mode != \"melee\" guard), mirroring the ranged p.lethal_hits profile field. host_keys is the single-occurrence Kataphron Destroyers (1x in the Skitarii Hunter Cohort archetype) so the proximity broadcast reaches exactly one unit, modelling the real one-attachment without over-applying.",
     "scope": "unit-led"
   },
 
@@ -409,12 +457,21 @@
     "scope": "unit-led"
   },
 
-  "LeaderAbility.Meticulous Uprising": {
+  "LeaderAbility.Might From Beyond": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/Patriarch",
+    "rule_name": "Might From Beyond",
+    "quoted_text": "While this model is leading a unit, melee weapons equipped by models in that unit have the [DEVASTATING WOUNDS] ability.",
+    "trigger": "Patriarch is leading a friendly Purestrain Genestealers unit; the led unit makes a melee attack",
+    "effect": "led Purestrain Genestealers' melee attacks gain [DEVASTATING WOUNDS] — critical wounds (unmodified Wound roll of 6) deal mortal wounds equal to the weapon's Damage characteristic and the attack sequence ends. Modelled as grants_devastating_wounds_melee=True; the melee-only gate is enforced in the attack-resolution loop in code/units.py (fires only when mode == 'melee'). Identical mechanism to Skulltaker's Lord of Decapitations. BSData v10.6.0 Genestealer Cults.cat.gz confirmed; no Wahapedia fetch needed.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Cult Demagogue": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/Primus",
     "rule_name": "Cult Demagogue",
     "quoted_text": "While this model is leading a unit, each time a model in that unit makes an attack, you can add 1 to the Hit roll.",
     "trigger": "attacker's unit is led by a Genestealer Cults Primus in aura range",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Cult Demagogue grants a full +1 to Hit on every attack — strictly stronger than reroll-1s. The simulator's reroll-1s-to-hit is a weaker offensive proxy; flagged for swap to plus_one_to_hit)",
+    "effect": "+1 to the Hit roll on every attack made by the led unit. Corrected from the prior reroll_hit_ones proxy (named 'Meticulous Uprising', a fabrication). The codex ability is named 'Cult Demagogue' and grants a full unconditional +1-to-Hit — strictly stronger than re-rolling 1s; plus_one_to_hit=True is the accurate implementation. Hosts expanded from the prior two variants to all four codex-legal bodyguard units: Acolyte Hybrids (both loadout variants), Hybrid Metamorphs, and Neophyte Hybrids. BSData v10.6.0 Genestealer Cults.cat.gz confirmed.",
     "scope": "unit-led"
   },
 
@@ -423,7 +480,7 @@
     "rule_name": "Kindred Hero",
     "quoted_text": "While this model is leading a unit, weapons equipped by models in that unit have the [LETHAL HITS] ability.",
     "trigger": "attacker's unit is led by a Leagues of Votann Kâhl in aura range",
-    "effect": "+1 to Hit in aura range (approximation; the real Kindred Hero grants LETHAL HITS to all weapons in the led unit. The simulator does not model the LETHAL HITS keyword, so +1-to-hit is a flavour proxy for the increased threat output of a Kâhl-led squad)",
+    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Kindred Hero grants LETHAL HITS to all weapons in the led unit — Critical Hits auto-wound. The simulator does not model the LETHAL HITS keyword. VOTANN-JUDGEMENT-TOKENS-V1 (2026-05-28) downgraded the earlier +1-to-hit proxy to re-roll Hit 1s: on a BS4+ shooter LETHAL HITS yields ~+17% wounds, the +1-to-hit proxy yielded ~+33% wounds — a roughly 2× over-buff. Re-roll Hit 1s matches LETHAL HITS magnitude on BS4+ and is strictly weaker on melee against high-T targets, erring on the under-buff side)",
     "scope": "unit-led"
   }
 }

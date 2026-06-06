@@ -9,11 +9,11 @@
     "scope": "army-wide"
   },
   "Stratagem.Counter-Offensive": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-stratagems/#Counter-Offensive",
     "rule_name": "Counter-Offensive",
-    "quoted_text": "USE THIS STRATAGEM IN THE FIGHT PHASE, JUST AFTER AN ENEMY UNIT HAS FOUGHT. ONE FRIENDLY UNIT FROM YOUR ARMY THAT IS WITHIN ENGAGEMENT RANGE OF ONE OR MORE ENEMY UNITS CAN BE SELECTED TO FIGHT NEXT, EVEN IF IT HAS ALREADY FOUGHT THIS PHASE.",
-    "trigger": "fight phase, immediately after an enemy unit has fought",
-    "effect": "a friendly unit in engagement range fights out-of-sequence — strikes the enemy that just fought before activation continues (simulator gates the heuristic on the enemy having killed a model so we spend the 2 CP on real swings, not free retaliations)",
+    "quoted_text": "Use this Stratagem in your opponent's Fight phase, just after an enemy unit has fought. Target: One unit from your army that is within Engagement Range of one or more enemy units and that has not already been selected to fight this phase. Effect: Your unit is eligible to fight this phase, and you can select it to fight next.",
+    "trigger": "fight phase, immediately after an enemy unit has fought, targeting a friendly unit in engagement range that has NOT already fought this phase",
+    "effect": "a friendly unit in engagement range fights out-of-sequence — strikes the enemy that just fought before activation continues (simulator gates the heuristic on the enemy having killed a model so we spend the 2 CP on real swings, not free retaliations); the 'has not already been selected to fight this phase' restriction is incidentally satisfied under this sim's non-alternating fight model",
     "scope": "phase-gated"
   },
   "Stratagem.Tank Shock": {
@@ -23,15 +23,6 @@
     "trigger": "charge phase, when a friendly VEHICLE unit ends a charge move",
     "effect": "the target enemy unit takes D3 mortal wounds (approximation: simulator skips the d6+T 7+ gate and applies median D3 = 2 mortal wounds deterministically; matches our other 'median D3' uses such as Reanimation Protocols)",
     "scope": "phase-gated",
-    "approximation": true
-  },
-  "simulator.heroic_intervention_core": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#CHARGE-PHASE",
-    "rule_name": "Heroic Intervention (core CHARACTER ability, 10e)",
-    "quoted_text": "Heroic Intervention: After the opposing player has resolved their charges, you can select any of your CHARACTER models that are within 6\" of any enemy units. Each of those models can move up to 6\" (3\" if WALKER) — they must end the move within Engagement Range of one of those enemy units.",
-    "trigger": "opponent's charge phase, after an enemy unit has resolved its charge move within 6\" of any friendly CHARACTER",
-    "effect": "each eligible friendly CHARACTER may make a free 6\" move (3\" if WALKER) toward the charger and must end the move within engagement range of that charger; no CP is spent (approximation: SwegHammer aims the move directly at the charger and lands inside 1\" engagement when reachable; the 'WALKER' gate is keyed off the WALKER unit keyword)",
-    "scope": "keyword-gated",
     "approximation": true
   },
   "Stratagem.Disgustingly Resilient": {
@@ -313,6 +304,14 @@
     "scope": "army-wide"
   },
   "Stratagem.Insane Bravery": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-stratagems/#Insane-Bravery",
+    "rule_name": "Insane Bravery",
+    "quoted_text": "Use this Stratagem in your Command phase, in the Battle-shock step, just before you take a Battle-shock test for a unit from your army. That Battle-shock test is automatically passed. You cannot use this Stratagem more than once per battle.",
+    "trigger": "own Command phase, Battle-shock step, just before a Battle-shock test for a friendly unit; once per battle",
+    "effect": "(NO-OP, PENDING IN-PHASE HOOK) the 10e Battle-shock step in Battle._run_battleshock_phase executes before the round-start stratagem dispatcher, so the pre-test auto-pass requires an in-phase hook the current dispatcher does not expose. The stratagem is registered in UNIVERSAL_STRATAGEMS for auditor + stratagems_for_army completeness; the once_per_battle flag is already encoded so the future dispatcher can simply call _fire_stratagem and the spent-once gate works. 1 Command Point, Epic Deed.",
+    "scope": "army-wide"
+  },
+  "Stratagem.Insane Bravery (War Horde)": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
     "rule_name": "Insane Bravery (War Horde Stratagem)",
     "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool returned ECONNREFUSED at edit time; source URL is the canonical reference.) When: your Command phase, or just before a Battle-shock test is taken for an ORKS INFANTRY unit from your army. Effect: that unit automatically passes any Battle-shock tests it is required to take this turn.",
@@ -420,59 +419,13 @@
     "scope": "phase-gated",
     "approximation": true
   },
-  "Stratagem.Warrior Pride": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
-    "rule_name": "Warrior Pride (Oathband Stratagem)",
-    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: any phase, on one LEAGUES OF VOTANN unit attacking an enemy unit that has one or more Judgement Tokens. Effect: until the end of the phase, models in your unit re-roll Wound rolls when targeting that Judgement-Token-bearing enemy unit.",
-    "trigger": "any phase, on a friendly Leagues of Votann unit attacking a Judgement-Token-bearing enemy",
-    "effect": "ST-1: now routes through `transient_reroll_wounds` (full failed-wound re-roll for the round; applies to both melee and shooting via the att_reroll_all_wounds path) on the highest-DPA Votann unit. Previously proxied through transient_plus_one_to_wound_{melee,shooting}, which was strictly stronger (+1 to wound averages ~25% extra wounds at threshold flip vs ~17% for reroll-wounds). SC5-5 fix: the Judgement-Token-bearing gate is ENFORCED at strategy time (`tokens.get(target.uid, 0) > 0`), not collapsed onto highest-threat. Name + CP cost (1) per iter-8 anti-DG audit (docs/AUTO_LOOP_ITER8_ANTI_DG_AUDIT.md fix #2).",
-    "scope": "phase-gated",
-    "approximation": true
-  },
-  "Stratagem.Wrath of the Ancestors": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
-    "rule_name": "Wrath of the Ancestors (Oathband Stratagem)",
-    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: your Shooting phase, on a LEAGUES OF VOTANN unit selected to shoot. Effect: until the end of the phase, your unit's ranged weapons gain the [LETHAL HITS] ability for attacks targeting Judgement-Token-bearing enemy units.",
-    "trigger": "your Shooting phase, on a friendly Votann unit shooting a Judgement-Token-bearing enemy",
-    "effect": "ST-1: routes through `transient_lethal_hits` (the proper keyword grant — composes into `effective_lethal_hits` at the crit-to-hit branch in Unit.attack) on the highest-DPA Votann shooter. Previously proxied through `transient_plus_one_to_hit_shooting`, which over-modelled the buff (+1-to-hit lifts every die above the previous fail threshold vs [LETHAL HITS] firing only on natural 6s). SC5-5 fix: the Judgement-Token gate is ENFORCED (`tokens.get(target.uid, 0) > 0`), matching Warrior Pride. Name + CP cost (1) per iter-8 anti-DG audit.",
-    "scope": "phase-gated",
-    "approximation": true
-  },
-  "Stratagem.Glory of the Hearth": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
-    "rule_name": "Glory of the Hearth (Oathband Stratagem)",
-    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: your Shooting phase, on a LEAGUES OF VOTANN VEHICLE unit selected to shoot. Effect: until the end of the phase, that unit re-rolls Hit rolls AND re-rolls Wound rolls when shooting.",
-    "trigger": "your Shooting phase, on a friendly Votann VEHICLE selected to shoot",
-    "effect": "(APPROXIMATION) SwegHammer routes the offensive value through `transient_reroll_hits_shooting` on the highest-DPA Votann VEHICLE — the wound-reroll leg is dropped (no transient wound-reroll flag). Strictly weaker than the codex (~half the value), direction-correct. Falls back to skip-the-spend if no Votann VEHICLE is in the army list (e.g. Hearthkyn-mono builds). Name + CP cost (1) per iter-8 anti-DG audit.",
-    "scope": "phase-gated",
-    "approximation": true
-  },
-  "Stratagem.Ironkin Sequence": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
-    "rule_name": "Ironkin Sequence (Oathband Stratagem)",
-    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: your Shooting phase, on a LEAGUES OF VOTANN IRONKIN unit selected to shoot. Effect: until the end of the phase, add 1 to the Hit rolls of attacks made by models in that unit.",
-    "trigger": "your Shooting phase, on a friendly Votann IRONKIN unit selected to shoot",
-    "effect": "Maps DIRECTLY onto `transient_plus_one_to_hit_shooting` on the highest-DPA IRONKIN unit — clean mapping, no approximation gap. Falls back to any Votann unit if no IRONKIN-keyword unit is in the list (Hearthkyn lists ARE IRONKIN, so the fallback rarely triggers). Name + CP cost (1) per iter-8 anti-DG audit.",
-    "scope": "phase-gated",
-    "approximation": false
-  },
   "Stratagem.Ancestral Sentence": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
-    "rule_name": "Ancestral Sentence (Oathband Stratagem)",
-    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 2 CP. When: the start of any phase. Effect: select one enemy unit (other than a CHARACTER) within 18\" of your WARLORD and visible to it. That unit is issued one Judgement Token.",
-    "trigger": "start of any phase, on the friendly Votann Warlord",
-    "effect": "Maps DIRECTLY onto the existing `Army.judgement_tokens[uid]` dict — increments the token count on the highest-threat enemy unit so subsequent Votann attacks fire the existing `simulator.judgement_tokens` 1+/3+ re-roll thresholds via `_maybe_award_judgement_token`'s downstream consumers. Clean mapping, no approximation gap. Gated on `army.is_votann_army` so a non-Votann list carrying Oathband by accident skips the spend. The 18\" + line-of-sight gate from the Warlord is dropped (SwegHammer's `_highest_threat_enemy` doesn't filter on range). Name + CP cost (2) per iter-8 anti-DG audit.",
-    "scope": "phase-gated",
-    "approximation": false
-  },
-  "Stratagem.Void-Armoured Resilience": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
-    "rule_name": "Void-Armoured Resilience (Oathband Stratagem)",
-    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: any phase, on a LEAGUES OF VOTANN unit. Effect: until the end of the phase, models in that unit have a Feel No Pain 5+.",
-    "trigger": "any phase, on a friendly Leagues of Votann unit",
-    "effect": "Maps DIRECTLY onto `transient_fnp_5` on the most vulnerable Votann unit — clean mapping, no approximation gap. Real codex effect is per-phase rather than per-round; SwegHammer's round-scoped transient flag is functionally equivalent for the typical case (one defensive trigger per round). Name + CP cost (1) per iter-8 anti-DG audit.",
-    "scope": "phase-gated",
-    "approximation": false
+    "rule_name": "Ancestral Sentence (Needgaard Oathband Stratagem)",
+    "quoted_text": "Until the end of the phase, ranged weapons equipped by models in your unit have the [SUSTAINED HITS 1] ability. If you spent YP during this use of this Stratagem, until the end of the phase, those weapons have the [SUSTAINED HITS 2] ability instead.",
+    "trigger": "Votann unit selected to shoot",
+    "effect": "Ranged weapons gain [SUSTAINED HITS 1] (or [SUSTAINED HITS 2] if YP spent)",
+    "scope": "unit-led"
   },
   "Stratagem.Storm of Fire": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
@@ -616,6 +569,94 @@
     "trigger": "end of own Fight phase, on a friendly CHAOS SPACE MARINES CHARACTER that destroyed an enemy unit with a melee attack this phase",
     "effect": "(APPROXIMATION — proxy explicitly tagged) Collapsed to a permanent +1-to-wound-melee snowball stamped on the CHARACTER (eye_of_the_gods_stamped flag) on the first qualifying melee kill. The D6+Wounds table roll and the choice between +M / +T / +A/+S / +D-melee are dropped — a single direction-correct melee uplift stands in for the whole table. Stacks at the wound-mod delta level with transient_plus_one_to_wound_melee (Profane Zeal) before the 10e ±1 modifier cap clamps. Fires reactively at the melee kill site (Battle._do_fight), not via the round-start dispatcher, because the trigger requires an actual melee kill. CSM-EYE-OF-GODS of sim-calibration-6 (CSM was -7.08 pts under-perf per CSM-DIAG-2). 1 CP.",
     "scope": "character-only",
+    "approximation": true
+  },
+  "Stratagem.Void Hardened": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
+    "rule_name": "Void Hardened (Needgaard Oathband Stratagem)",
+    "quoted_text": "Worsen the Armour Penetration characteristic of that attack by 1.",
+    "trigger": "Friendly LEAGUES OF VOTANN unit targeted by ranged attack",
+    "effect": "Worsen Armour Penetration of incoming attacks by 1 (defensive)",
+    "scope": "unit-led"
+  },
+  "Stratagem.Draught of Terror": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion",
+    "rule_name": "Draught of Terror (Daemonic Incursion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time; 40k.app cross-referenced per project convention.) When: your Shooting phase or Fight phase. Target: one CHAOS DAEMONS unit from your army. Effect: improve the Armour Penetration characteristic of attacks made by that unit by 1, and re-roll Wound rolls for attacks made by that unit against Battle-shocked enemy units until end of phase.",
+    "trigger": "own Shooting or Fight phase, on a friendly CHAOS DAEMONS unit selected to shoot or fight",
+    "effect": "(APPROXIMATION) SwegHammer has no transient AP-improvement flag; routed through transient_plus_one_to_wound_shooting on the highest-DPA CHAOS DAEMONS unit. Direction-correct offensive uplift on wound rolls; wound-reroll-vs-battleshocked rider dropped (no battleshock-state condition on wound rerolls). DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Warp Surge": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion",
+    "rule_name": "Warp Surge (Daemonic Incursion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: your Charge phase. Target: one LEGIONES DAEMONICA unit within your army's Shadow of Chaos. Effect: until the end of the phase, that unit is eligible to declare a charge in a turn in which it Advanced.",
+    "trigger": "own Charge phase, on a friendly LEGIONES DAEMONICA unit within Shadow of Chaos",
+    "effect": "(APPROXIMATION) Routed through transient_assault_this_round on the highest-DPA CHAOS DAEMONS unit. Same flag as Aggressive Mobility / Feigned Retreat / Multipotentiality — advance-and-charge proxy. Shadow of Chaos gate dropped (always-armed round-start approximation). DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Daemonic Invulnerability": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion",
+    "rule_name": "Daemonic Invulnerability (Daemonic Incursion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: any phase, just after an invulnerable saving throw is failed for a model in a LEGIONES DAEMONICA unit from your army. Effect: re-roll that saving throw.",
+    "trigger": "any phase, after a friendly LEGIONES DAEMONICA model fails an invulnerable save",
+    "effect": "(APPROXIMATION) SwegHammer has no transient invuln-save-reroll flag; routed through transient_invuln_4 on the most vulnerable CHAOS DAEMONS unit (grants a 4+ invulnerable save for the round — strictly stronger than a failed-invuln-reroll on a typical 5+ Daemon invuln, acceptable given the round-start dispatcher collapses the reactive trigger). Direction-correct defensive buff. DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Blood Begets Skulls": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/blood-legion",
+    "rule_name": "Blood Begets Skulls (Blood Legion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: your Charge phase. Target: one LEGIONES DAEMONICA KHORNE unit from your army. Effect: until the end of the phase, that unit is eligible to declare a charge in a turn in which it Advanced.",
+    "trigger": "own Charge phase, on a friendly LEGIONES DAEMONICA KHORNE unit",
+    "effect": "(APPROXIMATION) Routed through transient_assault_this_round on the highest-DPA KHORNE DAEMONS unit (falls back to any DAEMON unit if none). Same proxy as Warp Surge / Aggressive Mobility. Direction-correct: advance-and-charge delivery for Khorne melee builds. DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Wrath Undeniable": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/blood-legion",
+    "rule_name": "Wrath Undeniable (Blood Legion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: the Fight phase, just after a LEGIONES DAEMONICA KHORNE model in your unit is destroyed by a melee attack. Effect: roll one D6: on a 4+, do not remove the destroyed model from play; it fights before it is removed.",
+    "trigger": "Fight phase, just after a friendly LEGIONES DAEMONICA KHORNE model is destroyed by a melee attack",
+    "effect": "(APPROXIMATION) Per-destroyed-model fight-before-removal hook not modelled; routed through transient_plus_one_to_wound_melee on the highest-DPA KHORNE DAEMONS melee unit (same proxy as Only In Death Does Duty End / Avenge the Fallen — 'one last melee swing from a dying unit'). Falls back to any DAEMON unit if no KHORNE unit found. Direction-correct. DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Seeping Virulence": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/plague-legion",
+    "rule_name": "Seeping Virulence (Plague Legion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: the Fight phase. Target: one LEGIONES DAEMONICA NURGLE unit from your army. Effect: until the end of the phase, each time a model in your unit makes an attack, an unmodified Hit roll of 5+ scores a Critical Hit.",
+    "trigger": "own Fight phase, on a friendly LEGIONES DAEMONICA NURGLE unit",
+    "effect": "(APPROXIMATION) 5+ Critical Hit is equivalent to [LETHAL HITS] on a 5+ threshold (auto-wound on any 5+ hit). Routed through transient_lethal_hits on the highest-DPA NURGLE DAEMONS unit (falls back to any DAEMON unit). SwegHammer fires [LETHAL HITS] at 6+ natural crit; this proxy under-models the codex by one pip on the crit threshold. Direction-correct offensive buff. Falls back to any DAEMON unit if no NURGLE unit found. DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Foetid Resurgence": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/plague-legion",
+    "rule_name": "Foetid Resurgence (Plague Legion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: your Command phase. Target: one LEGIONES DAEMONICA NURGLE unit from your army that has had models destroyed this battle. Effect: return up to 1 destroyed model (or up to D3 destroyed models if BATTLELINE) to your unit with their full wounds remaining. If a MONSTER unit, one model regains up to D3+1 lost wounds instead.",
+    "trigger": "own Command phase, on a friendly LEGIONES DAEMONICA NURGLE unit that has lost models",
+    "effect": "(APPROXIMATION) No destroyed-model bank per unit in SwegHammer; routed through transient_undying_legions_pulse = 3 on the most wounded NURGLE DAEMONS unit (same plumbing as Mob Up / Replenishing Swarms — restores 3 wounds via the mid-phase reanimation pulse; D3 median = 2, D3+1 median = 3, 3 chosen as middle estimate). Falls back to any DAEMON unit if no NURGLE unit found. DAEMONS-STRATAGEMS-V1 (wave 53). 2 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Archagonists": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/legion-of-excess",
+    "rule_name": "Archagonists (Legion of Excess Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: your Shooting phase or Fight phase. Target: one LEGIONES DAEMONICA SLAANESH unit from your army. Effect: until the end of the phase, each time a model in your unit makes an attack, add 1 to the Wound roll.",
+    "trigger": "own Shooting or Fight phase, on a friendly LEGIONES DAEMONICA SLAANESH unit",
+    "effect": "Codex text maps cleanly to transient_plus_one_to_wound_melee on the highest-DPA SLAANESH DAEMONS unit (Fight phase path dominates for a Slaanesh rush list). Falls back to any DAEMON unit if no SLAANESH unit found. No APPROXIMATION qualifier — the wound-modifier matches the codex exactly via the existing +1-to-wound transient path (10e modifier cap enforced). DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated"
+  },
+  "Stratagem.Flickering Reality": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/scintillating-legion",
+    "rule_name": "Flickering Reality (Scintillating Legion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: any phase. Target: one LEGIONES DAEMONICA TZEENTCH unit from your army. Effect: roll one D6 (spend a Flux token to re-roll); until the end of the phase, each time an attack targets your unit, on an unmodified Hit roll of [that result] the attack sequence ends.",
+    "trigger": "any phase, on a friendly LEGIONES DAEMONICA TZEENTCH unit being targeted by attacks",
+    "effect": "(APPROXIMATION) Per-result attack-negation transient not modelled in SwegHammer; routed through transient_plus_one_save on the most vulnerable TZEENTCH DAEMONS unit (same proxy as Lightning-Fast Reactions / Skyborne Sanctuary / Webway Tunnel). Falls back to any DAEMON unit if no TZEENTCH unit found. Direction-correct defensive buff. DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated",
     "approximation": true
   }
 }

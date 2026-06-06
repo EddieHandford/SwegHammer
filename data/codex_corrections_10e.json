@@ -1,0 +1,376 @@
+{
+  "_comment": "BSData lag corrections for the 10th edition Wahapedia codex. Layered into load_catalog BETWEEN the BSData base and overrides.json (see code/bsdata/loader.py:load_catalog docstring). Each entry restores a canonical codex value that BSData's main branch still carries at the pre-errata value. Distinct from overrides.json which holds SwegHammer hand-tuning / proxies. When a BSData refresh fixes a corrected value upstream, the entry here can be retired by checking that bsdata_was no longer matches the parsed value.",
+  "_codex_version": "10e",
+  "_verified_against": "https://wahapedia.ru/wh40k10ed/ as of 2026-05-28",
+  "_bsdata_snapshot": "main branch fetched 2026-05-18 (see data/bsdata/cache/ timestamps); SwegHammer DEFAULT_TAG in code/bsdata/fetch.py is currently 'main' so the snapshot is not version-locked. Pinning to a stable BSData tag is a separate piece of work (parking lot).",
+  "corrections": {
+    "aeldari_drukhari_kabalite_warriors": {
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Kabalite-Warriors",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d ANTI-INFANTRY tightened from 3+ to 4+ on Splinter Rifle / Cannon",
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      },
+      "notes": "Splinter Rifle / Cannon / Pistol / Carbine all share the same Anti-Infantry 4+ profile per the current codex"
+    },
+    "aeldari_drukhari_wyches": {
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Wyches",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Splinter Pistols Anti-Infantry 4+",
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
+    },
+    "aeldari_drukhari_reavers": {
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Reavers",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Splinter weapons Anti-Infantry 4+",
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
+    },
+    "aeldari_drukhari_venom": {
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        },
+        "secondary_anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Venom",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d twin Splinter Cannon mounts Anti-Infantry 4+",
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        },
+        "secondary_anti_keywords": {
+          "INFANTRY": 3
+        }
+      },
+      "notes": "Both primary and secondary weapon profiles carry the same Splinter Cannon profile"
+    },
+    "aeldari_drukhari_archon": {
+      "fields": {
+        "secondary_anti_keywords": {
+          "INFANTRY": 4
+        },
+        "invuln_save": 4
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Archon",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Splinter Pistol Anti-Infantry 4+ | Additional invuln fix (wave 48 mapper invuln-prose-walk): BSData ability text reads \"This unit has a 2+ invulnerable save. (See Shadowfield ability)\" reflecting the pre-10e Shadowfield wargear shape; current Wahapedia 10e datasheet codifies the Shadowfield-baked baseline as 4+ invulnerable on the unit.",
+      "bsdata_was": {
+        "secondary_anti_keywords": {
+          "INFANTRY": 3
+        },
+        "invuln_save": 2
+      }
+    },
+    "aeldari_drukhari_hellions": {
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Hellions",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Splinter Pods Anti-Infantry 4+",
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
+    },
+    "aeldari_drukhari_succubus": {
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Succubus",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Splinter Pistol Anti-Infantry 4+",
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
+    },
+    "aeldari_drukhari_talos": {
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Talos",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Stinger Pod Anti-Infantry 4+",
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
+    },
+    "aeldari_drukhari_scourges_with_shardcarbines": {
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Scourges",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Shardcarbine Anti-Infantry 4+",
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
+    },
+    "aeldari_craftworlds_ynnari_kabalite_warriors": {
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Kabalite-Warriors",
+      "errata": "Mirror of Drukhari Kabalite Warriors correction; Ynnari pulls from the same Drukhari weapon profiles via catalogueLink",
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
+    },
+    "aeldari_craftworlds_ynnari_wyches": {
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wyches",
+      "errata": "Mirror of Drukhari Wyches correction",
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
+    },
+    "aeldari_craftworlds_ynnari_reavers": {
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Reavers",
+      "errata": "Mirror of Drukhari Reavers correction",
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
+    },
+    "aeldari_craftworlds_ynnari_venom": {
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        },
+        "secondary_anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Venom",
+      "errata": "Mirror of Drukhari Venom correction (twin Splinter Cannon mounts)",
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        },
+        "secondary_anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
+    },
+    "aeldari_craftworlds_ynnari_archon": {
+      "fields": {
+        "secondary_anti_keywords": {
+          "INFANTRY": 4
+        },
+        "invuln_save": 4
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Archon",
+      "errata": "Mirror of Drukhari Archon correction (Splinter Pistol) | Additional invuln fix (wave 48 mapper invuln-prose-walk): BSData ability text reads \"This unit has a 2+ invulnerable save. (See Shadowfield ability)\" reflecting the pre-10e Shadowfield wargear shape; current Wahapedia 10e datasheet codifies the Shadowfield-baked baseline as 4+ invulnerable on the unit.",
+      "bsdata_was": {
+        "secondary_anti_keywords": {
+          "INFANTRY": 3
+        },
+        "invuln_save": 2
+      }
+    },
+    "death_guard_blightlord_terminators": {
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Blightlord-Terminators",
+      "errata": "Mirror of Plague Marines correction \u00e2\u20ac\u201d Blightlords carry the same Plague weapon profile family",
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 2
+        }
+      }
+    },
+    "aeldari_craftworlds_corsair_voidscarred": {
+      "fields": {
+        "anti_keywords": {}
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/Corsair-Voidscarred",
+      "errata": "BSData mapper attributed Anti-Infantry 2+ to the wrong weapon profile. Sim's primary weapon for this unit is Shuriken Pistol (Strength 4, AP -1, Damage 1), which on the current Wahapedia datasheet has only [ASSAULT] and [PISTOL] keywords. The Anti-Infantry 2+ in the BSData parse appears to have leaked from the Executioner profile (which legitimately carries Anti-Infantry 2+) onto the Shuriken Pistol entry. Since the sim's recorded weapon name and stats match the Shuriken Pistol, the corrective action is to clear anti_keywords on that profile.",
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 2
+        }
+      },
+      "notes": "Verified weapons on the Wahapedia Voidscarred datasheet: Shuriken Pistol (no anti-keyword), Neuro Disruptor (Anti-Infantry 2+), Executioner (Anti-Infantry 2+, Psychic). Kharseth's Dread of the Deep Void, Troupe Master's Neuro Disruptor secondary, and Shadowseer's Neuro Disruptor all legitimately retain Anti-Infantry 2+ per current codex and need no correction."
+    },
+    "chaos_daemons_library_great_unclean_one": {
+      "fields": {
+        "attacks": 7,
+        "secondary_attacks": 5
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Great-Unclean-One",
+      "errata": "DAEMONS-GREATER-COMBAT-V1 (wave 51): mapper banker-rounding artifact on two variable-dice weapons. (1) Putrid vomit primary ranged: BSData A=D6+3, expected value=6.5; Python round(6.5)=6 (round-half-to-even) truncates to 6, but the correct rounded expected value is 7. (2) Plague flail secondary ranged: BSData A=D6+1, expected value=4.5; Python round(4.5)=4 truncates to 4, but the correct rounded expected value is 5. Both weapons were verified against BSData raw Chaos Daemons Library.cat.gz (fresh 2026-05-15). Wahapedia DNS unavailable from agent session; BSData is the primary source per CLAUDE.md section 6 and matches known Wahapedia stat layout for these weapons.",
+      "bsdata_was": {
+        "attacks": 6,
+        "secondary_attacks": 4
+      },
+      "notes": "Two additional schema gaps identified but cannot be corrected via fields override without new schema infrastructure: (1) Bilesword strike and Bilesword sweep both carry LETHAL HITS keyword in BSData (infoLink confirmed). UnitProfile has no melee_lethal_hits field; the existing lethal_hits field is ranged-only. Follow-up: add melee_lethal_hits bool to UnitProfile and mapper. (2) Keeper of Secrets Snapping claws carries EXTRA ATTACKS + DEVASTATING WOUNDS (BSData confirmed). Snapping claws fires in addition to Witstealer sword in the Fight phase; the extra_melee_profiles mapper pathway exists in schema but is not populated by the mapper (mapper TODO at line 1615). Follow-up: wire Snapping claws into extra_melee_profiles for Keeper of Secrets via overrides.json once mapper is extended. Both items parked per DAEMONS-GREATER-COMBAT-V1 task instructions."
+    }
+  },
+  "_audit_log": [
+    {
+      "date": "2026-05-29",
+      "round": "DAEMONS-GREATER-COMBAT-V1 (wave 51, Stage 1 calibration, Tier 2)",
+      "action": "Added 1 correction for Great Unclean One (2 fields: Putrid vomit attacks 6->7, Plague flail attacks 4->5). Parked 2 schema-gap items as notes on the entry.",
+      "evidence": "Stage A baseline: UNIT_CATALOG loaded from parsed.json shows Great Unclean One attacks=6 (Putrid vomit primary) and secondary_attacks=4 (Plague flail). Stage B cross-check against BSData Chaos Daemons Library.cat.gz (fresh 2026-05-15, the canonical BSData source per CLAUDE.md section 6) confirms Putrid vomit A=D6+3 and Plague flail A=D6+1. Expected values are 6.5 and 4.5 respectively. Python built-in round() uses banker rounding (round-half-to-even), so round(6.5)=6 and round(4.5)=4 -- both round DOWN to the nearest even integer. Conventional simulation practice rounds 0.5 cases UP (i.e. 7 and 5). The other 4 units (Bloodthirster, Lord of Change, Keeper of Secrets, Skarbrand) show no weapon stat discrepancies against BSData. Wahapedia DNS unavailable from agent session (ECONNREFUSED); BSData used as primary source per CLAUDE.md section 6. Two schema gaps identified and parked: GUO Bilesword LETHAL HITS (no melee_lethal_hits field in UnitProfile), KoS Snapping claws EXTRA ATTACKS (no mapper population of extra_melee_profiles). All other Greater Daemon stats verified correct: M, T, Sv, W, Inv, OC, Ld, melee weapon primary profiles, ranged primary profiles, points, min_models.",
+      "added_keys": [
+        "chaos_daemons_library_great_unclean_one"
+      ],
+      "parked_schema_gaps": [
+        "chaos_daemons_library_great_unclean_one: Bilesword LETHAL HITS (melee_lethal_hits schema missing)",
+        "chaos_daemons_library_keeper_of_secrets: Snapping claws EXTRA ATTACKS + DEVASTATING WOUNDS (extra_melee_profiles not mapper-populated)"
+      ]
+    },
+    {
+      "date": "2026-05-28",
+      "round": "CODEX-STALE-DARK-ANGELS audit (wave-47, Stage 1 calibration, Tier 2)",
+      "action": "Added 8 Dark Angels BSData-lag corrections for missing invulnerable saves",
+      "evidence": "Audited 8 load-bearing Dark Angels units (Azrael, Belial, Sammael, Asmodai, Lion El'Jonson, Deathwing Knights, Ravenwing Black Knights, Ezekiel) against Wahapedia 10e datasheets. All 8 have invuln_save=7 (no invuln) in BSData parsed.json. The Dark Angels catalogue (Imperium - Dark Angels.cat.gz) encodes invulnerable saves as inline <profile typeName=\"Abilities\"> elements with a Description characteristic \u00e2\u20ac\u201d the same structural pattern as the Chaos Daemons Library batch from wave-47 CODEX-STALE-DAEMONS. mapper.extract_invuln() only walks infoLinks and entryLink chains, missing the inline-profile encoding entirely. Wahapedia confirms: Azrael 4+, Belial 4+, Sammael 4+, Asmodai 4+, Ezekiel 4+, Deathwing Knights 4+, Lion El'Jonson 3+ (The Emperor's Shield), Ravenwing Black Knights 5+. No overrides.json entries for Dark Angels exist, so no shadow-removal needed (mirrors Karanak fix is not applicable here). Wahapedia DNS resolved successfully from worktree.",
+      "added_keys": [
+        "dark_angels_asmodai",
+        "dark_angels_azrael",
+        "dark_angels_belial",
+        "dark_angels_deathwing_knights",
+        "dark_angels_ezekiel",
+        "dark_angels_lion_el_jonson",
+        "dark_angels_ravenwing_black_knights",
+        "dark_angels_sammael"
+      ]
+    },
+    {
+      "date": "2026-05-28",
+      "round": "wave-47 Round 2 verification",
+      "action": "Reverted 5 over-broad Round 1 DG/CSM Plague corrections",
+      "evidence": "WebFetch verification of Wahapedia datasheets confirmed: Plague Sprayer (Foul Blightspawn), Plaguespitter (Bloat-drone), Twin plague spewer (Lord of Virulence), Plague spewer (Plague Marines via basket) all genuinely carry ANTI-INFANTRY 2+ in current codex. Blightlord Terminators retained \u00e2\u20ac\u201d Combi-weapon is ANTI-INFANTRY 4+ per codex; BSData 2+ is real lag",
+      "reverted_keys": [
+        "death_guard_plague_marines",
+        "death_guard_foetid_bloat_drone",
+        "death_guard_lord_of_virulence",
+        "death_guard_foul_blightspawn",
+        "chaos_space_marines_plague_marines"
+      ]
+    },
+    {
+      "date": "2026-05-28",
+      "round": "post-BSData-main-refresh (2026-05-28)",
+      "action": "Retired 1 correction now obsolete after BSData refresh",
+      "evidence": "BSData main updated Ynnari Succubus to clear anti_keywords (matches codex). Other 16 corrections still valid \u00e2\u20ac\u201d BSData still carries the pre-errata Splinter ANTI-INFANTRY 3+ values.",
+      "retired_keys": [
+        "aeldari_craftworlds_ynnari_succubus"
+      ]
+    },
+    {
+      "date": "2026-05-28",
+      "round": "CODEX-STALE-DEATHWATCH audit",
+      "action": "Added 1 Deathwatch correction for unparsed invulnerable save",
+      "evidence": "Audited 5 Deathwatch-unique tournament-relevant units (Watch Master, Deathwatch Veterans, Corvus Blackstar, Indomitor Kill Team, Proteus Kill Team). Proteus Kill Team only exists as a Legends entry under Agents of the Imperium and was skipped. Wahapedia hosts current Deathwatch datasheets under imperial-agents (no deathwatch faction page). Veterans, Corvus Blackstar and Indomitor Kill Team weapon stats matched Wahapedia within basket-blend tolerance. Watch Master's 4+ invulnerable save is recorded as ability text in the Deathwatch catalogue file and the mapper does not parse it, leaving invuln_save at the no-invuln sentinel of 7 in parsed.json. Wahapedia confirms 4+ invuln in current codex.",
+      "added_keys": [
+        "deathwatch_watch_master"
+      ]
+    },
+    {
+      "date": "2026-05-28",
+      "round": "CODEX-STALE-DAEMONS audit (parent .cat 9mo stale; Library .cat fresh 2026-05-15)",
+      "action": "Added 7 BSData-lag corrections for Chaos Daemons invulnerable saves; removed wrong Karanak override from overrides.json",
+      "evidence": "Stats / weapons / OC / Ld / M all match codex. Single BSData-side gap: invulnerable save encoded as inline <profile> not <infoLink>, mapper misses. Behavioural impact mostly zero (overrides.json hand-patched same values) except Karanak which had wrong 5+ override; corrections layer 4+ now applies after override removal.",
+      "added_keys": [
+        "chaos_daemons_library_bloodthirster",
+        "chaos_daemons_library_lord_of_change",
+        "chaos_daemons_library_great_unclean_one",
+        "chaos_daemons_library_keeper_of_secrets",
+        "chaos_daemons_library_bloodletters",
+        "chaos_daemons_library_skarbrand",
+        "chaos_daemons_library_karanak"
+      ]
+    },
+    {
+      "date": "2026-05-28",
+      "round": "MAPPER-FNP-PROSE-WALK (Tier 2 mapper structural fix)",
+      "action": "Added Shape 3 to extract_fnp; corrected 2 wrong test assertions; retired 27 redundant fnp=7 overrides from overrides.json",
+      "evidence": "Investigated the two failing tests (aeldari_drukhari_wracks and space_wolves_wulfen expecting feel no pain 5). Root-cause trace: (1) BSData v10.6.0 carried direct feel no pain infoLinks on both units; BSData main removed those infoLinks in a refactoring. (2) The old extract_fnp prose walk (pre-MAP-2) found feel no pain 5 for Wracks via a false-positive path through the Drukhari Crusade entryLink into the Ascendant Lord selectionEntryGroup, and for Wulfen via the 'Lone Wolf Battle Scars' Crusade battle honour upgrade. (3) Wahapedia 10e datasheets confirm neither unit has feel no pain as a base stat: Wracks have conditional feel no pain via Power from Pain (Pain token mechanic, already modelled at runtime in code/units.py), and Wulfen's BSData v10.6.0 'Death Frenzy' ability was renamed 'Savage Frenzy' in main without re-adding the feel no pain infoLink. Tests corrected to expect fnp=7. The 27 retired overrides were all fnp=7 suppression patches added at SC5-8/SC5-10 to fix prose-walk false positives; the MAP-2 fix (1927b99) correctly pruned upgrade subtrees, making those overrides redundant where the mapper now returns 7 natively. The 6 partial retirements (fnp field removed but entry kept for base-shape or secondary-weapon data) were verified safe: all 6 show fnp=7 in post-fix parsed.json.",
+      "shape_added": "extract_fnp Shape 3: inline <profile typeName='Abilities'> on the unit whose name starts with 'feel no pain' and whose Description characteristic contains 'Feel No Pain N+'. Analogous to extract_invuln Shape 3 from MAPPER-INVULN-PROSE-WALK. No units currently use this shape in BSData; added as forward-compatibility for the encoding.",
+      "new_false_positives": "none — Shape 3 fires only on profiles named 'Feel No Pain *', which no current BSData unit carries; the old prose walk false positives for Wracks/Wulfen were from Crusade content and were already suppressed by overrides.json.",
+      "retired_overrides": [
+        "aeldari_drukhari_wyches",
+        "aeldari_drukhari_hellions",
+        "aeldari_drukhari_reavers",
+        "aeldari_drukhari_kabalite_warriors",
+        "aeldari_drukhari_mandrakes",
+        "aeldari_drukhari_scourges_with_shardcarbines",
+        "aeldari_drukhari_venom",
+        "aeldari_drukhari_voidraven_bomber",
+        "aeldari_drukhari_wracks",
+        "aeldari_drukhari_hand_of_the_archon",
+        "aeldari_drukhari_beastmaster_legends",
+        "aeldari_drukhari_tantalus_legends",
+        "aeldari_drukhari_reaper_legends",
+        "aeldari_drukhari_raven_strike_fighter_legends",
+        "tyranids_winged_tyranid_prime",
+        "tyranids_parasite_of_mortrex",
+        "tyranids_tervigon",
+        "tyranids_broodlord",
+        "tyranids_neurotyrant",
+        "tyranids_malanthrope_legends",
+        "tyranids_tyranid_prime_with_lash_whip",
+        "tyranids_hive_tyrant (fnp field only)",
+        "tyranids_winged_hive_tyrant (fnp field only)",
+        "aeldari_drukhari_raider (fnp field only)",
+        "aeldari_drukhari_ravager (fnp field only)",
+        "aeldari_drukhari_razorwing_jetfighter (fnp field only)",
+        "tyranids_trygon (fnp field only)"
+      ]
+    }
+  ]
+}

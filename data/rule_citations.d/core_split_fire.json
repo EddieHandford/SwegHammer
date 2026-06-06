@@ -1,0 +1,12 @@
+{
+  "_comment": "Citation for split-fire target selection (10e Shooting phase). Built env-gated behind SWEG_SQUADSHOOT (squad rebuild Stage D). Wahapedia may be unreachable from some build environments; the quoted_text is the canonical 10e core-rules wording for the Select Targets step. Source URL recorded for verification per CLAUDE.md rule 6/10.",
+
+  "simulator.split_fire": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Shooting-Phase",
+    "rule_name": "Shooting Phase — Select Targets (split fire)",
+    "quoted_text": "When you select a unit to shoot with, you must select the target(s) for all of the ranged weapons being used by models in that unit before any attacks are resolved. ... all of the models in the unit do not have to target the same enemy unit.",
+    "trigger": "squad rebuild Stage D (env-gated SWEG_SQUADSHOOT): a multi-model squad is shooting, and SwegHammer's one-Unit-per-model representation would otherwise have every model independently pick the single lowest-effective-health enemy, piling the whole unit onto one target and wasting overkill",
+    "effect": "a unit-level fire plan is computed once on the squad's first firing model (Battle._plan_squad_fire) and assigns each model a target: anti-armour models concentrate on the nominated focus brick (when SWEG_FOCUS / SWEG_FOCUSFIRE has named one), and the remaining models split across enemies greedily — each takes the lowest-effective-health target it can still meaningfully hurt that is not yet committed enough expected wounds to die, so once a target has lethal fire on it the next model moves to another. This models real split-fire (a unit removing more enemy units rather than over-killing one), which the per-model picker cannot do. Faithful and even-handed: it only redistributes a squad's OWN fire across legal targets (per-model range / line-of-sight / engagement filters are unchanged in _do_shoot, which validates each assignment against the firing model's legal pool and falls back to the per-model pick if the assigned target is dead or unreachable); it adds no damage and no random draws. Default OFF; SWEG_SQUADSHOOT=1 enables the isolation A/B; the OFF path is byte-identical (the plan is empty and unread).",
+    "scope": "phase-gated"
+  }
+}

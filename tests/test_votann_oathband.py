@@ -1,23 +1,29 @@
-"""Tests for the real Oathband (Leagues of Votann) detachment stratagems
-(iter-9 fix).
+"""Tests for the real Needgaard Oathband (Leagues of Votann) detachment
+stratagems.
 
 Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
 
-Replaces the iter-0 zero-stratagem state where Votann burned every strat
-fire on Command Re-Roll (universal Core). iter-8 anti-DG audit
-(docs/AUTO_LOOP_ITER8_ANTI_DG_AUDIT.md fix #2) flagged Oathband as one of
-the top fixes for the +18.1pt DG residual — Votann-vs-DG sits in the
-unsampled-but-positive 7 matchups (~+8pt over real per iter-5).
+VOTANN-DIAG-2 (2026-05-26) replaced the previous six-stratagem fabrication
+(Warrior Pride, Wrath of the Ancestors, Glory of the Hearth, Ironkin
+Sequence, Ancestral Sentence at 2 command points, Void-Armoured Resilience)
+with three real Needgaard Oathband stratagems per Wahapedia:
+    * Huntr's Mark (1 command point) — re-roll Hit and Wound rolls of 1
+    * Ancestral Sentence (1 command point) — ranged [SUSTAINED HITS 1] for the phase
+    * Void Hardened (1 command point) — defensive AP-worsen no-op (held slot)
+
+VOTANN-AUDIT-V1 (2026-05-29) removed Huntr's Mark: the stratagem is absent
+from BSData v10.6.0 (Leagues of Votann.cat.gz), the citation in
+data/rule_citations.d/stratagems.json had only a general Wahapedia page URL
+with no verifiable anchor text, and it was the dominant contributor to the
++7.8 point Leagues of Votann win-rate overshoot in a 9-faction measurement.
 
 Coverage:
     * Registry: OATHBAND still wired into DETACHMENTS, DEFAULT_BY_FACTION,
       FACTION_DETACHMENTS for Leagues of Votann.
-    * Six real Oathband stratagems exposed via OATHBAND.stratagems with
-      the codex CP costs.
-    * Each `_try_*` dispatcher consumes CP and sets the right transient
-      flag (or directly increments judgement_tokens for Ancestral Sentence)
-      on a green-lit AI gate. No catalogued-but-no-op entries — all six
-      wire to a real mechanical effect.
+    * Two verified Oathband stratagems exposed via OATHBAND.stratagems with
+      the codex command-point costs.
+    * Each _try_* dispatcher consumes command points and sets the right
+      transient flag on a green-lit AI gate.
 """
 
 from __future__ import annotations
@@ -31,9 +37,7 @@ from code.detachments import (
 )
 from code.simulator import Battle
 from code.stratagems import (
-    ANCESTRAL_SENTENCE, GLORY_OF_THE_HEARTH, IRONKIN_SEQUENCE,
-    OATHBAND_STRATAGEMS, VOID_ARMOURED_RESILIENCE, WARRIOR_PRIDE,
-    WRATH_OF_THE_ANCESTORS,
+    ANCESTRAL_SENTENCE, OATHBAND_STRATAGEMS, VOID_HARDENED,
 )
 from code.units import UnitProfile
 
@@ -44,16 +48,16 @@ from code.units import UnitProfile
 
 
 def _hearthkyn_profile() -> UnitProfile:
-    """A Hearthkyn Warriors brick — Votann INFANTRY + IRONKIN, the typical
-    Oathband chassis. Cost above the AI gate threshold for the 1-CP
-    Oathband stratagems."""
+    """A Hearthkyn Warriors brick — Votann INFANTRY, the typical Oathband
+    chassis. Cost above the AI gate threshold for the 1-command-point Oathband
+    stratagems."""
     return UnitProfile(
         name="Hearthkyn Warriors", faction="Leagues of Votann",
         health=20, damage=1, hit_probability=2 / 3,
         ap=-1, save=4, strength=4, toughness=4,
         attacks=2, weapon_damage_per_shot=1.0, range_inches=24,
         move=5.0, leadership=7, oc=2,
-        unit_keywords=("INFANTRY", "LEAGUES OF VOTANN", "IRONKIN", "BATTLELINE"),
+        unit_keywords=("INFANTRY", "LEAGUES OF VOTANN", "BATTLELINE"),
         melee_attacks=1, melee_damage_per_shot=1.0,
         melee_hit_probability=2 / 3, melee_strength=4, melee_ap=0,
         points_override=100.0,
@@ -61,15 +65,16 @@ def _hearthkyn_profile() -> UnitProfile:
 
 
 def _hekaton_profile() -> UnitProfile:
-    """A Hekaton Land Fortress — Votann VEHICLE for Glory of the Hearth
-    targeting."""
+    """A Hekaton Land Fortress — Votann VEHICLE with high damage per
+    activation, the expected highest-damage-per-activation pick for the
+    Oathband stratagem dispatchers."""
     return UnitProfile(
         name="Hekaton Land Fortress", faction="Leagues of Votann",
         health=18, damage=3, hit_probability=2 / 3,
         ap=-2, save=2, strength=10, toughness=11,
         attacks=6, weapon_damage_per_shot=3.0, range_inches=36,
         move=8.0, leadership=6, oc=4,
-        unit_keywords=("VEHICLE", "LEAGUES OF VOTANN", "IRONKIN"),
+        unit_keywords=("VEHICLE", "LEAGUES OF VOTANN"),
         melee_attacks=4, melee_damage_per_shot=2.0,
         melee_hit_probability=2 / 3, melee_strength=8, melee_ap=-1,
         points_override=215.0,
@@ -109,42 +114,49 @@ class OathbandRegistryTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Stratagem CP costs + names
+# Stratagem command-point costs + names
 # ---------------------------------------------------------------------------
 
 
 class OathbandStratagemsTests(unittest.TestCase):
-    """The six real Oathband stratagems must be attached to the detachment
-    by canonical name + CP cost, and exposed via OATHBAND.stratagems."""
+    """The two verified Needgaard Oathband stratagems must be attached to
+    the detachment by canonical name + command-point cost, and exposed via
+    OATHBAND.stratagems.
+
+    Huntr's Mark was present in VOTANN-DIAG-2 but removed in VOTANN-AUDIT-V1
+    because it is absent from BSData v10.6.0 and the prior citation was not
+    verifiable. The stratagem constant HUNTRS_MARK no longer exists.
+    """
 
     EXPECTED = (
-        ("Warrior Pride", 1),
-        ("Wrath of the Ancestors", 1),
-        ("Glory of the Hearth", 1),
-        ("Ironkin Sequence", 1),
-        ("Ancestral Sentence", 2),
-        ("Void-Armoured Resilience", 1),
+        ("Ancestral Sentence", 1),
+        ("Void Hardened", 1),
     )
 
-    def test_six_stratagems_attached_to_detachment(self):
+    def test_two_stratagems_attached_to_detachment(self):
         attached = {s.name: s.cp_cost for s in OATHBAND.stratagems}
         for name, cp in self.EXPECTED:
             self.assertIn(name, attached, f"{name} missing from OATHBAND.stratagems")
             self.assertEqual(
                 attached[name], cp,
-                f"{name} expected {cp} CP, got {attached[name]}",
+                f"{name} expected {cp} command points, got {attached[name]}",
             )
+
+    def test_huntrs_mark_removed(self):
+        """Huntr's Mark was removed in VOTANN-AUDIT-V1 — not in BSData,
+        citation unverifiable, +7.8 point overshoot driver."""
+        attached_names = {s.name for s in OATHBAND.stratagems}
+        self.assertNotIn(
+            "Huntr's Mark", attached_names,
+            "Huntr's Mark should have been removed in VOTANN-AUDIT-V1",
+        )
 
     def test_oathband_stratagems_tuple_matches_attached(self):
         self.assertEqual(OATHBAND.stratagems, OATHBAND_STRATAGEMS)
 
     def test_constants_exist_and_named_correctly(self):
-        self.assertEqual(WARRIOR_PRIDE.name, "Warrior Pride")
-        self.assertEqual(WRATH_OF_THE_ANCESTORS.name, "Wrath of the Ancestors")
-        self.assertEqual(GLORY_OF_THE_HEARTH.name, "Glory of the Hearth")
-        self.assertEqual(IRONKIN_SEQUENCE.name, "Ironkin Sequence")
         self.assertEqual(ANCESTRAL_SENTENCE.name, "Ancestral Sentence")
-        self.assertEqual(VOID_ARMOURED_RESILIENCE.name, "Void-Armoured Resilience")
+        self.assertEqual(VOID_HARDENED.name, "Void Hardened")
 
 
 # ---------------------------------------------------------------------------
@@ -153,10 +165,8 @@ class OathbandStratagemsTests(unittest.TestCase):
 
 
 class OathbandDispatcherTests(unittest.TestCase):
-    """The simulator's `_try_*` dispatchers each consume CP and set the
-    right transient flag (or increment the judgement_tokens dict for
-    Ancestral Sentence) on a green-lit AI gate. All six wire to a real
-    mechanical effect — no catalogued-but-no-op entries in this set."""
+    """The simulator's _try_* dispatchers each consume command points and set
+    the right transient flag on a green-lit AI gate."""
 
     def _build_battle(self, cp: int = 6, with_vehicle: bool = True):
         a = Army("Leagues of Votann")
@@ -169,113 +179,35 @@ class OathbandDispatcherTests(unittest.TestCase):
         battle = Battle(a, b)
         battle._assign_uids()
         a.command_points = cp
-        # Wound the Hearthkyn so vulnerability gates clear (FNP / save
-        # buffs require HP loss > 0.2).
-        a.units[0].current_health = 10.0   # 50% HP loss on 20 max
+        # Wound the Hearthkyn so vulnerability gates clear.
+        a.units[0].current_health = 10.0   # 50% health loss on 20 maximum
         battle._current_round = 2
         return battle, a, b
 
-    def test_warrior_pride_sets_plus_one_to_wound_both_modes(self):
-        """Warrior Pride routes the wound-reroll value through +1 to wound
-        on both melee and shooting on the highest-DPA Votann unit. The
-        Hekaton clears the cost+DPA gates first, so it should pick up the
-        buff before the Hearthkyn (which has lower per-attack DPA)."""
+    def test_ancestral_sentence_sets_sustained_hits(self):
+        """Ancestral Sentence (current 10e codex) maps to
+        transient_sustained_hits = 1 on the highest-DPA Votann shooter.
+        The launch-day 'issue a Judgement Token' effect is retired in the
+        current codex; the dispatcher no longer increments
+        judgement_tokens for this stratagem."""
         battle, a, _b = self._build_battle()
-        battle._try_warrior_pride(a, _b)
-        # Find which unit got the buff — should be the highest-DPA Votann
-        # (Hekaton: 6 attacks * 2/3 * 3 dmg = 12 DPA vs Hearthkyn's much
-        # lower per-unit DPA).
-        buffed = [u for u in a.units if u.transient_plus_one_to_wound_melee]
-        self.assertEqual(len(buffed), 1, "Exactly one Votann unit should be buffed.")
-        self.assertTrue(buffed[0].transient_plus_one_to_wound_shooting)
-        self.assertEqual(a.command_points, 5)
-
-    def test_wrath_of_the_ancestors_sets_plus_one_to_hit_shooting(self):
-        """Wrath of the Ancestors (LETHAL HITS APPROXIMATION) maps to
-        +1-to-hit-shooting on the highest-DPA Votann shooter."""
-        battle, a, _b = self._build_battle()
-        battle._try_wrath_of_the_ancestors(a, _b)
-        buffed = [u for u in a.units if u.transient_plus_one_to_hit_shooting]
+        battle._try_ancestral_sentence(a, _b)
+        buffed = [u for u in a.units if getattr(u, "transient_sustained_hits", 0) >= 1]
         self.assertEqual(len(buffed), 1)
-        self.assertEqual(a.command_points, 5)
+        self.assertEqual(a.command_points, 5)   # 1 command point spent (not the fabricated 2)
 
-    def test_glory_of_the_hearth_sets_reroll_hits_on_vehicle(self):
-        """Glory of the Hearth (Votann VEHICLE wound+hit reroll) maps to
-        reroll-hits-shooting on the VEHICLE specifically."""
+    def test_void_hardened_spends_cp_with_no_offensive_effect(self):
+        """Void Hardened is a defensive AP-worsen for a phase — the
+        simulator has no incoming-AP worsening transient flag, so this
+        dispatcher is a documented no-op that still consumes the command-point
+        spend. Verifies no Votann unit picks up an offensive transient
+        as a side effect."""
         battle, a, _b = self._build_battle()
-        battle._try_glory_of_the_hearth(a, _b)
-        hekaton = next(u for u in a.units if u.profile.name == "Hekaton Land Fortress")
-        self.assertTrue(hekaton.transient_reroll_hits_shooting)
-        # Hearthkyn (non-VEHICLE) must NOT be buffed.
-        hearthkyn = next(u for u in a.units if u.profile.name == "Hearthkyn Warriors")
-        self.assertFalse(hearthkyn.transient_reroll_hits_shooting)
-        self.assertEqual(a.command_points, 5)
-
-    def test_glory_of_the_hearth_skips_when_no_vehicle(self):
-        """Glory of the Hearth has no legal target in a Hearthkyn-mono list;
-        the dispatcher must skip the spend entirely."""
-        battle, a, _b = self._build_battle(with_vehicle=False)
-        cp_before = a.command_points
-        battle._try_glory_of_the_hearth(a, _b)
-        # No VEHICLE → no CP spent, no buff applied.
-        self.assertEqual(a.command_points, cp_before)
-        self.assertFalse(a.units[0].transient_reroll_hits_shooting)
-
-    def test_ironkin_sequence_sets_plus_one_to_hit_shooting(self):
-        """Ironkin Sequence maps directly to +1-to-hit-shooting on the
-        highest-DPA IRONKIN unit."""
-        battle, a, _b = self._build_battle()
-        battle._try_ironkin_sequence(a, _b)
-        buffed = [u for u in a.units if u.transient_plus_one_to_hit_shooting]
-        self.assertEqual(len(buffed), 1)
-        self.assertEqual(a.command_points, 5)
-
-    def test_ancestral_sentence_issues_judgement_token(self):
-        """Ancestral Sentence increments the Votann army's judgement_tokens
-        dict for the highest-threat enemy uid. Spends 2 CP."""
-        battle, a, b = self._build_battle()
-        target = b.units[0]
-        # Pre-fire: no tokens on the target.
-        self.assertEqual(a.judgement_tokens.get(target.uid, 0), 0)
-        battle._try_ancestral_sentence(a, b)
-        # Post-fire: target has 1 token from the Votann army's pool.
-        self.assertEqual(a.judgement_tokens.get(target.uid, 0), 1)
-        self.assertEqual(a.command_points, 4)   # 2 CP cost
-
-    def test_ancestral_sentence_skips_non_votann_army(self):
-        """Ancestral Sentence is gated on `is_votann_army` — a non-Votann
-        list carrying Oathband by accident must not increment tokens."""
-        a = Army("Adeptus Astartes")
-        a.add_unit(UnitProfile(
-            name="Tactical Squad", faction="Adeptus Astartes",
-            health=10, damage=1, hit_probability=2 / 3,
-            ap=0, save=3, strength=4, toughness=4,
-            attacks=2, weapon_damage_per_shot=1.0, range_inches=24,
-            unit_keywords=("INFANTRY", "ADEPTUS ASTARTES"),
-            points_override=100.0,
-        ))
-        b = Army("Enemy")
-        b.add_unit(_target_profile())
-        battle = Battle(a, b)
-        battle._assign_uids()
-        a.command_points = 6
-        battle._current_round = 2
-        cp_before = a.command_points
-        battle._try_ancestral_sentence(a, b)
-        # Not a Votann army → no token issued, no CP spent.
-        self.assertEqual(a.command_points, cp_before)
-        self.assertEqual(a.judgement_tokens.get(b.units[0].uid, 0), 0)
-
-    def test_void_armoured_resilience_sets_fnp_5(self):
-        """Void-Armoured Resilience maps directly to transient_fnp_5 on the
-        most vulnerable Votann unit (the wounded Hearthkyn)."""
-        battle, a, _b = self._build_battle()
-        battle._try_void_armoured_resilience(a, _b)
-        # The Hearthkyn is at 50% HP, more vulnerable than the full-HP
-        # Hekaton.
-        hearthkyn = next(u for u in a.units if u.profile.name == "Hearthkyn Warriors")
-        self.assertTrue(hearthkyn.transient_fnp_5)
-        self.assertEqual(a.command_points, 5)
+        battle._try_void_hardened(a, _b)
+        for u in a.units:
+            self.assertFalse(getattr(u, "transient_reroll_hits_shooting", False))
+            self.assertFalse(getattr(u, "transient_plus_one_to_hit_shooting", False))
+            self.assertFalse(getattr(u, "transient_plus_one_to_wound_melee", False))
 
 
 # ---------------------------------------------------------------------------
@@ -284,8 +216,9 @@ class OathbandDispatcherTests(unittest.TestCase):
 
 
 class OathbandStratagemsForArmyTests(unittest.TestCase):
-    """A Votann army wired with Oathband must expose all four Core universals
-    plus the six Oathband stratagems via `stratagems_for_army`."""
+    """A Votann army wired with Oathband must expose the two verified Oathband
+    stratagems plus the three Core universals via stratagems_for_army.
+    Huntr's Mark must NOT appear (removed in VOTANN-AUDIT-V1)."""
 
     def test_votann_army_exposes_oathband_stratagems(self):
         from code.stratagems import stratagems_for_army
@@ -293,20 +226,14 @@ class OathbandStratagemsForArmyTests(unittest.TestCase):
         a = Army("Leagues of Votann")
         a.add_unit(_hearthkyn_profile())
         names = {s.name for s in stratagems_for_army(a)}
-        # All six Oathband stratagems plus the three universal Core stratagems
-        # (Heroic Intervention is a free core CHARACTER ability per #iter12 —
-        # no longer one of the universals).
-        for n in (
-            "Warrior Pride", "Wrath of the Ancestors", "Glory of the Hearth",
-            "Ironkin Sequence", "Ancestral Sentence", "Void-Armoured Resilience",
-        ):
+        for n in ("Ancestral Sentence", "Void Hardened"):
             self.assertIn(n, names, f"{n} missing from stratagems_for_army")
         # And the three Core universals.
-        for n in (
-            "Command Re-Roll", "Counter-Offensive", "Tank Shock",
-        ):
+        for n in ("Command Re-Roll", "Counter-Offensive", "Tank Shock"):
             self.assertIn(n, names)
         self.assertNotIn("Heroic Intervention", names)
+        # Huntr's Mark removed in VOTANN-AUDIT-V1.
+        self.assertNotIn("Huntr's Mark", names)
 
 
 if __name__ == "__main__":

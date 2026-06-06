@@ -97,6 +97,32 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # gates on this detachment flag) — see RUBRICAE_PHALANX.all_is_dust
     # in data/rule_citations.d/detachments.json.
     ("all_is_dust", False),
+    # Necrons Awakened Dynasty Command Protocol flags (AD-PR,
+    # claude/sim-calibration-4). Three rotation-gated round buffs that
+    # together cover Protocols of the Hungry Void (melee AP+1, even rounds),
+    # Vengeful Stars (ranged Sustained Hits, odd rounds), and Eternal
+    # Conquerors (+1 save, round 3 only). Citations live in
+    # data/rule_citations.d/detachments.json.
+    ("necrons_melee_ap_plus_one_army_wide", False),
+    ("necrons_ranged_sustained_hits_army_wide", False),
+    ("necrons_army_wide_plus_one_save_command_protocol", False),
+    # Necrons Cursed Legion — Relentless Onslaught (Abilities #1,
+    # claude/sim-calibration-6). Two clauses on one flag: +1 to Hit vs
+    # objective-marker targets (Unit.attack) and [ASSAULT] on NECRONS VEHICLE /
+    # MOUNTED (non-TITANIC) ranged weapons (simulator._do_shoot). Detachment-flag
+    # citation: CURSED_LEGION.relentless_onslaught; simulator-gate citation:
+    # simulator.relentless_onslaught (below). See
+    # data/rule_citations.d/necrons.json.
+    ("relentless_onslaught", False),
+    # IK-KNIGHTS-V1 (2026-05-31): Imperial Knights Valourstrike Lance
+    # detachment rules. Bold Gallantry grants [ASSAULT] to IK ranged weapons
+    # on Advance. Bondsman abilities buff Armigers each Command phase.
+    ("bold_gallantry", False),
+    ("bondsman_enabled", False),
+    # IK-KNIGHTS-V1 (2026-05-31): Chaos Knights Iconoclast Fiefdom detachment
+    # rule. Dread Tyrants Aura grants reroll-hit-ones + reroll-wound-ones to
+    # War Dogs within 9" of a friendly TITANIC CK unit.
+    ("dread_tyrants_aura", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
@@ -126,12 +152,42 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "unit.stealth",
     "unit.fnp",
     # Simulator-side gates (terrain, deployment, faction army rules, phases)
+    # Core 10e damage allocation: each unsaved wound is allocated to one model
+    # (finishing a wounded model first); a destroyed model's excess damage is
+    # lost, so kills are bounded by unsaved-wound count. Implemented as the
+    # squad-spillover allocation pointer in Unit.attack. See
+    # data/rule_citations.d/core_damage_allocation.json.
+    "simulator.damage_allocation_spillover",
+    # Core 10e Unit Coherency: a unit's models must stay within 2" of another
+    # model in their unit, so a coherent unit sits on ~one objective. Drives
+    # squad-clustered deployment (Battle._deploy_line) and per-unit Objective
+    # Control (Battle._score_objectives credits each squad to one objective).
+    # See data/rule_citations.d/core_coherency.json.
+    "simulator.unit_coherency",
+    # Core 10e mortal wounds: unlike normal damage, excess mortal wounds carry
+    # over to the next model of the same unit until all are allocated or the
+    # unit is destroyed. Implemented as Battle._apply_mortal_wounds and routed
+    # through every "unit suffers X mortal wounds" site. See
+    # data/rule_citations.d/core_damage_allocation.json.
+    "simulator.mortal_wound_spillover",
     "simulator.big_guns_never_tire",
     "simulator.cover_light",
     "simulator.cover_heavy",
     "simulator.deep_strike",
     "simulator.scout",
     "simulator.infiltrators",
+    # INTELLIGENT-DEPLOYMENT (env-gated SWEG_DEPLOY). AI tactical heuristic,
+    # NOT a 10e game rule: when set, each army's standard on-board units are
+    # split by generic unit character (Battle._split_screen_back, reusing
+    # code.roles.classify) into a forward SCREEN group (cheap high-model-count
+    # chaff + forward melee) deployed at the deployment zone's inner / mid-board
+    # edge, and a rear HIGH-VALUE group (gunlines, durable bricks, characters,
+    # the top damage dealer) deployed at the army's board edge. Both rows stay
+    # wholly inside the army's own deployment zone. Default OFF reproduces the
+    # legacy single-line deploy byte-for-byte. Faithful competitive screening,
+    # even-handed (faction-neutral). See
+    # data/rule_citations.d/intelligent_deployment.json.
+    "simulator.intelligent_deployment",
     "simulator.reanimation_protocols",
     "simulator.sticky_objective",
     # 10e core "greater Level of Control" rule — applies to objective scoring
@@ -199,6 +255,17 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Locus aura (+1 to hit) and was missing its end-of-phase mortal-
     # wound output despite being the Khorne archetype anchor.
     "simulator.relentless_carnage",
+    # Chaos Daemons per-god army rules (10e). Murderer's Cowl (Khorne):
+    # advance-and-charge eligibility; exempts the unit from the advance-
+    # lockout-on-charge gate in _do_charge. Gloam Rot (Nurgle): -1 to wound
+    # when attacker Strength > defender Toughness. Penumbral Puppetry
+    # (Tzeentch): APPROXIMATION modelled via stealth (ranged-only), real rule
+    # applies to all attacks. All three verified from BSData XML, Wahapedia
+    # unreachable at implementation time. Cited in
+    # data/rule_citations.d/chaos_daemons.json.
+    "simulator.murderers_cowl",
+    "simulator.gloam_rot",
+    "simulator.penumbral_puppetry_approx",
     # Thousand Sons Rubricae Phalanx detachment rule (10e current codex).
     # +1 to the armour save when an unmodified Damage-1 attack is allocated
     # to a RUBRICAE-keyword model. APPROXIMATION (iter14): SwegHammer
@@ -280,6 +347,23 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # (+1 hit ranged / -1 hit melee) or Conqueror (mirror). Faction-gated
     # on attacker.profile.faction == "Adeptus Mechanicus".
     "simulator.doctrina_imperatives",
+    # Adeptus Mechanicus — Belisarius Cawl's "Invocation of Machine Vengeance"
+    # Canticle (10e). Per-target designation mirroring Oath of Moment: while a
+    # Belisarius Cawl model is alive, the AdMech player designates one enemy
+    # unit each Command phase and friendly AdMech attacks re-roll the Hit roll
+    # against it. Faction-gated on attacker.profile.faction == "Adeptus
+    # Mechanicus" + the Cawl-alive gate in _pick_machine_vengeance_target.
+    "simulator.machine_vengeance",
+    # KNIGHTS-MULTIPROFILE-2 — ADDITIVE multi-weapon melee resolution. The
+    # MUTEX counterpart `simulator.multi_profile_weapon_selection` (in
+    # data/rule_citations.json) covers RANGED alt-modes; this key covers
+    # the Fight-phase case where a datasheet carries MORE THAN ONE melee
+    # weapon (Knight Abominant Electroscourge + Balemace; Knight Rampager
+    # Reaper chainsword + Warpstrike claw) and the 10e [EXTRA ATTACKS]
+    # core keyword. UnitProfile.extra_melee_profiles populated via
+    # data/overrides.json today (BSData mapper does not yet emit it).
+    # See data/rule_citations.d/chaos_knights.json#simulator.extra_melee_profiles.
+    "simulator.extra_melee_profiles",
     # Core targeting restrictions (10e core rules). Both filter the ranged
     # candidate list inside Battle._do_shoot via code.army.can_target_for_ranged.
     # Look Out Sir gates non-MONSTER/VEHICLE CHARACTERS that have a non-CHARACTER
@@ -307,8 +391,9 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # wounds. Mapper parses the X from BSData infoLink modifiers.
     "simulator.deadly_demise",
     # Fall Back move (10e core). A unit within Engagement Range may move
-    # up to M\" in the Movement phase and pass through enemy models; it
-    # cannot shoot or charge that turn unless it has the FLY keyword.
+    # up to M\" in the Movement phase and pass through enemy models; until the
+    # end of the turn it cannot shoot or declare a charge - there is NO FLY
+    # exception (FLY only grants the move-over and the Desperate Escape skip).
     "simulator.fall_back",
     # Desperate Escape test (10e core). After a Fall Back that passed
     # through enemy models, roll 1D6 per model; each 1 destroys one model.
@@ -332,6 +417,16 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.disembark",
     "simulator.firing_deck",
     "simulator.destroyed_transport",
+    # Drukhari Skysplinter Assault detachment — Rain of Cruelty. When a
+    # DRUKHARI unit disembarks from a TRANSPORT (voluntary or forced),
+    # until the end of the turn its ranged weapons gain [IGNORES COVER]
+    # and its melee weapons gain [LANCE]. Wired via transient per-unit
+    # flags (`transient_lance_this_turn`,
+    # `transient_ignores_cover_this_turn`) set in
+    # `simulator._disembark` when the passenger is Drukhari AND the
+    # army's detachment is Skysplinter Assault, cleared by the standard
+    # transient-flag reset at the next round start.
+    "simulator.skysplinter_rain_of_cruelty",
     # T'au Empire Markerlights → Guided (10e army-wide army rule). At the
     # start of each Shooting phase, MARKERLIGHT-keyword units mark enemies
     # as Guided; while the active detachment carries lethal_hits_on_guided
@@ -360,14 +455,23 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # template-instantiated units so the random topup can't duplicate a
     # hero the archetype already drafted).
     "simulator.epic_hero_one_per_army",
-    # 10e Ruins terrain core rule. A Ruin acts as Heavy Cover (+1 save,
-    # -1 to hit) and its walls block line of sight EXCEPT when both the
-    # firing model and the target model have the INFANTRY, BEAST or SWARM
-    # keyword. Wired through code.map.Map.has_line_of_sight via
-    # attacker_keywords / target_keywords arguments threaded from the
-    # simulator's _do_shoot / _apply_firing_deck call sites. Cover
-    # promotion handled alongside TerrainType.HEAVY_COVER in
-    # Battle._do_shoot.
+    # 10e core TOWERING keyword terrain rule. When either the firing model or
+    # the target model has the TOWERING (or AIRCRAFT) keyword, Woods / OBSCURING
+    # terrain does not block the line of sight. TOWERING does NOT see over RUIN
+    # walls (unlike Woods) - only AIRCRAFT gets a blanket Ruin pass, and a
+    # TOWERING model sees out of a Ruin only when it is itself within it. Wired
+    # in code.map._has_towering + code.map._los_query (towering flag skips the
+    # OBSCURING block; ruin_pass is AIRCRAFT-only). See
+    # data/rule_citations.d/core_terrain_ruins.json.
+    "simulator.towering_los",
+    # 10e Ruins terrain core rule. A Ruin grants the single Benefit of Cover
+    # (+1 save - same as LIGHT/HEAVY cover; no terrain -1-to-hit in 10e) and its
+    # walls block line of sight for everyone EXCEPT AIRCRAFT (and a model wholly
+    # within the Ruin can see out). The INFANTRY/BEAST Ruin exception is
+    # MOVEMENT ONLY now and grants no line of sight (the stale 9th-edition
+    # shoot-through-walls pass was removed). Wired through
+    # code.map.Map.has_line_of_sight via attacker_keywords / target_keywords
+    # threaded from the simulator's _do_shoot / _apply_firing_deck call sites.
     "terrain.ruin_infantry_los",
     # 10e core-rules cap: "Hit roll modifiers are cumulative, but the Hit
     # roll for an attack can never be modified by more than -1 or +1." Same
@@ -382,15 +486,17 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # applying at most one -1 to save_after_ap. AP is NOT a modifier and
     # stacks freely with the capped +1.
     "simulator.save_modifier_cap_plus_minus_one",
-    # 10e core Charge phase: Heroic Intervention is a FREE core ability
-    # for CHARACTER models (not a stratagem). Implemented in
-    # `Battle._do_heroic_intervention`.
-    "simulator.heroic_intervention_core",
+    # CORE-RULES-AUDIT (2026-05-31): simulator.heroic_intervention_core REMOVED
+    # — Heroic Intervention is not a 10e rule (9e mechanic deleted at 10e
+    # launch). See docs/CORE_RULES_AUDIT.md #1.
     # 10e core Fight phase: each unit makes a free Pile-In (3" toward
     # closest enemy) BEFORE it fights and a free Consolidate (3" toward
-    # closest enemy / staying in engagement) AFTER it fights.
+    # closest enemy / staying in engagement) AFTER it fights. When no
+    # enemy is reachable within 3", the unit may instead consolidate
+    # onto the nearest objective marker (simulator.consolidate_objective).
     "simulator.pile_in",
     "simulator.consolidate",
+    "simulator.consolidate_objective",
     # 10e Leviathan Tournament Companion primary scoring cap: each army
     # scores at most 15 Primary VP per battle round (i.e. counts at most
     # 3 controlled objectives at 5 VP each). Applied in
@@ -418,41 +524,60 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # returning the full 4-tuple.
     "simulator.secondary_cull_the_horde",
     "simulator.secondary_assassination",
-    # CUSTODES-UNPARK — elite-army defender modifier on the kill-event
-    # Pariah Nexus secondaries (Bring it Down, No Prisoners, Assassination).
-    # Faction-gated to Adeptus Custodes. Cull the Horde is excluded
-    # (Custodes never concedes Cull regardless of multiplier). Applied
-    # in `secondaries.score_round_delta` via the defender_faction param
-    # passed from `Battle._score_secondaries`.
-    "simulator.secondary_elite_army_modifier",
-    # DRK-DIAG-9 — mobile-army attacker damper on the mobility / horde-cull
-    # Pariah Nexus secondaries (Engage on All Fronts, Behind Enemy Lines,
-    # Cull the Horde). Faction-gated to Drukhari. Bring it Down / No
-    # Prisoners / Assassination are excluded (genuine offensive output,
-    # audited clean). Applied in `secondaries.score_position_delta` and
-    # `secondaries.score_round_delta` via the attacker_faction param
-    # passed from `Battle._score_secondaries`. Mirror of the CUSTODES-UNPARK
-    # defender-side uplift in the opposite direction on the attacker side.
-    "simulator.secondary_drukhari_mobile_modifier",
-    # TYRANIDS-DIAG-6 — monster-mash attacker damper on Pariah Nexus
-    # kill-event + horde-cull + mobility secondaries (Bring it Down,
-    # No Prisoners, Cull the Horde, Engage on All Fronts, Behind Enemy
-    # Lines). Faction-gated to Tyranids. Assassination is excluded
-    # (genuine CHARACTER-kill output, audited clean). Applied in
-    # `secondaries.score_round_delta` and `secondaries.score_position_delta`
-    # via the attacker_faction param passed from `Battle._score_secondaries`.
-    # Mirror of the DRK-DIAG-9 pattern with wider footprint reflecting
-    # Tyranids' monster-mash + horde-anchored profile.
-    "simulator.secondary_tyranids_monster_modifier",
     # LC-2 — Tactical Secondary Mission deck-draw mechanic. Gates
     # Engage / BEL behind a per-round alternating schedule per side
     # so each side scores at most one Tactical per round, matching
     # real Pariah Nexus 2-of-9 average coverage.
     "simulator.tactical_secondary_deck_draw",
+    # M2 (wave 119) — the real 2-card Tactical secondary deck (env-gated
+    # SWEG_TAC_DECK). Each army uses ONE track: FIXED (2 kill cards every
+    # round) or TACTICAL (a deterministically-seeded 2-card hand with
+    # achieve->discard->redraw). Replaces the legacy union-of-~9-11-sources
+    # scoring (which trivially exceeded the 40 cap and washed the secondary
+    # out). Even-handed track split from unit count; OFF byte-identical.
+    # See data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.tactical_secondary_deck",
+    # Wave 133-135 — secondary dedication PLANNER (env-gated SWEG_SECONDARY),
+    # a movement/positioning bias only. The wave-133 scoring gate on the
+    # POSITION cards (Engage on All Fronts / Behind Enemy Lines) was REVERTED
+    # in wave 135 as unfaithful (positional Secondaries score on presence, not
+    # a performed Action); Battle._assign_card_dedication now only biases a
+    # spare unit's MOVE toward a card's geography, and Unit.dedicated_card is
+    # not read by any scorer. See data/rule_citations.d/secondary_dedication.json.
+    "simulator.secondary_dedication",
+    # Wave 135 — Action-card cost (env-gated SWEG_SECONDARY). The rules-clean
+    # low-unit penalty: performing an Action (Cleanse / Sabotage) costs a unit
+    # its shooting and charge for the turn (10e core Actions). A unit may START
+    # one only if it passes Battle._unit_can_perform_action (Objective Control
+    # > 0, not in Engagement Range, not a productive shooter with a target),
+    # and it SCORES only if it completes (survives + not dragged into melee,
+    # Battle._action_completes). EMERGENT from unit count — a Knight cannot
+    # spare a body and scores 0; no faction / model-count branch. OFF keeps the
+    # legacy chaff-selection / still-alive scoring byte-for-byte. See
+    # data/rule_citations.d/secondary_dedication.json.
+    "simulator.secondary_action_cost",
+    # Wave 136 — squad-granularity WHOLLY-WITHIN for Engage / Behind Enemy Lines
+    # (user catch): a codex squad counts for a quarter / the enemy DZ only when
+    # ALL its models qualify, correcting the one-Unit-per-model over-credit.
+    # Env-gated SWEG_SECONDARY; OFF keeps the legacy per-model check.
+    "simulator.secondary_wholly_within",
+    # Wave 137 — a 10e battle lasts five battle rounds; a one-sided tabling does
+    # NOT end it early (only a mutual wipe does). data/rule_citations.d/core_battle_length.json.
+    "simulator.battle_length_five_rounds",
     # LC-5 — Warlord designation. First CHARACTER in deploy order is
     # the Warlord; killing it grants +1 Assassination VP per real
     # Pariah Nexus rule.
     "simulator.warlord_designation",
+    # SECONDARY-SELECTION-V1 — Pariah Nexus secondary selection. Real
+    # 10e rule: each player picks exactly TWO Fixed Secondaries from
+    # the four-card pool OR uses the Tactical deck (drawing per
+    # round). Implemented in `code/secondaries.py::pick_secondaries`
+    # (heuristic on enemy MV count + own FLY/MOUNT count, picks 2
+    # Fixed + 2 Tactical); persisted on `Army.chosen_secondaries`;
+    # consumed by `code/secondaries.py::score_round_delta` /
+    # `score_position_delta` via the `chosen` parameter; threaded
+    # through from `code/simulator.py::_score_secondaries`.
+    "simulator.secondary_selection",
     # Astra Militarum Voice of Command (army rule, 10e). At the start of
     # each Command phase, each AM OFFICER (CHARACTER) issues one Order to
     # an eligible BATTLELINE INFANTRY (REGIMENT) target within 6". Four
@@ -473,6 +598,78 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "Order.Fix Bayonets!",
     "Order.First Rank, Fire! Second Rank, Fire!",
     "Order.Take Cover!",
+    # Live simulator rules whose citations already exist in the shards but
+    # were not previously registered in this tuple. Adding them here so the
+    # auditor can verify completeness. (A1 block — wave-60 citation audit.)
+    "simulator.acts_of_faith",
+    "simulator.basket_best_ranged_per_model",
+    "simulator.basket_fraction_gating",
+    "simulator.beacons_of_rage",
+    "simulator.benefits_of_cover",
+    "simulator.blessings_of_khorne",
+    "simulator.blood_surge",
+    "simulator.code_chivalric",
+    "simulator.combat_drugs",
+    "simulator.dark_pacts",
+    "simulator.fights_first_chargers",
+    "simulator.fights_first_keyword",
+    "simulator.harbingers_of_dread",
+    "simulator.multi_profile_weapon_selection",
+    # PER-MODEL-LOADOUTS (Stage 3, env-gated SWEG_PERMODEL). One Unit per model,
+    # each firing its OWN BSData loadout, so a special-weapon model loses its
+    # weapon when it dies and a single-model unit fires only its real gun rack.
+    # Faithful representation change (same stats, attributed per model); alt-mode
+    # and pistol exclusivity still enforced by the existing picker. See
+    # data/rule_citations.d/core_per_model_loadouts.json.
+    "simulator.per_model_loadouts",
+    # PER-MODEL-LOADOUTS (Stage 4, env-gated SWEG_ROLLDMG). Roll a weapon's real
+    # random Damage characteristic (D6, D3+3, 2D6, ...) per shot instead of using
+    # its expected-value mean. Tests whether mean-overkill on big single-shot guns
+    # inflates the elite / big-gun factions. Only fires on the per-model firing
+    # path (the only profiles that carry a raw damage_dice string). See
+    # data/rule_citations.d/core_rolled_damage.json.
+    "simulator.rolled_damage",
+    "simulator.pistol_exclusivity",
+    "simulator.primary_vp_no_round_1",
+    "simulator.rend_and_tear",
+    # Wave 101 — army-level focus fire (env-gated SWEG_FOCUSFIRE). AI tactical
+    # heuristic, NOT a 10e game rule: once per Shooting phase the firing army
+    # nominates the most dangerous enemy brick it can crack COLLECTIVELY this
+    # phase, and every unit that can wound it concentrates fire on it. Does not
+    # change combat math; only re-points existing fire onto a target the army
+    # can already destroy. The wave-79 SWEG_FOCUS predecessor (points-based, no
+    # collective-crack gate) is intentionally NOT cited here — it has no
+    # collective-crack guarantee and is being superseded by this layer.
+    # See data/rule_citations.d/focus_fire.json.
+    "simulator.focus_fire",
+    # Fire Overwatch (10e universal core stratagem, env-gated SWEG_OVERWATCH).
+    # The defending army may spend 1 Command Point in the opponent's Movement /
+    # Charge phase to have one eligible unit (within 24", line of sight) shoot a
+    # charging or arriving enemy as if it were its Shooting phase, hitting only
+    # on UNMODIFIED Hit rolls of 6. Limited to once per battle round per army.
+    # Built as Battle._fire_overwatch + the overwatch path in Unit.attack;
+    # hooked at the charge-declaration and reserves-arrival trigger points. Gate
+    # unset reproduces the baseline byte-for-byte. See
+    # data/rule_citations.d/core_overwatch.json.
+    "simulator.fire_overwatch",
+    # Necrons Cursed Legion — Relentless Onslaught (Abilities #1). Two simulator
+    # gates read Detachment.relentless_onslaught: the +1-to-Hit gate in
+    # Unit.attack (NECRONS attacker, target on an objective marker — ranged AND
+    # melee, no round restriction) and the [ASSAULT] Advance-lockout exemption in
+    # Battle._do_shoot (NECRONS VEHICLE / MOUNTED, excluding TITANIC). The
+    # detachment-flag citation CURSED_LEGION.relentless_onslaught is auto-required
+    # via RULE_BEARING_FIELDS. Both live in data/rule_citations.d/necrons.json.
+    "simulator.relentless_onslaught",
+    "unit.necrodermis",
+    # Wave 181 — CA-2025-26 Tactical-track flat kill card VP values.
+    # When a TACTICAL-track army (SWEG_TAC_DECK path) draws one of these three
+    # kill cards in its hand, it scores a flat per-turn value if one or more
+    # qualifying enemy units died, rather than the Fixed per-unit accumulation.
+    # No Prisoners keeps its per-unit-capped form in both tracks.
+    # Sources: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
+    "simulator.secondary_assassination_tactical",
+    "simulator.secondary_bring_it_down_tactical",
+    "simulator.secondary_cull_the_horde_tactical",
 )
 
 

@@ -61,34 +61,58 @@ FACTIONS: List[str] = [
     "Chaos Knights",
 ]
 
-# Warp Friends cumulative dataslate aggregate, May 11 2026, sourced from
-# Bestcoastpairings. All 22 entries are real measured win rates.
-# "Adeptus Astartes" maps to the Warp Friends "Space Marines" codex row.
-# "Adepta Sororitas" maps to the Warp Friends "Sisters of Battle" row.
-TOURNAMENT_TARGET: Dict[str, float] = {
-    "Adeptus Astartes": 47.6,
-    "Necrons":          53.2,
-    "Aeldari":          44.4,
-    "Tyranids":         47.4,
-    "Orks":             44.9,
-    "T'au Empire":      54.5,
-    "Death Guard":      46.1,
-    "Adeptus Custodes": 52.1,
-    "Thousand Sons":    54.6,
-    "Leagues of Votann": 49.3,
-    "Chaos Space Marines": 52.8,
-    "World Eaters":        47.0,
-    "Emperor's Children":  47.9,
-    "Chaos Daemons":       50.8,
-    "Astra Militarum":     45.1,
-    "Adeptus Mechanicus":  43.8,
-    "Adepta Sororitas":    50.4,
-    "Grey Knights":        47.9,
-    "Drukhari":            49.3,
-    "Genestealer Cults":   47.4,
-    "Imperial Knights":    48.5,
-    "Chaos Knights":       47.5,
-}
+# Warp Friends cumulative dataslate aggregate — read LIVE from
+# data/warpfriends_rolling.json, the same rolling scrape that already feeds
+# the noise floor (`_load_noise_floor`), the per-faction game counts
+# (`_load_tournament_games`), and the field-weighting in `run_matrix`. So
+# the calibration target, its noise band, and the opponent field composition
+# now all come from one self-consistent source.
+#
+# This replaces a hand-transcribed dict that had drifted from the live scrape
+# — e.g. Chaos Space Marines was hardcoded 52.8 but is 55.6 live (so it was
+# under-measured as less-under than reality), Emperor's Children 47.9 vs 53.3,
+# Aeldari 44.4 vs 41.6. Reading the JSON directly removes that staleness.
+# "Adeptus Astartes" is the Warp Friends "Space Marines" codex aggregate and
+# "Adepta Sororitas" the "Sisters of Battle" row — both already rolled up in
+# the JSON (see each faction's `rolled_from`). Fails loud (CLAUDE.md §13) if
+# the file or any faction row is missing rather than silently defaulting.
+def _load_tournament_target() -> Dict[str, float]:
+    rolling_path = Path(__file__).resolve().parent.parent / "data" / "warpfriends_rolling.json"
+    if not rolling_path.exists():
+        raise FileNotFoundError(
+            f"data/warpfriends_rolling.json missing — re-run "
+            f"`python -m scripts.scrape_warpfriends` (CLAUDE.md §13: fail loud)"
+        )
+    with open(rolling_path) as f:
+        data = json.load(f)
+    return {fac: float(data["factions"][fac]["win_rate"]) for fac in FACTIONS}
+TOURNAMENT_TARGET: Dict[str, float] = _load_tournament_target()
+
+# Per-faction noise floor — week-to-week standard deviation of independent
+# Warp Friends weekly tournament samples, plus the binomial 95% CI halfwidth
+# floor. Restored after the main merge dropped the JSON-load block (the
+# noise-gated MAE is the active calibration headline per memory
+# `project-noise-gated-mae`).
+def _load_noise_floor() -> Dict[str, float]:
+    rolling_path = Path(__file__).resolve().parent.parent / "data" / "warpfriends_rolling.json"
+    if not rolling_path.exists():
+        raise FileNotFoundError(
+            f"data/warpfriends_rolling.json missing — re-run "
+            f"`python -m scripts.scrape_warpfriends` (CLAUDE.md §13: fail loud)"
+        )
+    with open(rolling_path) as f:
+        data = json.load(f)
+    return {fac: data["factions"][fac]["noise_floor"] for fac in FACTIONS}
+NOISE_FLOOR: Dict[str, float] = _load_noise_floor()
+
+
+def _load_tournament_games() -> Dict[str, int]:
+    rolling_path = Path(__file__).resolve().parent.parent / "data" / "warpfriends_rolling.json"
+    with open(rolling_path) as f:
+        data = json.load(f)
+    return {fac: int(data["factions"][fac]["total_games"]) for fac in FACTIONS}
+TOURNAMENT_GAMES: Dict[str, int] = _load_tournament_games()
+
 APPROX_FACTIONS: set = set()  # all factions now have real Warp Friends May 2026 data
 
 # FX_ALL_FACTIONS — the 12 extended-coverage factions added after the initial
@@ -273,7 +297,8 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
     # not affect the per-pair Counter because each pair_seed is unique.
     pair_winners: Dict[Tuple[str, str], Counter] = {}
     if max_workers is None:
-        max_workers = max(1, (os.cpu_count() or 2) - 1)
+        # Reserve ~30% of cores for the user's other work — use ~70%.
+        max_workers = max(1, int((os.cpu_count() or 2) * 0.7))
 
     if max_workers <= 1:
         # Serial fallback — useful for debugging / reproducibility checks
@@ -307,8 +332,25 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
 
     out: Dict[str, float] = {}
     for fac in FACTIONS:
-        rates = [v for (a, _), v in sim_wr.items() if a == fac]
-        out[fac] = sum(rates) / len(rates)
+        # Field-weighted average over opponents, not a uniform mean. The
+        # Warp Friends per-faction win rate we compare against is itself
+        # measured against the REAL, skewed opponent field (Adeptus Astartes
+        # ~21% of all games, Adeptus Mechanicus ~1.7%), so the sim's
+        # per-faction win rate must be aggregated the same way to be
+        # apples-to-apples. A uniform mean over the 21 opponents over-weights
+        # rare factions and under-weights the dominant Marine population —
+        # a systematic ±1-2pt per-faction bias that penalised melee armies
+        # which beat Marines. Weights are each opponent's total game count
+        # from the same rolling JSON (`TOURNAMENT_GAMES`).
+        num = 0.0
+        den = 0.0
+        for b_fac in FACTIONS:
+            if b_fac == fac:
+                continue
+            w = TOURNAMENT_GAMES[b_fac]
+            num += sim_wr[(fac, b_fac)] * w
+            den += w
+        out[fac] = num / den
     return out
 
 
@@ -460,8 +502,8 @@ def main() -> None:
         type=int,
         default=None,
         help="Number of worker processes for the battle matrix. Default is "
-             "os.cpu_count() - 1 (leaves one core for OS / parent). Pass 1 "
-             "to force the serial code path (debugging / reproducibility).",
+             "about 70 percent of cores (reserves ~30 percent for the user's "
+             "other work). Pass 1 to force the serial code path (debugging).",
     )
     p.add_argument(
         "--out",
@@ -490,7 +532,8 @@ def main() -> None:
     rules = RulesConfig.sweghammer() if args.sweghammer else None
     mode = "sweghammer" if args.sweghammer else "vanilla"
     list_mode = "tourney-archetype" if args.use_archetype else "random_fill"
-    workers = args.workers if args.workers is not None else max(1, (os.cpu_count() or 2) - 1)
+    # Default reserves ~30% of cores for the user's other work; override with --workers.
+    workers = args.workers if args.workers is not None else max(1, int((os.cpu_count() or 2) * 0.7))
 
     price_overrides: Optional[Dict[str, float]] = None
     if args.swegpoints and args.equation_prices:

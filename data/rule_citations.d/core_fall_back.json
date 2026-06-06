@@ -4,18 +4,18 @@
   "simulator.fall_back": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Fall-Back",
     "rule_name": "Fall Back",
-    "quoted_text": "A unit can make a Fall Back move in your Movement phase if it is within Engagement Range of one or more enemy units. The unit can move up to its Move characteristic in inches and can move through enemy models when doing so. A unit that Falls Back can shoot or charge only if it has the FLY keyword.",
-    "trigger": "owning player's Movement phase; unit is within Engagement Range (1.5\" in SwegHammer's continuous model) of one or more enemy units",
-    "effect": "unit moves up to M\" away, may move through enemy models, and is barred from shooting and charging this turn unless it has the FLY keyword. SwegHammer sets a per-round fell_back_this_round flag on the unit and gates _do_shoot / _do_charge on (flag and not FLY).",
+    "quoted_text": "If you make a Fall Back move with a unit, then until the end of the turn that unit's models cannot shoot or declare a charge.",
+    "trigger": "owning player's Movement phase; unit is within Engagement Range (1.5\" in SwegHammer's continuous model) of one or more enemy units and makes a Fall Back move",
+    "effect": "unit moves up to M\" away, may move through enemy models, and until the end of the turn cannot shoot or declare a charge - there is NO FLY exception (the 9th-edition 'may shoot/charge if it can FLY' carve-out was removed; current 10e locks out EVERY unit that Falls Back). FLY only affects HOW the Fall Back move is made: per the FLY keyword (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#FLY-keyword) 'If a model can FLY, when it makes a Fall Back move it can move over other models (excluding TITANIC models) as if they were not there, and when it Falls Back it does not have to take Desperate Escape tests' - it does not lift the shoot/charge lockout (see simulator.desperate_escape for the FLY/TITANIC Desperate Escape exemption). SwegHammer sets a per-round fell_back_this_round flag on the unit and gates _do_shoot / _do_charge on the flag alone (no FLY check).",
     "scope": "army-wide"
   },
 
   "simulator.desperate_escape": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Fall-Back",
     "rule_name": "Desperate Escape test",
-    "quoted_text": "When a unit Falls Back, if it moved through any enemy models then, after its move, roll one D6 for each model in the unit: for each result of 1, one model in the unit is destroyed.",
-    "trigger": "immediately after a Fall Back move that passed through one or more enemy models",
-    "effect": "roll 1D6 per model in the falling-back unit; each 1 destroys one model. SwegHammer models units as one Unit per model, so a single D6 is rolled and on a 1 the unit's current_health is zeroed (one model destroyed).",
+    "quoted_text": "models can move over enemy models when making a Fall Back move as if those enemy models were not there, but you must take a Desperate Escape test for each model that will do so (excluding models that are TITANIC or can FLY). For each roll of 1-2, one model from the unit that is Falling Back is destroyed.",
+    "trigger": "immediately after a Fall Back move that passed through one or more enemy models; TITANIC and FLY models are entirely exempt",
+    "effect": "roll 1D6 per non-TITANIC non-FLY model in the falling-back unit; each result of 1-2 destroys one model. SwegHammer models units as one Unit per model, so a single D6 is rolled and on a 1-2 the unit's current_health is zeroed (one model destroyed). TITANIC or FLY units skip the test entirely.",
     "scope": "army-wide"
   }
 }

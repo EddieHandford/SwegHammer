@@ -919,6 +919,51 @@ def _drukhari_fragile_flyer_bonus(defender) -> float:
 
 
 # ---------------------------------------------------------------------------
+# Kiting counter-play — move (2): focus the EXPOSED melee threat (SWEG_KITE)
+# ---------------------------------------------------------------------------
+# The faithful kiting counter to melee over-shooters (World Eaters / elite
+# combat armies): once a friendly unit Falls Back to un-stick from an enemy
+# melee unit — move (1), already wired at the Fall Back branch in
+# pick_move_destination — the rest of the army concentrates fire on that
+# now-EXPOSED melee threat, shooting it down in the open before it can
+# re-charge. This is a TARGET-PRIORITY bias ONLY: no extra shots and no
+# re-shoot by the fallen-back unit (a unit that Fell Back still cannot shoot
+# per 10e core, so this is faithful — NOT the "fall back and re-shoot" knob
+# the watchdog flagged). Even-handed: every army applies it, so it favours
+# shooting armies over melee armies exactly as real tournament counter-play
+# does. Stage-1 AI play-style heuristic (target selection, not a rule — no
+# citation, same class as the screen / synapse / oath biases above).
+#
+# Env-gated default-OFF (SWEG_KITE): when OFF, returns 1.0 so the ranged
+# target picker's denominator is byte-identical (x1.0 is the exact float
+# identity). This is the wave-153 bounded probe of whether the over-side has
+# any faithful counter-play headroom left.
+_KITE_TARGET_BONUS: float = 1.5
+
+
+def _kite_enabled() -> bool:
+    return __import__("os").environ.get("SWEG_KITE") == "1"
+
+
+def _kite_target_bonus(defender, attacker_army) -> float:
+    """Return ``_KITE_TARGET_BONUS`` when ``defender`` is an EXPOSED enemy
+    melee-class unit — a melee threat (melee damage-per-activation >= ranged)
+    that is NOT currently within Engagement Range of any unit of the shooting
+    army (so it sits in the open after move (1)'s Fall Back, rather than
+    tarpitting a friendly). 1.0 otherwise, and always 1.0 when SWEG_KITE is
+    unset (OFF path byte-identical)."""
+    if not _kite_enabled():
+        return 1.0
+    profile = getattr(defender, "profile", None)
+    if profile is None or not _is_melee_class(profile):
+        return 1.0
+    for f in attacker_army.alive_units:
+        if _dist(f.position, defender.position) <= _ENGAGEMENT_RANGE:
+            return 1.0  # still tarpitted by a friendly — move (1) un-sticks first
+    return _KITE_TARGET_BONUS
+
+
+# ---------------------------------------------------------------------------
 # AI-1 — Orks tarpit-engage charge heuristic (AI play-style, NOT a rule)
 # ---------------------------------------------------------------------------
 # Real tournament Orks (volume melee, low damage-per-attack, abundant bodies)
@@ -960,7 +1005,88 @@ _DAEMONS_DEEPSTRIKE_NAMES = frozenset({
 _CUSTODES_HORDE_TARGET_PENALTY: float = 0.4
 _DRUKHARI_ENGAGE_BONUS: float = 0.5
 _DRUKHARI_DECISIVE_FRAC: float = 0.5
+# DRK-DIAG-12 — list-integrity gate constants.
+# Real Skysplinter pilots protect depleted squads: a Wyches / Incubi /
+# Mandrakes unit below half starting strength is too fragile to absorb
+# a full counter-fight after charging — real players fall back or hold
+# position rather than burning the remaining models on a trade. The
+# sim's greedy melee AI charges every round regardless of squad health.
+# 0.5x multiplier applied in BOTH the MOVE planner (_melee_target_score)
+# and the CHARGE planner (pick_charge_target) when the Drukhari unit is
+# INFANTRY (not VEHICLE/MONSTER/CHARACTER) and its current_health is below
+# 50% of profile.health. Stacks multiplicatively with the existing
+# _drukhari_decisive_strike_penalty so a depleted unit facing a non-
+# decisive target gets 0.5 * 0.5 = 0.25x — strongly discouraging the
+# charge while leaving a small residual for rare forced situations.
+# This is a PLAY HEURISTIC, not a 10e rule, so it lives in the AI layer
+# and has no rule_citations entry.
+_DRUKHARI_LIST_INTEGRITY_PENALTY: float = 0.5
+_DRUKHARI_LIST_INTEGRITY_HP_FRAC: float = 0.5
 _VOTANN_FALLBACK_FACTIONS: tuple = ("Leagues of Votann",)
+
+# ---------------------------------------------------------------------------
+# AI-5 — Knight melee commitment heuristic (AI play-style, NOT a rule)
+# ---------------------------------------------------------------------------
+# Real tournament Imperial Knights / Chaos Knights players commit melee-focused
+# chassis aggressively into combat even at attrition cost. A Knight Gallant or
+# Knight Rampager is a pure melee monster — holding it at range forfeits most
+# of its damage output. The sim's generic AI, which scores targets on expected
+# kill-potential vs threat-back, treats Knights like heavy vehicles and keeps
+# them at range shooting. This produces the wrong play pattern: the Reaper
+# chainsword / Thunderstrike gauntlet / Balemace never fires because the Knight
+# never charges.
+#
+# The fix: a 2.5x attacker-side score multiplier applied in BOTH the MOVE
+# planner (_melee_target_score, controls which enemy the Knight closes on) and
+# the CHARGE planner (pick_charge_target, controls whether it charges this
+# activation) whenever the attacker is a melee-focused Knight chassis.
+#
+# Gate (attacker-only, mandatory): fires when ALL hold:
+#   - attacker.profile.faction in ("Imperial Knights", "Chaos Knights")
+#   - attacker.profile.extra_melee_profiles is not None and non-empty
+#     (this is the natural flag for melee-focused chassis — Gallant, Rampager,
+#     Despoiler, Abominant, Karnivore all have it set; Castellan, Valiant,
+#     Crusader, Tyrant do NOT, so ranged-platform Knights are automatically
+#     excluded without needing a hard-coded name list)
+#
+# Explicitly excluded (no extra_melee_profiles in overrides.json):
+#   - Knight Castellan, Knight Crusader, Knight Valiant (ranged platforms)
+#   - Knight Tyrant, War Dog Stalker, War Dog Brigand (ranged War Dogs)
+#
+# This is a PLAY HEURISTIC, not a 10e rule, so it lives in the AI layer and
+# has no rule_citations entry. Motivation: Goonhammer meta reports on Knights
+# melee play-pattern (May 2026 tournament data).
+_KNIGHT_MELEE_COMMIT_FACTIONS: frozenset = frozenset({
+    "Imperial Knights",
+    "Chaos Knights",
+})
+_KNIGHT_MELEE_COMMIT_BONUS: float = 2.5
+
+
+def _knight_melee_commitment_bonus(attacker) -> float:
+    """Return 2.5x when `attacker` is a melee-focused Imperial Knights or
+    Chaos Knights chassis (detected via non-empty extra_melee_profiles).
+
+    - 2.5x when attacker.profile.faction is in _KNIGHT_MELEE_COMMIT_FACTIONS
+      AND attacker.profile.extra_melee_profiles is truthy.
+    - 1.0x otherwise.
+
+    Applied as an attacker-side multiplier in BOTH _melee_target_score (MOVE
+    planner) and pick_charge_target (CHARGE planner) so the Knight both closes
+    on AND charges melee targets rather than staying at range.
+
+    Ranged-platform Knights (Castellan, Valiant, Crusader, Tyrant, ranged War
+    Dogs) do not have extra_melee_profiles populated so they are never boosted.
+    """
+    profile = getattr(attacker, "profile", None)
+    if profile is None:
+        return 1.0
+    if (profile.faction or "") not in _KNIGHT_MELEE_COMMIT_FACTIONS:
+        return 1.0
+    emp = getattr(profile, "extra_melee_profiles", None)
+    if not emp:
+        return 1.0
+    return _KNIGHT_MELEE_COMMIT_BONUS
 
 
 def _is_tarpit_candidate(defender) -> bool:
@@ -1212,6 +1338,48 @@ def _drukhari_decisive_strike_penalty(attacker, defender) -> float:
     return _DRUKHARI_ENGAGE_BONUS
 
 
+def _drukhari_depleted_unit_penalty(attacker) -> float:
+    """Return _DRUKHARI_LIST_INTEGRITY_PENALTY (0.5x) when `attacker` is a
+    Drukhari/Ynnari INFANTRY unit below half its starting health.
+
+    Models real-tournament list-integrity play: Skysplinter pilots protect
+    depleted Wyches / Incubi / Mandrakes rather than charging and losing the
+    remaining models to a counter-fight. A unit at full strength charges
+    freely; one at 40% starting health is pulled back.
+
+    Gates (all required):
+      - attacker.profile.faction in ("Drukhari", "Ynnari")
+      - INFANTRY in attacker.profile.unit_keywords  (no VEHICLE/MONSTER/CHARACTER)
+      - attacker.current_health < _DRUKHARI_LIST_INTEGRITY_HP_FRAC *
+        attacker.profile.health
+
+    Returns 1.0 otherwise. Applied in BOTH _melee_target_score (move planner)
+    and pick_charge_target (charge planner) so the brake is consistent.
+
+    This is a PLAY HEURISTIC, not a 10e rule — no rule_citations entry.
+    DRK-DIAG-12.
+    """
+    a_profile = getattr(attacker, "profile", None)
+    if a_profile is None:
+        return 1.0
+    if a_profile.faction not in ("Drukhari", "Ynnari"):
+        return 1.0
+    kw = getattr(a_profile, "unit_keywords", ()) or ()
+    if "INFANTRY" not in kw:
+        return 1.0
+    # Exclude CHARACTER — leaders are often single-model and don't benefit
+    # from the same herd-the-fragile logic.
+    if "CHARACTER" in kw:
+        return 1.0
+    current_hp = getattr(attacker, "current_health", None)
+    start_hp = getattr(a_profile, "health", None)
+    if current_hp is None or start_hp is None or start_hp <= 0:
+        return 1.0
+    if current_hp < _DRUKHARI_LIST_INTEGRITY_HP_FRAC * start_hp:
+        return _DRUKHARI_LIST_INTEGRITY_PENALTY
+    return 1.0
+
+
 def _melee_target_score(attacker, defender) -> float:
     """How attractive `defender` is as a melee target for `attacker`.
 
@@ -1266,7 +1434,15 @@ def _melee_target_score(attacker, defender) -> float:
             * _daemons_deepstrike_tarpit_bonus(attacker, defender)
             # AI-3 — elite over-performer debuffs.
             * _custodes_horde_penalty(attacker, defender)
-            * _drukhari_decisive_strike_penalty(attacker, defender))
+            * _drukhari_decisive_strike_penalty(attacker, defender)
+            # DRK-DIAG-12 — list-integrity gate: depleted Drukhari
+            # INFANTRY squads (< 50% health) are discouraged from
+            # committing to melee engagements.
+            * _drukhari_depleted_unit_penalty(attacker)
+            # AI-5 — melee-focused Knight chassis (Gallant, Rampager,
+            # Despoiler, Abominant, Karnivore) strongly prefer committing
+            # to melee over staying at range.
+            * _knight_melee_commitment_bonus(attacker))
 
 
 def _kill_potential_wounds(attacker_profile, target_profile) -> float:
@@ -1303,6 +1479,41 @@ def _kill_potential_wounds(attacker_profile, target_profile) -> float:
 # and Custodian Guard are all gated identically.
 _WONT_CRACK_HP_FRAC = 0.20
 _WONT_CRACK_PENALTY = 0.3
+
+# Anti-Knight stack component 2 (`SWEG_TARPIT`, default OFF) — general tarpit
+# charge valuation. A charge that CANNOT crack a durable, high-ranged-threat
+# brick (a Knight) is normally suppressed by the won't-crack penalty. But an
+# EXPENDABLE (chaff) attacker pinning such a target is a real-play tarpit: an
+# engaged target with Big Guns Never Tire may shoot only the unit it is tied up
+# with at -1, or Fall Back and lose its shooting entirely (the sim already
+# resolves this faithfully in `_do_shoot`). So the pin DENIES the target's
+# ranged output to the rest of the army — value the charge by that denied
+# output, not by the kill it cannot make. Even-handed: universal points +
+# toughness, no faction branch (the existing per-faction tarpit bonuses are a
+# separate, narrower play-style layer). AI heuristic exploiting the already-cited
+# Big Guns Never Tire mechanic — no new rule_citation (same class as the Ork /
+# World Eaters tarpit bonuses).
+_TARPIT_MIN_TOUGHNESS = 9     # durable brick worth pinning (Knights T12, big vehicles T9-14)
+_TARPIT_MIN_HP = 18.0        # or a large wound pool (a multi-wound vehicle/monster)
+_TARPIT_PIN_WEIGHT = 0.6     # weight on the denied ranged output when valuing a pin
+
+
+def _tarpit_enabled() -> bool:
+    return __import__("os").environ.get("SWEG_TARPIT", "0") == "1"
+
+
+def _is_tarpit_charge(attacker, target_unit, target_profile) -> bool:
+    """A pin charge: an EXPENDABLE (chaff, non-CHARACTER) attacker into a DURABLE
+    target. Even-handed — no faction branch; uses universal points + toughness.
+    Called only inside the won't-crack branch, which already establishes the
+    attacker cannot crack the target. The pin's value scales with the target's
+    ranged output (computed at the call site), so a low-ranged melee brick yields
+    a small pin value and is not tarpitted (correct — a melee Knight wants melee)."""
+    if not _is_chaff_unit(attacker):
+        return False
+    tp = target_profile
+    return (tp.toughness or 0) >= _TARPIT_MIN_TOUGHNESS or \
+        (target_unit.current_health or 0.0) >= _TARPIT_MIN_HP
 
 
 def pick_charge_target(attacker, enemy):
@@ -1414,13 +1625,25 @@ def pick_charge_target(attacker, enemy):
         # consistent across move + charge. Same 50% expected-wounds
         # threshold, same 0.5x multiplier, same Drukhari/Ynnari gate.
         drk_decisive_penalty = _drukhari_decisive_strike_penalty(attacker, e)
+        # DRK-DIAG-12 — list-integrity gate: depleted Drukhari INFANTRY
+        # squads (< 50% starting health) are discouraged from charging.
+        # Mirrors the _melee_target_score gate so the brake is symmetric.
+        drk_integrity_penalty = _drukhari_depleted_unit_penalty(attacker)
+        # AI-5 — melee-focused Knight chassis (Gallant, Rampager, Despoiler,
+        # Abominant, Karnivore) strongly prefer committing to melee. The MOVE
+        # planner gates use the same bonus so both close-on and charge
+        # decisions are aligned. Ranged Knights (Castellan, Valiant, Crusader,
+        # Tyrant) are automatically excluded because they lack extra_melee_profiles.
+        knight_melee_bonus = _knight_melee_commitment_bonus(attacker)
         score = (((kill_potential + 0.5 * ranged_value)
                   / (1.0 + threat_against))
                  * charge_p * gunline_bonus * support_bonus
                  * screen_bonus * synapse_bonus * tarpit_bonus
                  * we_glory_bonus * tyranids_tarpit_bonus
                  * daemons_tarpit_bonus
-                 * drk_decisive_penalty)
+                 * drk_decisive_penalty
+                 * drk_integrity_penalty
+                 * knight_melee_bonus)
         # #C2 (iter 2) — "won't-crack" penalty. If expected wounds inflicted
         # this round is below 20% of target's current HP, heavily downweight
         # the charge. Stops light melee attacking T8+ bricks they can't dent
@@ -1429,7 +1652,16 @@ def pick_charge_target(attacker, enemy):
         # charges in the iter-1 audit landed on un-crackable targets.
         expected_wounds = _kill_potential_wounds(p, tp)
         if expected_wounds < _WONT_CRACK_HP_FRAC * max(1.0, e.current_health):
-            score *= _WONT_CRACK_PENALTY
+            if _tarpit_enabled() and _is_tarpit_charge(attacker, e, tp):
+                # PIN charge (SWEG_TARPIT): an expendable unit tying up a durable
+                # gun platform. Do NOT suppress — value the pin by the enemy
+                # ranged output it DENIES (Big Guns Never Tire / engaged-can't-
+                # shoot), added instead of the kill it cannot make. A melee brick
+                # has little ranged_value, so it yields a small pin value and is
+                # not tarpitted. Even-handed; AI heuristic on the cited pin rule.
+                score += _TARPIT_PIN_WEIGHT * ranged_value * charge_p
+            else:
+                score *= _WONT_CRACK_PENALTY
         candidates.append((score, d, e))
 
     if not candidates:
@@ -1784,6 +2016,95 @@ def _sacrificial_chaff_target(
     return (target_x, target_y)
 
 
+def _m4_enabled() -> bool:
+    """Anti-Knight stack component 1 (`SWEG_M4`). Default OFF — the stack
+    components stay gated for the isolation A/B until the decisive full-stack
+    run; the user's package decision sets the final default."""
+    return __import__("os").environ.get("SWEG_M4", "0") == "1"
+
+
+# M4-α refinement (wave 131-132) — gunline-disruption exemption. The wave-130
+# N=80 regression included Astra Militarum dragging its heavy-weapon models onto
+# markers. The faithful fix (watchdog rails, wave 132): exempt a model from the
+# cluster-pull ONLY when moving onto the marker would COST it a productive shot —
+# i.e. it has meaningful ranged output AND an eligible target in range NOW, but
+# the marker is OUT of firing range of every target so the move breaks the shot.
+# A model that can HOLD-AND-SHOOT (a target in range from the marker too) is
+# STILL pulled — it both holds the objective and keeps firing. A model with no
+# eligible target, or no gun, or that can shoot from the marker, is pulled. This
+# is NOT a blanket shooter exemption (that strands OC + kills the IK fix, the
+# wave-131 over-broad version); it gates strictly on the move costing a shot.
+# Even-handed (universal output + range, no faction branch; a 1-model Knight is
+# unaffected); wrong-way-test clean (a real player keeps the lascannon firing and
+# holds the marker with spare / chaff / hold-and-shoot bodies).
+_M4_SHOOTER_MIN_OUTPUT = 2.0   # per-model ranged DPA above a lasgun trooper (~0.5), at a heavy weapon (~3+)
+
+
+def _m4_move_costs_a_shot(unit, enemy_alive, marker_xy) -> bool:
+    """True if `unit` is a productive shooter with an eligible target in range
+    NOW that it would LOSE by moving onto `marker_xy` (no target in range from
+    the marker). Hold-and-shoot (a target in range from the marker) returns
+    False → the model is pulled."""
+    p = unit.profile
+    ranged_out = (p.attacks or 0) * (p.hit_probability or 0.0) \
+        * (p.weapon_damage_per_shot or 0.0)
+    if ranged_out < _M4_SHOOTER_MIN_OUTPUT:
+        return False
+    rng = p.range_inches or 0.0
+    if rng <= 0.0:
+        return False
+    has_shot_now = any(_dist(unit.position, e.position) <= rng for e in enemy_alive)
+    if not has_shot_now:
+        return False
+    has_shot_from_marker = any(_dist(marker_xy, e.position) <= rng for e in enemy_alive)
+    return not has_shot_from_marker
+
+
+def _m4_cluster_intent(unit, own_oc, enemy_alive, objectives, map_):
+    """M4-α: a model carrying Objective Control that is NEAR a marker but not
+    yet tight on it genuinely MOVES to a clustered on-marker slot inside the 3"
+    scoring band, so a squad's surviving models mass on the objective and
+    contribute their whole Objective Control (instead of stranding in the
+    3"-6" band, the wave-93 spread). Returns `(slot, _CAPTURE_INTENT)` or None.
+
+    Faithful positioning (A1), NOT a coherency-footprint counting shortcut
+    (the forbidden A2): the model really moves; OC is still scored per-model
+    within 3" by `_score_objectives`, unchanged. Even-handed — a 1-model unit
+    (a Knight) targets the marker centre too and is unaffected because it
+    already parks there; the benefit accrues to multi-model squads because they
+    have bodies to mass, not via any faction or model-count branch. Cited
+    `simulator.m4_squad_cluster`.
+    """
+    if own_oc <= 0:
+        return None   # no Objective Control to contribute — leave it to shoot
+    # Locked in melee: leave it to the existing fight / fall-back logic, do not
+    # waltz onto a marker while in Engagement Range.
+    for e in enemy_alive:
+        if _dist(unit.position, e.position) <= _ENGAGEMENT_RANGE:
+            return None
+    PULL_IN = 6.0          # only tighten models already committed near a marker
+    INNER = 1.5            # already tight on the centre — no move needed
+    in_range = [
+        (obj, _dist(unit.position, (obj.x, obj.y)))
+        for obj in objectives
+    ]
+    in_range = [(o, d) for o, d in in_range if d <= PULL_IN]
+    if not in_range:
+        return None
+    obj, d = min(in_range, key=lambda od: od[1])
+    if d <= INNER:
+        return None        # already massed on the marker
+    # Gunline-disruption exemption (wave 132, watchdog rails): exempt ONLY if the
+    # move onto THIS marker would cost a productive shot — a hold-and-shoot model
+    # (target in range from the marker too) is still pulled.
+    if _m4_move_costs_a_shot(unit, enemy_alive, (obj.x, obj.y)):
+        return None
+    # A cover-rich point WITHIN the 3" scoring band of the marker centre, so the
+    # model keeps both its Objective Control and (where available) a cover save.
+    slot = _best_nearby_cover_point(map_, (obj.x, obj.y), search_radius=2.0)
+    return slot, _CAPTURE_INTENT
+
+
 def pick_move_intent(
     unit, friendly, enemy, map_, army_plan: Optional[str] = None,
     _phase_their_oc: Optional[Dict] = None,
@@ -1802,6 +2123,16 @@ def pick_move_intent(
     plan's target zone. None preserves the legacy per-unit behaviour
     (callers that don't supply a plan see identical output to pre-#161).
     """
+    # ----- Wave 121: card-pursuit override (AI movement heuristic) -----------
+    # Battle._assign_card_pursuit stamps pursue_target onto spare chaff units
+    # BEFORE the move loop runs. If set, this is a high-priority pre-commitment:
+    # the unit heads straight to the card's geographic goal and skips all other
+    # intent logic. The override is transparent on the OFF path (pursue_target
+    # initialises to None and is never written when the gate is off).
+    _pt = getattr(unit, "pursue_target", None)
+    if _pt is not None:
+        return _pt, "pursue_card"
+
     role = classify(unit.profile)
     own_oc = unit.profile.oc or 0
 
@@ -1838,10 +2169,19 @@ def pick_move_intent(
     _fall_back_eligible_roles = ("SHOOTY", "HEAVY")
     if unit.profile.faction in _VOTANN_FALLBACK_FACTIONS:
         _fall_back_eligible_roles = ("SHOOTY", "HEAVY", "DUAL")
-    if role in _fall_back_eligible_roles:
+    # AI-MISPILOT-FALLBACK (task #7): a melee-PRIMARY unit caught in
+    # engagement should STAY and fight, not Fall Back. Falling Back forfeits
+    # its main (melee) weapon system for the turn, and for non-TITANIC units
+    # risks a Desperate Escape casualty — a competent player never Falls Back
+    # a melee Knight (Gallant/Rampager), Carnifex, Hive Tyrant or Daemon
+    # Prince. `_is_melee_class` (melee DPA >= ranged DPA) keeps pure ranged
+    # platforms (Knight Castellan/Valiant, gunline tanks, Votann Hearthkyn)
+    # eligible to break off and free their guns. Stage-1 AI heuristic only —
+    # no rule citation, this is play-style modelling.
+    if role in _fall_back_eligible_roles and not _is_melee_class(unit.profile):
         enemies = enemy.alive_units
         in_engagement = any(
-            _dist(unit.position, e.position) < _ENGAGEMENT_RANGE
+            _dist(unit.position, e.position) <= _ENGAGEMENT_RANGE
             for e in enemies
         )
         if in_engagement and enemies:
@@ -1862,6 +2202,20 @@ def pick_move_intent(
         _their_oc = _phase_their_oc
     else:
         _their_oc = {id(obj): _oc_on_objective(enemy_alive, obj) for obj in objectives}
+
+    # ----- M4-α (anti-Knight stack, SWEG_M4) — mass Objective Control onto the
+    # markers ------------------------------------------------------------------
+    # A model carrying Objective Control that is near (but not tight on) a marker
+    # genuinely moves into the 3" scoring band, so a squad packs its surviving
+    # OC on the objective instead of stranding half of it in the 3"-6" ring (the
+    # wave-93 spread). Even-handed; a 1-model unit is unaffected (already parks
+    # on the centre). Runs ahead of the on-objective/HOLD logic so an edge-holder
+    # tightens onto the marker rather than drifting to off-marker cover. OFF path
+    # (gate unset) is byte-identical. Cited `simulator.m4_squad_cluster`.
+    if _m4_enabled():
+        _m4 = _m4_cluster_intent(unit, own_oc, enemy_alive, objectives, map_)
+        if _m4 is not None:
+            return _m4
 
     # ----- 1. Are we currently on an objective whose loss is at stake? -----
     # Track which objectives the unit currently occupies; reused by the
@@ -1983,6 +2337,39 @@ def pick_move_intent(
             nearest_enemy_dist = d
             nearest_enemy = e
 
+    # Q11 positional re-model — Candidate B (wave 95, env-gated SWEG_MASS). A unit
+    # that holds NO objective AND is OUT of its own firing range of the nearest
+    # enemy (it is idle / advancing, not a shooter holding a fire-lane) masses onto
+    # the best holdable objective instead of drifting toward the enemy — the real
+    # "play the objectives" tactic, addressing the DOMINANT sub-cause (wave 93: a
+    # body army's Objective Control is nowhere near the markers). Gated on
+    # out-of-range so it does NOT pull in-range shooters off their lanes (the
+    # aggressive all-units version wrecked gunlines). Even-handed across factions;
+    # NOT a per-faction or per-model-count knob — a low-model durable army simply
+    # has few idle bodies to mass. LANDED wave 95 (default ON; SWEG_MASS=0 to
+    # re-gate) after the env-gated N=40 A/B: gated MAE 4.15 → 3.81, the first
+    # positional candidate to land — the dominant under-shooter Chaos Daemons
+    # −22.7 → −16.4 (its idle Daemons reach the markers) and Imperial Knights
+    # +27.0 → +25.5 (its opponents contest), with no gunline chaos (the aggressive
+    # all-units version regressed to 6.50). The geometry candidate (w94) regressed
+    # because it helped whoever already holds markers; this helps the non-reachers
+    # reach them — the faithful "play the objectives" tactic.
+    if (
+        __import__("os").environ.get("SWEG_MASS", "1") != "0"
+        and not unit_on_obj_ids
+        and best is not None
+        and best[1] in (_CAPTURE_INTENT, _STEAL_INTENT)
+        and nearest_enemy_dist > (unit.profile.range_inches or 24)
+    ):
+        _bobj = best[2]
+        # Snap to cover within the marker's control radius so the unit massing
+        # onto the objective still arrives in cover (mirrors the CAPTURE
+        # cover-snap below), not on bare ground.
+        _mass_pos = _best_nearby_cover_point(
+            map_, (_bobj.x, _bobj.y), search_radius=_bobj.control_radius,
+        )
+        return _mass_pos, best[1]
+
     # Aeldari Battle Focus — ASURYANI units bias toward advancing when:
     #   (a) the unit has a Battle Focus token available
     #   (b) the unit is OUT of weapon range of the nearest enemy
@@ -2029,6 +2416,34 @@ def pick_move_intent(
                 )
                 repo_pos = _best_nearby_cover_point(map_, step_to, search_radius=4.0)
                 return repo_pos, _REPOSITION_INTENT
+            # #12 OBJECTIVE-AWARE REPOSITION (2026-05-31): a ranged unit that
+            # can still shoot from an objective should move ONTO the best-scoring
+            # objective — scoring VP while continuing to fire — rather than
+            # holding in open ground. This is the board-control play durable
+            # gunline bricks (Imperial / Chaos Knights, gun tanks) win with; the
+            # kill-centric in-place reposition under-credited it, which is the
+            # dominant source of the Knights' AI-positional residual (the blunt
+            # "durable units always camp" experiment moved Chaos Knights
+            # -38 -> -8.8 / Imperial Knights -21.8 -> +5.2 but over-buffed
+            # gunlines and made melee monsters mis-camp). This is the clean
+            # version: only SHOOTY/HEAVY units reach here (melee-primary units
+            # never do, so they keep charging), it is gated OUT for the tuned
+            # aggressive gunline postures (shimmy / alpha_strike / fast_strike —
+            # Aeldari / T'au keep their fire-lane play, so the over-shooters are
+            # not pushed further over), and it only diverts when an enemy is
+            # still within firing range from the objective (the unit keeps its
+            # shot — board control AND damage, not camping out of range).
+            if (
+                posture not in ("shimmy", "alpha_strike", "fast_strike")
+                and best is not None and best[0] > 0.2
+            ):
+                _, _obj_intent, _obj, _ = best
+                _obj_pos = (_obj.x, _obj.y)
+                if any(_dist(_obj_pos, e.position) <= rng for e in enemy_alive):
+                    _obj_snap = _best_nearby_cover_point(
+                        map_, _obj_pos, search_radius=3.0,
+                    )
+                    return _obj_snap, _obj_intent
             # In range — don't drift around. But snap to nearby cover when
             # available so we get the defensive uplift.
             repo_pos = _best_nearby_cover_point(map_, unit.position, search_radius=3.0)
@@ -3631,51 +4046,27 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     # Replaces the iter-0 zero-stratagem state where Votann only fired
     # Command Re-Roll (universal Core). Gates are permissive — Votann lists
     # are typically 8-10 units with Hearthkyn / Hekaton anchors that easily
-    # clear the 80-pt threshold. The Judgement-Token-bearing gate is
-    # collapsed onto "target is heavy/shooty" since the AI doesn't track
-    # per-unit token state at gate time.
+    # clear the 80-pt threshold.
+    #
+    # VOTANN-DIAG-2 (2026-05-26): Warrior Pride, Wrath of the Ancestors,
+    # Glory of the Hearth, Ironkin Sequence, and Void-Armoured Resilience
+    # do not exist in the current 10e codex. Their gate logic is removed.
+    # Replaced with three real Needgaard Oathband stratagems below.
 
-    if name == "Warrior Pride":
-        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-wound
-        # both modes. Fire when the Votann attacker has meaningful melee+
-        # ranged DPA AND target is heavy/expensive — same gate shape as
-        # Avenge the Fallen / Big Krumpin' on the wound-reroll axis.
-        #
-        # SC5-5 fix: real Wahapedia rule REQUIRES target to be a
-        # Judgement-Token-bearing enemy. Without this gate the stratagem
-        # was firing R1 on any heavy target before any token had been
-        # issued — a structural over-modelling of Leagues of Votann.
+    # "Huntr's Mark" gate removed — VOTANN-AUDIT-V1 (2026-05-29): stratagem
+    # absent from BSData v10.6.0, citation unverifiable, responsible for
+    # +7.8pt overshoot. Stratagem definition deleted from stratagems.py.
+
+    if name == "Ancestral Sentence":
+        # ctx: {"attacker": Unit, "target": Unit}. Sustained Hits 1 on a
+        # Votann ranged unit (Needgaard Oathband, 1 CP). Fire when the
+        # attacker has real ranged DPA and target is heavy-class. 1 CP is
+        # cheaper than the removed fake 2 CP token-issue version; gate
+        # accordingly.
         # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
         attacker = ctx.get("attacker")
         target = ctx.get("target")
         if attacker is None or target is None:
-            return False
-        # Real-rule gate: target must currently bear a Judgement Token.
-        tokens = getattr(army, "judgement_tokens", {}) or {}
-        if tokens.get(target.uid, 0) <= 0:
-            return False
-        try:
-            cost = float(attacker.profile.points_cost)
-        except Exception:
-            return False
-        return cost >= 80.0 and _is_heavy_target(target)
-
-    if name == "Wrath of the Ancestors":
-        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit-
-        # shooting approximation for [LETHAL HITS]. Fire when the Votann
-        # attacker has real ranged DPA AND target is HEAVY-class (same gate
-        # shape as Archaeotech Munitions / Focused Fire).
-        #
-        # SC5-5 fix: real Wahapedia rule REQUIRES target to be a
-        # Judgement-Token-bearing enemy. Mirrors Warrior Pride fix above.
-        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
-        attacker = ctx.get("attacker")
-        target = ctx.get("target")
-        if attacker is None or target is None:
-            return False
-        # Real-rule gate: target must currently bear a Judgement Token.
-        tokens = getattr(army, "judgement_tokens", {}) or {}
-        if tokens.get(target.uid, 0) <= 0:
             return False
         try:
             p = attacker.profile
@@ -3684,59 +4075,12 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             ranged_dpa = 0.0
         return ranged_dpa >= 1.5 and _is_heavy_target(target)
 
-    if name == "Glory of the Hearth":
-        # ctx: {"attacker": Unit, "target": Unit}. Offensive hit-reroll on
-        # a Votann VEHICLE — only Hekaton / Sagitaur / Brokhyr Thunderkyn
-        # clear this. Fire on a heavy target to maximise value (vehicles
-        # are typically anti-tank shooters).
-        attacker = ctx.get("attacker")
-        target = ctx.get("target")
-        if attacker is None or target is None:
-            return False
-        try:
-            cost = float(attacker.profile.points_cost)
-        except Exception:
-            return False
-        return cost >= 100.0 and _is_heavy_target(target)
-
-    if name == "Ironkin Sequence":
-        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit on
-        # an IRONKIN unit (Hearthkyn etc.). Fire when the unit has real
-        # ranged DPA — cheap at 1 CP, no need for heavy-target gate.
-        # ST-3: don't fire when the attacker is already on 2+ to hit
-        # (hit_probability >= 5/6 = 0.83) — the +1 can't lift the roll
-        # any further so it's wasted CP. Votann over-performs by +23.5.
-        attacker = ctx.get("attacker")
-        if attacker is None:
-            return False
-        try:
-            p = attacker.profile
-            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
-            hit_prob = p.hit_probability or 0.0
-        except Exception:
-            return False
-        if hit_prob >= 0.83:
-            return False
-        return ranged_dpa >= 1.0
-
-    if name == "Ancestral Sentence":
-        # ctx: {"target": Unit}. Issue a Judgement Token at 2 CP — gate on
-        # target being heavy/expensive so the subsequent re-roll buffs land
-        # on a worthwhile victim. 2 CP is the most expensive Oathband
-        # stratagem; require a real heavy target.
-        target = ctx.get("target")
-        if target is None:
-            return False
-        try:
-            cost = float(target.profile.points_cost)
-        except Exception:
-            return False
-        return cost >= 100.0 and _is_heavy_target(target)
-
-    if name == "Void-Armoured Resilience":
-        # ctx: {"target": Unit}. Defensive FNP-5. Fire on a wounded high-
-        # value Votann unit — same gate shape as Lightning-Fast Reactions /
-        # Arcane Genetic Alchemy.
+    if name == "Void Hardened":
+        # ctx: {"target": Unit}. Defensive no-op (Needgaard Oathband, 1 CP).
+        # The simulator cannot model incoming-AP worsening. Register a spend
+        # only when the target is a high-value Votann unit under moderate
+        # pressure — don't waste command points on undamaged units.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
         target = ctx.get("target")
         if target is None:
             return False
@@ -3745,7 +4089,7 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             cost = float(target.profile.points_cost)
         except Exception:
             return False
-        return hp_frac > 0.2 and cost >= 80.0
+        return hp_frac > 0.3 and cost >= 80.0
 
     # ----- Gladius Task Force (Adeptus Astartes) — six real strats (iter-12)
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force

@@ -200,9 +200,9 @@ def build_archetype_with_seed(
     # archetype absorbs the cost difference by being smaller for expensive
     # seeds.
     squad_size = max(1, seed_profile.min_models)
+    # SQUAD-ACTIVATION (Lever 1, P1): one squad_id per seed squad.
     for _ in range(max(1, n_seed_squads)):
-        for _ in range(squad_size):
-            army.add_unit(seed_profile)
+        army.add_squad(seed_profile, squad_size)
 
     return army
 
@@ -538,8 +538,8 @@ def build_faction_random_army(
         if not affordable:
             break
         chosen, size, cost = rng.choice(affordable)
-        for _ in range(size):
-            army.add_unit(chosen)
+        # SQUAD-ACTIVATION (Lever 1, P1): one squad_id per filled squad.
+        army.add_squad(chosen, size)
         spent_by_name[chosen.name] += cost
         remaining -= cost
         if is_epic_hero(chosen):

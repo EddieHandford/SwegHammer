@@ -1,0 +1,12 @@
+{
+  "_comment": "PER-MODEL-LOADOUTS (Stage 4, env-gated SWEG_ROLLDMG). 10e core: a weapon's Damage (D) characteristic determines how many wounds an unsaved attack inflicts, and some weapons carry a RANDOM Damage characteristic expressed in dice notation (D6, D3, 2D6, D6+2, ...). The Dice rule defines that notation: 'Some rules refer to 2D6, 3D6 and so on - in such cases, roll that many D6 and add the results together', and a D3 is rolled as a D6 halved rounding up. The Inflict Damage step then applies that (possibly rolled) value: the target loses a number of wounds equal to the attack's Damage characteristic. SwegHammer historically used the EXPECTED-VALUE MEAN of a random Damage characteristic (a D6 weapon always dealt a flat 3.5), which over-rates big single-shot guns - a real D6 against a 3-wound model destroys it only about two-thirds of the time, whereas a flat 3.5 destroys it every time. Stage 4 rolls the real dice per shot when the SWEG_ROLLDMG env gate is set and the firing weapon carries a raw damage_dice string; the rolled value replaces the base Damage, then the same per-allocation modifiers the mean path applies (Necrodermis halving, Rend and Tear +1, Melta X) are applied to the rolled value, in the same order (10e: roll the Damage, then modify). When the gate is unset, the mean is used exactly as before and no random die is drawn, so the OFF and per-model-mean streams stay byte-identical. This is a faithful representation change, not a buff: the rolled distribution's mean equals the legacy expected-value field.",
+
+  "simulator.rolled_damage": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Dice",
+    "rule_name": "Dice / Inflict Damage",
+    "quoted_text": "Some rules refer to 2D6, 3D6 and so on - in such cases, roll that many D6 and add the results together. ... The damage inflicted is equal to the Damage (D) characteristic of the attack. A model loses one wound for each point of damage it suffers.",
+    "trigger": "an attack with a random Damage characteristic (e.g. D6, D3+3, 2D6) inflicts an unsaved wound (or a Devastating Wounds critical wound) on a target model",
+    "effect": "roll the weapon's Damage dice per shot to determine the points of damage inflicted (rather than using a fixed expected-value mean); the rolled value then has any per-allocation Damage modifiers applied to it",
+    "scope": "weapon-keyword"
+  }
+}

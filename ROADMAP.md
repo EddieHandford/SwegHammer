@@ -143,6 +143,8 @@ in real play.
   - Death Guard: Disgustingly Resilient (FNP 5+ army-wide) + Contagions of Nurgle (escalating -1 T / -1 Ld / -1 hit aura)
   - Thousand Sons: All Is Dust (Rubricae Phalanx detachment, +1 save vs unmodified D1 on RUBRICAE units) + Rites of Coalescence (Scarab Occult Terminators datasheet ability, -1 to wound on any-D attacks while a PSYKER is present)
   - Necrons: Reanimation Protocols + Awakened Dynasty buffs
+  - Imperial Knights: Code Chivalric army rule (re-roll ONE Hit roll and ONE Wound roll per activation — the real "martial valour" Quality; wave 71 corrected this from the over-scaling "re-roll all natural 1s") + Ion Shield (5+ invulnerable save against ranged attacks ONLY — wave 72 fidelity fix: big Imperial Knights have no invulnerable save in melee, only their 3+ armour; Chaos Knights' Ion Shield is ranged and melee) + Valourstrike Lance detachment: Bold Gallantry ([ASSAULT] on IK ranged weapons when any IK unit Advances) + Bondsman abilities (each TITANIC+CHARACTER IK knight buffs one Armiger per Command phase with Paladin's Duty: Lethal Hits + Lance)
+  - Chaos Knights: Harbingers of Dread army rule (Deathly Terror Battle-shock aura + Doom wound-roll bonus vs Battle-shocked targets) + Iconoclast Fiefdom detachment: Dread Tyrants Aura (War Dog units re-roll hit and wound 1s while a friendly TITANIC Chaos Knights unit is within 9")
   - Adeptus Astartes: **[pending — needs retry]** Oath of Moment + Combat Doctrines
 - **Core 10e mechanics**: Hit/Wound/Save w/ crits, AP+invuln+FNP, 18 weapon
   keywords, Cover (light/heavy/obscuring), Big Guns Never Tire,
@@ -173,9 +175,12 @@ in real play.
   +5pt buff that wrecked the previous two attempts. Needs new approach —
   either a damped version of Oath (re-roll 1s only, not full re-roll) or
   concurrent Marine points re-calibration.
-- Aeldari Battle Focus strategy bias retry — currently the ASURYANI advance
-  branch is inert because Aeldari at +13.9 are over-strong; making them more
-  active worsens MAE. Needs to land after points re-balance.
+- Aeldari Battle Focus VEHICLE gate fixed (wave 59, AELDARI-BATTLE-FOCUS-V1):
+  the Star Engines Agile Manoeuvre token spend now correctly requires both
+  ASURYANI and VEHICLE keywords, reducing Aeldari overperformance by ~4 pts
+  (pre-fix +18.5, post-fix +14.4 vs real 44.4%). Remaining overperformance
+  driven by Strands of Fate and Yncarne/Avatar strength — further waves
+  needed to close the residual.
 - Drukhari mapper rewrite retry — parser fix shifted the Aeldari pool
   composition (+0.71 regression). Needs C1 cost rebase to absorb the
   redistribution.

@@ -339,10 +339,28 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
 
     squadron_allowed = bool(getattr(army, "orders_eligible_squadron_this_round", False))
 
-    officers = [
-        u for u in army.alive_units
-        if _is_am_officer(u) and u.uid not in battleshocked_uids
-    ]
+    # Each codex OFFICER datasheet issues ONE Order per round regardless of
+    # how many model-instances share that profile name in the army (Command
+    # Squads are multi-model datasheets — Cadian/Catachan Command Squad
+    # min_models=5, Krieg Command Squad min_models=6, Militarum Tempestus
+    # Command Squad min_models=5). The simulator stores each model as its
+    # own Unit instance, so a 5-model squad produces 5 instances all
+    # passing _is_am_officer. De-duplicating by profile.name collapses them
+    # to ONE Order-issuer per codex datasheet, matching Voice of Command:
+    # "each OFFICER [unit] … can issue one Order".
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+    _seen_officer_names: set = set()
+    officers = []
+    for u in army.alive_units:
+        if not _is_am_officer(u):
+            continue
+        if u.uid in battleshocked_uids:
+            continue
+        officer_name = u.profile.name or ""
+        if officer_name in _seen_officer_names:
+            continue  # already have one instance of this codex Officer unit
+        _seen_officer_names.add(officer_name)
+        officers.append(u)
     if not officers:
         return issued
 

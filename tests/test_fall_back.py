@@ -1,12 +1,16 @@
 """Tests for the Fall Back move and Desperate Escape test (10e core rules).
 
 A unit within Engagement Range of one or more enemy units may, in its
-Movement phase, Fall Back: move up to M" away (through enemy models). It
-cannot shoot or charge that turn unless it has the FLY keyword.
+Movement phase, Fall Back: move up to M" away (through enemy models). Until
+the end of the turn it cannot shoot or declare a charge — there is NO FLY
+exception in current 10e. FLY only changes HOW the Fall Back move is made (it
+can move over other models and skips the Desperate Escape test); it does NOT
+let the unit shoot or charge after Falling Back.
 
 After a Fall Back that passed through enemy models, roll 1D6 per model in
-the unit; each 1 destroys one model. SwegHammer is one Unit per model, so
-a single d6 roll is taken and on a 1 the unit's health is zeroed.
+the unit; each result of 1-2 destroys one model. SwegHammer is one Unit
+per model, so a single d6 roll is taken and on a 1-2 the unit's health is
+zeroed. TITANIC and FLY units are entirely exempt from the test.
 
 Cited as `simulator.fall_back` / `simulator.desperate_escape`.
 """
@@ -24,9 +28,13 @@ from code.strategy import pick_move_intent
 from code.units import Unit, UnitProfile
 
 
-def _shooty_profile(fly: bool = False) -> UnitProfile:
+def _shooty_profile(fly: bool = False, titanic: bool = False) -> UnitProfile:
     """A high-DPA ranged profile that classify() will tag SHOOTY."""
-    kw = ("INFANTRY", "FLY") if fly else ("INFANTRY",)
+    kw: tuple = ("INFANTRY",)
+    if fly:
+        kw = kw + ("FLY",)
+    if titanic:
+        kw = kw + ("TITANIC",)
     return UnitProfile(
         name="Gunner", health=4, damage=4, hit_probability=2 / 3,
         ap=-1, save=3, attacks=4, weapon_damage_per_shot=1.0,
@@ -97,7 +105,8 @@ class FallBackStrategyTests(unittest.TestCase):
 
 
 class FallBackSimulatorTests(unittest.TestCase):
-    """Simulator-side: Fall Back blocks shoot/charge for non-FLY; FLY exempt."""
+    """Simulator-side: Fall Back blocks shoot/charge for EVERY unit that Fell
+    Back, FLY included — current 10e has no FLY shoot/charge exception."""
 
     def _build_battle(self, fly: bool) -> tuple[Battle, Unit, Unit]:
         a = _make_army("A", _shooty_profile(fly=fly), [(20.0, 30.0)])
@@ -113,7 +122,9 @@ class FallBackSimulatorTests(unittest.TestCase):
         battle._do_shoot(gunner, battle.a, battle.b)
         self.assertEqual(brawler.current_health, starting_hp)
 
-    def test_fly_unit_can_shoot_after_fall_back(self):
+    def test_fly_unit_cannot_shoot_after_fall_back(self):
+        """Current 10e: a FLY unit that Fell Back is ALSO locked out of
+        shooting — the 9th-edition FLY exception was removed."""
         battle, gunner, brawler = self._build_battle(fly=True)
         self.assertTrue(gunner.profile.fly)
         gunner.fell_back_this_round = True
@@ -122,12 +133,15 @@ class FallBackSimulatorTests(unittest.TestCase):
         gunner.position = (5.0, 30.0)
         brawler.position = (10.0, 30.0)
         starting_hp = brawler.current_health
-        # Force the attack rolls to land for a deterministic damage tick.
+        # Even with the dice forced to land, the Fall Back lockout must stop
+        # the shot before any damage is dealt.
         with mock.patch("random.random", return_value=0.0), \
                 mock.patch("random.randint", return_value=6):
             battle._do_shoot(gunner, battle.a, battle.b)
-        # A FLY unit must be able to shoot after Falling Back — damage > 0.
-        self.assertLess(brawler.current_health, starting_hp)
+        self.assertEqual(
+            brawler.current_health, starting_hp,
+            "A FLY unit must NOT shoot after Falling Back in current 10e.",
+        )
 
     def test_fall_back_blocks_charging_for_non_fly(self):
         battle, gunner, brawler = self._build_battle(fly=False)
@@ -139,12 +153,28 @@ class FallBackSimulatorTests(unittest.TestCase):
         battle._do_charge(gunner, battle.a, battle.b)
         self.assertNotIn(gunner.uid, battle._charging_this_round)
 
+    def test_fly_unit_cannot_charge_after_fall_back(self):
+        """Current 10e: a FLY unit that Fell Back is ALSO locked out of
+        declaring a charge — no FLY exception."""
+        battle, gunner, brawler = self._build_battle(fly=True)
+        self.assertTrue(gunner.profile.fly)
+        gunner.position = (20.0, 30.0)
+        brawler.position = (24.0, 30.0)
+        gunner.fell_back_this_round = True
+        battle._do_charge(gunner, battle.a, battle.b)
+        self.assertNotIn(
+            gunner.uid, battle._charging_this_round,
+            "A FLY unit must NOT declare a charge after Falling Back in 10e.",
+        )
+
 
 class DesperateEscapeTests(unittest.TestCase):
-    """Desperate Escape test: 1D6 per model; each 1 destroys a model."""
+    """Desperate Escape test: 1D6 per model; each result of 1-2 destroys a model.
+    TITANIC and FLY units are entirely exempt from the test.
+    """
 
-    def _build_engagement(self) -> tuple[Battle, Unit, Unit]:
-        a = _make_army("A", _shooty_profile(), [(20.0, 30.0)])
+    def _build_engagement(self, fly: bool = False, titanic: bool = False) -> tuple[Battle, Unit, Unit]:
+        a = _make_army("A", _shooty_profile(fly=fly, titanic=titanic), [(20.0, 30.0)])
         b = _make_army("B", _melee_profile(), [(21.0, 30.0)])
         battle = Battle(a, b, map_=_open_map())
         return battle, a.units[0], b.units[0]
@@ -160,8 +190,19 @@ class DesperateEscapeTests(unittest.TestCase):
         self.assertTrue(gunner.fell_back_this_round)
         self.assertFalse(gunner.is_alive)
 
-    def test_desperate_escape_safe_on_2_through_6(self):
-        for roll in (2, 3, 4, 5, 6):
+    def test_desperate_escape_kills_on_2(self):
+        """Roll of 2 destroys a model — threshold is 1-2, not just 1."""
+        battle, gunner, _ = self._build_engagement()
+        starting_hp = gunner.current_health
+        self.assertGreater(starting_hp, 0)
+        with mock.patch("random.randint", return_value=2):
+            battle._do_move(gunner, battle.a, battle.b)
+        self.assertTrue(gunner.fell_back_this_round)
+        self.assertFalse(gunner.is_alive)
+
+    def test_desperate_escape_safe_on_3_through_6(self):
+        """Rolls of 3-6 are safe — model survives the Desperate Escape test."""
+        for roll in (3, 4, 5, 6):
             with self.subTest(roll=roll):
                 battle, gunner, _ = self._build_engagement()
                 starting_hp = gunner.current_health
@@ -173,6 +214,34 @@ class DesperateEscapeTests(unittest.TestCase):
                     gunner.current_health, starting_hp,
                     f"d6={roll} must not kill the unit",
                 )
+
+    def test_titanic_exempt_from_desperate_escape(self):
+        """TITANIC units skip the Desperate Escape test entirely, even on a roll of 1."""
+        battle, gunner, _ = self._build_engagement(titanic=True)
+        self.assertTrue(gunner.profile.titanic)
+        starting_hp = gunner.current_health
+        # Even the worst possible roll must not harm a TITANIC unit.
+        with mock.patch("random.randint", return_value=1):
+            battle._do_move(gunner, battle.a, battle.b)
+        self.assertTrue(gunner.fell_back_this_round)
+        self.assertEqual(
+            gunner.current_health, starting_hp,
+            "TITANIC unit must not be harmed by Desperate Escape test",
+        )
+
+    def test_fly_exempt_from_desperate_escape(self):
+        """FLY units skip the Desperate Escape test entirely, even on a roll of 1."""
+        battle, gunner, _ = self._build_engagement(fly=True)
+        self.assertTrue(gunner.profile.fly)
+        starting_hp = gunner.current_health
+        # Even the worst possible roll must not harm a FLY unit.
+        with mock.patch("random.randint", return_value=1):
+            battle._do_move(gunner, battle.a, battle.b)
+        self.assertTrue(gunner.fell_back_this_round)
+        self.assertEqual(
+            gunner.current_health, starting_hp,
+            "FLY unit must not be harmed by Desperate Escape test",
+        )
 
 
 if __name__ == "__main__":

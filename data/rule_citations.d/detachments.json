@@ -41,32 +41,12 @@
     "approximation": true
   },
 
-  "INVASION_FLEET.enemy_ld_penalty": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/tyranids/#Shadow-in-the-Warp",
-    "rule_name": "Shadow in the Warp",
-    "quoted_text": "Each time an enemy unit takes such a Battle-shock test, if it is within 6\" of one or more SYNAPSE units from your army, subtract 1 from that test.",
-    "trigger": "any enemy Leadership/Battle-shock check",
-    "effect": "-1 to enemy Leadership (approximation of Shadow in the Warp, which actually subtracts 1 from Battle-shock tests within 6\" of a Synapse unit rather than modifying Ld army-wide)",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
-  "SHIELD_HOST.melee_crit_on_5_plus_hits": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
-    "rule_name": "Martial Ka'tah / Martial Mastery (Crit on 5+ bullet)",
-    "quoted_text": "At the start of the battle round, you can select one of the bullet points below. If you do, until the start of the next battle round, that bullet point's effects apply: Each time an ADEPTUS CUSTODES model from your army with the Martial Ka'tah ability makes a melee attack, a successful unmodified Hit roll of 5+ scores a Critical Hit. Improve the Armour Penetration characteristic of melee weapons equipped by ADEPTUS CUSTODES models from your army with the Martial Ka'tah ability by 1.",
-    "trigger": "Adeptus Custodes melee attacker in an army with the Shield Host detachment",
-    "effect": "successful unmodified Hit roll of 5+ scores a Critical Hit on melee attacks (replaces the canonical 6+ crit-to-hit threshold). C1 (claude/sim-calibration-4): bullets now alternate per battle round — the Crit-on-5+ bullet (this flag) fires on EVEN battle rounds (2, 4) and the AP+1 bullet (SHIELD_HOST.melee_ap_plus_one) fires on ODD battle rounds (1, 3, 5). This averages to one bullet active per round, matching the codex 'pick one bullet at the start of each battle round' rule. Round gating is enforced inside Unit.attack via the army's _battle_ref._current_round; the detachment flag remains True so detachment registry tests still pass.",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
   "SHIELD_HOST.melee_ap_plus_one": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
-    "rule_name": "Martial Ka'tah / Martial Mastery (AP+1 bullet)",
-    "quoted_text": "At the start of the battle round, you can select one of the bullet points below. If you do, until the start of the next battle round, that bullet point's effects apply: Each time an ADEPTUS CUSTODES model from your army with the Martial Ka'tah ability makes a melee attack, a successful unmodified Hit roll of 5+ scores a Critical Hit. Improve the Armour Penetration characteristic of melee weapons equipped by ADEPTUS CUSTODES models from your army with the Martial Ka'tah ability by 1.",
-    "trigger": "Adeptus Custodes melee attacker in an army with the Shield Host detachment",
-    "effect": "melee Armour Penetration improved by 1 (AP-1 becomes AP-2 etc). C1 (claude/sim-calibration-4): bullets now alternate per battle round — the AP+1 bullet (this flag) fires on ODD battle rounds (1, 3, 5) and the Crit-on-5+ bullet (SHIELD_HOST.melee_crit_on_5_plus_hits) fires on EVEN battle rounds (2, 4). This averages to one bullet active per round, matching the codex 'pick one bullet at the start of each battle round' rule. Round gating is enforced inside Unit.attack via the army's _battle_ref._current_round; the detachment flag remains True so detachment registry tests still pass. Replaces the iter-0 `plus_one_save` defensive approximation which inflated Custodes durability rather than melee output (the direction iter-7 diagnostic identified as the residual error).",
+    "rule_name": "Martial Ka'tah — Rendax Ka'tah",
+    "quoted_text": "Improve the Armour Penetration characteristic of melee weapons equipped by ADEPTUS CUSTODES models from your army with the Martial Ka'tah ability by 1.",
+    "trigger": "Adeptus Custodes melee attacker in an army with the Shield Host detachment, on ODD battle rounds (1, 3, 5). The player picks one Ka'tah stance at the start of each battle round; Rendax Ka'tah is modelled as the ODD-round pick. CUSTODES-KATAH-V1 (claude/sim-calibration-6): the fabricated Crit-on-5+ EVEN-round bullet removed; only this Rendax AP+1 ODD-round bullet remains active.",
+    "effect": "melee Armour Penetration improved by 1 (e.g. AP 0 becomes AP-1, AP-1 becomes AP-2). Encoded as ap = ap - 1 in Unit.attack. Fires only on ODD battle rounds (1, 3, 5) — gated by _battle_ref._current_round % 2 == 1.",
     "scope": "army-wide",
     "approximation": true
   },
@@ -77,16 +57,6 @@
     "quoted_text": "Each time a NECRONS unit from your army makes a ranged attack, you can re-roll a Wound roll of 1.",
     "trigger": "Necrons attacker in an army with the Annihilation Legion detachment, making a ranged attack",
     "effect": "re-roll Wound rolls of 1 on ranged attacks. APPROXIMATION: schema flag `reroll_wound_ones` applies to all attacks (ranged + melee); real detachment limits to RANGED only. Necrons is a ranged-leaning faction so the over-broad melee leakage is small in practice. The detachment exists as the LC-1 stronger-offensive alternative to Awakened Dynasty (whose +1-to-hit only fires on character-led squads) for Necrons -8.8 outlier compensation.",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
-  "AURIC_CHAMPIONS.melee_sustained_hits_army_wide": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Auric-Champions",
-    "rule_name": "Trail of Glory (Sustained Hits 1 bullet)",
-    "quoted_text": "At the start of the battle round, you can select one of the bullet points below. If you do, until the start of the next battle round, that bullet point's effects apply: Each time an ADEPTUS CUSTODES model from your army makes an attack, an unmodified Hit roll of 6 scores 1 additional hit. Each time an ADEPTUS CUSTODES model from your army makes an attack, if that attack scores a Critical Wound, until the attack sequence ends, that attack has the [DEVASTATING WOUNDS] ability.",
-    "trigger": "Adeptus Custodes melee attacker in an army with the Auric Champions detachment",
-    "effect": "melee weapons gain the SUSTAINED HITS 1 ability (each unmodified Hit roll of 6 scores 1 additional hit). APPROXIMATION: only the first Trail of Glory bullet is wired (SUSTAINED HITS 1 on melee); the second bullet (DEVASTATING WOUNDS on crit wound) is out — Custodes weapon profiles already carry per-weapon DEVASTATING WOUNDS where they should and an army-wide layer would compound. The detachment exists primarily as the LC-1 alt-detachment to Shield Host so the picker has a real choice between offensive shapes (Shield Host: Crit-5+ + AP+1 stacked; Auric Champions: SUSTAINED HITS 1).",
     "scope": "army-wide",
     "approximation": true
   },
@@ -157,15 +127,6 @@
     "trigger": "the defender carries the RUBRICAE unit-keyword AND the incoming attack's per_shot_dmg == 1.0 AND the defender's army resolves to a detachment with `all_is_dust=True` (Rubricae Phalanx)",
     "effect": "+1 to the defender's armour saving throw at the save-modifier layer, capped at 2+. iter15 makes this the canonical detachment for TSON (DEFAULT_BY_FACTION['Thousand Sons'] = 'rubricae_phalanx'); Grand Coven retained as opt-in for psyker-heavy lists. The simulator-side gate lives in `Unit.attack` and reads `target.army_ref.resolve_detachment().all_is_dust`. Companion citation `simulator.all_is_dust` covers the Unit.attack call-site. Verbatim 'unmodified Damage characteristic of 1' wording cross-checked against 40k.app + Goonhammer + Frontline Gaming Rubricae Phalanx breakdowns (WebFetch against wahapedia.ru returned ECONNREFUSED at edit time).",
     "scope": "keyword-gated"
-  },
-
-  "RUBRICAE_PHALANX.psychic_mortal_wounds_per_round": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
-    "rule_name": "Cabal of Sorcerers (Thousand Sons Army Rule) — round-end MW fallback baseline (REMOVED)",
-    "quoted_text": "If your army Faction is Thousand Sons, at the start of your Shooting phase, one or more models from your army with this ability can attempt Rituals. To do so, select one model from your army with this ability that has not yet attempted a Ritual this turn and select one Ritual no model from your army has attempted to manifest this turn, then take a Psychic test by following the sequence below: 1. Roll 2D6 2. Optionally, roll one additional D6 (Channel the Warp). Then, if one or more doubles or triples were rolled during this test, that model's unit suffers D3 mortal wounds. 3. If that model is not destroyed, the combined total of all the dice rolled during this test is the Psychic test result. If this equals or exceeds the Warp Charge value of the Ritual being attempted, that model manifests that Ritual and you resolve its effects.",
-    "trigger": "Thousand Sons army with the Rubricae Phalanx detachment selected; baseline ZEROED in TSON-DIAG (claude/sim-calibration-6)",
-    "effect": "(FAB REMOVED) `psychic_mortal_wounds_per_round` is now 0 on Rubricae Phalanx. The previous value of 2 (matching the GRAND_COVEN baseline) was a fabrication: All Is Dust's real text (verbatim Wahapedia) grants +1 to armour saves on D1 attacks against RUBRICAE models, and the Cabal of Sorcerers army rule already produces stochastic Doombolt D3 / D3+3 MW via `_run_cabal_rituals`. The unconditional 2-MW-per-round payload double-counted Doombolt and contributed to TSON's +22pt over-perf at the Warp Friends rolling target. The Cabal of Sorcerers Rituals pass (simulator-side, `_run_cabal_rituals`) is now the SOLE source of TSON psychic MW output — real 2D6 Psychic test, real D3 / D3+3 Doombolt mortals, real per-psyker cadence (Magnus 2 attempts +2, Ahriman +1, generic +0).",
-    "scope": "army-wide",
-    "approximation": true
   }
+
 }

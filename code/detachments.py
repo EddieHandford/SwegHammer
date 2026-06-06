@@ -45,6 +45,11 @@ from .stratagems import (
     TELEPORT_STRIKE_FORCE_STRATAGEMS,
     FINAL_DAY_STRATAGEMS,
     PACTBOUND_ZEALOTS_STRATAGEMS,
+    # DAEMONS-STRATAGEMS-V1 (wave 53) — per-god Daemons detachment sets
+    BLOOD_LEGION_STRATAGEMS,
+    PLAGUE_LEGION_STRATAGEMS,
+    LEGION_OF_EXCESS_STRATAGEMS,
+    SCINTILLATING_LEGION_STRATAGEMS,
 )
 
 
@@ -154,7 +159,11 @@ class Detachment:
     # (matches how per-weapon sustained_hits already composes). Army-wide
     # passive — no proximity / keyword filter beyond the Orks faction tag.
     # LC1-A generalised the gate so any faction-detachment pairing can set
-    # the flag (Custodes Auric Champions also re-uses it).
+    # the flag. Currently only WAR_HORDE (Orks) sets it. CUSTODES-AURIC-
+    # CHAMPIONS (claude/sim-calibration-6): AURIC_CHAMPIONS previously set
+    # this flag as a fabrication; removed — the real rule is 'Assemblage of
+    # Might' (CHARACTER-only + single designated enemy target per round),
+    # which is not faithfully proxied by an army-wide SUSTAINED HITS 1 flag.
     melee_sustained_hits_army_wide: bool = False
 
     # Necrons Awakened Dynasty Command Protocols rotation (AD-PR, branch
@@ -201,31 +210,56 @@ class Detachment:
     # https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols
     necrons_army_wide_plus_one_save_command_protocol: bool = False
 
+    # Necrons Cursed Legion — Relentless Onslaught detachment rule (Abilities #1,
+    # claude/sim-calibration-6). BSData v10.6.0 (Necrons.cat.gz, rule id
+    # 1dfc-5377-99ac-a700) verbatim: "Each time a NECRONS model from your army
+    # makes an attack that targets a unit within range of one or more objective
+    # markers, add 1 to the Hit roll. In addition, ranged weapons equipped by
+    # NECRONS VEHICLE and NECRONS MOUNTED models (excluding TITANIC models) from
+    # your army have the [ASSAULT] ability." (The detachment's further
+    # Cryptek-specific clauses are NOT modelled — only the two army-wide clauses
+    # above.) Two simulator gates read this single flag:
+    #   * +1 to Hit (code/units.py Unit.attack) — when the attacker's army's
+    #     detachment carries this flag AND the attacker is a NECRONS model AND
+    #     the TARGET unit is within range of an objective marker
+    #     (`target.on_objective`, set per round in Battle._run_round). Applies to
+    #     BOTH ranged and melee attacks (the rule says "makes an attack"). The
+    #     +1 is added to `hit_mod_delta` and composes with any other +1-to-hit
+    #     source through the existing 10e ±1 modifier cap (units.py:hit_mod_clamped).
+    #   * [ASSAULT] on VEHICLE / MOUNTED ranged weapons (code/simulator.py
+    #     _do_shoot Advance-lockout) — a NECRONS VEHICLE or MOUNTED attacker
+    #     (excluding TITANIC) that Advanced may still shoot, mirroring the
+    #     [ASSAULT] grant. Reuses the same Advance-lockout exemption pathway as
+    #     Mont'ka's army_wide_assault_rounds_1_3 and Valourstrike Lance's
+    #     bold_gallantry. Cited as `simulator.relentless_onslaught` and
+    #     `CURSED_LEGION.relentless_onslaught`.
+    relentless_onslaught: bool = False
+
     # Adeptus Custodes Shield Host detachment rule (Martial Ka'tah /
-    # Martial Mastery). Wahapedia verbatim: "At the start of the battle
-    # round, you can select one of the bullet points below. If you do,
-    # until the start of the next battle round, that bullet point's
-    # effects apply: Each time an ADEPTUS CUSTODES model from your army
-    # with the Martial Ka'tah ability makes a melee attack, a successful
-    # unmodified Hit roll of 5+ scores a Critical Hit. Improve the Armour
-    # Penetration characteristic of melee weapons equipped by ADEPTUS
-    # CUSTODES models from your army with the Martial Ka'tah ability
-    # by 1." The detachment rule picks ONE bullet per round; SwegHammer's
-    # simulator has no per-round selection hook so we apply BOTH bullets
-    # army-wide for Adeptus Custodes melee attackers (offensive uplift
-    # for the whole battle). APPROXIMATION: in real play the player
-    # alternates per round between the Crit-on-5 stance and the AP+1
-    # stance; modelling both as always-on is strictly stronger than the
-    # codex but captures the dual offensive nature the iter-7 diagnostic
-    # called out as missing.
+    # Martial Mastery). The three real codex bullets are:
+    #   * Kaptaris Ka'tah — +1 to invulnerable saving throws vs ranged.
+    #   * Rendax Ka'tah   — improve AP of melee weapons by 1.
+    #   * Dacatarai Ka'tah — Sustained Hits ranged/melee bonus.
+    # The detachment rule picks ONE bullet per round.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
     #
-    # Simulator gates (both read in Unit.attack):
-    #   * melee_crit_on_5_plus_hits — when True AND mode=="melee" AND
-    #     attacker.faction == "Adeptus Custodes", a to-hit roll of 5+
-    #     scores a Critical Hit (in addition to the canonical 6+).
+    # CUSTODES-KATAH-V1 (claude/sim-calibration-6): `melee_crit_on_5_plus_hits`
+    # was a fabricated melee-crit stance with no codex counterpart. It fired
+    # on EVEN rounds (2, 4) and inflated melee output spuriously. Removed by
+    # setting the flag to False (dataclass default; retained as explicit field
+    # for auditability). Only `melee_ap_plus_one` (Rendax Ka'tah, ODD rounds
+    # 1/3/5) remains active. Kaptaris and Dacatarai are deferred (tighten
+    # direction: Custodes overshooting, not undershooting).
+    #
+    # Simulator gate (read in Unit.attack):
     #   * melee_ap_plus_one — when True AND mode=="melee" AND
-    #     attacker.faction == "Adeptus Custodes", the melee AP is
-    #     improved by 1 (e.g. AP-1 -> AP-2).
+    #     attacker.faction == "Adeptus Custodes" AND battle round is ODD,
+    #     the melee AP is improved by 1 (e.g. AP-1 -> AP-2). Cited as
+    #     `SHIELD_HOST.melee_ap_plus_one`.
+    #   * melee_crit_on_5_plus_hits — retained as a field (default False)
+    #     but no longer set True on any detachment. The Unit.attack block
+    #     that reads it is a no-op for all current detachments; retained
+    #     in case a future faction needs it with a real codex citation.
     melee_crit_on_5_plus_hits: bool = False
     melee_ap_plus_one: bool = False
 
@@ -285,6 +319,68 @@ class Detachment:
     # outscores the DG army on it (matches the real lock-until-flipped
     # mechanic; loses the contagion-on-objective half).
     worldblight_sticky_dg_objectives: bool = False
+
+    # Imperial Knights Valourstrike Lance — Bold Gallantry detachment rule
+    # (BSData v10.6.0, Imperium - Imperial Knights - Library.cat.gz verbatim):
+    # "Each time an ^^Imperial Knights^^ unit from your army Advances, until
+    # the end of the turn, ranged weapons equipped by ^^Imperial Knights^^
+    # models from your army have the [ASSAULT] ability."
+    # When this flag is True AND the attacker is Imperial Knights AND the
+    # attacker Advance in the current round (`attacker.uid in
+    # battle._advanced_this_round`), `_do_shoot` skips the Advance-lockout
+    # that would otherwise block the unit from shooting, mirroring the
+    # [ASSAULT] keyword grant on all IK ranged weapons. Army-wide (any IK
+    # unit that Advances benefits, not just the unit that triggered it).
+    # Cited as `VALOURSTRIKE_LANCE.bold_gallantry`.
+    bold_gallantry: bool = False
+
+    # Imperial Knights Valourstrike Lance — Bondsman abilities.
+    # BSData v10.6.0 (Imperium - Imperial Knights - Library.cat.gz) verbatim:
+    # "In your Command phase, one or more models from your army with a Bondsman
+    # ability can use that ability. For each one that does, select one friendly
+    # ^^Armiger^^ model within 12" of that model … Until the start of your next
+    # Command phase, that ^^Armiger^^ model is affected by that Bondsman ability."
+    # When True the simulator's command-phase hook
+    # (`Battle._apply_bondsman_abilities`) iterates alive TITANIC+CHARACTER IK
+    # models, picks the closest alive non-TITANIC IK unit (the Armiger) within
+    # 12", and applies the matching transient buff for that knight sub-type.
+    # The six canonical Bondsman buffs (Paladin = Lethal Hits + Lance; Warden =
+    # Sustained Hits 1 + Ignores Cover; Crusader = +1 to hit ranged; Gallant =
+    # reroll charge + reroll melee hits; Errant = reroll advance + Assault;
+    # Preceptor = reroll wounds vs quarry) are collapsed to one:
+    # Paladin's Duty → transient_lethal_hits + transient_lance_this_turn.
+    # The others have no clean transient hook (charge-reroll, melee-hit-
+    # reroll, advance-reroll, quarry-gate wound-reroll) and are deferred.
+    # APPROXIMATION: (1) Paladin's Duty is applied uniformly to every
+    # TITANIC+CHARACTER knight as the strongest representable buff; (2) the
+    # codex "within 12\"" range gate is dropped because SwegHammer's grid-free
+    # deployment spreads Armigers further apart than real tables allow — in
+    # real play Armigers are always within 12" of their bonded lord. Follows
+    # the same alive-in-army pattern as Beacons of Rage.
+    # Cited as `VALOURSTRIKE_LANCE.bondsman_enabled`.
+    bondsman_enabled: bool = False
+
+    # Chaos Knights Iconoclast Fiefdom — Dreaded Masters / Dread Tyrants Aura.
+    # BSData v10.6.0 (Chaos - Chaos Knights Library.cat.gz) verbatim (from
+    # the Iconoclast Fiefdom sub-detachment):
+    # "Dread Tyrants (Aura): While a friendly DAMNED unit is within 9\" of this
+    # unit, each time a model in that unit makes an attack, re-roll a Hit roll
+    # of 1 and re-roll a Wound roll of 1."
+    # The DAMNED keyword is carried by War Dog-class units when they belong to
+    # the Iconoclast Fiefdom detachment. The BSData mapper does not yet capture
+    # DAMNED as a unit keyword (it is detachment-conditional, applied only to
+    # War Dog units in an Iconoclast Fiefdom army). SwegHammer gates the aura
+    # by name-prefix ("War Dog") as an APPROXIMATION — strictly correct for
+    # the real rule since DAMNED is only granted to War Dog units in this
+    # detachment, and non-War Dog CK units already carry CHARACTER/TITANIC and
+    # are the AURA SOURCE not the receiver. The aura source is any TITANIC CK
+    # unit. When this flag is True AND the attacker is "Chaos Knights" faction
+    # AND the attacker's name starts with "War Dog" AND at least one alive
+    # friendly TITANIC CK unit is within 9", then reroll_hit_ones and
+    # reroll_wound_ones are both set True for that attack. Gate lives in
+    # `code/units.py:Unit.attack`. Cited as
+    # `ICONOCLAST_FIEFDOM.dread_tyrants_aura`.
+    dread_tyrants_aura: bool = False
 
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
@@ -384,13 +480,32 @@ INVASION_FLEET = Detachment(
     name="Invasion Fleet",
     faction="Tyranids",
     notes=(
-        "Shadow in the Warp: enemies have -1 Ld for Battleshock. Real rule "
-        "is range-gated; we apply army-wide."
+        "TYRANIDS-DIAG-8 (2026-05-26): the previous proxy `enemy_ld_penalty=1` was "
+        "a fabrication — it mis-attributed Shadow in the Warp (the Tyranids ARMY RULE, "
+        "modelled separately as `simulator.shadow_in_the_warp`) to the Invasion Fleet "
+        "DETACHMENT rule. The real Invasion Fleet detachment rule is 'Hyper-adaptations' "
+        "(Wahapedia: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Invasion-Fleet): "
+        "at the start of battle round 1 the Tyranids player selects ONE of: "
+        "(A) Swarming Instincts — friendly Tyranids attacks targeting INFANTRY or SWARM "
+        "units gain [SUSTAINED HITS 1]; "
+        "(B) Hyper-aggression — friendly Tyranids attacks targeting MONSTER or VEHICLE "
+        "units gain [LETHAL HITS]; "
+        "(C) Hive Predators — friendly Tyranids Critical Hits against CHARACTER units "
+        "gain [PRECISION]. "
+        "None of these three variants map cleanly to an existing per-detachment transient "
+        "flag: SUSTAINED HITS 1 is keyword-gated-on-TARGET (SwegHammer has no per-attack "
+        "target-keyword gate outside of ANTI_X); LETHAL HITS vs MONSTER/VEHICLE is "
+        "similarly target-gated; PRECISION is a wound-allocation override with no "
+        "current simulator hook. All three are NO-OP for now, catalogued here for a "
+        "follow-up wiring pass. Shadow in the Warp continues to be modelled army-wide "
+        "via `simulator.shadow_in_the_warp`."
     ),
-    # APPROXIMATION: always-on -1 Ld passive substitutes for a once-per-battle Battleshock test.
+    # FABRICATION REMOVED (TYRANIDS-DIAG-8): enemy_ld_penalty=1 was a proxy for Shadow
+    # in the Warp (the army rule), not the real Invasion Fleet detachment rule
+    # (Hyper-adaptations). Both were firing simultaneously when Invasion Fleet was
+    # selected, double-counting the Shadow in the Warp effect. Real Hyper-adaptations
+    # variants are no-op pending target-keyword-gated flag infrastructure.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Invasion-Fleet
-    # Real rule: Shadow in the Warp — once-per-battle army-wide Battleshock test, not a passive Ld debuff.
-    enemy_ld_penalty=1,
     preferred_composition="balanced",
 )
 
@@ -464,6 +579,65 @@ NOBLE_LANCE = Detachment(
     preferred_composition="vehicle",
 )
 
+VALOURSTRIKE_LANCE = Detachment(
+    name="Valourstrike Lance",
+    faction="Imperial Knights",
+    notes=(
+        "IK-KNIGHTS-V1 (2026-05-31): real codex detachment for Imperial "
+        "Knights. The Valourstrike Lance detachment rule is Bold Gallantry "
+        "(BSData v10.6.0, Imperium - Imperial Knights - Library.cat.gz verbatim): "
+        "'Each time an IMPERIAL KNIGHTS unit from your army Advances, until "
+        "the end of the turn, ranged weapons equipped by IMPERIAL KNIGHTS "
+        "models from your army have the [ASSAULT] ability.' Implemented via "
+        "`bold_gallantry=True`: `_do_shoot` skips the Advance-lockout for any "
+        "IK attacker in a round where at least one IK unit in the army "
+        "Advanced (`uid in _advanced_this_round`). This is an APPROXIMATION — "
+        "the real rule triggers on ANY IK unit Advancing and grants [ASSAULT] "
+        "army-wide; SwegHammer gates it on the individual attacker's own uid "
+        "being in _advanced_this_round (per-unit rather than army-wide), which "
+        "is strictly correct because every unit that Advanced is in the set. "
+        "PLUS Bondsman abilities (`bondsman_enabled=True`): in each Command "
+        "phase, each alive TITANIC+CHARACTER IK unit (Questoris/Cerastus "
+        "frame) selects one non-TITANIC IK unit (Armiger) within 12\" and "
+        "applies its Bondsman buff. SwegHammer uses the strongest cleanly "
+        "representable buff (Paladin's Duty: Lethal Hits on all weapons + "
+        "Lance on melee weapons) as a uniform proxy for all Questoris knights. "
+        "Wahapedia URL is unreachable from agent worktrees (DNS fails — see "
+        "project memory project-wahapedia-dns.md); rule text from BSData cache "
+        "as the canonical fallback per CLAUDE.md rule 6."
+    ),
+    bold_gallantry=True,
+    bondsman_enabled=True,
+    preferred_composition="vehicle",
+)
+
+ICONOCLAST_FIEFDOM = Detachment(
+    name="Iconoclast Fiefdom",
+    faction="Chaos Knights",
+    notes=(
+        "IK-KNIGHTS-V1 (2026-05-31): real codex detachment for Chaos Knights "
+        "(sub-detachment: Iconoclast Fiefdom, selected via Traitoris Lance "
+        "main detachment rule). The Iconoclast Fiefdom detachment rule is "
+        "Dreaded Masters (BSData v10.6.0, Chaos - Chaos Knights Library.cat.gz "
+        "verbatim): 'TITANIC CHAOS KNIGHTS units from your army have the "
+        "following abilities: Dread Tyrants (Aura): While a friendly DAMNED "
+        "unit is within 9\" of this unit, each time a model in that unit makes "
+        "an attack, re-roll a Hit roll of 1 and re-roll a Wound roll of 1.' "
+        "The DAMNED keyword is held by War Dog units in an Iconoclast Fiefdom "
+        "army (the BSData mapper does not yet capture it as a static keyword). "
+        "Implemented via `dread_tyrants_aura=True`: `Unit.attack` gates on "
+        "attacker faction=='Chaos Knights' AND attacker name startswith 'War Dog' "
+        "AND at least one alive friendly TITANIC CK unit is within 9\". "
+        "APPROXIMATION: uses 'War Dog' name-prefix as a proxy for the DAMNED "
+        "keyword, strictly correct for the real rule since DAMNED is only "
+        "granted to War Dog units in this detachment. "
+        "Wahapedia URL is unreachable from agent worktrees; rule text from "
+        "BSData cache per CLAUDE.md rule 6."
+    ),
+    dread_tyrants_aura=True,
+    preferred_composition="vehicle",
+)
+
 HALLOWED_MARTYRS = Detachment(
     name="Hallowed Martyrs",
     faction="Adepta Sororitas",
@@ -512,33 +686,33 @@ AURIC_CHAMPIONS = Detachment(
     name="Auric Champions",
     faction="Adeptus Custodes",
     notes=(
-        "Trail of Glory (Wahapedia verbatim): \"At the start of the "
-        "battle round, you can select one of the bullet points below. "
-        "If you do, until the start of the next battle round, that "
-        "bullet point's effects apply: Each time an ADEPTUS CUSTODES "
-        "model from your army makes an attack, an unmodified Hit roll "
-        "of 6 scores 1 additional hit. Each time an ADEPTUS CUSTODES "
-        "model from your army makes an attack, if that attack scores a "
-        "Critical Wound, until the attack sequence ends, that attack "
-        "has the [DEVASTATING WOUNDS] ability.\" Simulator: only the "
-        "first bullet (SUSTAINED HITS 1 on melee) is wired via "
-        "`melee_sustained_hits_army_wide` (re-using the same plumbing "
-        "as Orks War Horde, gated to faction=='Adeptus Custodes' in "
-        "Unit.attack). The DEVASTATING WOUNDS bullet is left out — "
-        "weapon-level DEVASTATING WOUNDS is already wired per-unit "
-        "(see iter34-K1 audit), and an army-wide layer would compound "
-        "with per-weapon flags on Custodes weapons that already carry "
-        "it. APPROXIMATION: SUSTAINED HITS 1 only, both round-bullets "
-        "rolled into one always-on offensive layer, weaker than Shield "
-        "Host's stacked Crit-5+ + AP+1 (per LC-1 goal: introduce a "
-        "milder Custodes detachment variant so the detachment picker "
-        "has a real choice rather than always-pick-Shield-Host)."
+        "CUSTODES-AURIC-CHAMPIONS (claude/sim-calibration-6): prior "
+        "implementation carried `melee_sustained_hits_army_wide=True`, "
+        "citing 'Trail of Glory' — a fabrication. The real Auric Champions "
+        "detachment rule is 'Assemblage of Might' (Wahapedia verbatim): "
+        "\"At the start of your Command phase, select one unit from your "
+        "opponent's army. Until the start of your next Command phase, each "
+        "time a model in an ADEPTUS CUSTODES CHARACTER unit from your army "
+        "makes an attack that targets that enemy unit, add 1 to the Wound "
+        "roll.\" The real rule has two axes the Detachment schema cannot "
+        "faithfully proxy: (1) it requires designating a single enemy unit "
+        "at the start of the Command phase — the sim has no 'pick one target "
+        "for a round-long debuff' mechanic; (2) the buff applies only to "
+        "ADEPTUS CUSTODES CHARACTER unit models, not all Custodes units. "
+        "The closest available flag (`plus_one_to_wound`) would apply to "
+        "all Custodes units against all enemies — wrong scope and wrong "
+        "target. A no-op is more rules-correct than a fabrication. "
+        "Custodes OVER-shoots the tournament target (~+5 gated), so "
+        "removing the fabricated buff is MAE-positive. "
+        "Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Auric-Champions."
     ),
-    melee_sustained_hits_army_wide=True,
+    # melee_sustained_hits_army_wide intentionally NOT set — see notes above.
+    # The real 'Assemblage of Might' cannot be proxied by any existing
+    # Detachment flag without fabrication (CHARACTER-only + single designated
+    # target). No-op ships until a bespoke flag is added.
     stratagems=SHIELD_HOST_STRATAGEMS,  # share stratagems for now —
     # real Auric Champions has its own 6-stratagem pool that we'd need
-    # to wire individually. For LC-1 the detachment rule alone is the
-    # MAE lever; per-stratagem differences are smaller and follow-up.
+    # to wire individually. Per-stratagem differences are smaller and follow-up.
     preferred_composition="infantry",
 )
 
@@ -549,37 +723,40 @@ SHIELD_HOST = Detachment(
         "Martial Ka'tah / Martial Mastery (Wahapedia verbatim): \"At the "
         "start of the battle round, you can select one of the bullet "
         "points below. If you do, until the start of the next battle "
-        "round, that bullet point's effects apply: Each time an ADEPTUS "
-        "CUSTODES model from your army with the Martial Ka'tah ability "
-        "makes a melee attack, a successful unmodified Hit roll of 5+ "
-        "scores a Critical Hit. Improve the Armour Penetration "
-        "characteristic of melee weapons equipped by ADEPTUS CUSTODES "
-        "models from your army with the Martial Ka'tah ability by 1.\" "
-        "Simulator implementation: bullets now correctly alternate per "
-        "battle round (C1 fix on claude/sim-calibration-4). The "
-        "`melee_ap_plus_one` flag fires on ODD rounds (1, 3, 5) and the "
-        "`melee_crit_on_5_plus_hits` flag fires on EVEN rounds (2, 4) — "
-        "gated inside Unit.attack via the army's `_battle_ref._current_round`. "
-        "This averages to ONE bullet active per battle round, matching the "
-        "codex pacing. Prior behaviour applied BOTH bullets always-on, "
-        "strictly stronger than codex (identified as the Custodes +22.3pt "
-        "MAE residual at N=40 archetype). Six real detachment stratagems wired (iter-8 fix, "
-        "Wahapedia: Arcane Genetic Alchemy, Unwavering Sentinels, "
-        "Multipotentiality, Vigilance Eternal, Archaeotech Munitions, "
-        "Avenge the Fallen). Replaces the iter-0 `plus_one_save` "
-        "approximation which inflated Custodes durability (defensive) "
-        "rather than melee output (offensive). iter-7 diagnostic in "
-        "docs/AUTO_LOOP_ITER7_DG_VS_CUSTODES.md identified this swap as "
-        "the top fix for DG-vs-Custodes (+19.5pt residual over real meta)."
+        "round, that bullet point's effects apply.\" The three real codex "
+        "bullets are: Kaptaris Ka'tah (+1 to invulnerable saving throws "
+        "against ranged attacks, defensive); Rendax Ka'tah (improve the "
+        "Armour Penetration of melee weapons by 1, offensive melee); "
+        "Dacatarai Ka'tah (melee weapons with the Sustained Hits ability "
+        "have that ability improved by 1, offensive melee/ranged). "
+        "Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host. "
+        "CUSTODES-KATAH-V1 fix (claude/sim-calibration-6): the prior "
+        "implementation wired a fabricated 'Crit-on-5+ melee' bullet "
+        "(`melee_crit_on_5_plus_hits=True`) that has no codex counterpart. "
+        "That bullet fired on EVEN rounds (2, 4) and inflated Custodes "
+        "melee output by adding a spurious Critical Hit mechanic not "
+        "present in any of the three real stances. Root cause: when "
+        "the alternating-round model was introduced in C1 "
+        "(claude/sim-calibration-4), a fabricated second bullet was "
+        "introduced rather than mapping to the real codex stances. "
+        "Fix: `melee_crit_on_5_plus_hits` set to False on SHIELD_HOST; "
+        "only the Rendax AP+1 bullet (`melee_ap_plus_one`, ODD rounds 1/3/5) "
+        "remains active. Kaptaris (+1 invuln ranged) and Dacatarai "
+        "(Sustained Hits ranged) are not implemented as the Custodes "
+        "overshooting direction requires tightening, not expansion. "
+        "Six real detachment stratagems wired (iter-8 fix): "
+        "Arcane Genetic Alchemy, Unwavering Sentinels, Multipotentiality, "
+        "Vigilance Eternal, Archaeotech Munitions, Avenge the Fallen."
     ),
-    # Real rule: Martial Ka'tah / Martial Mastery — Crit-on-5+ OR AP+1 on
-    # melee attacks (offensive). One bullet per round in real play.
-    # C1 (claude/sim-calibration-4): both flags remain set on the
-    # detachment, but firing is now round-gated inside Unit.attack —
-    # AP+1 on ODD rounds, Crit-on-5+ on EVEN rounds. This matches the
-    # codex "pick one bullet per battle round" pacing.
+    # Real rule: Martial Ka'tah / Martial Mastery — player picks ONE of three
+    # bullets per battle round (Kaptaris defensive, Rendax melee AP+1,
+    # Dacatarai Sustained Hits). Only the Rendax AP+1 bullet is wired here
+    # because Custodes is overshooting and the direction is tighten.
+    # CUSTODES-KATAH-V1: melee_crit_on_5_plus_hits was a fabricated stance
+    # with no codex counterpart — removed (set False, which is the dataclass
+    # default; explicit here for auditability).
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
-    melee_crit_on_5_plus_hits=True,
+    melee_crit_on_5_plus_hits=False,
     melee_ap_plus_one=True,
     stratagems=SHIELD_HOST_STRATAGEMS,
     preferred_composition="infantry",
@@ -745,18 +922,31 @@ SKYSPLINTER_ASSAULT = Detachment(
         "Rain of Cruelty (real 10e rule). Each time a DRUKHARI unit "
         "disembarks from a TRANSPORT, until the end of the turn its "
         "ranged weapons gain [IGNORES COVER] and its melee weapons "
-        "gain [LANCE]. The simulator currently has no embark / "
-        "disembark cycle, no per-weapon LANCE wound-roll bonus, and "
-        "no per-target ignores-cover modifier, so the rule cannot be "
-        "wired faithfully here. The previous implementation granted "
-        "army-wide reroll_wound_ones=True as a proxy; that proxy was "
-        "a strict over-buff (always-on, every wound roll, every unit, "
-        "with no disembark / transport gate) and drove the +39.5pt "
-        "Drukhari overperformance in the May 2026 calibration. "
-        "Removed (SC5-1, 2026-05-20). When the simulator gains "
-        "embark / disembark tracking and per-weapon LANCE / "
-        "IGNORES-COVER gating, the rule should be wired narrowly "
-        "(disembark-turn only, per-unit, weapon-keyword gated). "
+        "gain [LANCE]. DRK-SKYSPLINTER-DISEMBARK (wave 45, 2026-05-28): "
+        "the per-weapon LANCE wound-roll bonus and per-target "
+        "ignores-cover modifier are now wired through transient "
+        "per-unit flags (`transient_lance_this_turn`, "
+        "`transient_ignores_cover_this_turn`) set in "
+        "`simulator._disembark` when the disembarking unit is "
+        "Drukhari AND the army's detachment is Skysplinter Assault, "
+        "and cleared at the next round-start by the standard "
+        "transient-flag reset (matching the 'until the end of the "
+        "turn' wording). LANCE composes via OR with `profile.lance` "
+        "at the existing lance eligibility gate in Unit.attack "
+        "(still gated on `is_charging` because LANCE itself only "
+        "fires on the charge turn). IGNORES COVER composes via OR "
+        "with `profile.ignores_cover` at the ranged ignore_cover "
+        "gate (melee already always ignores cover). EMBARK-V1 "
+        "(2026-05-28) wired the embark / disembark cycle (see "
+        "simulator._embark / _disembark / "
+        "_destroyed_transport_disembark and the matching "
+        "embarked-passenger gates in _do_move / _do_shoot / "
+        "_do_charge / _do_fight). The previous proxy granted "
+        "army-wide reroll_wound_ones=True; that was a strict "
+        "over-buff (always-on, every wound roll, every unit, no "
+        "disembark gate) and drove the +39.5pt Drukhari "
+        "overperformance in the May 2026 calibration. Removed "
+        "(SC5-1, 2026-05-20). "
         "Wahapedia: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Skysplinter-Assault"
     ),
     preferred_composition="vehicle",
@@ -1134,9 +1324,13 @@ BLOOD_LEGION = Detachment(
         "infantry composition tilt biases the picker toward Khorne "
         "infantry archetypes (Bloodletters / Bloodcrushers / Flesh "
         "Hounds), which already collect the Bloodthirster / Skarbrand "
-        "auras wired in DAEMONS-DIAG-3."
+        "auras wired in DAEMONS-DIAG-3. "
+        "DAEMONS-STRATAGEMS-V1 (wave 53): stratagems upgraded from the "
+        "shared DAEMONIC_INCURSION_STRATAGEMS to the dedicated "
+        "BLOOD_LEGION_STRATAGEMS set (Blood Begets Skulls + Wrath "
+        "Undeniable) drawn from 40k.app."
     ),
-    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    stratagems=BLOOD_LEGION_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -1155,9 +1349,12 @@ LEGION_OF_EXCESS = Detachment(
         "fabrication. Per CLAUDE.md §10 ship NO-FLAG + composition-only. "
         "Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/. "
         "The infantry composition tilt biases the picker toward Slaanesh "
-        "infantry archetypes (Daemonettes / Fiends / Seekers)."
+        "infantry archetypes (Daemonettes / Fiends / Seekers). "
+        "DAEMONS-STRATAGEMS-V1 (wave 53): stratagems upgraded from the "
+        "shared DAEMONIC_INCURSION_STRATAGEMS to the dedicated "
+        "LEGION_OF_EXCESS_STRATAGEMS set (Archagonists) drawn from 40k.app."
     ),
-    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    stratagems=LEGION_OF_EXCESS_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -1185,9 +1382,13 @@ PLAGUE_LEGION = Detachment(
         "ship NO-FLAG + composition-only. Wahapedia: "
         "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/. The "
         "infantry composition tilt biases the picker toward Nurgle "
-        "infantry archetypes (Plaguebearers / Nurglings / Plague Drones)."
+        "infantry archetypes (Plaguebearers / Nurglings / Plague Drones). "
+        "DAEMONS-STRATAGEMS-V1 (wave 53): stratagems upgraded from the "
+        "shared DAEMONIC_INCURSION_STRATAGEMS to the dedicated "
+        "PLAGUE_LEGION_STRATAGEMS set (Seeping Virulence + Foetid "
+        "Resurgence) drawn from 40k.app."
     ),
-    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    stratagems=PLAGUE_LEGION_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -1212,9 +1413,13 @@ SCINTILLATING_LEGION = Detachment(
         "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/. The "
         "balanced composition tilt biases the picker toward Tzeentch "
         "lists that mix infantry (Pink Horrors / Flamers) with monster/"
-        "elite shooting (Burning Chariot / Lord of Change auras)."
+        "elite shooting (Burning Chariot / Lord of Change auras). "
+        "DAEMONS-STRATAGEMS-V1 (wave 53): stratagems upgraded from the "
+        "shared DAEMONIC_INCURSION_STRATAGEMS to the dedicated "
+        "SCINTILLATING_LEGION_STRATAGEMS set (Flickering Reality) drawn "
+        "from 40k.app."
     ),
-    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    stratagems=SCINTILLATING_LEGION_STRATAGEMS,
     preferred_composition="balanced",
 )
 
@@ -1247,18 +1452,20 @@ OATHBAND = Detachment(
     name="Oathband",
     faction="Leagues of Votann",
     notes=(
-        "Voidsmen Oaths: previously approximated as army-wide re-roll hit 1s "
-        "because the real Eye of the Ancestors / Judgement Tokens rule was "
-        "not modelled. Removed once `simulator.judgement_tokens` (Battle's "
-        "per-army token store + Unit.attack re-roll buffs at 1+ / 3+ "
-        "thresholds) landed — keeping the blanket re-roll on top of the real "
-        "mechanic would double-stack the buff. Six real Oathband detachment "
-        "stratagems wired (iter-9 fix, Wahapedia: Warrior Pride, Wrath of "
-        "the Ancestors, Glory of the Hearth, Ironkin Sequence, Ancestral "
-        "Sentence, Void-Armoured Resilience). Replaces the iter-0 zero-"
-        "stratagem state where Votann fired Core only. iter-8 anti-DG "
-        "audit (docs/AUTO_LOOP_ITER8_ANTI_DG_AUDIT.md fix #2) identified "
-        "this set as the top fix for Votann-vs-DG (~+8pt over real meta)."
+        "VOTANN-DIAG-2 (2026-05-26): the previous six stratagems (Warrior "
+        "Pride, Wrath of the Ancestors, Glory of the Hearth, Ironkin "
+        "Sequence, Ancestral Sentence at 2CP, Void-Armoured Resilience) "
+        "were confirmed absent from the current 10e codex via Wahapedia. "
+        "They were fabricated or sourced from a prior edition and were "
+        "contributing to Leagues of Votann +6.48pt over-performance. "
+        "Replaced with three real Needgaard Oathband stratagems: Huntr's "
+        "Mark, Ancestral Sentence, Void Hardened. "
+        "VOTANN-AUDIT-V1 (2026-05-29): Huntr's Mark removed — absent from "
+        "BSData v10.6.0 (Leagues of Votann.cat.gz), no verifiable Wahapedia "
+        "anchor citation per CLAUDE.md s10, and responsible for +7.8pt sim "
+        "overshoot in 9-faction N=10 measurement. Two stratagems remain: "
+        "Ancestral Sentence (Sustained Hits 1) and Void Hardened (defensive "
+        "AP worsening no-op). See data/rule_citations.d/stratagems.json."
     ),
     stratagems=OATHBAND_STRATAGEMS,
     preferred_composition="balanced",
@@ -1366,6 +1573,45 @@ CANOPTEK_COURT = Detachment(
     preferred_composition="balanced",
 )
 
+CURSED_LEGION = Detachment(
+    name="Cursed Legion",
+    faction="Necrons",
+    notes=(
+        "ABILITIES #1 (claude/sim-calibration-6): real codex detachment for "
+        "Necrons. The Cursed Legion detachment rule is Relentless Onslaught "
+        "(BSData v10.6.0, Necrons.cat.gz, rule id 1dfc-5377-99ac-a700, "
+        "verbatim): 'Each time a NECRONS model from your army makes an attack "
+        "that targets a unit within range of one or more objective markers, "
+        "add 1 to the Hit roll. In addition, ranged weapons equipped by "
+        "NECRONS VEHICLE and NECRONS MOUNTED models (excluding TITANIC models) "
+        "from your army have the [ASSAULT] ability.' (The further "
+        "Cryptek-specific clauses of the detachment are NOT modelled — only the "
+        "two army-wide clauses above.) Implemented via `relentless_onslaught="
+        "True`, read by two simulator gates: (1) the +1-to-Hit gate in "
+        "`Unit.attack` fires when the attacker's army's detachment carries the "
+        "flag AND the attacker is a NECRONS model AND the TARGET unit is within "
+        "range of an objective marker (`target.on_objective`) — applying to "
+        "BOTH ranged and melee attacks ('makes an attack'), composing through "
+        "the existing 10e ±1 Hit-modifier cap; (2) the [ASSAULT] gate in "
+        "`_do_shoot` lets a NECRONS VEHICLE / MOUNTED attacker (excluding "
+        "TITANIC) shoot after Advancing, reusing the same Advance-lockout "
+        "exemption pathway as Mont'ka's army-wide [ASSAULT] window and "
+        "Valourstrike Lance's Bold Gallantry. There is NO round restriction on "
+        "the +1-to-Hit (it applies whenever the target is near an objective). "
+        "Even-handed: gated on the DETACHMENT flag + target.on_objective + the "
+        "NECRONS keyword the rule itself names — not a faction-only fabrication. "
+        "Wahapedia URL is unreachable from agent worktrees (DNS fails — see "
+        "project memory project-wahapedia-dns.md); rule text from the BSData "
+        "cache as the canonical fallback per CLAUDE.md rule 6. Cited as "
+        "`simulator.relentless_onslaught` and `CURSED_LEGION.relentless_onslaught`."
+    ),
+    relentless_onslaught=True,
+    stratagems=AWAKENED_DYNASTY_STRATAGEMS,  # share for now — real Cursed Legion
+    # has its own stratagem pool; the per-stratagem differences are smaller than
+    # the detachment rule's MAE lever.
+    preferred_composition="balanced",
+)
+
 # SAIM_HANN_WILD_HOST (Aeldari) and PLAGUE_MARINES_ONSLAUGHT (Death Guard)
 # were deleted per the 2026-05-15 fabrication audit (commit fa9a957).
 # Neither detachment exists in the 10e codices. Real Aeldari detachments
@@ -1386,6 +1632,9 @@ DETACHMENTS: Dict[str, Detachment] = {
     "invasion_fleet":          INVASION_FLEET,
     "subterranean_assault":    SUBTERRANEAN_ASSAULT,
     "noble_lance":             NOBLE_LANCE,
+    # IK-KNIGHTS-V1 (2026-05-31): real codex detachments for both Knight factions.
+    "valourstrike_lance":      VALOURSTRIKE_LANCE,
+    "iconoclast_fiefdom":      ICONOCLAST_FIEFDOM,
     "hallowed_martyrs":        HALLOWED_MARTYRS,
     "shield_host":             SHIELD_HOST,
     "auric_champions":         AURIC_CHAMPIONS,
@@ -1405,6 +1654,10 @@ DETACHMENTS: Dict[str, Detachment] = {
     "ironstorm_spearhead":     IRONSTORM_SPEARHEAD,
     "canoptek_court":          CANOPTEK_COURT,
     "annihilation_legion":     ANNIHILATION_LEGION,
+    # Necrons Cursed Legion — Relentless Onslaught (Abilities #1). Real codex
+    # detachment: +1 to Hit vs targets near objectives + [ASSAULT] on VEHICLE /
+    # MOUNTED ranged weapons. See CURSED_LEGION notes for the verbatim rule.
+    "cursed_legion":           CURSED_LEGION,
     "plague_company":          PLAGUE_COMPANY,
     # Death Guard real-codex detachment (#195). Wired with full 6-stratagem
     # set and Worldblight rule (sticky-control APPROXIMATION).
@@ -1463,6 +1716,7 @@ del _key, _det, _enh, _dc
 # GLADIUS_TASK_FORCE` callers see the patched-with-enhancements instance.
 GLADIUS_TASK_FORCE = DETACHMENTS["gladius_task_force"]
 AWAKENED_DYNASTY   = DETACHMENTS["awakened_dynasty"]
+CURSED_LEGION      = DETACHMENTS["cursed_legion"]
 INVASION_FLEET     = DETACHMENTS["invasion_fleet"]
 SUBTERRANEAN_ASSAULT = DETACHMENTS["subterranean_assault"]
 MONTKA             = DETACHMENTS["montka"]
@@ -1496,7 +1750,12 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "Raven Guard":              "gladius_task_force",
     "White Scars":              "gladius_task_force",
     "Deathwatch":               "gladius_task_force",
-    "Necrons":                  "awakened_dynasty",
+    # ABILITIES #1 (claude/sim-calibration-6): Cursed Legion (Relentless
+    # Onslaught — +1 to Hit vs objective-marker targets + [ASSAULT] on VEHICLE /
+    # MOUNTED) promoted to the Necrons default so the calibration A/B measures
+    # the newly-modelled rule. Awakened Dynasty / Canoptek Court / Annihilation
+    # Legion remain in FACTION_DETACHMENTS as variety picks.
+    "Necrons":                  "cursed_legion",
     # iter16: Tyranids default flipped from "invasion_fleet" (which is
     # a -1 enemy Ld approximation of Shadow in the Warp, redundant with
     # simulator.shadow_in_the_warp) to "subterranean_assault" — the
@@ -1508,8 +1767,11 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "Tyranids":                 "subterranean_assault",
     # Orks: real codex detachment "War Horde" wired in iter-1 Cluster B B1.
     "Orks":                     "war_horde",
-    "Imperial Knights":         "noble_lance",
-    "Chaos Knights":            "noble_lance",
+    # IK-KNIGHTS-V1 (2026-05-31): real codex detachments replace the no-op
+    # NOBLE_LANCE proxy. Imperial Knights → Valourstrike Lance (Bold Gallantry
+    # + Bondsman). Chaos Knights → Iconoclast Fiefdom (Dread Tyrants Aura).
+    "Imperial Knights":         "valourstrike_lance",
+    "Chaos Knights":            "iconoclast_fiefdom",
     "Adepta Sororitas":         "hallowed_martyrs",
     "Adeptus Custodes":         "shield_host",
     "Adeptus Mechanicus":       "skitarii_hunter_cohort",
@@ -1568,10 +1830,14 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Raven Guard":              ("gladius_task_force", "ironstorm_spearhead"),
     "White Scars":              ("gladius_task_force", "ironstorm_spearhead"),
     "Deathwatch":               ("gladius_task_force", "ironstorm_spearhead"),
-    # Necrons: Awakened Dynasty (balanced character-led) vs Canoptek Court
-    # (boosts Canoptek chassis). Picker tilts toward Canoptek when the
-    # army leans on its Canoptek units.
-    "Necrons":                  ("awakened_dynasty", "canoptek_court", "annihilation_legion"),
+    # Necrons: Cursed Legion (Relentless Onslaught — +1 to Hit vs targets near
+    # objectives + [ASSAULT] on VEHICLE / MOUNTED) is the PRIMARY pick (first in
+    # the tuple) so the calibration A/B measures the newly-modelled rule.
+    # Awakened Dynasty (balanced character-led), Canoptek Court (boosts Canoptek
+    # chassis), and Annihilation Legion (ranged reroll-wound-1s) remain as
+    # variety picks. The picker tilts toward Canoptek when the army leans on its
+    # Canoptek units; the first-listed Cursed Legion otherwise dominates.
+    "Necrons":                  ("cursed_legion", "awakened_dynasty", "canoptek_court", "annihilation_legion"),
     # iter16: Tyranids gains Subterranean Assault as the real-meta default
     # (May 2026 Maastricht GT winner — see DEFAULT_BY_FACTION comment).
     # Invasion Fleet is retained as a variant for the picker; both real
@@ -1585,8 +1851,14 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     # Krew, Speedwaaagh!, Blitz Brigade) remain UNIMPLEMENTED — they land
     # in per-detachment follow-up tasks.
     "Orks":                     ("war_horde",),
-    "Imperial Knights":         ("noble_lance",),
-    "Chaos Knights":            ("noble_lance",),
+    # IK-KNIGHTS-V1 (2026-05-31): real codex detachments for both Knight factions.
+    # Imperial Knights: Valourstrike Lance is the competitive default (May 2026
+    # meta, Goonhammer focus). Noble Lance retained as a no-buff variant so the
+    # old baseline is still reachable if needed for regression testing.
+    "Imperial Knights":         ("valourstrike_lance", "noble_lance"),
+    # Chaos Knights: Iconoclast Fiefdom is the competitive default (Goonhammer,
+    # May 2026 meta). Lords of Dread and Houndpack Lance are not yet wired.
+    "Chaos Knights":            ("iconoclast_fiefdom",),
     # DET-VARIETY-1 (2026-05-22): add Bringers of Flame as a Sororitas
     # variant pick. Both ship no-flag (Hallowed Martyrs after SC5-4,
     # Bringers of Flame because the codex Fervent Purgation rule does
@@ -1766,6 +2038,18 @@ def _keyword_affinity_score(det: Detachment, units) -> float:
     # Spearhead for vehicle-heavy Marines, etc. — is preserved by
     # gating on the detachment identity directly.
     det_name = det.name
+    if det_name == "Cursed Legion":
+        # ABILITIES #1: Relentless Onslaught buffs EVERY NECRONS model that
+        # attacks a target near an objective marker — an army-wide objective-
+        # pressure rule rather than a chassis-keyword one. Give it a flat
+        # affinity bonus so it leads the Necrons picker (so the calibration A/B
+        # measures the newly-modelled rule) while Canoptek Court still wins for
+        # genuinely Canoptek-heavy lists via its own (larger, fraction-scaled)
+        # affinity branch below. The +10 here is the mid tier of the
+        # fraction-based bonus the other branches return, deliberately below the
+        # +20 Canoptek Court reaches at >=30% Canoptek points so a Canoptek
+        # spam list still tilts to Canoptek Court.
+        return 10.0
     if det_name == "Canoptek Court":
         matched = sum(_pts(u) for u in units if _name(u).startswith("Canoptek"))
     elif det.plague_marines_plus_one_to_wound:

@@ -11,6 +11,16 @@
     "approximation": true
   },
 
+  "simulator.daemonic_manifestation": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/ (verbatim text below from the canonical BSData cache 'Chaos - Chaos Daemons Library.cat.gz', rule id a312-a2f1-e1c0-30ed, extracted 2026-06-01)",
+    "rule_name": "Daemonic Manifestation (the friendly half of The Shadow of Chaos)",
+    "quoted_text": "While a LEGIONES DAEMONICA unit from your army is within your army's Shadow of Chaos, each time that unit takes a Battle-shock test, add 1 to that test and, if that test is passed, one model in that unit regains up to D3 lost wounds (if that unit is a BATTLELINE unit and that test is passed, up to D3 destroyed models can be returned to that unit instead).",
+    "trigger": "A Chaos Daemons unit (any below-half-strength unit that takes a Battle-shock test) is inside its army's Shadow of Chaos. The Shadow is the Daemons' own deployment zone (ALWAYS) plus No Man's Land / the opponent's zone when they control at least half the objectives there; proxied in _run_battleshock_phase as the unit's own deployment-zone y-band OR within 18\" of board centre (parity with the simulator.shadow_of_chaos enemy-side proxy; per-zone objective control not tracked). Env-gated SWEG_DAEMONIC.",
+    "effect": "+1 to the Battle-shock test (modelled as -1 to the 2D6 test target, same convention as the Terror half) AND, on a PASS, returns up to D3 destroyed models (BATTLELINE) or restores up to D3 lost wounds (otherwise). The model/wound return reuses the existing reanimation pulse (transient_undying_legions_pulse, applied end-of-round by _apply_undying_legions_pulse, which spends the pulse wound-by-wound: heal wounded models first, then return destroyed models — matching the rule's BATTLELINE-vs-other split). This is the friendly attrition half of the army rule that keeps the Daemons' fragile battleline on the board; only the enemy-debuff half (simulator.shadow_of_chaos) was previously modelled.",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
   "simulator.relentless_carnage": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster",
     "rule_name": "Relentless Carnage",
@@ -19,5 +29,36 @@
     "effect": "Roll 8D6; each 4+ inflicts 1 mortal wound (expected 4 per trigger). Mortal wounds are routed through receive_damage(..., bonus_fnp=victim.profile.fnp) so defender Feel No Pain applies per 10e core rules. SwegHammer fires once per active player's fight pass (the codex 'end of the Fight phase' is per-phase, which in the simulator's per-turn-half model collapses to once per Bloodthirster per round). Target is picked as the highest-melee-DPA living engagement-range enemy as a reasonable approximation of 'the most threatening target in melee'.",
     "scope": "character-only",
     "approximation": true
+  },
+
+  "simulator.murderers_cowl": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Chaos%20-%20Chaos%20Daemons%20Library.cat",
+    "rule_name": "Murderer's Cowl",
+    "quoted_text": "This unit is eligible to shoot and declare a charge in a turn in which it Advanced.",
+    "trigger": "Attacker unit carries the murderers_cowl flag AND attacker.uid is in _advanced_this_round at the start of _do_charge. Verified from BSData XML profile id b864-9b7d-e224-f6be in data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz (Wahapedia unreachable at implementation time).",
+    "effect": "Exempts the unit from the 10e advance-lockout-on-charge gate in simulator._do_charge. The shoot-after-Advance half is covered by the unit's assault profile flag (set separately). Applies to: Bloodthirster, Bloodmaster, Skullmaster, Rendmaster on Blood Throne, Bloodletters, Bloodcrushers, Flesh Hounds, Skull Cannon, Khorne Soul Grinder.",
+    "scope": "keyword-gated",
+    "approximation": false
+  },
+
+  "simulator.gloam_rot": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Chaos%20-%20Chaos%20Daemons%20Library.cat",
+    "rule_name": "Gloam Rot",
+    "quoted_text": "Each time an attack targets this unit, if the Strength characteristic of that attack is greater than this unit's Toughness characteristic, subtract 1 from the Wound roll.",
+    "trigger": "Defender carries the gloam_rot flag AND attacker Strength > defender effective Toughness (after drug / aura bonuses). Two-way gate, no leader-attachment requirement. Verified from BSData XML profile id 61ca-9227-7d3e-bb7d.",
+    "effect": "wound_mod_delta -= 1 (subject to the ±1 modifier cap). Applies to: Great Unclean One, Poxbringer, Spoilpox Scrivener, Sloppity Bilepiper, Plaguebearers, Nurglings, Beasts of Nurgle, Plague Drones, Feculent Gnarlmaw, Nurgle Soul Grinder.",
+    "scope": "keyword-gated",
+    "approximation": false
+  },
+
+  "simulator.penumbral_puppetry_approx": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Chaos%20-%20Chaos%20Daemons%20Library.cat",
+    "rule_name": "Penumbral Puppetry",
+    "quoted_text": "Each time an attack targets this unit, subtract 1 from the Hit roll.",
+    "trigger": "Any attack (ranged or melee) targeting the unit. Verified from BSData XML profile id 36f2-466c-a396-051c.",
+    "effect": "APPROXIMATION: modelled via the existing stealth profile flag, which applies -1 to Hit rolls for ranged attacks only. The real rule applies to ALL attacks including melee; the melee half is not modelled. stealth flag set on: Tzeentch Soul Grinder, Lord of Change, Fateskimmer, Fluxmaster, Changecaster, Blue Horrors, Pink Horrors, Flamers, Exalted Flamer, Screamers, Burning Chariot.",
+    "scope": "keyword-gated",
+    "approximation": true
   }
+
 }

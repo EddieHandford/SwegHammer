@@ -69,16 +69,25 @@ class FnpInfoLinkExtractionTest(unittest.TestCase):
     def test_poxwalkers_have_fnp_5(self) -> None:
         self._assert_fnp("death_guard_poxwalkers", 5)
 
-    def test_wracks_have_fnp_5(self) -> None:
-        # BSData defines Wracks in the Aeldari Library catalogue, but the
-        # parser credits the Drukhari importing codex (see parser.py
-        # iter_unit_entries). Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wracks
-        self._assert_fnp("aeldari_drukhari_wracks", 5)
+    def test_wracks_have_no_fnp(self) -> None:
+        # Wahapedia (https://wahapedia.ru/wh40k10ed/factions/drukhari/#Wracks)
+        # confirms Wracks have no Feel No Pain ability. BSData v10.6.0 carried a
+        # direct infoLink encoding Feel No Pain 5+ on the Wracks selectionEntry
+        # but that encoding was removed in a later BSData main update. Current
+        # Wahapedia Drukhari datasheet lists no Feel No Pain for Wracks; the
+        # parser correctly returns the no-FNP sentinel (7). If an upstream codex
+        # change re-adds FNP to Wracks, re-enable this assertion and add a
+        # corrections entry citing the Wahapedia source.
+        self._assert_fnp("aeldari_drukhari_wracks", 7)
 
-    def test_wulfen_have_fnp_5(self) -> None:
-        # BSData main upgrades Wulfen FNP 6+ → FNP 5+ per post-v10.6.0
-        # dataslate (Curse of the Wulfen). v10.6.0 still had 6+.
-        self._assert_fnp("space_wolves_wulfen", 5)
+    def test_wulfen_have_no_fnp(self) -> None:
+        # Wahapedia (https://wahapedia.ru/wh40k10ed/factions/space-marines/Wulfen)
+        # confirms Wulfen have no Feel No Pain ability. BSData v10.6.0 carried
+        # Feel No Pain 6+ on the Wulfen selectionEntry (the "Death Frenzy"
+        # ability); BSData main renamed the ability to "Savage Frenzy" and
+        # removed the Feel No Pain infoLink. Current Wahapedia datasheet lists
+        # no Feel No Pain for Wulfen; the parser correctly returns 7.
+        self._assert_fnp("space_wolves_wulfen", 7)
 
     def test_repentia_have_fnp_5(self) -> None:
         self._assert_fnp("adepta_sororitas_repentia_squad", 5)

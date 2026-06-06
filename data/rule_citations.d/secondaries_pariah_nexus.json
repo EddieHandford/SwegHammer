@@ -1,61 +1,78 @@
 {
   "_comment": "10e Pariah Nexus tournament-pack Fixed Secondary Missions. The simulator's primaries-only scoring was a known structural divergence from real-meta tournament play; without secondaries the sim systematically over-rewards sticky-defensive shapes (Death Guard) and under-rewards kill-oriented shapes that would in real play score by removing enemy units. SC4-A wires up the two simplest fixed secondaries: Bring it Down (kill enemy MONSTER/VEHICLE) and No Prisoners (kill enemy units). Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-
+  "simulator.secondary_cleanse": {
+    "source": "https://www.goonhammer.com/goonhammer-reviews-the-warhammer-40k-pariah-nexus-missions/",
+    "rule_name": "Cleanse (Pariah Nexus Tactical/Fixed Secondary Mission — action-based)",
+    "quoted_text": "Cleanse scores 2 VP if you cleanse (Action) one objective marker outside your deployment zone, and 4 VP if you cleanse two. The action requires one or more units in range of different objective markers not in your deployment zone, and it completes at the end of your turn. Each unit cleanses a single objective marker. (Wahapedia DNS was unreachable from this environment; verified via the Goonhammer Pariah Nexus mission review and a corroborating web search of the GW pack.)",
+    "trigger": "After the Movement phase, a surplus unit (cheap, spare-able 'chaff' per strategy._is_chaff_unit) sitting on an objective its army CONTROLS that is OUTSIDE its own deployment zone performs the Cleanse action. While performing it the unit cannot shoot or declare a charge (lockout in Battle._do_shoot / _do_charge). At end of turn the action scores if the unit survived and the army still controls that objective.",
+    "effect": "2 VP per cleansed objective marker (outside the scoring army's deployment zone, controlled, with a surviving Cleanse unit), capped at two objectives (4 VP per turn). The shoot/charge lockout is the action-vs-fight tradeoff: a low-model durable army has no chaff to spare and never satisfies it, while a horde / MSU army does — an even-handed counterbalance to the kill-secondary asymmetry that falls out of unit cost, not faction. Implemented in Battle._assign_cleanse_actions / _score_cleanse.",
+    "scope": "phase-gated"
+  },
+  "simulator.secondary_sabotage": {
+    "source": "https://www.goonhammer.com/goonhammer-reviews-the-warhammer-40k-pariah-nexus-missions/",
+    "rule_name": "Sabotage (Pariah Nexus Tactical Secondary Mission — action-based)",
+    "quoted_text": "Sabotage: one of your units outside your deployment zone can start this action in the Shooting phase, which finishes at the end of your opponent's next turn or the end of the battle. You complete the action in No Man's Land for 3 VP or in your opponent's deployment zone for 6 VP. (Wahapedia DNS unreachable; verified via the Goonhammer Pariah Nexus mission review and a corroborating web search of the GW pack.)",
+    "trigger": "After the Movement phase, a surplus chaff unit (per strategy._is_chaff_unit) that is OUTSIDE its own deployment zone (in No Man's Land or the enemy deployment zone) performs the Sabotage action; it cannot shoot or charge that turn (the action-vs-fight tradeoff). At end of round the action scores if the unit survived forward (an approximation of 'completes at end of opponent's next turn'); a unit shot off mid-round scores nothing.",
+    "effect": "The best surviving Sabotage completes for 6 VP in the enemy deployment zone or 3 VP in No Man's Land, capped at one completion (6 VP) per round (SwegHammer simplification — a conservative cap on a deliberately risky deep-push action). Rewards pushing expendable bodies forward, which a deepstrike / infiltrate under-shooter does and a durable low-model camper cannot. Implemented in Battle._assign_sabotage_actions / _score_sabotage.",
+    "scope": "phase-gated"
+  },
+  "simulator.secondary_vp_cap_40": {
+    "source": "https://www.goonhammer.com/goonhammer-reviews-the-warhammer-40k-pariah-nexus-missions/",
+    "rule_name": "Secondary Mission victory-point ceiling (Pariah Nexus)",
+    "quoted_text": "Players add up their points from Secondary Missions and can score a maximum of 40 VP from these. If a player is using Fixed Missions they can score a maximum of 20 VP from each one of the missions.",
+    "trigger": "End of game, when deciding the winner. SwegHammer's running _a_vp/_b_vp totals mix primary and secondary VP and never enforced the 40-VP secondary ceiling, so secondary-heavy shapes (Custodes ~39 secondary VP/game) could exceed it.",
+    "effect": "The win condition (Battle._decide_winner) decides on primary VP plus min(secondary VP, 40), enforcing the real 40-VP total-secondary ceiling. Uses the per-side _a_secondary_vp / _b_secondary_vp tally (otherwise a reporting accumulator). Env-gated SWEG_S2 for the wave-75 A/B.",
+    "scope": "phase-gated"
+  },
   "simulator.secondary_bring_it_down": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Bring it Down (Pariah Nexus Fixed Secondary Mission)",
-    "quoted_text": "If one or more enemy MONSTER or VEHICLE models have been destroyed this battle round, score 2 VP plus 1 VP for each enemy MONSTER or VEHICLE model destroyed this battle round, to a maximum of 8 VP. APPROXIMATION: SwegHammer uses a simplified per-kill scoring (5 VP per MONSTER/VEHICLE model destroyed, capped at 15 VP per round) that produces equivalent end-state totals in a 5-round game and pairs cleanly with the No Prisoners secondary on the same per-round delta machinery.",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck; cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 92)",
+    "rule_name": "Bring It Down (Chapter Approved 2025-26 Secondary Mission, Fixed)",
+    "quoted_text": "Each time an enemy MONSTER or VEHICLE unit is destroyed, score 2VP. If the total Wounds characteristic of that unit was 15 or more, score an extra 2VP. If 20 or more, score a further 2VP. Maximum 6VP per unit. [No per-turn cap.]",
     "trigger": "end of each battle round, when computing the round-end delta of an army's destroyed MONSTER/VEHICLE units against the opponent's round-start snapshot",
-    "effect": "the opposing army gains 5 VP per destroyed MONSTER/VEHICLE model this round, capped at 15 VP per round",
+    "effect": "2 VP base + 2 (15+ total wounds) + 2 (20+) per destroyed MONSTER/VEHICLE, capped at 6 per unit (CA-2025-26 Fixed; was modelled as a flat 3 per model). No per-round cap (the 18 ceiling does not bind; the 40-VP secondary total cap bounds it). Uses the destroyed model's Wounds characteristic (profile.health) — for single-model MONSTER/VEHICLE (most) this equals the unit total; multi-model squadrons under-count (rare, accepted).",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_no_prisoners": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "No Prisoners (Pariah Nexus Fixed Secondary Mission)",
-    "quoted_text": "Score 2 VP at the end of the battle round if any enemy units were destroyed this battle round, plus 1 VP for each enemy unit destroyed this battle round, to a maximum of 5 VP per battle round. APPROXIMATION: SwegHammer uses 5 VP per enemy unit destroyed per round, capped at 15 VP per round. The end-state totals scale with the original rule's intent (rewarding kill-oriented play) and pair with Bring it Down on the same per-round delta.",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck — the deck the May-2026 calibration target was played under; values cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 91)",
+    "rule_name": "No Prisoners (Chapter Approved 2025-26 Secondary Mission, Tactical only — banned as a Fixed pick in tournament play)",
+    "quoted_text": "Each time an enemy unit is destroyed, score 2VP (up to a maximum of 5VP per turn). [Fixed version narrows to Bodyguard / non-CHARACTER units and is banned as a Fixed pick in tournament play; the simulator scores the per-unit 2 VP form.]",
     "trigger": "end of each battle round, when computing the round-end delta of an army's destroyed units against the opponent's round-start snapshot",
-    "effect": "the opposing army gains 5 VP per destroyed enemy unit this round, capped at 15 VP per round",
+    "effect": "the opposing army gains 2 VP per destroyed enemy unit this round, capped at 5 VP per round (CA-2025-26 value; was a stale 5/15 in the citation and 3/5 in code).",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_engage_on_all_fronts": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Engage on All Fronts (Pariah Nexus Tactical Secondary Mission)",
-    "quoted_text": "Score 2 VP at the end of your turn if your army has one or more units within two table quarters. Score 3 VP if three table quarters, 5 VP if all four. APPROXIMATION: SwegHammer uses a single threshold of 5 VP if alive units occupy 3+ of the 4 quarters at end of round (position centroid, not 'wholly within' as the real rule requires). Preserves the directional incentive — projecting units across the map is rewarded; sticky-camping in one quarter is not.",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck — the deck the May-2026 calibration target was played under; values cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 91)",
+    "rule_name": "Engage on All Fronts (Chapter Approved 2025-26 Secondary Mission)",
+    "quoted_text": "Score 1VP if you have one or more units wholly within two table quarters; 2VP instead for three different table quarters; 4VP instead for all four table quarters.",
     "trigger": "end of each battle round, evaluating each side's alive-unit quadrant coverage",
-    "effect": "the side scores 5 VP if their alive units' positions occupy at least 3 of the 4 table quarters (cx=width/2, cy=height/2 split)",
+    "effect": "1 / 2 / 4 VP for alive units occupying 2 / 3 / 4 of the table quarters (CA-2025-26; was Pariah Nexus 2/3/5 — CA-2025-26 adds a 1-VP floor at 2 quarters and lowers the 3/4-quarter tiers).",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_behind_enemy_lines": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Behind Enemy Lines (Pariah Nexus Tactical Secondary Mission)",
-    "quoted_text": "Score 4 VP at the end of your turn if one or more units from your army are wholly within your opponent's deployment zone. APPROXIMATION: SwegHammer uses a flat 5 VP if at least one alive unit's position is inside the opponent's deployment zone strip (y-band). 'Wholly within' is approximated as position-inside-strip — preserves the forward-projection incentive without modelling base-size geometry.",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck — the deck the May-2026 calibration target was played under; values cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 91)",
+    "rule_name": "Behind Enemy Lines (Chapter Approved 2025-26 Secondary Mission)",
+    "quoted_text": "Score 3VP if one non-AIRCRAFT unit from your army is wholly within your opponent's deployment zone; score 4VP instead if two or more are. [Unchanged from Pariah Nexus.]",
     "trigger": "end of each battle round, evaluating each side's alive-unit positions against the opponent's deployment-zone strip",
-    "effect": "the side scores 5 VP if any alive unit's position is within the opponent's deployment zone (Army A enemy DZ = high-y strip width=map.deployment_width; Army B enemy DZ = low-y strip)",
+    "effect": "3 VP if exactly one alive unit is within the opponent's deployment zone, 4 VP if two or more (CA-2025-26; the sim previously modelled a flat 4).",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_cull_the_horde": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Cull the Horde (Pariah Nexus Fixed Secondary Mission)",
-    "quoted_text": "If one or more enemy units that contained 11 or more models at the start of the battle were destroyed this battle round, score 3 VP. APPROXIMATION: SwegHammer uses 5 VP per destroyed 10+model unit, capped at 5 VP per round (so effectively 1 horde-kill scores per round). Horde threshold lowered to 10 (vs 11) to match the more common 'horde' definition in 10e tournament discourse — Boyz squads of 10, Cultist regiments of 10, etc. all qualify; Termagant broods of 30 obviously do.",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck — the deck the May-2026 calibration target was played under; values cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 91)",
+    "rule_name": "Cull the Horde (Chapter Approved 2025-26 Secondary Mission)",
+    "quoted_text": "Each time an enemy INFANTRY unit with a Starting Strength of 13 or more (including any attached units) is destroyed, score 5VP. [No per-turn cap.]",
     "trigger": "end of each battle round, when an enemy unit whose starting strength was 10+ was destroyed this round",
-    "effect": "the opposing army gains 5 VP per qualifying horde-unit destroyed this round, capped at 5 VP per round",
+    "effect": "5 VP per qualifying INFANTRY unit destroyed whose Starting Strength was 13+ (CA-2025-26; was Pariah Nexus 20+/25-wounds, sim previously 10+ at 3 VP). No per-round cap (the sim's 15 ceiling does not bind in practice; the 40-VP secondary total cap bounds it). The 'including attached Leaders' clause is approximated by the squad's starting model count.",
     "scope": "phase-gated"
   },
-
   "simulator.warlord_designation": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck; cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 92)",
     "rule_name": "Warlord designation + Pariah Nexus Assassination bonus",
     "quoted_text": "Each player must select one CHARACTER model in their army to be their Warlord. Pariah Nexus Assassination secondary: Score 3 VP at the end of the battle round if one or more enemy CHARACTER models were destroyed this battle round. Score 4 VP instead if the enemy WARLORD was among those models.",
     "trigger": "army built, the first CHARACTER in deploy order is designated Warlord. When that Warlord is destroyed this round, the opposing side's Assassination secondary VP is incremented by +1 (in addition to the standard 3 VP per CHARACTER).",
-    "effect": "Army.warlord_uid lazily set to id() of the first CHARACTER unit; secondary scorer awards +1 VP when warlord_uid is among the chars_killed set this round. APPROXIMATION: SwegHammer uses 'first CHARACTER by deploy order' as the Warlord; real tournament players designate during list construction (often the most expensive CHARACTER for narrative reasons). The deploy-order heuristic is faction-neutral and deterministic.",
+    "effect": "Army.warlord_uid is lazily set to the first CHARACTER unit in deploy order (faction-neutral, deterministic). CHAPTER APPROVED 2025-26 UPDATE: Assassination no longer grants a Warlord bonus (the +1 was removed), so ASSASSINATION_WARLORD_BONUS_VP is 0 and the Warlord designation no longer affects Assassination scoring; the designation is retained for API stability and any future Warlord-keyed rule.",
     "scope": "phase-gated",
     "approximation": true
   },
-
   "simulator.tactical_secondary_deck_draw": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
     "rule_name": "Tactical Secondary Mission deck mechanic",
@@ -65,63 +82,85 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
+  "simulator.tactical_secondary_deck": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck — the deck the May-2026 calibration target was played under; deck mechanic cross-checked vs the Pariah Nexus Tactical Mission rules + Goonhammer CA-2025 review)",
+    "rule_name": "Secondary Missions — Fixed vs Tactical, and the Tactical deck draw/achieve/redraw mechanic (Chapter Approved 2025-26)",
+    "quoted_text": "When you muster your army, you must decide whether you will be using Fixed Missions or Tactical Missions for the battle. ... If you are using Tactical Missions: At the start of your first Command phase, draw two cards from your Secondary Mission deck. Those two Secondary Missions are active for you until you achieve them. At the start of each of your subsequent Command phases, if you have fewer than two active Secondary Mission cards, draw Secondary Mission cards until you have two active Secondary Mission cards. ... At the end of your turn, if you scored one or more victory points from a Secondary Mission card this turn, that Secondary Mission is achieved; discard that card.",
+    "trigger": "battle start (track choice from unit count — even-handed, no faction tag) and each Command phase / round end (a TACTICAL army holds at most two active cards, scores only those, and discards+redraws any it scored 1+ VP from)",
+    "effect": "Replaces the simulator's legacy union-of-~9-11-sources secondary scoring with the real rule: each army uses ONE track. A FIXED army (low unit/chaff count — emergently the Knight) scores its 2 kill cards every round; a TACTICAL army (broad roster with spare chaff) holds a deterministically-seeded 2-card hand drawn from the Tactical/action/board pool, scoring only the hand and running achieve->discard->redraw each round. Bounded by the existing 40-VP secondary total cap. Env-gated SWEG_TAC_DECK; OFF reproduces the legacy scoring byte-for-byte. Even-handed: the Fixed/Tactical split falls out of `secondaries._choose_secondary_track` (chaff + unit count), never a faction. Deterministic: the deck shuffle is seeded from a battle-stable global-RNG draw XOR the army-name CRC, reproducible under PYTHONHASHSEED=0. Implemented as Battle._init_tactical_deck / _score_one_card / _score_tactical_hand / _score_secondaries_deck and secondaries.pick_secondaries / TACTICAL_DECK_POOL. STAGE C TODO: the CA-2025-26 Tactical deck also has action cards (Establish Locus, Recover Assets, A Tempting Target) the sim does not yet model — left as a cited TODO, not invented.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
   "simulator.secondary_assassination": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Assassination (Pariah Nexus Fixed Secondary Mission)",
-    "quoted_text": "Score 3 VP at the end of the battle round if one or more enemy CHARACTER models were destroyed this battle round. Score 4 VP instead if the enemy WARLORD was among those models. APPROXIMATION: SwegHammer uses 5 VP per enemy CHARACTER destroyed, capped at 10 VP per round (so 2 CHARACTER kills per round score; subsequent kills carry over capped). WARLORD bonus not yet differentiated; CHARACTER-flag is the gate. Sim does not track Warlord designation per-army at the level required for the extra +1 VP, so a flat per-CHARACTER value preserves the scoring direction without modelling the Warlord designation.",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck; cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 92)",
+    "rule_name": "Assassination (Chapter Approved 2025-26 Secondary Mission, Fixed)",
+    "quoted_text": "Each time an enemy CHARACTER model is destroyed, score 4VP if that CHARACTER had a Wounds characteristic of 4 or more, or 3VP if it had fewer than 4. [No per-turn cap; CA-2025-26 has no Warlord bonus.]",
     "trigger": "end of each battle round, when an enemy CHARACTER-keyword unit was destroyed this round",
-    "effect": "the opposing army gains 5 VP per destroyed enemy CHARACTER this round, capped at 10 VP per round",
+    "effect": "4 VP per destroyed CHARACTER with 4+ Wounds, 3 VP for one with fewer than 4 (CA-2025-26 wound-tier; was a flat 3 per CHARACTER). No per-round cap (12 ceiling, under the 40-VP total). The Pariah Nexus Warlord bonus is removed (set to 0).",
     "scope": "phase-gated"
   },
-
-  "simulator.secondary_elite_army_modifier": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Elite-army defender modifier on Pariah Nexus kill-event secondaries (CUSTODES-UNPARK)",
-    "quoted_text": "Bring it Down: Score 2 VP plus 1 VP per enemy MONSTER or VEHICLE model destroyed this battle round, max 8 VP. No Prisoners: Score 2 VP plus 1 VP per enemy unit destroyed this battle round, max 5 VP. Assassination: Score 3 VP if one or more enemy CHARACTER models were destroyed this battle round; 4 VP if the WARLORD was among those models. APPROXIMATION: SwegHammer scales the per-kill VP and per-round caps of these three secondaries by 1.5x when the side being scored against is Adeptus Custodes. Models the elite-army secondary disadvantage that the per-round caps obscure in symmetric scoring: each Custodes unit loss is proportionally a much larger share of the army (typical Custodes 2000pt list ~6-12 elite squads), and tournament opponents bias secondary card selection toward kill-event missions specifically because Custodes losses are predictable. Cull the Horde is unaffected — Custodes never has 10+model units, so it cannot concede that secondary regardless of the multiplier.",
-    "trigger": "end of each battle round, when scoring secondary VP delta against an Adeptus Custodes army's round-start snapshot",
-    "effect": "the opposing army's Bring it Down, No Prisoners, and Assassination per-kill VP and per-round caps are multiplied by 1.5x (integer-floored) when the defender_faction passed to secondaries.score_round_delta equals 'Adeptus Custodes'. Cull the Horde is unchanged.",
-    "scope": "phase-gated",
-    "approximation": true
+  "simulator.secondary_secure_no_mans_land": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/",
+    "rule_name": "Secure No Man's Land (Pariah Nexus Secondary Mission)",
+    "quoted_text": "Secure No Man's Land: 2VP if controlling one objective marker in No Man's Land; or 5VP if controlling two or more objective markers in No Man's Land.",
+    "trigger": "end of each battle round, counting the No Man's Land objective markers (outside both deployment zones) the scoring army controls (strictly greater Objective Control than the opponent within the marker's radius)",
+    "effect": "2 VP for one controlled No Man's Land objective, 5 VP for two or more. Implemented in Battle._score_board_secondaries (env-gated SWEG_TIER_A). Rewards a body army that can spread across the midboard, which a low-model durable camper cannot — even-handed (same pool + scoring both sides; the asymmetry is in completion, bounded by the 40-VP secondary cap).",
+    "scope": "phase-gated"
   },
-
-  "simulator.secondary_drukhari_mobile_modifier": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Mobile-army attacker damper on Pariah Nexus mobility / horde-cull / offensive secondaries (DRK-DIAG-9 + DRK-DIAG-10)",
-    "quoted_text": "Engage on All Fronts: Score 2/3/5 VP at the end of your turn if your army has units within 2/3/4 table quarters. Behind Enemy Lines: Score 4 VP at the end of your turn if one or more units from your army are wholly within your opponent's deployment zone. Cull the Horde: Score 3 VP if one or more enemy units that contained 11 or more models at the start of the battle were destroyed this battle round. Bring it Down: Score 2 VP plus 1 VP per enemy MONSTER or VEHICLE model destroyed this battle round, max 8 VP. No Prisoners: Score 2 VP plus 1 VP per enemy unit destroyed this battle round, max 5 VP. Assassination: Score 3 VP if one or more enemy CHARACTER models were destroyed this battle round; 4 VP if the WARLORD was among those models. APPROXIMATION: SwegHammer scales the per-round VP for the mobility / Cull secondaries (Engage / BEL / Cull the Horde) by 0.75x (DRK-DIAG-9) AND the per-round VP for the offensive kill-event secondaries (Bring it Down / No Prisoners / Assassination) by the gentler 0.85x (DRK-DIAG-10), in both cases integer-floored, when the scoring side's attacker_faction equals 'Drukhari'. Models the real-meta over-scoring damper observed across the entire Stage 1 calibration loop: Drukhari sim win-rate parks at 80%+ vs real ~52% even after exhaustive per-rule audits (DRK-DIAG-2 through DRK-DIAG-8). The residual is structural-scoring rather than per-rule. Mobility makes the position-based Tactical secondaries almost free to score round 1 onwards (every Wych/Reaver unit moves 14\"+ before advance, Skysplinter transports cross the board turn 1), but real-meta Drukhari does not convert at the sim rate because (a) committing fragile T3/4 W1 units to quadrants exposes them to wipe responses, (b) 'wholly within' enemy DZ is harder to maintain than the position-centroid check approximates, (c) Drukhari burst damage overflows on single horde squads but the Cull per-round cap eats the overflow, and (d) for the offensive kill-event secondaries the sim's per-shot W-resolution doesn't model the real-meta fragility trade — pilots burning Wyches/Incubi on anti-vehicle alpha strikes open those units to wipe responses that real opponents punish harder than the greedy AI. Offensive damper at 0.85x rather than 0.75x because Drukhari offensive output still reflects some genuine capacity (the per-rule offensive audits DRK-DIAG-5 dual-firing and DRK-DIAG-7 ranged stats came back clean); the damper trims the over-conversion margin rather than nulling output. Mirror of the CUSTODES-UNPARK defender-side uplift pattern (simulator.secondary_elite_army_modifier) applied in the opposite direction on the attacker side; composes multiplicatively with CUSTODES-UNPARK so Drukhari-vs-Custodes still favours kill-event secondaries relative to Drukhari-vs-horde, just less so than pre-DRK-DIAG-10.",
-    "trigger": "end of each battle round, when scoring secondary VP delta FOR a Drukhari army (the scoring side, not the side being scored against)",
-    "effect": "the Drukhari army's Engage on All Fronts and Behind Enemy Lines tactical-secondary VP (in secondaries.score_position_delta) and its Cull the Horde VP plus per-round cap (in secondaries.score_round_delta) are multiplied by 0.75x (DRK-DIAG-9, integer-floored), AND its Bring it Down, No Prisoners, and Assassination VP plus per-round caps (in secondaries.score_round_delta) are multiplied by 0.85x (DRK-DIAG-10, integer-floored), in both cases when the attacker_faction parameter equals 'Drukhari'. The 0.85x offensive multiplier composes multiplicatively with the CUSTODES-UNPARK 1.5x defender multiplier (effective 1.275x for BiD/NP/Assassination when a Drukhari army attacks a Custodes army).",
-    "scope": "phase-gated",
-    "approximation": true
+  "simulator.secondary_defend_stronghold": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/",
+    "rule_name": "Defend Stronghold (Pariah Nexus Secondary Mission)",
+    "quoted_text": "Defend Stronghold: 3VP if controlling one or more objective markers in your deployment zone.",
+    "trigger": "end of each battle round, when the scoring army controls one or more objective markers in its own deployment zone",
+    "effect": "3 VP. Implemented in Battle._score_board_secondaries (env-gated SWEG_TIER_A). Available to every army (a camper holding its home objective scores it too) — even-handed.",
+    "scope": "phase-gated"
   },
-
-  "simulator.secondary_tyranids_monster_modifier": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Monster-mash attacker damper on Pariah Nexus kill / horde-cull / mobility secondaries (TYRANIDS-DIAG-6)",
-    "quoted_text": "Bring it Down: Score 2 VP plus 1 VP per enemy MONSTER or VEHICLE model destroyed this battle round, max 8 VP. No Prisoners: Score 2 VP plus 1 VP per enemy unit destroyed this battle round, max 5 VP. Cull the Horde: Score 3 VP if one or more enemy units that contained 11 or more models at the start of the battle were destroyed this battle round. Engage on All Fronts: Score 2/3/5 VP at the end of your turn if your army has units within 2/3/4 table quarters. Behind Enemy Lines: Score 4 VP at the end of your turn if one or more units from your army are wholly within your opponent's deployment zone. APPROXIMATION: SwegHammer scales the per-round VP for these five secondaries by 0.75x (integer-floored) when the scoring side's attacker_faction equals 'Tyranids'. This is a CALIBRATION OBSERVATION, NOT A WAHAPEDIA RULE. Models the real-meta over-scoring damper observed after 5 prior per-rule diag passes (TYRANIDS-DIAG, TYRANIDS-FIX, TYRANIDS-DIAG-2, TYRANIDS-DIAG-3, TYRANIDS-DIAG-5 SitW collapse) confirmed no missing rule lever — Tyranids sim parks at ~75.6% gated win-rate vs real ~47.0% (+24.82pt over-perf), and the residual is structural-scoring rather than per-rule. Tyranid tournament lists are mostly Monster + Synapse-led horde brick (Carnifex, Tyrannofex, Norn Emissary, Genestealers, Termagant Devourers). The sim's monster-mash burst over-converts on offensive secondaries because (a) per-shot W-resolution doesn't model real-meta target-priority chaff screens — heavy hitters stack S-T differential favourably and one-shot enemy MONSTER/VEHICLE; (b) melee bricks wipe single squads but real Tyranid players don't reliably set up the alpha-strike vs screened opponents; (c) Cull burst overflow is eaten by the per-round cap in sim but real-meta conversion is lower; (d) Tyranid horde positioning is Synapse-anchored (units stay within range of a Synapse source for coherence and morale rules) so the sim's wide-spread Engage scoring and centroid-based BEL check overstate real-meta Tyranid mobility / spread. Assassination is NOT scaled — Tyranid CHARACTER kill output is genuine and audited clean. Mirror of the DRK-DIAG-9 attacker-side damper pattern (simulator.secondary_drukhari_mobile_modifier) with wider secondary footprint reflecting Tyranids' monster-mash + horde-anchored profile vs Drukhari's mobility-elite profile.",
-    "trigger": "end of each battle round, when scoring secondary VP delta FOR a Tyranids army (the scoring side, not the side being scored against)",
-    "effect": "the Tyranids army's Bring it Down + No Prisoners + Cull the Horde VP plus per-round caps (in secondaries.score_round_delta) and Engage on All Fronts + Behind Enemy Lines VP (in secondaries.score_position_delta) are multiplied by 0.75x (integer-floored) when the attacker_faction parameter equals 'Tyranids'. Assassination is unchanged.",
-    "scope": "phase-gated",
-    "approximation": true
+  "simulator.secondary_extend_battle_lines": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck — the deck the May-2026 calibration target was played under; values cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 91)",
+    "rule_name": "Extend Battle Lines (Chapter Approved 2025-26 Secondary Mission)",
+    "quoted_text": "Control one or more objective markers in your deployment zone AND one or more in No Man's Land: score 4VP. (CA-2025-26 reduced the top tier from the Pariah Nexus 5 VP to 4 VP.)",
+    "trigger": "end of each battle round, when the scoring army controls at least one objective in its own deployment zone AND at least one in No Man's Land",
+    "effect": "4 VP for controlling one+ own-deployment-zone objective AND one+ No Man's Land objective (CA-2025-26; reduced from the Pariah Nexus 5). Implemented in Battle._score_board_secondaries.",
+    "scope": "phase-gated"
   },
-
-  "simulator.secondary_daemons_defender_damper": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Invuln-stacked defender damper on Pariah Nexus kill / horde-cull secondaries (DAEMONS-DIAG-6)",
-    "quoted_text": "Bring it Down: Score 2 VP plus 1 VP per enemy MONSTER or VEHICLE model destroyed this battle round, max 8 VP. No Prisoners: Score 2 VP plus 1 VP per enemy unit destroyed this battle round, max 5 VP. Cull the Horde: Score 3 VP if one or more enemy units that contained 11 or more models at the start of the battle were destroyed this battle round. APPROXIMATION: SwegHammer scales the per-round VP and per-round caps for these three secondaries by 0.75x (integer-floored) when the side being scored against (defender_faction) equals \"Chaos Daemons\". This is a CALIBRATION OBSERVATION, NOT A WAHAPEDIA RULE. Models the real-meta invuln-stacked-defender over-conversion observed after 5 prior per-rule diag passes (DAEMONS-DIAG, DAEMONS-DIAG-2 BSData invuln 46-unit patch, DAEMONS-DIAG-3 Greater Daemon auras, DAEMONS-DIAG-4 four god sub-detachments, DAEMONS-DIAG-5 Bloodthirster Relentless Carnage), plus MR-CHAOS-DAEMONS-LOCUS Locus auras, MR-I Shadow of Chaos / Herald leaders, and the LEADERABILITY-SCHEMA Greater Daemon leader-roster pass - all per-rule audits came back clean and the residual remains -21.6pt (Chaos Daemons sim ~31% vs real ~52.6% in the May 2026 Warp Friends tournament eval). The residual is structural defender-side scoring rather than per-rule. Real-meta Chaos Daemons gets (a) cover-vs-invuln-vs-armour best-pick stacking on each saving throw (the simulator current per-attack save choice loses ~10% durability vs real per-roll best-of), (b) Shadow of Chaos battleshock immunity protecting the Daemon screen from secondary-cascading wipes after a partial kill, (c) Locus aura defensive uplift on Khorne/Tzeentch/Nurgle/Slaanesh sub-detachment models that the simulator under-models, and (d) opponent threat economy spreading damage rather than alpha-striking a single 4++ Greater Daemon chassis. The composite defensive envelope reduces opponent BiD/NP/Cull conversion in real tournament play. Inversion of the CUSTODES-UNPARK defender uplift pattern (simulator.secondary_elite_army_modifier) - same defender-faction-gated structure, opposite direction (damper rather than uplift), reflecting that Custodes is an elite low-count defender the per-round caps under-punish whereas Chaos Daemons is a hyper-resilient defender the per-round caps OVER-punish in the simulator. Composes multiplicatively with the CUSTODES uplift (Custodes attacking Daemons -> 1.5 * 0.75 = 1.125x net on BiD/NP, preserving some elite-army-advantage residual). Assassination is NOT scaled - Daemon Heralds are fragile T4 W4 4++ chassis that genuinely die in real meta. Cull the Horde IS scaled (Daemons fields 10-model Plaguebearer / Bloodletter / Pink Horror squads that the sim over-wipes vs real-meta 5++ + Daemonic-invuln durability).",
-    "trigger": "end of each battle round, when scoring secondary VP delta AGAINST a Chaos Daemons army (the side being scored against, not the scoring side)",
-    "effect": "the opposing army Bring it Down + No Prisoners + Cull the Horde VP plus per-round caps (in secondaries.score_round_delta) are multiplied by 0.75x (integer-floored) when the defender_faction parameter equals \"Chaos Daemons\". Composes multiplicatively with the CUSTODES_DEFENDER_KILL_VP_MULTIPLIER uplift (the two are mutually exclusive in practice - the defender is one or the other - but the implementation keeps them composable). Assassination is unchanged.",
-    "scope": "phase-gated",
-    "approximation": true
+  "simulator.secondary_storm_hostile_objective": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/",
+    "rule_name": "Storm Hostile Objective (Pariah Nexus Secondary Mission)",
+    "quoted_text": "Storm Hostile Objective: 4VP if controlling one or more objective markers your opponent controlled at the start of your turn; or (from the second battle round) 4VP if your opponent controlled no objective markers at the start of your turn and you control one or more that you did not control at the start of your turn. APPROXIMATION: SwegHammer scores the first clause — control at round end one or more markers the opponent controlled at round start (captured in _obj_controller_at_round_start); the second alternate clause is not modelled.",
+    "trigger": "end of each battle round, when the scoring army controls one or more objective markers that the opponent controlled at the start of the round",
+    "effect": "4 VP. Implemented in Battle._score_board_secondaries (env-gated SWEG_TIER_A). This is the scoring REWARD for taking a durable camper's objectives — the anti-camper play that wave-81 contest/deny lacked because the model only DENIED the camper's primary, never scored the taker. Even-handed.",
+    "scope": "phase-gated"
   },
-
-  "simulator.secondary_sororitas_attacker_damper": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Balanced-army attacker last-resort damper on Pariah Nexus offensive + mobility secondaries (SOROR-LAST-RESORT-DAMPER)",
-    "quoted_text": "Bring it Down: Score 2 VP plus 1 VP per enemy MONSTER or VEHICLE model destroyed this battle round, max 8 VP. No Prisoners: Score 2 VP plus 1 VP per enemy unit destroyed this battle round, max 5 VP. Assassination: Score 3 VP if one or more enemy CHARACTER models were destroyed this battle round; 4 VP if the WARLORD was among those models. Cull the Horde: Score 3 VP if one or more enemy units that contained 11 or more models at the start of the battle were destroyed this battle round. Engage on All Fronts: Score 2/3/5 VP at the end of your turn if your army has units within 2/3/4 table quarters. Behind Enemy Lines: Score 4 VP at the end of your turn if one or more units from your army are wholly within your opponent's deployment zone. APPROXIMATION: SwegHammer scales the per-round VP for these six secondaries by the conservative 0.85x (integer-floored) when the scoring side's attacker_faction equals 'Adepta Sororitas'. (a) THIS IS A CALIBRATION OBSERVATION, NOT A WAHAPEDIA RULE - it is a last-resort structural-scoring damper applied after every per-rule lever was audited clean. (b) Adepta Sororitas sim parks at ~68.2% win-rate vs real ~50.8% (+13-16pt gated MAE over-perf for many waves) and SIX prior per-rule diag passes (SORORITAS-MORTIFIER-FNP, SOROR-DIAG-2, SOROR-DIAG-3, SOROR-DIAG-4, SOROR-DIAG-5, SOROR-DIAG-6, plus SOROR-KEY-FIX/2, SOROR-MUTEX-2, SOROR-STAT-AUDIT, SOROR-FAB-AUDIT) found NO missing rule lever - all Acts-of-Faith mechanics (per-attack-call cap), detachment fabrications (clean), unit-level FNP leaks (cleaned), and multi-loadout audits (Castigator / Exorcist / Immolator / Morvenn Vahl / Insidiants) came back with no fix lever. The residual is structural over-translation of damage events to capped VP, not a per-rule lever, so the only remaining mechanism is the secondary-envelope damper used for Drukhari (DRK-DIAG-10) and Tyranids (TYRANIDS-DIAG-6). (c) Damper at conservative 0.85x rather than 0.75x because Sororitas's residual (+13-16pt) is materially smaller than Drukhari's (+27-31pt) and Tyranids' (+24.8pt pre-damper), and Sororitas isn't model-fragility-based (T3 W2 1+ save common, but Acts of Faith re-rolls protect actual durability vs sim's per-shot W-resolution); the damper trims the over-conversion margin rather than nulling output. Faction-gated (not detachment- or rule-keyword-gated) because the behavioural divergence is observed across all Sororitas detachments (Hallowed Martyrs + Bringers of Flame both park at the same +13-16pt residual). Mirror of the DRK-DIAG-10 attacker-side offensive damper pattern (simulator.secondary_drukhari_mobile_modifier) and the TYRANIDS-DIAG-6 attacker damper pattern (simulator.secondary_tyranids_monster_modifier) at conservative magnitude. Composes multiplicatively with CUSTODES-UNPARK 1.5x defender uplift (Sororitas vs Custodes -> 1.5 * 0.85 = 1.275x net on BiD/NP/Assassination, preserving elite-army-advantage residual) and DAEMONS-DIAG-6 0.75x defender damper (Sororitas vs Daemons -> 0.75 * 0.85 = 0.6375x net on BiD/NP/Cull, preserving invuln-stacked-defender protection).",
-    "trigger": "end of each battle round, when scoring secondary VP delta FOR an Adepta Sororitas army (the scoring side, not the side being scored against)",
-    "effect": "the Adepta Sororitas army's Bring it Down + No Prisoners + Assassination + Cull the Horde VP plus per-round caps (in secondaries.score_round_delta) AND its Engage on All Fronts + Behind Enemy Lines VP (in secondaries.score_position_delta) are multiplied by 0.85x (integer-floored) when the attacker_faction parameter equals 'Adepta Sororitas'. Composes multiplicatively with the CUSTODES_DEFENDER_KILL_VP_MULTIPLIER 1.5x uplift (effective 1.275x for BiD/NP/Assassination when Sororitas attacks Custodes) and the DAEMONS_DEFENDER_KILL_VP_MULTIPLIER 0.75x damper (effective 0.6375x for BiD/NP/Cull when Sororitas attacks Chaos Daemons).",
-    "scope": "phase-gated",
-    "approximation": true
+  "simulator.secondary_area_denial": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/",
+    "rule_name": "Area Denial (Pariah Nexus Secondary Mission)",
+    "quoted_text": "Area Denial: 2VP if one or more units from your army are within 3\" of the centre of the battlefield and there are no enemy units within 3\" of the centre; or 5VP if one or more of your units are within 3\" of the centre and there are no enemy units within 6\" of the centre.",
+    "trigger": "end of each battle round, evaluating the scoring army's and the opponent's unit positions relative to the battlefield centre (width/2, height/2)",
+    "effect": "Requires one of your units within 3\" of centre; then 5 VP if no enemy unit within 6\" of centre, else 2 VP if no enemy unit within 3\" of centre, else 0. Implemented in Battle._score_area_denial (env-gated SWEG_TIER_A). Even-handed centre-control reward.",
+    "scope": "phase-gated"
+  },
+  "simulator.secondary_assassination_tactical": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 Tactical Mission card — verbatim text captured from a prior Wahapedia read; DNS may be unreachable from agent worktrees)",
+    "rule_name": "Assassination (Chapter Approved 2025-26 Secondary Mission, Tactical version)",
+    "quoted_text": "One or more enemy CHARACTER models were destroyed this turn. TACTICAL 5VP",
+    "trigger": "end of each battle round, when a TACTICAL-track army's held Assassination card is scored: one or more enemy CHARACTER units were destroyed this round",
+    "effect": "Flat 5 VP if one or more enemy CHARACTER models were destroyed this turn (regardless of wound tier or count). Distinct from the Fixed version (4 VP per 4+-wound CHARACTER, 3 VP per under-4-wound CHARACTER, per unit). Implemented in score_round_delta when tactical=True, routed from Battle._score_one_card when scoring_army.secondary_track == 'TACTICAL'. Env-gated SWEG_TAC_DECK; OFF leaves the Fixed per-unit path byte-identical.",
+    "scope": "phase-gated"
+  },
+  "simulator.secondary_bring_it_down_tactical": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 Tactical Mission card — verbatim text captured from a prior Wahapedia read; DNS may be unreachable from agent worktrees)",
+    "rule_name": "Bring It Down (Chapter Approved 2025-26 Secondary Mission, Tactical version)",
+    "quoted_text": "One or more enemy MONSTER or VEHICLE units were destroyed this turn. TACTICAL 4VP",
+    "trigger": "end of each battle round, when a TACTICAL-track army's held Bring It Down card is scored: one or more enemy MONSTER or VEHICLE units were destroyed this round",
+    "effect": "Flat 4 VP if one or more enemy MONSTER or VEHICLE units were destroyed this turn (regardless of wounds total or count). Distinct from the Fixed version (2 VP base +2 at 15+ wounds +2 at 20+, per unit, no round cap). Implemented in score_round_delta when tactical=True, routed from Battle._score_one_card when scoring_army.secondary_track == 'TACTICAL'. Env-gated SWEG_TAC_DECK; OFF leaves the Fixed per-unit path byte-identical.",
+    "scope": "phase-gated"
+  },
+  "simulator.secondary_cull_the_horde_tactical": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 Tactical Mission card — verbatim text captured from a prior Wahapedia read; DNS may be unreachable from agent worktrees)",
+    "rule_name": "Cull the Horde (Chapter Approved 2025-26 Secondary Mission, Tactical version)",
+    "quoted_text": "One or more enemy INFANTRY units with a Starting Strength of 13+ were destroyed this turn. TACTICAL 5VP",
+    "trigger": "end of each battle round, when a TACTICAL-track army's held Cull the Horde card is scored: one or more enemy INFANTRY units with Starting Strength 13+ were destroyed this round",
+    "effect": "Flat 5 VP if one or more enemy INFANTRY units with Starting Strength 13+ were destroyed this turn (regardless of count). Distinct from the Fixed version (5 VP per qualifying unit destroyed, no per-round cap). Implemented in score_round_delta when tactical=True, routed from Battle._score_one_card when scoring_army.secondary_track == 'TACTICAL'. Env-gated SWEG_TAC_DECK; OFF leaves the Fixed per-unit path byte-identical.",
+    "scope": "phase-gated"
   }
 }

@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import dataclasses
+import os
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from .detachments import Detachment, default_detachment_for_faction
 from .stratagems import STARTING_CP
-from .units import Unit, UnitProfile
+from .units import (
+    Unit,
+    UnitProfile,
+    _distribute_squad_slots,
+    _loadout_entry_to_weapon_fields,
+    _unflatten_model_loadouts,
+)
 
 
 # Engagement distance (in inches) inside which Look Out Sir / Lone Operative
@@ -121,6 +129,9 @@ class Army:
         # _add_live_unit(). Rebuilt lazily on next alive_units access.
         self._alive_cache: Optional[List[Unit]] = None
         self._squad_count_cache: Optional[Dict[str, int]] = None
+        # SQUAD-ACTIVATION (Lever 1, P1): monotonic counter handing out a unique
+        # squad_id to each instantiated codex squad via add_squad(). Starts at 0.
+        self._next_squad_id: int = 0
         # 10e Strike Force standard: each side starts with 3 CP. Battle then
         # drips +1/round via stratagems.award_command_phase_cp (capped at 6).
         self.command_points: int = STARTING_CP
@@ -168,6 +179,26 @@ class Army:
         # a rule. Stored sorted descending. Empty on non-Sororitas armies.
         # Cited as `simulator.acts_of_faith`.
         self.miracle_dice: List[int] = []
+        # Squad rebuild Stage C — ONE generalized per-round "once per codex
+        # unit per round" budget, replacing four separate sets that previously
+        # tracked the same shape of state (Acts of Faith, and the three Strands
+        # of Fate gates: advance / hit / save). The simulator instantiates each
+        # model in a squad as a separate Unit instance, so a 10-model squad
+        # becomes 10 Unit objects; without a unit-level budget each instance
+        # could independently spend its faction's once-per-codex-unit-per-round
+        # resource, giving a 10x over-count. `_unit_budget_used` maps an effect
+        # name ("aof" / "fate_advance" / "fate_hit" / "fate_save") to the set of
+        # keys (squad_id int when >= 0, else profile.name str — the task #28
+        # squad_id re-key; the mixed int/str type is intentional and cannot
+        # collide) that have already spent that effect this round. Reset wholesale
+        # at the start of each battle round by Battle._run_round. ALWAYS present
+        # (not faction-gated) so standalone tests with no Battle still read an
+        # empty-but-present budget via the unit_budget_available / mark_unit_budget
+        # methods below. Effect citations unchanged: `simulator.acts_of_faith`
+        # (aof) and `simulator.strands_of_fate` (fate_advance / fate_hit /
+        # fate_save). Wahapedia Strands of Fate:
+        # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+        self._unit_budget_used: dict = {}
         # Back-reference to the Battle currently running this army. Set
         # by Battle.__init__ so Unit.attack can dispatch the Command
         # Re-Roll stratagem without threading callbacks through every
@@ -215,14 +246,17 @@ class Army:
         # losses). 0 until the simulator sets it.
         self.starting_points: float = 0.0
         # Adeptus Mechanicus army rule — Doctrina Imperatives. At the start
-        # of each Command phase, the AdMech player picks ONE of two
-        # imperatives, active until the start of their next Command phase:
-        #   * "protector": +1 to hit ranged, -1 to hit melee
-        #   * "conqueror": +1 to hit melee, -1 to hit ranged
+        # of each battle round, the AdMech player picks ONE of two buff-only
+        # imperatives (no penalty side — Wahapedia 10e):
+        #   * "protector": +1 BS on ranged attacks (army-wide); defensive
+        #     -1 to hit for incoming melee attacks against BATTLELINE-adjacent
+        #     AdMech units.
+        #   * "conqueror": +1 WS on melee attacks (army-wide); +1 AP on all
+        #     attacks for BATTLELINE-adjacent AdMech units.
         # Reset to None each round; re-picked by the simulator's AI based on
         # the army's role mix and engagement count. None on a non-AdMech
-        # army (the gate is faction-checked at attack-resolution time too).
-        # Cited as `simulator.doctrina_imperatives`.
+        # army (alive_units gate at round-start, faction-checked at attack-
+        # resolution time too). Cited as `simulator.doctrina_imperatives`.
         self.doctrina_imperative: Optional[str] = None
         # World Eaters army rule — Blood Tithe (10e). Codex-wide accumulator
         # incremented by 1 each time a friendly WORLD EATERS unit dies OR an
@@ -344,6 +378,22 @@ class Army:
         # spamming the same anchor 5 rounds in a row. Cited as part of
         # `simulator.oath_of_moment` (heuristic, not a codex constraint).
         self.prev_oath_target_uid: Optional[str] = None
+        # Adeptus Mechanicus — Belisarius Cawl's "Invocation of Machine
+        # Vengeance" Canticle (10e). At the start of each Command phase, while
+        # a Belisarius Cawl model is alive, the AdMech player designates one
+        # enemy unit as the Machine Vengeance target; until the start of the
+        # next Command phase, every friendly ADEPTUS MECHANICUS attack against
+        # that unit may re-roll the Hit roll. This mirrors the Adeptus Astartes
+        # Oath of Moment substrate exactly: the simulator picks the target in
+        # _run_round per round (_pick_machine_vengeance_target), stores the
+        # chosen enemy unit's uid here, and Unit.attack reads it via the army
+        # back-reference to gate the re-roll. None means "no Machine Vengeance
+        # this round" (e.g. round 0, or no Belisarius Cawl alive). FAITHFUL
+        # APPROXIMATION: Cawl picks one of three Canticles per Command phase
+        # (Machine Vengeance / Mantra of Discipline / Shroudpsalm); we model
+        # him always choosing the offensive Machine Vengeance, the common
+        # competitive pick. Cited as `simulator.machine_vengeance`.
+        self.machine_vengeance_target_uid: Optional[str] = None
         # T'au Empire Markerlights → Guided mechanic (10e army-wide). At the
         # start of this army's Shooting phase, every alive MARKERLIGHT-keyword
         # unit in this army "spots" one enemy unit in LoS within 36"; that
@@ -359,6 +409,41 @@ class Army:
         # Cited as `simulator.markerlights`.
         # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights
         self.guided_enemy_uids: Set[str] = set()
+        # SECONDARY-SELECTION-V1 — Pariah Nexus Fixed + Tactical secondary
+        # choice. Real 10e CA-2025-26 tournament play picks exactly TWO Fixed
+        # Secondaries from the pool {bring_it_down, cull_the_horde,
+        # assassination} (no_prisoners is Tactical-only in tournament play)
+        # OR uses the Tactical deck
+        # (drawing per round). The simulator previously scored ALL four
+        # Fixed + both Tactical (engage_on_all_fronts, behind_enemy_lines)
+        # every round for every army, systematically over-rewarding
+        # balanced kill-heavy / mobile armies (Drukhari, Aeldari,
+        # Tyranids). This tuple, populated by `secondaries.pick_secondaries`
+        # at battle start, restricts the secondary scorer to the picked
+        # subset. Defaults to () meaning "no secondaries chosen" —
+        # `Battle.__init__` should always call the picker before scoring
+        # runs. Cited as `simulator.secondary_selection` (10e Pariah Nexus
+        # mission pack: each player selects 2 Fixed or draws Tactical).
+        self.chosen_secondaries: Tuple[str, ...] = ()
+        # M2 (wave 119) — real 2-card Tactical secondary deck (env-gated
+        # SWEG_TAC_DECK). Each army uses one of two tracks, decided by
+        # `secondaries.pick_secondaries` from unit count (even-handed, no
+        # faction awareness): "FIXED" (2 kill cards scored every round) or
+        # "TACTICAL" (a 2-card rotating hand). These three fields are only
+        # populated/used when the deck gate is ON; OFF leaves them at their
+        # defaults and the legacy union-of-sources scoring runs unchanged.
+        #   secondary_track: "FIXED" | "TACTICAL" | None (None == gate off /
+        #     not yet picked — the scorer falls back to the legacy path).
+        #   tactical_hand: the <=2 Tactical cards currently held (active until
+        #     achieved). Scored each round; an achieved card is discarded and a
+        #     replacement is drawn from `tactical_deck`.
+        #   tactical_deck: the shuffled remaining pool the hand redraws from.
+        # The hand + deck are seeded deterministically at battle start (see
+        # `Battle._init_tactical_deck`) so PYTHONHASHSEED=0 reproduces.
+        # Cited as `simulator.tactical_secondary_deck`.
+        self.secondary_track: Optional[str] = None
+        self.tactical_hand: List[str] = []
+        self.tactical_deck: List[str] = []
         # Coordinated army-level activation plan (#161 / S3). Picked once per
         # round by the simulator's `_pick_army_plan` and consulted by both
         # `activation_queue` (to order units that align with the plan first)
@@ -510,6 +595,37 @@ class Army:
             # cap, since they're the least valuable to keep.
             self.miracle_dice = self.miracle_dice[: self.MIRACLE_DICE_BANK_CAP]
 
+    def aof_squad_available(self, profile_name: str, squad_id: int = -1) -> bool:
+        """True iff the squad has NOT yet used its Acts of Faith budget this
+        round. SOROR-ACTS-OF-FAITH-V1 / task #28 squad_id re-key: key on
+        squad_id when the unit has a valid squad_id (>= 0), otherwise fall
+        back to profile_name. This prevents two different squads that share
+        the same datasheet name (e.g. two separate Battle Sisters Squad units
+        on the table) from being throttled by each other's AoF spend.
+        One AoF spend per codex unit per phase — codex wording enforced at
+        the correct granularity. Cited as `simulator.acts_of_faith`.
+        """
+        key = squad_id if squad_id >= 0 else profile_name
+        return self.unit_budget_available("aof", key)
+
+    def aof_squad_mark_used(self, profile_name: str, squad_id: int = -1) -> None:
+        """Record that the squad has used its Acts of Faith budget this round.
+        SOROR-ACTS-OF-FAITH-V1 / task #28 squad_id re-key. Cited as
+        `simulator.acts_of_faith`.
+        """
+        key = squad_id if squad_id >= 0 else profile_name
+        self.mark_unit_budget("aof", key)
+
+    def unit_budget_available(self, effect: str, key) -> bool:
+        """True if `key` (squad_id int or profile.name str) has NOT yet used the
+        once-per-unit-per-round `effect`. Squad-rebuild Stage C: generalizes the
+        former per-effect _<x>_names_used_this_round sets into one keyed budget."""
+        return key not in self._unit_budget_used.get(effect, ())
+
+    def mark_unit_budget(self, effect: str, key) -> None:
+        """Record that `key` has used `effect` this round."""
+        self._unit_budget_used.setdefault(effect, set()).add(key)
+
     def pop_miracle_die_meeting(self, threshold: int) -> Optional[int]:
         """Greedy spend: remove and return the LOWEST die in the pool
         that is >= `threshold`. Mirrors `pop_fate_die_meeting` — the
@@ -543,10 +659,81 @@ class Army:
     # ------------------------------------------------------------------
 
     def add_unit(self, profile: UnitProfile) -> None:
-        unit = Unit(profile, in_cover=self.in_cover)
-        unit.army_ref = self
-        self.units.append(unit)
+        # Back-compat: a lone unit is a one-model squad with its own squad_id.
+        self.add_squad(profile, 1)
+
+    def add_squad(self, profile: UnitProfile, size: int = 1) -> None:
+        """SQUAD-ACTIVATION (Lever 1, P1): instantiate `size` model-Units that
+        all share one freshly-allocated squad_id, so the squad-level activation
+        loop (P3) can treat them as a single unit. Two squads of the same
+        datasheet receive distinct ids (fixing the profile.name-merge issue).
+
+        PER-MODEL-LOADOUTS (Stage 3, env-gated `SWEG_PERMODEL`): when the gate
+        is set AND the profile carries a per-model loadout, each model-Unit is
+        built from its OWN weapons (a Knight fires only its equipped guns; a
+        squad's special-weapon model carries its special weapon, lost when that
+        model dies). When the gate is unset the legacy path runs verbatim —
+        `size` Units sharing the one input `profile` object — so the simulator's
+        output is byte-for-byte unchanged (no extra RNG, OFF == baseline).
+        Cited as `simulator.per_model_loadouts`.
+        """
+        sid = self._next_squad_id
+        self._next_squad_id += 1
+        if os.environ.get("SWEG_PERMODEL") and profile.model_loadouts:
+            self._add_squad_per_model(profile, size, sid)
+        else:
+            # Legacy path — byte-identical to the pre-Stage-3 loop (no extra
+            # RNG, no profile rebuild), so SWEG_PERMODEL unset reproduces the
+            # baseline exactly.
+            for _ in range(max(1, int(size))):
+                unit = Unit(profile, in_cover=self.in_cover)
+                unit.army_ref = self
+                unit.squad_id = sid
+                self.units.append(unit)
         self._invalidate_alive_cache()
+
+    def _add_squad_per_model(
+        self, profile: UnitProfile, size: int, sid: int
+    ) -> None:
+        """PER-MODEL-LOADOUTS (Stage 3) — instantiate one Unit per model, each
+        re-pointed at that model's real weapons.
+
+        The loadout entries carry counts for the MAX squad; map them onto the
+        actual `size` model slots via the largest-remainder (Hamilton) method
+        (`_distribute_squad_slots`), then for each slot build a per-model
+        `UnitProfile` (replace only the weapon fields via
+        `_loadout_entry_to_weapon_fields`) and a `Unit`. Each Unit keeps a
+        reference to the original aggregate profile (`squad_profile_ref`) so
+        unit-level consumers (which read squad-wide stats) still see the
+        aggregate; the firing path reads the per-model `Unit.profile`.
+        """
+        loadouts = _unflatten_model_loadouts(profile.model_loadouts)
+        slots = _distribute_squad_slots(loadouts, size)
+        for entry in slots:
+            weapon_fields = _loadout_entry_to_weapon_fields(entry)
+            model_profile = dataclasses.replace(profile, **weapon_fields)
+            unit = Unit(model_profile, in_cover=self.in_cover)
+            unit.army_ref = self
+            unit.squad_id = sid
+            # The original aggregate profile — unit-level consumers (squad-wide
+            # stats, AI scoring in a later stage) read this rather than the
+            # narrowed per-model weapon block.
+            unit.squad_profile_ref = profile
+            self.units.append(unit)
+
+    def squads(self):
+        """SQUAD-ACTIVATION (Lever 1): alive units grouped by squad_id in
+        first-seen order. Units with squad_id < 0 (lone / never-assigned, e.g.
+        a legacy direct construction) each form their own singleton group so
+        they never merge. Returns OrderedDict[key, List[Unit]]. (Not consumed
+        until P3; provided here as P1 infrastructure.)
+        """
+        from collections import OrderedDict
+        groups = OrderedDict()
+        for u in self.alive_units:
+            key = u.squad_id if u.squad_id >= 0 else ("lone", id(u))
+            groups.setdefault(key, []).append(u)
+        return groups
 
     def _add_live_unit(self, unit: "Unit") -> None:
         """Attach a pre-existing live Unit to this army (used for deepstrike arrivals).

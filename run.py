@@ -200,7 +200,23 @@ def launch_gui() -> None:
 
 
 if __name__ == "__main__":
-    if "--cli" in sys.argv:
+    # GUI only when a human runs this interactively. Any automated invocation
+    # must fall back to the headless CLI demo rather than blocking forever on
+    # launch_gui()'s root.mainloop(). Detection, most reliable first:
+    #   * `--cli` explicitly requested;
+    #   * running under Claude Code / an agent — CLAUDECODE and AI_AGENT are
+    #     set in every Claude Code session and inherited by its subprocesses,
+    #     so this catches the calibration loop regardless of which shell
+    #     (PowerShell, where Windows gives a console and isatty() is True, or
+    #     Bash) it spawns run.py from;
+    #   * no attached terminal (output redirected to a file / pipe).
+    headless = (
+        "--cli" in sys.argv
+        or os.environ.get("CLAUDECODE")
+        or os.environ.get("AI_AGENT")
+        or not sys.stdout.isatty()
+    )
+    if headless:
         from code.main import main as cli_main
         cli_main()
     else:

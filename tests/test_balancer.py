@@ -14,7 +14,6 @@ from dataclasses import replace
 
 from code.army_builder import build_attached_army, build_homogeneous_army
 from code.detachments import (
-    AWAKENED_DYNASTY,
     GLADIUS_TASK_FORCE,
     default_detachment_for_faction,
 )
@@ -304,10 +303,15 @@ class DetachmentAwareBuilderTests(unittest.TestCase):
         warriors = UNIT_CATALOG["necrons_necron_warriors"]
         army = build_homogeneous_army("Test", warriors, 1000.0)
         self.assertIsNotNone(army.detachment)
-        self.assertIs(army.detachment, AWAKENED_DYNASTY)
+        # ABILITIES #1 (claude/sim-calibration-6): the Necrons faction default
+        # moved from Awakened Dynasty to Cursed Legion (Relentless Onslaught).
+        # The test asserts the builder sets the army's faction DEFAULT, so read
+        # the live default rather than hardcoding a specific detachment.
+        necron_default = default_detachment_for_faction("Necrons")
+        self.assertIs(army.detachment, necron_default)
         # And resolve_detachment must return the same - the homogeneous
         # builder sets it explicitly, not just via the fallback path.
-        self.assertIs(army.resolve_detachment(), AWAKENED_DYNASTY)
+        self.assertIs(army.resolve_detachment(), necron_default)
 
     def test_homogeneous_army_no_detachment_when_faction_empty(self):
         # Defensive: if a profile has no faction (custom test profile),
@@ -342,7 +346,10 @@ class DetachmentAwareBuilderTests(unittest.TestCase):
             faction="Adeptus Astartes",
         )
         army = build_attached_army("Test", host, leader, 500.0)
-        self.assertIs(army.detachment, AWAKENED_DYNASTY)
+        # ABILITIES #1 (claude/sim-calibration-6): the army's detachment must
+        # reflect the HOST faction's default (now Cursed Legion for Necrons),
+        # NOT the leader's faction. Read the live default for robustness.
+        self.assertIs(army.detachment, default_detachment_for_faction("Necrons"))
 
     def test_balanced_points_uses_detachment(self):
         """Regression: the calibrator's internal builder calls must result in

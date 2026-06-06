@@ -1,11 +1,43 @@
 {
+  "simulator.ion_shield_ranged_only": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/imperial-knights/",
+    "rule_name": "Ion Shield",
+    "quoted_text": "This model has a 5+ invulnerable save against ranged attacks only.",
+    "trigger": "A melee attack is resolved against an Imperial Knights model whose profile has invuln_ranged_only=True (set via data/overrides.json on the standard-codex Questoris/Dominus Knights and Armigers, which carry the shared BSData 5+* Ion Shield profile 'Imperium - Imperial Knights - Library.cat.gz' targetId 8552-862d-6a49-4879).",
+    "effect": "The datasheet invulnerable save is suppressed (set to none) for melee attacks, so a big Imperial Knight defends melee with only its 3+ armour save. Against ranged attacks the 5+ invulnerable still applies. Implemented in code/units.py save resolution (mode == 'melee' and target.profile.invuln_ranged_only). Chaos Knights' Ion Shield is ranged AND melee per the Chaos Knights codex, so invuln_ranged_only is left False for them; Forge World Acastus / Questoris Magaera-Styrix variants are not flagged (their Ion Aegis shields are unverified and none are fielded in the archetype lists).",
+    "scope": "keyword-gated"
+  },
   "simulator.code_chivalric": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/imperial-knights/",
     "rule_name": "Code Chivalric (Oath of Honour — martial-valour Quality)",
     "quoted_text": "If your Army Faction is IMPERIAL KNIGHTS, at the end of the Read Mission Objectives step, you must determine your army's Oath for the coming battle. An Oath consists of two parts - one Deed and one Quality. [Quality: ...with our martial valour risen over all.] Each time this model is selected to shoot or fight, you can re-roll one Hit roll and you can re-roll one Wound roll.",
     "trigger": "Attacker's army faction is Imperial Knights and the army has taken the 'martial valour' Quality at battle start (SwegHammer always picks this Quality — the other two Qualities are a Move/Advance/Charge bump and an OC/Leadership bump that the simulator cannot express).",
-    "effect": "(APPROXIMATION) Re-roll natural 1s on the Hit roll and on the Wound roll for every attack the unit makes. The codex grants 're-roll one die of choice' per attack sequence; SwegHammer maps that to 're-roll natural 1s', which is strictly weaker (~+0.17 expected vs +0.5 expected on a 3+/4+ swing) and so under-buffs rather than over-buffs Imperial Knights. The implementation lives in code/units.py:Unit.attack, faction-gated to 'Imperial Knights' so the Chaos Knights army rule (Harbingers of Dread, a battle-shock aura that requires per-unit battleshock state the sim does not yet track) is untouched.",
-    "scope": "army-wide",
+    "effect": "Re-roll ONE Hit roll and ONE Wound roll per activation — a single re-roll of each, spent on the first failed die. Because SwegHammer instantiates one Unit per model, the codex's 'Each time this model is selected to shoot or fight' maps exactly onto one re-roll per Unit activation, so this is now a faithful implementation rather than an approximation. (Wave 71 fidelity fix: the previous implementation re-rolled EVERY natural 1, which over-scaled with shot volume — a 20-shot Knight gun got ~3-4 effective re-rolls instead of the rule's one, inflating Imperial Knights damage on the high-volume platforms.) The implementation lives in code/units.py:Unit.attack via the per-activation _chiv_hit_reroll / _chiv_wound_reroll budget, faction-gated to 'Imperial Knights' so the Chaos Knights army rule (Harbingers of Dread, a battle-shock aura that requires per-unit battleshock state the sim does not yet track) is untouched.",
+    "scope": "army-wide"
+  },
+  "VALOURSTRIKE_LANCE.bold_gallantry": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Valourstrike-Lance",
+    "rule_name": "Bold Gallantry (Valourstrike Lance detachment rule)",
+    "quoted_text": "Each time an ^^Imperial Knights^^ unit from your army Advances, until the end of the turn, ranged weapons equipped by ^^Imperial Knights^^ models from your army have the [ASSAULT] ability.",
+    "trigger": "Any Imperial Knights unit Advances (attacker.uid in Battle._advanced_this_round) AND the army's detachment carries bold_gallantry=True AND attacker.profile.faction == 'Imperial Knights'.",
+    "effect": "The Advance-lockout in Battle._do_shoot is skipped for the advancing IK unit, mirroring the [ASSAULT] keyword grant on all IK ranged weapons. Army-wide: any IK unit that Advances individually benefits (each is independently in _advanced_this_round).",
+    "scope": "army-wide"
+  },
+  "VALOURSTRIKE_LANCE.bondsman_enabled": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Bondsman",
+    "rule_name": "Bondsman abilities (Valourstrike Lance detachment — Paladin's Duty proxy)",
+    "quoted_text": "In your Command phase, one or more models from your army with a Bondsman ability can use that ability. For each one that does, select one friendly ^^Armiger^^ model within 12\" of that model (you cannot select an ^^Armiger^^ model that is already being affected by a Bondsman ability). Until the start of your next Command phase, that ^^Armiger^^ model is affected by that Bondsman ability. [Paladin's Duty (Bondsman): While a model is affected by this ability, weapons equipped by that model have the [LETHAL HITS] ability, and melee weapons equipped by that model have the [LANCE] ability.]",
+    "trigger": "Start of each Command phase, for each alive TITANIC+CHARACTER Imperial Knights unit ('giver'), the first alive non-TITANIC IK unit ('Armiger receiver') anywhere in the army receives the Paladin's Duty buff. The codex '12\" range' gate is dropped (APPROXIMATION) because SwegHammer's grid-free deployment spreads Armigers further apart than real tables allow — in real games Armigers always deploy within 12\" of their bonded lord. Each Armiger can only be buffed once per round.",
+    "effect": "(APPROXIMATION) Paladin's Duty is applied as a proxy for all Questoris/Cerastus class Bondsman abilities. Real rule has 6+ distinct Bondsman variants per knight sub-type (Paladin, Warden, Crusader, Gallant, Errant, Preceptor). SwegHammer applies Paladin's Duty (transient_lethal_hits + transient_lance_this_turn) uniformly — the strongest cleanly representable Bondsman buff. Warden's Duty (Sustained Hits 1 + Ignores Cover) and Crusader's Duty (+1 to hit ranged) are deferred.",
+    "scope": "unit-led",
     "approximation": true
+  },
+  "simulator.damaged_objective_control_bracket": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/imperial-knights/ (datasheet 'Damaged' ability); verbatim text below extracted from the canonical BSData cache 'Imperium - Imperial Knights.cat.gz' / 'Chaos - Chaos Knights.cat.gz' (codex-tagged, Knight T11/W26) on 2026-06-01",
+    "rule_name": "Damaged: Wounds Remaining — Objective Control reduction (Imperial / Chaos Knights datasheets)",
+    "quoted_text": "While this model has 1-9 wounds remaining, subtract 5 from this model's Objective Control characteristic and each time this model makes an attack, subtract 1 from the Hit roll. [Armiger / War Dog variant: While this model has 1-5 wounds remaining, subtract 3 from this model's Objective Control characteristic ...; Dominus-class variant: While this model has 1-10 wounds remaining, subtract 5 ...]",
+    "trigger": "An Imperial Knights or Chaos Knights model is on its Damaged bracket (current wounds <= the chassis threshold: Armiger/War Dog 5, Questoris 9, Dominus 10) when its Objective Control is summed for objective scoring (Battle._effective_oc, called from _oc_within and _assign_army_oc).",
+    "effect": "The model's Objective Control is reduced by the datasheet amount (Armiger/War Dog −3, Questoris/Dominus −5), floored at 0, so a chipped Knight controls objectives less strongly — opponents that shoot a Knight down can then contest it off a marker. Only the Knight factions carry this datasheet rule, so the faction gate is the faithful per-datasheet implementation. ONLY the Objective-Control half of the Damaged ability is modelled here; the −1-to-Hit half is the existing damage-bracket handling. NOTE: a Goonhammer codex review suggested the current-codex Questoris value might be −4 (Objective Control 10 → 6); RESOLVED (watchdog Q9) to use the canonical BSData cache value −5 — BSData rule-6 governs, and the −4 came from an unreliable web summary. The ±1 is metric-negligible either way.",
+    "scope": "keyword-gated"
   }
 }

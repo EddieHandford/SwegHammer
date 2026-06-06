@@ -109,6 +109,12 @@ def _tyranid_warrior() -> UnitProfile:
 
 
 def _kabalite_warrior() -> UnitProfile:
+    # min_models=2 so the unit can be Below Starting Strength — Power From
+    # Pain's 10e gate is "lost at least one whole model", which the
+    # `_apply_power_from_pain` pass (`code/simulator.py` lines ~5036-5065,
+    # commit 15e0d66 DRK-PAIN-TOKENS) refuses to grant to single-model units.
+    # Health 2 + min_models 2 = 1 wound per model, so dropping current_health
+    # to 1.0 represents losing one whole model — exactly the codex trigger.
     return UnitProfile(
         name="Kabalite Warrior", faction="Drukhari",
         health=2, damage=1, hit_probability=2 / 3,
@@ -117,6 +123,7 @@ def _kabalite_warrior() -> UnitProfile:
         leadership=7, unit_keywords=("INFANTRY",),
         melee_attacks=1, melee_damage_per_shot=1.0,
         melee_hit_probability=2 / 3, melee_strength=4, melee_ap=0,
+        min_models=2,
     )
 
 
@@ -251,23 +258,27 @@ class FactionMechanicSmokeTests(unittest.TestCase):
         )
 
     def test_orks_mob_rule_autopass(self):
-        """An Ork army of 10+ models must auto-pass Battle-shock; the
-        wounded models are NOT added to _battleshocked_this_round even
-        when the d6 roll would have failed. Cites: simulator.mob_rule."""
+        """A single Ork squad whose surviving model count is below half-strength
+        but still >= 10 must auto-pass Battle-shock via Mob Rule.  Updated for
+        task #27 (per-squad battleshock re-key on squad_id): Mob Rule gates on
+        the alive models in THE TESTING SQUAD, not on a profile-name army-wide
+        count.  We build 25 Orks as one squad (add_squad), kill 13 so 12
+        survive: 12 < 12.5 (below half) AND 12 >= 10 (Mob Rule fires).
+        Cites: simulator.mob_rule."""
         random.seed(0)
         orks = Army("Orks")
-        for _ in range(10):
-            orks.add_unit(_ork_boy())
+        orks.add_squad(_ork_boy(), 25)
         marines = Army("Marines")
         marines.add_unit(_marine())
         battle = Battle(orks, marines)
         battle._assign_uids()
-        # Wound every Ork below half so Battle-shock would otherwise trigger.
-        for u in orks.units:
-            u.current_health = 0.4
+        # Kill 13 of 25: 12 survivors, below half-strength (12 < 12.5), but
+        # >= 10 alive so Mob Rule auto-passes.
+        for u in orks.units[:13]:
+            u.current_health = 0.0
         battle._current_round = 2
         battle._run_round(2)
-        ork_uids = {u.uid for u in orks.units}
+        ork_uids = {u.uid for u in orks.units[13:]}
         battle_shocked_orks = ork_uids & battle._battleshocked_this_round
         self.assertEqual(
             battle_shocked_orks, set(),
@@ -612,8 +623,12 @@ class FactionMechanicSmokeTests(unittest.TestCase):
         reanimate hook)."""
         random.seed(0)
         necrons = Army("Necrons", detachment=AWAKENED_DYNASTY)
-        for _ in range(5):
-            necrons.add_unit(_necron_warrior())
+        # Use add_squad so all 5 Warriors share one squad_id — required since
+        # the squad_id-keyed revival pool only has alive peers when models
+        # belong to the same codex squad. (Updated from the old add_unit loop
+        # that gave each model its own squad_id, causing the wipeout gate to
+        # fire on every dead model's one-model squad.)
+        necrons.add_squad(_necron_warrior(), 5)
         marines = Army("Marines")
         marines.add_unit(_marine())
         log = EventLog()

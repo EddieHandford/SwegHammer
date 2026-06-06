@@ -1,0 +1,12 @@
+{
+  "_comment": "Citation for the 10e universal Go To Ground core stratagem. Built env-gated behind SWEG_GTG (wave 108). The quoted_text is transcribed verbatim from the captured primary core-rules reference data/reference/wahapedia_core_rules_2026-06-01.txt (lines 1006-1012); the source URL is recorded for verification per CLAUDE.md rule 6/10.",
+
+  "simulator.go_to_ground": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-stratagems/#Go-To-Ground",
+    "rule_name": "Go To Ground",
+    "quoted_text": "GO TO GROUND — 1CP. Core - Battle Tactic Stratagem. WHEN: Your opponent's Shooting phase, just after an enemy unit has selected its targets. TARGET: One INFANTRY unit from your army that was selected as the target of one or more of the attacking unit's attacks. EFFECT: Until the end of the phase, all models in your unit have a 6+ invulnerable save and have the Benefit of Cover.",
+    "trigger": "the opponent's Shooting phase, just after an enemy unit has selected a friendly INFANTRY unit as the target of one or more of its attacks",
+    "effect": "the defending army spends 1 Command Point so that, until the end of the phase, every model in the targeted INFANTRY unit has a 6+ invulnerable save AND the Benefit of Cover (+1 to the armour saving throw). Implemented as Battle._maybe_go_to_ground (env-gated SWEG_GTG), hooked at the target-selection point in Battle._do_shoot: the 6++ is applied via the go_to_ground_active flag at the save-resolution branch in Unit.attack (only overriding a worse invuln), and the Benefit of Cover via the in_cover flag in the _do_shoot cover application. The defender goes to ground only for a unit whose remaining wounds and incoming threat justify the Command Point (>= half the unit's current health), capped by the Command Point pool; the heuristic is even-handed (INFANTRY keyword + wounds + threat + Command Points only, no faction awareness). The buff clears with the other per-round transient stratagem flags. Gate unset reproduces the baseline byte-for-byte (no Command Point spent, no flag set, no extra random draws).",
+    "scope": "phase-gated"
+  }
+}

@@ -89,8 +89,23 @@ class LeaderAbility:
     aura_range: float                       # inches; 0 = army-wide
     # Offensive modifiers (apply to ATTACKER when it's in range of this leader)
     reroll_hit_ones: bool = False
+    # TSON-AURA-V2 (iter60): shooting-phase-only variant of reroll_hit_ones.
+    # Used for Psychic-leader abilities whose codex text says "each time a
+    # Psychic Attack is made" or "until the end of the [Shooting] phase" —
+    # the codex explicitly restricts the re-roll to the Shooting phase.
+    # In units.py the flag is consumed with a `mode != "melee"` guard
+    # (matching the existing transient_reroll_hits_shooting gate pattern),
+    # so melee attacks from the same led unit receive no re-roll.
+    # Affects: Ahriman "Master of the Rubricae (Psychic)" (Shooting/Psychic
+    # only), Infernal Master "Malefic Maelstrom (Psychic)" (weapons in unit
+    # gain [SUSTAINED HITS 1] — codex doesn't gate by phase but the proxy
+    # is directionally correct for ranged-heavy Rubric Marines), Sorcerer
+    # in Terminator Armour "Marked by Fate (Psychic)" (explicitly "Until
+    # the end of the [Shooting] phase").
+    reroll_hit_ones_shooting_only: bool = False
     reroll_wound_ones: bool = False
     plus_one_to_hit: bool = False
+    plus_one_to_hit_melee_only: bool = False  # +1 to hit in melee attacks only (e.g. Warboss "Might is Right")
     plus_one_to_wound: bool = False
     plus_one_attack: int = 0                # +N extra attacks per weapon (Cadre Fireblade etc.)
     # Greater Daemon locus auras (LEADERABILITY-SCHEMA, claude/sim-calibration-6).
@@ -108,7 +123,41 @@ class LeaderAbility:
     plus_one_strength_ranged: bool = False  # attacker's ranged S += 1 when led/in-aura
     plus_one_toughness: bool = False         # target's T += 1 when led/in-aura
     plus_one_ap_melee: bool = False          # attacker's melee AP improves by 1 (more negative)
-    # Defensive modifiers (apply to DEFENDER when it's in range of this leader)
+    # DAEMONS-DIAG-7: Skulltaker "Lord of Decapitations" — melee weapons
+    # equipped by the led unit gain [DEVASTATING WOUNDS]. Melee-only gate
+    # enforced at the attack-resolution site in code/units.py. BSData v10.6.0
+    # Chaos - Chaos Daemons Library.cat.gz, Skulltaker profile, Lord of
+    # Decapitations ability: "While this model is leading a unit, melee
+    # weapons equipped by models in that unit have the [DEVASTATING WOUNDS]
+    # ability." The field is generic so future leaders with the same grant
+    # (if any are added) can reuse it without schema changes.
+    grants_devastating_wounds_melee: bool = False  # led unit's melee attacks gain [DEVASTATING WOUNDS]
+    # DAEMONS-DIAG-9: Daemon Prince of Chaos "Prince of Darkness" (Aura) —
+    # "While a friendly LEGIONES DAEMONICA unit is within 6\" of this model,
+    # models in that unit have the Stealth ability." (Wahapedia verbatim).
+    # Stealth imposes -1 on ranged Hit rolls targeting the unit (10e core rule,
+    # "each time a ranged attack is made against it, subtract 1 from that
+    # attack's Hit roll"). This is a DEFENDER-side buff: it fires via
+    # tgt_buffs["grants_stealth_aura"] in the attack-resolution loop in
+    # code/units.py, at the same location as the static target.profile.stealth
+    # check (line ~2024). The field is generic so future leaders whose codex
+    # grants a Stealth aura can reuse it without schema changes.
+    grants_stealth_aura: bool = False           # nearby LEGIONES DAEMONICA gain Stealth (ranged -1 to hit)
+    # DAEMONS-LOCUS-V1 follow-up — [SUSTAINED HITS N] aura granted by the
+    # leader to the led unit's attacks. Integer fields so multiple sources
+    # stack additively, matching the per-weapon / detachment / transient
+    # SUSTAINED HITS stacking convention already in code/units.py.
+    #   - sustained_hits_ranged: Locus of Change (Tzeentch Changecaster, BSData
+    #     "ranged weapons equipped by models in that unit have the [SUSTAINED
+    #     HITS 1] ability"). Replaces the prior reroll_hit_ones proxy.
+    #   - sustained_hits_melee: Locus of Putrescence (Nurgle Spoilpox Scrivener
+    #     on Plaguebearers melee) and Locus of Slaanesh (Slaanesh Tormentbringer
+    #     on Slaanesh units melee). Schema-ready for these leaders to be added
+    #     to the registry without a follow-up dataclass change.
+    sustained_hits_ranged: int = 0
+    sustained_hits_melee: int = 0
+    # Galvanic Field (AdMech Manipulus): led unit's ranged weapons gain [LETHAL HITS]
+    lethal_hits_ranged: bool = False
     extra_invuln: int = 7                   # 7 = none
     fnp: int = 7                            # 7 = none
     # End-of-round healing: restore N HP to the nearest wounded friendly in
@@ -254,6 +303,33 @@ _SLAANESH_DAEMON_HOSTS = (
     "chaos_daemons_library_tranceweaver",
 )
 
+# DAEMONS-DIAG-9: ALL LEGIONES DAEMONICA units from BSData v10.6.0
+# chaos_daemons_library catalogue. The Daemon Prince of Chaos "Prince of
+# Darkness" aura reads "While a friendly LEGIONES DAEMONICA unit is within 6\"
+# of this model, models in that unit have the Stealth ability." — it covers
+# EVERY Daemon unit carrying the LEGIONES DAEMONICA faction keyword, regardless
+# of god alignment or unit type. Legends entries (_legends suffix) are excluded
+# because the auto-loop eval never seeds them. The Daemon Prince itself carries
+# LEGIONES DAEMONICA and so benefits from its own aura per the codex text
+# ("friendly" does NOT exclude the caster's own unit per Wahapedia core-rules
+# FAQ). Union of all four god-rosters (Khorne/Nurgle/Tzeentch/Slaanesh) plus
+# UNDIVIDED units (Be'lakor, Daemon Princes, Soul Grinders where not already
+# included).
+_LEGIONES_DAEMONICA_HOSTS: Tuple[str, ...] = (
+    # Khorne
+    *_KHORNE_DAEMON_HOSTS,
+    # Nurgle (Rotigus already in _NURGLE_DAEMON_HOSTS)
+    *_NURGLE_DAEMON_HOSTS,
+    # Tzeentch
+    *_TZEENTCH_DAEMON_HOSTS,
+    # Slaanesh
+    *_SLAANESH_DAEMON_HOSTS,
+    # Undivided / multi-god units (not already in the god-rosters above)
+    "chaos_daemons_library_be_lakor",
+    "chaos_daemons_library_daemon_prince_of_chaos",
+    "chaos_daemons_library_daemon_prince_of_chaos_with_wings",
+)
+
 _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # ORDER NOTE — iter21: substring matching is greedy first-match, so
     # cross-faction CHARACTERs whose names CONTAIN "Captain" (Custodes
@@ -266,16 +342,29 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Captain's now-empty entry). The fix: pin the longer keys to the
     # top of the registry. Test:
     #   tests/test_leaders.py::ExpandedRegistryTests::test_each_new_leader_resolves
-    # Adeptus Custodes Shield-Captain — per the Wahapedia / BSData v10.6.0
-    # Shield-Captain datasheet, the Leader ability lists Custodian Guard
-    # and Custodian Wardens as the only legal hosts. The previous
-    # host_keys tuple omitted Wardens, which silently blocked Stoic Vigil
-    # from firing on a Wardens-led squad — half the Custodes archetype's
-    # leader-target population. iter24 fix expands the tuple to both legal
-    # hosts (also including the Adrasite/Pyrithite spear variant of
-    # Custodian Guard, which BSData groups under the same Leader entry).
+    # Adeptus Custodes Shield-Captain — BSData v10.6.0 (`Imperium - Adeptus
+    # Custodes.cat.gz`). The Shield-Captain has two datasheet abilities:
+    #   "Master of the Stances": Once per battle, when this model's unit is
+    #   selected to fight, it can use this ability. If it does, until that
+    #   fight is resolved, both Ka'tah Stances are active for that unit,
+    #   instead of only one.
+    #   "Leader: Custodian Guard, Custodian Wardens."
+    # Additionally the Wahapedia citation lists "Strategic Mastery": once per
+    # battle round, reduce the CP cost of one Stratagem targeting this unit
+    # by 1 — a CP-economy effect the simulator does not model.
+    # "Stoic Vigil" is NOT a real codex ability name; it was an invented
+    # label used when `reroll_hit_ones=True` was placed as a flavour proxy.
+    # CUSTODES-AUDIT (claude/sim-calibration-6): removed `reroll_hit_ones=True`.
+    # The prior proxy was self-flagged in the rule citation as an
+    # "upper-bound flavour proxy" and was contributing to Custodes
+    # over-performance (sim 59.4% vs real 52.1%). Neither "Master of the
+    # Stances" nor "Strategic Mastery" translates to a per-attack hit-reroll
+    # aura. The entry is retained (host_keys intact) so lookup_ability
+    # resolves cleanly per CLAUDE.md §13 and so proximity / is_actually_led
+    # gates continue to work. Same fabrication-removal standard as SC5-3
+    # (Trajann Valoris Captain-General), iter21 (Captain / Autarch / Avatar).
     # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Shield-Captain
-    ("Shield-Captain",     LeaderAbility(name="Stoic Vigil",                aura_range=6.0, reroll_hit_ones=True,
+    ("Shield-Captain",     LeaderAbility(name="Master of the Stances",      aura_range=6.0,
                                           host_keys=("adeptus_custodes_custodian_guard",
                                                      "adeptus_custodes_custodian_guard_with_adrasite_and_pyrithite_spears",
                                                      "adeptus_custodes_custodian_wardens"))),
@@ -341,18 +430,40 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Chronomancer",       LeaderAbility(name="Chronometron",               aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
     ("Plasmancer",         LeaderAbility(name="Harbinger of Destruction",   aura_range=6.0, fnp=5,                 host_keys=("necrons_immortals", "necrons_necron_warriors"))),
     ("Technomancer",       LeaderAbility(name="Canoptek Cloak",             aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
-    # Orks
-    ("Warboss",            LeaderAbility(name="Might is Right",             aura_range=6.0, plus_one_to_hit=True,   host_keys=("orks_boyz", "orks_nobz"))),
+    # Orks — "Might is Right" (Warboss, Warboss In Mega Armour). Real rule:
+    # "While this model is leading a unit, each time a model in that unit makes
+    # a melee attack, add 1 to the Hit roll." (Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/orks/Warboss )
+    # Melee-only: use `plus_one_to_hit_melee_only` so the buff does NOT fire
+    # in the Shooting phase. Prior implementation used `plus_one_to_hit=True`
+    # which applied to all attack modes — an over-buff vs the codex text.
+    # Cited as `WARBOSS.plus_one_to_hit_melee_only`. host_keys cover both
+    # Warboss (Boyz / Nobz) and Warboss In Mega Armour (Meganobz).
+    ("Warboss",            LeaderAbility(name="Might is Right",             aura_range=6.0, plus_one_to_hit_melee_only=True, host_keys=("orks_boyz", "orks_nobz", "orks_meganobz"))),
     # Tyranids — Hive Tyrant is a Monster with NO formal Leader/Bodyguard
     # attachment in 10e. The codex Onslaught aura reads "While a friendly
     # TYRANIDS unit is within 6" of this model, ranged weapons equipped by
     # models in that unit have the [ASSAULT] and [LETHAL HITS] abilities."
     # — broadcast aura with no led-unit gate. Use the iter22 empty-tuple
-    # convention so `effective_buffs` applies the reroll-wound-1s proxy
-    # to ANY friendly Tyranids attacker in 6", not just one bodyguard
-    # squad. Wahapedia:
-    # https://wahapedia.ru/wh40k10ed/factions/tyranids/Hive-Tyrant
-    ("Hive Tyrant",        LeaderAbility(name="Synaptic Imperative",        aura_range=6.0, reroll_wound_ones=True)),
+    # convention.
+    #
+    # TYRANIDS-DIAG-7 (2026-05-26): dropped `reroll_wound_ones=True` proxy.
+    # The prior proxy was wrong in two ways:
+    #   1. The real Onslaught rule grants [LETHAL HITS] on RANGED weapons
+    #      only. `reroll_wound_ones` fires on both ranged AND melee attacks
+    #      inside `effective_buffs` — over-buff on every melee attack.
+    #   2. Re-roll wound 1s is the wrong mechanic: the real effect is
+    #      [LETHAL HITS] (natural 6 to hit = auto-wound on ranged) + [ASSAULT]
+    #      (shoot after Advancing). The `transient_lethal_hits` flag exists
+    #      in the simulator but the `LeaderAbility` schema has no ranged-only
+    #      lethal-hits field. Wiring it army-wide would re-introduce the
+    #      ranged+melee over-buff in a different form.
+    # Ship NO-FLAG + composition-only (same pattern as Avatar of Khaine /
+    # Autarch / Custodes Blade Champion). Will return as
+    # `lethal_hits_ranged=True` once the LeaderAbility schema gains a
+    # ranged-only lethal-hits slot.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/tyranids/Hive-Tyrant
+    ("Hive Tyrant",        LeaderAbility(name="Synaptic Imperative",        aura_range=6.0)),
     # Aeldari
     # Yvraine (Ynnari EPIC HERO) — Herald of Ynnead grants Aeldari-friendly
     # re-roll of Wound rolls of 1 vs a fight-phase-marked target (we proxy
@@ -458,17 +569,38 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     #
     # Sources:
     #   - Ahriman: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Ahriman
+    #     Real ability: "Master of the Rubricae (Psychic)" — while this model
+    #     leads a Rubric Marines or Scarab Occult Terminators unit, each time a
+    #     Psychic Attack made by a model in that unit targets an enemy unit, you
+    #     can re-roll the Hit roll. This is an OFFENSIVE hit-reroll (Psychic
+    #     weapons only), not a defensive invuln. TSON-DIAG-3 fix: the previous
+    #     proxy (extra_invuln=4) was a fabrication — it applied a 4++ invuln
+    #     save to Ahriman's led unit, which is Arcane Shield (Exalted Sorcerer
+    #     only). Ahriman's real contribution is offensive (hit re-rolls), not
+    #     defensive. Removing extra_invuln=4 and replacing with reroll_hit_ones
+    #     correctly models his offensive buff direction (approximation: the
+    #     re-roll applies to all hit rolls, not just Psychic Attacks, due to
+    #     SwegHammer not tagging weapons as Psychic vs non-Psychic).
     #   - Exalted Sorcerer / Sorcerer: Arcane Shield (Psychic) grants the
     #     led unit a 4+ invulnerable save. Modelled as extra_invuln=4.
     #   - Infernal Master: Malefic Maelstrom (Psychic) grants the led
     #     unit [SUSTAINED HITS 1]. Modelled as sustained_hits proxy via
-    #     reroll_hit_ones (an offensive shooting buff in the same scale).
-    ("Ahriman",            LeaderAbility(name="Arch-Sorcerer of Tzeentch",  aura_range=6.0, extra_invuln=4,
+    #     reroll_hit_ones_shooting_only (an offensive Shooting-phase buff).
+    #     TSON-AURA-V2 (iter60): narrowed from reroll_hit_ones (all phases)
+    #     to reroll_hit_ones_shooting_only for both Ahriman and Infernal Master.
+    #     Ahriman's codex rule is explicitly "Psychic Attack" and "targets an
+    #     enemy unit" — Psychic Attacks are ranged-only in 10e; melee Rubric
+    #     Marine attacks carry no Psychic keyword. Infernal Master's Malefic
+    #     Maelstrom grant is weapons-wide, but the proxy direction (re-roll
+    #     1s) is most defensible on Shooting where Rubric Marines deal the
+    #     bulk of their damage. Narrowing to Shooting removes the melee-leak
+    #     that inflated TSON sim win-rates beyond the Warp Friends target.
+    ("Ahriman",            LeaderAbility(name="Arch-Sorcerer of Tzeentch",  aura_range=6.0, reroll_hit_ones_shooting_only=True,
                                           host_keys=("thousand_sons_rubric_marines",
                                                      "thousand_sons_tzaangor_enlightened"))),
     ("Exalted Sorcerer",   LeaderAbility(name="Arcane Shield",              aura_range=6.0, extra_invuln=4,
                                           host_keys=("thousand_sons_rubric_marines",))),
-    ("Infernal Master",    LeaderAbility(name="Malefic Maelstrom",          aura_range=6.0, reroll_hit_ones=True,
+    ("Infernal Master",    LeaderAbility(name="Malefic Maelstrom",          aura_range=6.0, reroll_hit_ones_shooting_only=True,
                                           host_keys=("thousand_sons_rubric_marines",))),
     # Magnus the Red — EPIC HERO MONSTER PSYKER, NOT a CHARACTER leader-
     # attachment. Magnus does not formally lead a unit and does not confer
@@ -492,16 +624,45 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Sorcerer in Terminator Armour — TSON variant. Leader-attaches to
     # Scarab Occult Terminators (per BSData v10.6.0 Leader infoLink).
     # Datasheet ability "Marked by Fate (Psychic)" grants +1 to Hit on
-    # the Sorcerer's chosen target unit each Shooting phase — proxied
-    # here as a unit-wide plus_one_to_hit aura on the led Scarab squad
-    # (strictly stronger than codex since the codex is per-target per-
-    # phase; the aura uplift compensates for our missing target-indexed
-    # buff plumbing and lands the Scarab Occult Terminators' real
-    # offensive ceiling in vs-meta calibration). Listed AFTER plain
-    # "Sorcerer" would lose substring tie — must come BEFORE the generic
-    # CSM "Sorcerer" entry so this longer key wins lookup. Wahapedia
-    # source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer-In-Terminator-Armour
-    ("Sorcerer in Terminator Armour", LeaderAbility(name="Marked by Fate",   aura_range=6.0, plus_one_to_hit=True,
+    # the Sorcerer's chosen target unit each Shooting phase — quoted
+    # Wahapedia: "At the start of your Shooting phase, select one enemy
+    # unit that is visible to this PSYKER model. Until the end of the
+    # phase, each time a model in this unit makes an attack that targets
+    # that enemy unit, add 1 to the Hit roll."
+    #
+    # TSON-KOS-MESMERISING (wave-44): the prior proxy was
+    # `plus_one_to_hit=True`, which fires army-wide AND in BOTH the
+    # Shooting and Fight phases. That is a strict over-buff in three
+    # dimensions vs codex:
+    #   1. codex is shooting-only; +1-to-hit fires in melee too,
+    #   2. codex is per-Shooting-phase one-target; +1-to-hit applies to
+    #      every shooting target every round,
+    #   3. codex is per-chosen-unit; +1-to-hit applies to every enemy.
+    # Combined this is ~2x the codex magnitude on the Scarab Occult
+    # Terminators (the host unit) — a marquee elite squad whose entire
+    # role rests on its shooting + melee weight of attacks. The current
+    # +1-to-hit proxy is a leading contributor to the +12-pt TSON sim
+    # over-shoot vs the Warp Friends real meta (sim 71.5%, real 54.6%
+    # at wave-43 baseline).
+    #
+    # Wave-44 fix: replace plus_one_to_hit with reroll_hit_ones — the
+    # same proxy convention used for Ahriman's Master of the Rubricae
+    # (Psychic) hit-reroll (TSON-DIAG-3) and Infernal Master's Malefic
+    # Maelstrom [SUSTAINED HITS 1] proxy. Magnitude drops from a full
+    # +1-to-hit modifier (~+1/3 to +1/2 of all hit rolls) to a single
+    # 1-rerolled hit-roll-of-1 (~+1/6 of all hit rolls), strictly
+    # narrower than the codex single-target per-phase +1-to-hit, but the
+    # smallest credible shrinkage given the absence of per-target
+    # hit-modifier plumbing. Listed BEFORE the generic CSM "Sorcerer"
+    # entry so this longer key wins lookup. Wahapedia source:
+    # https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer-In-Terminator-Armour
+    # TSON-AURA-V2 (iter60): narrowed from reroll_hit_ones (all phases) to
+    # reroll_hit_ones_shooting_only. The codex explicitly says "Until the
+    # end of the [Shooting] phase" — melee attacks by Scarab Occult
+    # Terminators must receive no re-roll from this ability. The prior
+    # all-phases flag incorrectly boosted melee hit rolls on a unit that
+    # does significant melee damage with Force Staves and Inferno combi-bolters.
+    ("Sorcerer in Terminator Armour", LeaderAbility(name="Marked by Fate",   aura_range=6.0, reroll_hit_ones_shooting_only=True,
                                           host_keys=("thousand_sons_scarab_occult_terminators",))),
     # Chaos Space Marines (legacy "Chaos Space Marines squad" not in 10e BSData;
     # use the closest battleline that is, otherwise let the heuristic decide.)
@@ -537,14 +698,24 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Poxbringer",         LeaderAbility(name="Poxbringer's Locus",         aura_range=6.0, plus_one_to_wound=True,
                                           host_keys=("chaos_daemons_library_plaguebearers",))),
     # Changecaster — codex ability grants [SUSTAINED HITS 1] to ranged weapons
-    # on the led unit (Pink Horrors / Blue Horrors). SwegHammer's LeaderAbility
-    # has no `sustained_hits` flag, so this is proxied with `reroll_hit_ones=True`
-    # — the same proxy already used for TSON Infernal Master's [SUSTAINED HITS 1]
-    # grant (see line ~347 above). Direction-correct: both expand the per-hit-
-    # roll value, just via different math (reroll-1s = +1/6 hits, sustained-1 on
-    # a 6 = +1/6 hits). Citation flagged "(approximation)".
-    ("Changecaster",       LeaderAbility(name="Changecaster's Locus",       aura_range=6.0, reroll_hit_ones=True,
-                                          host_keys=("chaos_daemons_library_pink_horrors",))),
+    # on the led unit. BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz:
+    # "While this model is leading a unit, ranged weapons equipped by models
+    # in that unit have the [SUSTAINED HITS 1] ability." Leader attachment:
+    # "PINK HORRORS, BLUE HORRORS" (both are separate UNIT_CATALOG keys —
+    # chaos_daemons_library_pink_horrors and chaos_daemons_library_blue_horrors,
+    # confirmed via UNIT_CATALOG inspection). DAEMONS-LOCUS-V1 added Blue
+    # Horrors to host_keys (prior entry's claim that they didn't surface as a
+    # separate catalog key was factually wrong). LEADERABILITY-SUSTAINED-HITS
+    # (this wave): the prior `reroll_hit_ones=True` proxy is replaced with the
+    # rule-correct `sustained_hits_ranged=1` field now that the LeaderAbility
+    # schema carries it. Same direction (+1/6 hits per shot) but exact codex
+    # fidelity; the SUSTAINED HITS extra-hit accumulator in Unit.attack also
+    # composes correctly with detachment / stratagem / per-weapon
+    # SUSTAINED HITS sources whereas the reroll_hit_ones proxy did not.
+    ("Changecaster",       LeaderAbility(name="Changecaster's Locus",       aura_range=6.0,
+                                          sustained_hits_ranged=1,
+                                          host_keys=("chaos_daemons_library_pink_horrors",
+                                                     "chaos_daemons_library_blue_horrors",))),
     # Contorted Epitome — Swallow Energy (Psychic) grants the led Daemonettes
     # FNP 4+ vs mortal wounds and Psychic Attacks. SwegHammer does not tag
     # attacks as PSYCHIC, so FNP 4 is applied army-wide (per the iter15
@@ -553,6 +724,33 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # opponent-Shooting-phase ritual with no aura-flag plumbing; skipped.
     ("Contorted Epitome",  LeaderAbility(name="Swallow Energy",             aura_range=6.0, fnp=4,
                                           host_keys=("chaos_daemons_library_daemonettes",))),
+    # Spoilpox Scrivener — "Keep Counting!" grants melee [SUSTAINED HITS 1]
+    # to the led Plaguebearers. BSData v10.6.0 Chaos - Chaos Daemons
+    # Library.cat.gz verbatim: "While this model is leading a unit, melee
+    # weapons equipped by models in that unit have the [SUSTAINED HITS 1]
+    # ability." Leader attachment: PLAGUE BEARERS. Schema field
+    # `sustained_hits_melee` added in wave-50 commit `25af977`
+    # (LEADERABILITY-SUSTAINED-HITS) precisely so this leader could be
+    # added without a follow-up dataclass change. Second BSData ability
+    # "Meet Your Quota!" (+1 OC to the led unit) is parking-lot: no
+    # `oc_bonus_led_unit` field exists in LeaderAbility yet.
+    ("Spoilpox Scrivener", LeaderAbility(name="Keep Counting!",             aura_range=6.0,
+                                          sustained_hits_melee=1,
+                                          host_keys=("chaos_daemons_library_plaguebearers",))),
+    # Tormentbringer — Aura (NOT led-unit gated) grants melee [SUSTAINED
+    # HITS 1] to any friendly SLAANESH LEGIONES DAEMONICA within 6". BSData
+    # v10.6.0: "While a friendly Slaanesh Legions Daemonica unit is within
+    # 6\" of this model, melee weapons in that unit have the [SUSTAINED
+    # HITS 1] ability." `host_keys` is the full _SLAANESH_DAEMON_HOSTS
+    # tuple — this is an army-aura within the Slaanesh sub-faction, NOT
+    # a Leader/Bodyguard buff. Empty `host_keys=()` would broadcast to
+    # ALL friendlies (including non-Slaanesh allies via Daemons of Chaos
+    # detachment composition), which is wrong. Tormentbringer's other
+    # ability "Hysterical Frenzy" (destroyed model fights after) requires
+    # a fight-phase-trigger flag that doesn't exist; parking-lot.
+    ("Tormentbringer",     LeaderAbility(name="Tormentbringer (Aura)",      aura_range=6.0,
+                                          sustained_hits_melee=1,
+                                          host_keys=_SLAANESH_DAEMON_HOSTS)),
     # Chaos Daemons Greater Daemons — per-god aura carriers. Bloodthirster
     # and Skarbrand (DAEMONS-DIAG-3, claude/sim-calibration-6) wire Khorne;
     # LEADERABILITY-SCHEMA (this iteration) extends to the three remaining
@@ -568,10 +766,49 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Lord-of-Change
     # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Great-Unclean-One
     # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Keeper-of-Secrets
-    ("Bloodthirster",      LeaderAbility(name="Daemon Lord of Khorne",      aura_range=6.0, plus_one_to_hit=True,
+    ("Bloodthirster",      LeaderAbility(name="Daemon Lord of Khorne",      aura_range=6.0, plus_one_to_hit_melee_only=True,
                                           host_keys=_KHORNE_DAEMON_HOSTS)),
     ("Skarbrand",          LeaderAbility(name="Rage Embodied",              aura_range=6.0, plus_one_attack=1,
                                           host_keys=_KHORNE_DAEMON_HOSTS)),
+    # Skulltaker — "Lord of Decapitations" grants [DEVASTATING WOUNDS] to
+    # melee weapons equipped by the led unit. BSData v10.6.0 Chaos - Chaos
+    # Daemons Library.cat.gz, Lord of Decapitations ability: "While this
+    # model is leading a unit, melee weapons equipped by models in that unit
+    # have the [DEVASTATING WOUNDS] ability." Host: BLOODLETTERS only (BSData
+    # Leader profile: "This model can be attached to the following unit:
+    # BLOODLETTERS"). Modelled as `grants_devastating_wounds_melee=True`; the
+    # melee-only gate is enforced in the attack-resolution loop in
+    # code/units.py (fires only when mode == "melee").
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skulltaker
+    ("Skulltaker",         LeaderAbility(name="Lord of Decapitations",       aura_range=6.0,
+                                          grants_devastating_wounds_melee=True,
+                                          host_keys=("chaos_daemons_library_bloodletters",))),
+    # Daemon Prince of Chaos — "Prince of Darkness" (Aura). Verbatim from
+    # Wahapedia (https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Daemon-Prince-of-Chaos):
+    # "While a friendly LEGIONES DAEMONICA unit is within 6\" of this model,
+    # models in that unit have the Stealth ability."
+    # 10e Stealth rule (core rules, Wahapedia): "each time a ranged attack is
+    # made against it, subtract 1 from that attack's Hit roll."
+    # This is a DEFENDER-side buff: when the enemy targets a Daemon unit within
+    # 6\" of a friendly Daemon Prince, the attacker's Hit roll takes -1 in the
+    # Shooting phase. Modelled as grants_stealth_aura=True; the -1 modifier is
+    # applied in code/units.py at the hit-roll computation (defender side, mode
+    # != "melee" gate, reads tgt_buffs["grants_stealth_aura"]). Melee is
+    # unaffected — Stealth is a ranged defence per the 10e core rules.
+    # host_keys = _LEGIONES_DAEMONICA_HOSTS (all Legiones Daemonica units in
+    # BSData v10.6.0; see DAEMONS-DIAG-9 comment above _REGISTRY). Empty
+    # host_keys would broadcast to ALL friendly units including non-Daemon
+    # allies — the codex wording restricts to LEGIONES DAEMONICA, so
+    # non-empty host_keys is the correct gate. Daemon Prince is a MONSTER;
+    # no formal Leader/Bodyguard attachment. The DAEMONS archetype seeds it
+    # in all four Daemonic Incursion lists (Khorne Murderhost, Tzeentch
+    # Manifestation, Nurgle Pestilence, Slaanesh Excess), so the aura fires
+    # on every Daemon archetype eval run.
+    # Cited as LeaderAbility.Prince of Darkness in
+    # data/rule_citations.d/leaders.json.
+    ("Daemon Prince of Chaos", LeaderAbility(name="Prince of Darkness",      aura_range=6.0,
+                                          grants_stealth_aura=True,
+                                          host_keys=_LEGIONES_DAEMONICA_HOSTS)),
     # Only the GENERIC Greater Daemon datasheets (Lord of Change, Great
     # Unclean One, Keeper of Secrets) carry the "Daemon Lord of <god>" Locus
     # aura per BSData v10.6.0 cache. The named variants (Kairos Fateweaver,
@@ -642,16 +879,92 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                                      "adeptus_custodes_custodian_wardens"))),
     # Adeptus Mechanicus
     # Belisarius Cawl — entry must precede the generic Tech-Priest match so
-    # the longer name wins the substring lookup. "Master of the Forge" once-
-    # per-battle CP bonus + a baseline reroll-1s offensive aura (codex grants
-    # full hit re-rolls on Cawl's unit; reroll-1s is the loose proxy).
-    ("Belisarius Cawl",    LeaderAbility(name="Master of the Forge",        aura_range=6.0, reroll_hit_ones=True,
+    # the longer name wins the substring lookup. SUPREME COMMANDER (must be
+    # Warlord). Real ability: "Canticles of the Omnissiah" — pick ONE aura per
+    # Command phase: (a) Invocation of Machine Vengeance: select ONE enemy unit
+    # as Machine Vengeance target, re-roll Hit rolls for friendly AdMech attacks
+    # against THAT unit only; (b) Mantra of Discipline: +1 OC + battle-shock
+    # bonus; (c) Shroudpsalm: Stealth aura. The offensive Invocation is target-
+    # restricted to ONE designated enemy unit per round — the simulator has no
+    # per-target designation system, so wiring it as an unconditional aura on
+    # host_keys units would over-apply (firing against ALL targets, not one).
+    # ADMECH-DIAG-5 (2026-05-26): dropped prior reroll_hit_ones=True proxy.
+    # The prior citation incorrectly described Cawl's ability as only a CP gain,
+    # missing the Canticles entirely. Correct BSData text: see
+    # data/rule_citations.d/cp_discount_hq.json#LeaderAbility.Master of the Forge.
+    # cp_refund_per_battle=1 models the Warlord-gated once-per-battle CP gain
+    # (also part of Cawl's datasheet, separate from Canticles). Registry entry
+    # retained so lookup_ability resolves cleanly per CLAUDE.md §13.
+    ("Belisarius Cawl",    LeaderAbility(name="Master of the Forge",        aura_range=6.0,
                                           cp_refund_per_battle=1,
                                           host_keys=("adeptus_mechanicus_skitarii_vanguard",
                                                      "adeptus_mechanicus_skitarii_rangers"))),
-    ("Tech-Priest Dominus", LeaderAbility(name="Master of the Machine",    aura_range=6.0, reroll_hit_ones=True, heal_per_round=1,
-                                          host_keys=("adeptus_mechanicus_skitarii_vanguard",
-                                                     "adeptus_mechanicus_skitarii_rangers"))),
+    # Tech-Priest Dominus: "Lord of the Machine Cult" (BSData v10.6.0 verbatim):
+    # "While this model is leading a unit, models in that unit have the Feel No
+    # Pain 5+ ability. If that unit has the ELECTRO-PRIESTS keyword, models in
+    # that unit have the Feel No Pain 4+ ability instead."
+    # ADMECH-DIAG-3 (2026-05-26): removed fabricated reroll_hit_ones + heal_per_round
+    # (no offensive aura in the codex ability; the prior heal_per_round=1 was an
+    # unanchored proxy for the Dominus's vehicle-repair flavour). Replaced with
+    # fnp=5 matching the verbatim BSData / Wahapedia ability. The ELECTRO-PRIESTS
+    # Feel No Pain 4+ branch is not implemented (LeaderAbility has no keyword-conditional
+    # fnp field); fnp=5 is the floor for non-ELECTRO-PRIESTS hosts.
+    # Full BSData Leader text: Corpuscarii Electro-Priests, Fulgurite Electro-Priests,
+    # Kataphron Breachers, Kataphron Destroyers, Skitarii Rangers, Skitarii Vanguard.
+    # ADMECH-DIAG-4 (2026-05-26): APPROXIMATION — Kataphron Breachers and Destroyers
+    # removed from host_keys for calibration. The SwegHammer proximity-broadcast model
+    # (any eligible unit within aura_range receives the buff) does not model the 10e
+    # one-attachment-per-unit rule. With the full 6-unit list, both Belisarius Cawl
+    # (host_keys: Rangers, Vanguard) and the Dominus broadcast to overlapping units
+    # simultaneously: Rangers + Vanguard get Feel No Pain 5+ from Dominus AND
+    # reroll_hit_ones from Cawl at the same time, while Kataphron Breachers and
+    # Destroyers (native Feel No Pain 7 — no base feel no pain) also receive Feel No
+    # Pain 5+ from the Dominus despite not being formally attached in the game. The
+    # Kataphron units have no native feel no pain and the grant to them is the largest
+    # source of over-application (high-toughness 3-wound models with feel no pain 5+
+    # are significantly more durable than the tournament baseline). Electro-Priests
+    # (Corpuscarii, Fulgurite) retain their entries because they have native feel no
+    # pain 5+ from their own BSData infoLinks; the min-merge means the Dominus aura
+    # is redundant for them and their presence causes no additional over-application.
+    # ADMECH-DIAG-6 (2026-05-26): APPROXIMATION — Skitarii Rangers and Skitarii
+    # Vanguard also removed from host_keys. The archetype list carries 2x Rangers
+    # and 2x Vanguard alongside one Dominus. The proximity-broadcast model fires
+    # Feel No Pain 5+ on all four units simultaneously, but the real 10e rule grants
+    # it only to the one unit the Dominus is formally attached to. Four concurrent
+    # Feel No Pain 5+ grants on 1-wound Toughness-3 BATTLELINE squads (~33% damage
+    # reduction each) inflated AdMech effective durability well beyond tournament
+    # baseline. The prior neuter (Electro-Priests only) made the aura a no-op
+    # because those units already have native Feel No Pain 5+.
+    # WAVE-147 (2026-06-03): re-pointed to a SINGLE-occurrence host that models
+    # the real one-attachment FNP 5+ faithfully without over-applying. Kataphron
+    # Breachers appear exactly 1x in the Skitarii Hunter Cohort archetype
+    # (code/archetypes.py), so the proximity broadcast reaches exactly one unit —
+    # the same single-attachment approximation the ADMECH-DIAG-6 note above
+    # flagged as the future fix ("a single ... unit can be re-added" once
+    # one-attachment is approximated). Kataphron Breachers have no native Feel No
+    # Pain, so this grant is now live (a real FNP 5+ on one durable unit), not a
+    # no-op — direction-correct and matched to the codex one-attachment rule.
+    # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Tech-Priest-Dominus
+    # Cited as LeaderAbility.Master of the Machine.
+    ("Tech-Priest Dominus", LeaderAbility(name="Master of the Machine",    aura_range=6.0, fnp=5,
+                                          host_keys=("adeptus_mechanicus_kataphron_breachers",))),
+    # Tech-Priest Manipulus: "Galvanic Field" (BSData v10.6.0 / Wahapedia verbatim):
+    # "While this model is leading a unit, weapons equipped by models in that unit
+    # have the [Lethal Hits] ability." The Manipulus's Leader list includes
+    # Kataphron Destroyers. The SwegHammer proximity-broadcast model applies the
+    # aura to every host_keys unit in range, so to model the real one-attachment
+    # faithfully the host is a SINGLE-occurrence unit in the Skitarii Hunter
+    # Cohort archetype — Kataphron Destroyers appear exactly 1x there, so the
+    # broadcast reaches exactly one unit and does not over-apply (same approach
+    # as the Dominus note above, which re-points its FNP aura to the 1x Kataphron
+    # Breachers). lethal_hits_ranged is consumed in code/units.py attack() on the
+    # ranged side (mode != "melee" guard) — [Lethal Hits] mirrors the ranged
+    # p.lethal_hits profile field here.
+    # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Tech-Priest-Manipulus
+    # Cited as LeaderAbility.Galvanic Field.
+    ("Tech-Priest Manipulus", LeaderAbility(name="Galvanic Field", aura_range=6.0,
+                                            lethal_hits_ranged=True,
+                                            host_keys=("adeptus_mechanicus_kataphron_destroyers",))),
     # Death Guard
     # Lord of Contagion: per Wahapedia datasheet
     # (https://wahapedia.ru/wh40k10ed/factions/death-guard/#Lord-of-Contagion)
@@ -689,11 +1002,60 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Succubus",           LeaderAbility(name="Precision Blows",            aura_range=6.0,
                                           host_keys=("aeldari_drukhari_wyches",))),
     # Genestealer Cults
-    ("Primus",             LeaderAbility(name="Meticulous Uprising",       aura_range=6.0, reroll_hit_ones=True,
+    # PATRIARCH — "Might From Beyond": while leading a unit, melee weapons
+    # equipped by models in that unit have the [DEVASTATING WOUNDS] ability.
+    # BSData v10.6.0 Genestealer Cults.cat.gz, Patriarch profile, Might From
+    # Beyond ability: "While this model is leading a unit, melee weapons
+    # equipped by models in that unit have the [DEVASTATING WOUNDS] ability."
+    # Host: PURESTRAIN GENESTEALERS only (BSData Leader profile: "This model
+    # can be attached to the following units: PURESTRAIN GENESTEALERS").
+    # Catalogue key verified: genestealer_cults_purestrain_genestealers.
+    # Pattern identical to Skulltaker's "Lord of Decapitations" (same BSData
+    # verbatim text, same grants_devastating_wounds_melee field). The field is
+    # already wired in code/units.py (melee-only gate, fires only when
+    # mode == "melee"). No Wahapedia fallback needed — BSData confirms the text.
+    ("Patriarch",          LeaderAbility(name="Might From Beyond",         aura_range=6.0,
+                                          grants_devastating_wounds_melee=True,
+                                          host_keys=("genestealer_cults_purestrain_genestealers",))),
+    # PRIMUS — "Cult Demagogue": while leading a unit, each time a model in
+    # that unit makes an attack, add 1 to the Hit roll. BSData v10.6.0
+    # Genestealer Cults.cat.gz, Primus profile, Cult Demagogue ability:
+    # "While this model is leading a unit, each time a model in that unit
+    # makes an attack, you can add 1 to the Hit roll." Corrected from the
+    # prior `reroll_hit_ones` approximation (the prior name "Meticulous
+    # Uprising" was a fabrication — the codex ability is named "Cult
+    # Demagogue"). The codex grants a full unconditional +1-to-Hit on every
+    # attack — strictly stronger than re-rolling 1s; `plus_one_to_hit=True`
+    # is the accurate modelling. Hosts: Acolyte Hybrids (both loadout
+    # variants), Hybrid Metamorphs, and Neophyte Hybrids — BSData Leader
+    # profile: "This model can be attached to the following units: ACOLYTE
+    # HYBRIDS, HYBRID METAMORPHS, NEOPHYTE HYBRIDS."
+    ("Primus",             LeaderAbility(name="Cult Demagogue",            aura_range=6.0,
+                                          plus_one_to_hit=True,
                                           host_keys=("genestealer_cults_neophyte_hybrids",
-                                                     "genestealer_cults_acolyte_hybrids_with_autopistols"))),
+                                                     "genestealer_cults_acolyte_hybrids_with_autopistols",
+                                                     "genestealer_cults_acolyte_hybrids_with_hand_flamers",
+                                                     "genestealer_cults_hybrid_metamorphs"))),
     # Leagues of Votann
-    ("Kâhl",               LeaderAbility(name="Warrior-Forged Leadership",  aura_range=6.0, plus_one_to_hit=True,
+    # VOTANN-JUDGEMENT-TOKENS-V1 (2026-05-28): downgraded the Kâhl aura from
+    # `plus_one_to_hit=True` to `reroll_hit_ones=True` on the led Hearthkyn
+    # squad. The codex rule is Kindred Hero: weapons in the led unit gain
+    # [LETHAL HITS] (Critical Hits — natural 6s on Hit — auto-wound). The
+    # simulator does not model the LETHAL HITS keyword, so a proxy is
+    # required. The previous `plus_one_to_hit` proxy was a roughly 2× over-
+    # buff: on a BS4+ shooter LETHAL HITS adds ~17% wounds (1/6 of hits
+    # auto-wound vs the baseline 50% wound roll), whereas +1 to Hit adds
+    # ~33% wounds (BS4+ → BS3+ raises hit probability from 0.5 to 0.667).
+    # `reroll_hit_ones` is a closer numerical match (~+17% hits = ~+17%
+    # wounds on a 4+ wound roll) and is strictly weaker than the codex
+    # LETHAL HITS in melee against high-T targets (where 6s already wound
+    # naturally), erring on the under-buff side per the SC5 audit standard.
+    # The Kâhl-led Hearthkyn brick is the spine of the modal Votann list
+    # (see code/archetypes.py "Oathband" template), so this single-leader
+    # change feeds through the most-played unit. Cited as
+    # `LeaderAbility.Warrior-Forged Leadership`.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/K-hl
+    ("Kâhl",               LeaderAbility(name="Warrior-Forged Leadership",  aura_range=6.0, reroll_hit_ones=True,
                                           host_keys=("leagues_of_votann_hearthkyn_warriors",))),
 )
 
@@ -758,8 +1120,12 @@ def lookup_ability(profile_name: str) -> Optional[LeaderAbility]:
 # Default buff dict: all flags off / neutral. Same shape Unit.attack consumes.
 _NEUTRAL_BUFFS: Dict[str, object] = {
     "reroll_hit_ones": False,
+    # TSON-AURA-V2: shooting-phase-only re-roll 1s (Ahriman / Infernal Master /
+    # Sorcerer in Terminator Armour). Consumed in units.py with mode != "melee" gate.
+    "reroll_hit_ones_shooting_only": False,
     "reroll_wound_ones": False,
     "plus_one_to_hit": False,
+    "plus_one_to_hit_melee_only": False,
     "plus_one_to_wound": False,
     "plus_one_attack": 0,
     "plus_one_save": False,
@@ -772,6 +1138,25 @@ _NEUTRAL_BUFFS: Dict[str, object] = {
     "plus_one_strength_ranged": False,
     "plus_one_toughness": False,
     "plus_one_ap_melee": False,
+    # DAEMONS-DIAG-7: Skulltaker "Lord of Decapitations" — led unit's melee
+    # attacks gain [DEVASTATING WOUNDS]. Default False; only True when Skulltaker
+    # is alive and leading Bloodletters.
+    "grants_devastating_wounds_melee": False,
+    # DAEMONS-DIAG-9: Daemon Prince "Prince of Darkness" — LEGIONES DAEMONICA
+    # units within 6\" gain the Stealth ability (-1 to ranged Hit rolls targeting
+    # them). Default False; only True when a Daemon Prince of Chaos is alive and
+    # in-range of the target unit.
+    "grants_stealth_aura": False,
+    # DAEMONS-LOCUS-V1 follow-up — Locus-granted [SUSTAINED HITS N]. See
+    # LeaderAbility for derivation. Integer because multiple aura sources
+    # stack additively, matching the existing per-weapon / detachment /
+    # transient SUSTAINED HITS stacking convention in code/units.py.
+    "sustained_hits_ranged": 0,
+    "sustained_hits_melee": 0,
+    # Galvanic Field (AdMech Manipulus) — led unit's ranged weapons gain
+    # [LETHAL HITS]. Default False; only True when a Tech-Priest Manipulus is
+    # alive and leading the single host_keys-gated unit (Kataphron Destroyers).
+    "lethal_hits_ranged": False,
 }
 
 
@@ -1092,8 +1477,12 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
             if not any(k in ability.host_keys for k in attacker_keys_for_host_gate):
                 continue
         _merge_bool(buffs, ability, "reroll_hit_ones")
+        # TSON-AURA-V2: shooting-only re-roll 1s grant. See LeaderAbility
+        # dataclass comment and units.py consumption site for gate detail.
+        _merge_bool(buffs, ability, "reroll_hit_ones_shooting_only")
         _merge_bool(buffs, ability, "reroll_wound_ones")
         _merge_bool(buffs, ability, "plus_one_to_hit")
+        _merge_bool(buffs, ability, "plus_one_to_hit_melee_only")
         _merge_bool(buffs, ability, "plus_one_to_wound")
         _merge_add(buffs, ability, "plus_one_attack")
         _merge_min(buffs, ability, "extra_invuln")
@@ -1111,6 +1500,20 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         _merge_bool(buffs, ability, "plus_one_strength_ranged")
         _merge_bool(buffs, ability, "plus_one_toughness")
         _merge_bool(buffs, ability, "plus_one_ap_melee")
+        _merge_bool(buffs, ability, "grants_devastating_wounds_melee")
+        # DAEMONS-DIAG-9: Daemon Prince "Prince of Darkness" stealth aura.
+        # Defender-side buff — callers reading tgt_buffs will see this True
+        # when a friendly Daemon Prince of Chaos is within 6\" of the target.
+        _merge_bool(buffs, ability, "grants_stealth_aura")
+        # DAEMONS-LOCUS-V1 follow-up — SUSTAINED HITS aura magnitudes.
+        # Additive: multiple Locus carriers within range stack their grants
+        # (rare in practice — most armies field at most one Locus-bearing
+        # Herald per god).
+        _merge_add(buffs, ability, "sustained_hits_ranged")
+        _merge_add(buffs, ability, "sustained_hits_melee")
+        # Galvanic Field (AdMech Manipulus) — led unit's ranged weapons gain
+        # [LETHAL HITS]. Boolean OR (the grant is binary, not stacking).
+        _merge_bool(buffs, ability, "lethal_hits_ranged")
 
     # 10e Enhancements (Warlord upgrades). Each in-range friendly CHARACTER
     # may carry one Enhancement; if it does, OR-merge the aura modifier

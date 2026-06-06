@@ -48,6 +48,56 @@ Deterministic average-case damage was used in the foundational 2025
 prototype; the current engine has been stochastic since the Phase 1.5
 foundation work (see `ROADMAP.md` "Foundation work").
 
+One characteristic stayed deterministic after that work: a weapon's random
+Damage characteristic (`D6`, `D3+3`, `2D6`, …) was applied at its
+expected-value mean (a `D6` weapon always inflicted a flat 3.5). The
+per-model weapon-loadout staging adds an opt-in gate, `SWEG_ROLLDMG`, that
+rolls each weapon's real Damage dice once per shot instead (`code.units.roll_damage`).
+Unset (the default) keeps the mean and draws no extra dice, so the engine's
+output is byte-for-byte unchanged; set, it rolls the dice on the per-model
+firing path (the profiles that carry a raw `damage_dice` string). Rolling
+follows the 10e ordering — roll the Damage, then apply per-allocation
+modifiers (Necrodermis halving, Rend and Tear, Melta) to the rolled value.
+The rolled distribution's mean equals the legacy expected-value field, so the
+change is a faithful variance model rather than a re-pricing: it tests whether
+expected-value overkill on big single-shot guns (a `D6` "reliably" destroying
+a 3-wound model where a real roll destroys it about two-thirds of the time)
+inflates the elite / big-gun factions. Cited as `simulator.rolled_damage`.
+
+### Damage Allocation (squad spillover)
+
+The engine represents one `Unit` object per physical model, so a codex unit
+of N models is N `Unit` instances that share a build-time `squad_id` (assigned
+by `Army.add_squad`). When one attacker fires into such a unit, its whole
+attack sequence is resolved against that unit, and damage is allocated per the
+10e core rule: each unsaved wound is allocated to one model, which loses wounds
+equal to the Damage characteristic; a wounded model must keep receiving further
+attacks until it is destroyed before allocation moves on; and when a model is
+destroyed, **the killing attack's excess damage is lost** — it does not carry
+to another model. The allocation pointer in `Unit.attack` advances to the next
+surviving same-`squad_id` model only after the current one dies, so the number
+of models destroyed is bounded by the number of unsaved wounds, never by the
+damage total (three unsaved wounds of Damage 6 destroy at most three one-wound
+models). Devastating Wounds is treated as a save-bypassing normal hit under the
+same rule (excess lost, no cross-model carry), not as a mortal wound. Cited as
+`simulator.damage_allocation_spillover`. Before this rule landed, every shot in
+a volley was dumped into a single model and the overkill was wasted, which
+heavily under-rated high-volume anti-horde firepower (Knights) and over-rated
+multi-model armies (Drukhari, Tyranids).
+
+**Mortal wounds** follow the opposite spill rule and are handled separately by
+`Battle._apply_mortal_wounds`: excess mortal-wound damage is **not** lost on a
+model's death — it keeps allocating to the next model of the same unit until all
+mortal wounds are spent or the unit is destroyed (Feel No Pain rolled per mortal
+wound). Every "a unit suffers X mortal wounds" effect routes through it (Doombolt,
+the psychic-detachment payload, Bloodthirster, Tank Shock, Dark Pact, Leechspore).
+Cited as `simulator.mortal_wound_spillover`. Devastating Wounds is *not* a mortal
+wound in the current edition — it is a save-bypassing normal hit and follows the
+normal (excess-lost) allocation above. **Deadly Demise** hits each *unit* within
+6″ once (not each model): nearby models are grouped by `squad_id` and the unit
+takes its X mortal wounds a single time. **Blast** likewise counts the models in
+the *targeted unit* (by `squad_id`), not every same-name model in the army.
+
 ### Activation Sequence
 
 Each battle round proceeds as follows:
@@ -133,10 +183,23 @@ collided with the equilibrium solver's own Phase 1–6 ladder
 - **2D map and terrain** — continuous-coordinate map with Light /
   Heavy / Obscuring / Impassable terrain; Liang-Barsky parametric clipping
   for line of sight; objective markers with primary victory point scoring.
+  Ruins block line of sight except when both endpoints carry an INFANTRY,
+  BEAST, or SWARM keyword (10e core Ruins rule). When either endpoint carries
+  the TOWERING keyword (Knights, Wraithknight, Daemon Primarchs, Titans),
+  both Obscuring terrain and Ruin walls are bypassed for line-of-sight
+  purposes (10e core TOWERING keyword rule).
 - **Strategy layer** — units pick a per-activation intent (HOLD, CAPTURE,
   STEAL, ENGAGE, REPOSITION, FALL_BACK) based on objective state and role.
-- **Catalogue** — ~1294 units from BSData WH40k 10e (`v10.6.0`), refined
+- **Catalogue** — ~1478 units from BSData WH40k 10e (`v10.6.0`), refined
   by `data/overrides.json`.
+- **Additive melee weapon profiles** (`UnitProfile.extra_melee_profiles`) —
+  the Fight phase resolves one extra attack pass per entry in this tuple,
+  using that entry's own attacks / strength / armour penetration / damage /
+  keyword flags. Populated by the BSData mapper for every non-heterogeneous
+  unit whose gear contains a melee weapon tagged with the 10e core
+  `[EXTRA ATTACKS]` keyword (fires in addition to the model's other melee
+  weapons; distinct from the ranged `extra_ranged_profiles` picker, which
+  is mutex / pick-one per group). 135 units populated in BSData v10.6.0.
 - **Sweep coverage** — `scripts/evaluate_vs_meta.py` runs the per-faction
   matchup matrix and reports mean absolute error vs the May 2026 Warp
   Friends tournament aggregate. This is the Stage 1 success metric.
@@ -164,8 +227,8 @@ roughly 32 ms (73% reduction, measured by `scripts/bench_simulator.py` on a
 - **Line-of-sight cache** (`_los_cache` in `code/map.py`). Keyed by a
   terrain-epoch integer (assigned per unique terrain tuple to avoid garbage-
   collector identifier reuse), the 0.5-inch-grid-discretised endpoint pair,
-  and the ruin-pass boolean. ~46 000 distinct entries per 90 battles, ~40%
-  hit rate, ~1.6× speedup vs uncached. Tier 3.
+  the ruin-pass boolean, and the towering boolean. ~46 000 distinct entries
+  per 90 battles, ~40% hit rate, ~1.6× speedup vs uncached. Tier 3.
 - **Cover-priority cache** (`_cover_prio_cache` in `code/strategy.py`). Keyed
   by terrain epoch and 0.5-inch-grid position; reused by both
   `_shimmy_target` and `_best_nearby_cover_point`. ~1 300 entries per 90

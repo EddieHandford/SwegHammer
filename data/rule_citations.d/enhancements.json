@@ -37,24 +37,6 @@
     "scope": "unit-led"
   },
 
-  "Enhancement.Arcane Vortex": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Cult-of-Magic",
-    "rule_name": "Arcane Vortex",
-    "quoted_text": "PSYKER model only. Once per battle, in your Shooting phase, the bearer can unleash an Arcane Vortex. If it does, select one enemy unit within 18\" of and visible to the bearer and roll one D6: on a 2+, that unit suffers D3+3 mortal wounds.",
-    "trigger": "the bearer's unit is selected to make Wound rolls",
-    "effect": "re-roll Wound rolls of 1 on the bearer's unit (simplification: SwegHammer doesn't model bespoke one-shot mortal-wound spells, so the once-per-battle D3+3 mortal-wound bomb is collapsed into a permanent wound-1 reroll on the bearer's unit; over a 5-round battle the expected wound output gain is comparable to the median 5-mortal-wound spell payload)",
-    "scope": "unit-led"
-  },
-
-  "Enhancement.Living Plague": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Company",
-    "rule_name": "Living Plague",
-    "quoted_text": "DEATH GUARD model only. The bearer's Contagion range is 9\" instead of 6\".",
-    "trigger": "the bearer's unit is selected to make Wound rolls in melee",
-    "effect": "+1 to wound on attacks for the bearer's unit (simplification: SwegHammer's `_is_near_enemy_dg_model` hard-codes the Contagion aura at 6\" and plumbing a per-bearer aura range through that helper is out of scope for the MVP; mapping the enhancement to +1 to wound on the bearer's unit gives the close-combat menace boost the contagion-range extension delivers in practice without touching the DG army-rule plumbing)",
-    "scope": "unit-led"
-  },
-
   "Enhancement.Puretide Engram Neurochip": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Mont-ka",
     "rule_name": "Puretide Engram Neurochip",

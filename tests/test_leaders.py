@@ -205,14 +205,24 @@ class ExpandedRegistryTests(unittest.TestCase):
         ("Dark Apostle",            "reroll_hit_ones"),
         ("Chaos Lord",              "plus_one_to_wound"),
         # Adeptus Custodes
-        ("Shield-Captain",          "reroll_hit_ones"),
+        # CUSTODES-AUDIT (claude/sim-calibration-6): Shield-Captain's
+        # reroll_hit_ones proxy was removed — "Master of the Stances" is a
+        # once-per-battle Ka'tah stance ability, not a hit-reroll aura.
+        # The entry is retained in the registry for host-key gating. Updated
+        # to assert the structural no-op (aura_range still 6.0).
+        # audited away in CUSTODES-AUDIT (claude/sim-calibration-6)
+        ("Shield-Captain",          "aura_range"),
         # Trajann Valoris removed from this assertion list in SC5-3: his
         # Captain-General ability is modifier-cancellation (negates -1-to-hit),
         # not +1-to-hit, so the LeaderAbility carries no offensive aura field.
         # The Blade Champion entry above is the established precedent — keep
         # the leader registered for host-key gating without a flat buff.
         # Adeptus Mechanicus
-        ("Tech-Priest Dominus",     "reroll_hit_ones"),
+        # ADMECH-DIAG-3 (2026-05-26): Dominus reroll_hit_ones and heal_per_round
+        # were fabrications. The real "Lord of the Machine Cult" ability grants
+        # Feel No Pain 5+ to the led unit. Updated assertion to fnp.
+        # audited away in ADMECH-DIAG-3 (2026-05-26)
+        ("Tech-Priest Dominus",     "fnp"),
         # Death Guard — Typhus Destroyer Hive is -1 to Hit on melee against
         # the led unit; FNP 5+ is our defensive proxy.
         ("Lord of Contagion",       "plus_one_to_wound"),
@@ -221,12 +231,34 @@ class ExpandedRegistryTests(unittest.TestCase):
         ("Brother-Captain",         "reroll_hit_ones"),
         ("Grand Master",            "plus_one_to_wound"),
         # Drukhari
-        ("Archon",                  "plus_one_to_hit"),
-        ("Succubus",                "reroll_hit_ones"),
+        # DRK-DIAG-3 (2026-05-23): Archon's plus_one_to_hit and Succubus's
+        # reroll_hit_ones were fabrications. Archon "Hatred Eternal" is a
+        # Pain-token-gated Empower mechanic (not always-on +1-to-hit).
+        # Succubus "Storm of Blades" grants [SUSTAINED HITS 1] (a weapon
+        # keyword), not a Hit-roll re-roll aura. Both dropped to NO-FLAG.
+        # Both entries retained in registry for host-key gating; assertions
+        # updated to check the aura_range structural field (always 6.0) so
+        # the entry still exercises lookup_ability resolution.
+        # audited away in DRK-DIAG-3 (2026-05-23)
+        ("Archon",                  "aura_range"),
+        ("Succubus",                "aura_range"),
         # Genestealer Cults
-        ("Primus",                  "reroll_hit_ones"),
+        # GSC-BUFF-V1 (2026-05-31): Patriarch "Might From Beyond" grants
+        # [DEVASTATING WOUNDS] to melee weapons of the led Purestrain
+        # Genestealers unit. BSData v10.6.0 confirmed.
+        ("Patriarch",               "grants_devastating_wounds_melee"),
+        # GSC-BUFF-V1 (2026-05-31): Primus Cult Demagogue corrected from
+        # reroll_hit_ones (prior fabricated "Meticulous Uprising" proxy) to
+        # plus_one_to_hit (codex-accurate: "add 1 to the Hit roll").
+        # BSData v10.6.0 Genestealer Cults.cat.gz confirmed.
+        ("Primus",                  "plus_one_to_hit"),
         # Leagues of Votann
-        ("Kâhl",                    "plus_one_to_hit"),
+        # VOTANN-JUDGEMENT-TOKENS-V1 (2026-05-28): Kâhl's aura was downgraded
+        # from plus_one_to_hit to reroll_hit_ones. The codex rule grants
+        # [LETHAL HITS] to the led unit's weapons; reroll_hit_ones is a closer
+        # numerical proxy than plus_one_to_hit (~17% vs ~33% wound uplift on BS4+).
+        # audited/narrowed in VOTANN-JUDGEMENT-TOKENS-V1 (2026-05-28)
+        ("Kâhl",                    "reroll_hit_ones"),
     )
 
     def test_each_new_leader_resolves(self):
@@ -239,10 +271,21 @@ class ExpandedRegistryTests(unittest.TestCase):
             )
 
     def test_tech_priest_dominus_heals(self):
-        # Dominus carries both an offensive aura AND a heal aura.
+        # ADMECH-DIAG-3 (2026-05-26): heal_per_round was removed from Dominus.
+        # The real "Lord of the Machine Cult" ability grants Feel No Pain 5+
+        # to the led unit — there is no heal-per-round component in the codex
+        # text. The prior heal proxy was an unanchored vehicle-repair flavour
+        # stand-in. Updated: assert fnp=5 (the faithful codex mechanic) and
+        # assert heal_per_round == 0 (the audited-away proxy) as a regression
+        # pin. audited away in ADMECH-DIAG-3 (2026-05-26)
         ab = lookup_ability("Tech-Priest Dominus")
         self.assertIsNotNone(ab)
-        self.assertGreaterEqual(ab.heal_per_round, 1)
+        self.assertEqual(ab.fnp, 5,
+            "Dominus Lord of the Machine Cult grants Feel No Pain 5+ — "
+            "see ADMECH-DIAG-3 audit in claude/sim-calibration-6")
+        self.assertEqual(ab.heal_per_round, 0,
+            "Dominus heal_per_round was a fabrication — audited away in "
+            "ADMECH-DIAG-3 (2026-05-26); must remain 0 as regression pin")
 
     def test_archon_not_false_positive(self):
         # 'Archon' must resolve. Confirm Arch-style substring collisions don't
@@ -287,19 +330,25 @@ class EffectiveBuffsTests(unittest.TestCase):
         self.assertEqual(buffs["fnp"], 7)
 
     def test_leader_aura_in_range(self):
-        # Warboss 5" away from grunt (within 6") -> +1-to-hit True.
-        # iter21: Captain's proxy aura was dropped, so this test now uses
-        # the Warboss (Might is Right: real +1-to-hit codex aura).
+        # Warboss 5" away from Boyz (within 6") -> plus_one_to_hit_melee_only True.
+        # iter21: Captain's proxy aura was dropped, so this test uses the Warboss.
         # iter22: attacker must be in Warboss's host_keys (`orks_boyz` /
         # `orks_nobz`) for the aura to fire — use `_boyz_profile()` so
         # `_name_to_catalog_key('Boyz') == 'orks_boyz'` passes the gate.
+        # ORKS-DIAG-3 (e52695f): Warboss "Might is Right" is melee-only per the
+        # codex verbatim. The aura moved from plus_one_to_hit to
+        # plus_one_to_hit_melee_only. Assertion updated accordingly.
+        # narrowed in ORKS-DIAG-3 (e52695f)
         army = _make_army(
             "Side",
             [_boyz_profile(), _warboss_profile()],
             [(0.0, 0.0), (5.0, 0.0)],
         )
         buffs = effective_buffs(army.units[0])
-        self.assertTrue(buffs["plus_one_to_hit"])
+        self.assertTrue(buffs["plus_one_to_hit_melee_only"])
+        self.assertFalse(buffs["plus_one_to_hit"],
+            "Warboss plus_one_to_hit was over-broad — audited to melee-only "
+            "in ORKS-DIAG-3 (e52695f); must remain False as regression pin")
 
     def test_leader_aura_out_of_range(self):
         # Warboss 12" away from grunt (outside 6") -> NO aura.
@@ -328,9 +377,12 @@ class EffectiveBuffsTests(unittest.TestCase):
         self.assertFalse(buffs["plus_one_to_hit"])
 
     def test_merge_detachment_and_leader(self):
-        # Detachment gives reroll_wound_ones; Warboss leader gives +1-to-hit.
-        # The merged dict should carry BOTH flags.
+        # Detachment gives reroll_wound_ones; Warboss leader gives
+        # plus_one_to_hit_melee_only. The merged dict should carry BOTH flags.
         # iter22: use Boyz attacker so the Warboss aura passes host gate.
+        # ORKS-DIAG-3 (e52695f): Warboss "Might is Right" is melee-only; the
+        # aura moved from plus_one_to_hit to plus_one_to_hit_melee_only.
+        # Assertion updated accordingly. narrowed in ORKS-DIAG-3 (e52695f)
         det = Detachment(name="Test", faction="X", reroll_wound_ones=True)
         army = _make_army(
             "Side",
@@ -339,7 +391,10 @@ class EffectiveBuffsTests(unittest.TestCase):
         )
         army.detachment = det
         buffs = effective_buffs(army.units[0])
-        self.assertTrue(buffs["plus_one_to_hit"])
+        self.assertTrue(buffs["plus_one_to_hit_melee_only"])
+        self.assertFalse(buffs["plus_one_to_hit"],
+            "Warboss plus_one_to_hit was audited to melee-only in ORKS-DIAG-3 "
+            "(e52695f) — regression pin: must remain False")
         self.assertTrue(buffs["reroll_wound_ones"])
 
     def test_in_range_leaders_excludes_self(self):
@@ -365,8 +420,18 @@ class HealTests(unittest.TestCase):
     """
 
     def test_dominus_heals_nearby_wounded(self):
-        # Grunt at 1HP, Dominus 4" away (within 6" aura). After one
-        # round-end heal, grunt should have 2HP.
+        # ADMECH-DIAG-3 (2026-05-26): Dominus heal_per_round was a fabrication.
+        # The real "Lord of the Machine Cult" grants Feel No Pain 5+ (not a
+        # heal-per-round). apply_round_end_healing now has no effect from Dominus.
+        # This test is repurposed to pin that Dominus does NOT heal and instead
+        # grants fnp=5 — a regression guard against re-introducing the proxy.
+        # audited away in ADMECH-DIAG-3 (2026-05-26); heal_per_round removed.
+        #
+        # Use a Skitarii Vanguard host name so we can check effective_buffs via
+        # a Corpuscarii Electro-Priests stand-in. But because UNIT_CATALOG does
+        # not list Dominus with Skitarii in its current host_keys (ADMECH-DIAG-6
+        # stripped Skitarii from host_keys to fix broadcast over-application),
+        # we simply verify the heal-pipeline no-ops and the ability state.
         army = _make_army(
             "Side",
             [_grunt_profile(), _dominus_profile()],
@@ -374,7 +439,15 @@ class HealTests(unittest.TestCase):
         )
         army.units[0].current_health = 1.0
         apply_round_end_healing(army)
-        self.assertEqual(army.units[0].current_health, 2.0)
+        # Dominus has no heal_per_round — health must be unchanged.
+        self.assertEqual(army.units[0].current_health, 1.0,
+            "Dominus heal_per_round is 0 after ADMECH-DIAG-3 audit — "
+            "apply_round_end_healing must leave grunt health unchanged")
+        # Confirm the ability itself carries fnp=5 as the faithful proxy.
+        ab = lookup_ability("Tech-Priest Dominus")
+        self.assertEqual(ab.fnp, 5,
+            "Dominus Lord of the Machine Cult grants Feel No Pain 5+; "
+            "confirmed no heal_per_round — audited in ADMECH-DIAG-3")
 
     def test_heal_capped_at_max_hp(self):
         # Full-HP grunt next to Dominus: no healing happens, leader self-heals
@@ -547,21 +620,39 @@ class WarbossHitNotWoundTests(unittest.TestCase):
         )
 
     def test_warboss_grants_plus_one_hit_not_wound(self):
+        # ORKS-DIAG-3 (e52695f): Warboss "Might is Right" is a melee-only
+        # +1-to-hit per the codex verbatim ("each time a model in that unit
+        # makes a melee attack, add 1 to the Hit roll"). The aura moved from
+        # plus_one_to_hit (all-phases) to plus_one_to_hit_melee_only.
+        # plus_one_to_hit must now be False as a regression pin against the
+        # over-broad proxy being re-introduced.
+        # narrowed in ORKS-DIAG-3 (e52695f)
         ab = lookup_ability("Warboss")
         self.assertIsNotNone(ab)
-        self.assertTrue(ab.plus_one_to_hit)
+        self.assertTrue(ab.plus_one_to_hit_melee_only,
+            "Warboss Might is Right grants +1 to Hit on melee attacks only")
+        self.assertFalse(ab.plus_one_to_hit,
+            "Warboss plus_one_to_hit was over-broad — audited to melee-only "
+            "in ORKS-DIAG-3 (e52695f); regression pin: must remain False")
         self.assertFalse(ab.plus_one_to_wound)
 
     def test_warboss_aura_lifts_hit(self):
         # iter22: Warboss's host_keys lists `orks_boyz` / `orks_nobz` — use
-        # a Boyz attacker so the +1-to-hit aura passes the host gate.
+        # a Boyz attacker so the aura passes the host gate.
+        # ORKS-DIAG-3 (e52695f): Warboss "Might is Right" is melee-only; the
+        # aura moved from plus_one_to_hit to plus_one_to_hit_melee_only.
+        # Assertion updated accordingly. narrowed in ORKS-DIAG-3 (e52695f)
         army = _make_army(
             "Side",
             [_boyz_profile(), self._warboss_profile()],
             [(0.0, 0.0), (3.0, 0.0)],
         )
         buffs = effective_buffs(army.units[0])
-        self.assertTrue(buffs["plus_one_to_hit"])
+        self.assertTrue(buffs["plus_one_to_hit_melee_only"],
+            "Warboss Might is Right must fire for a Boyz host attacker in range")
+        self.assertFalse(buffs["plus_one_to_hit"],
+            "Warboss plus_one_to_hit was audited to melee-only in ORKS-DIAG-3 "
+            "(e52695f) — regression pin: must remain False")
         self.assertFalse(buffs["plus_one_to_wound"])
 
 
@@ -657,10 +748,17 @@ class AeldariFabricationLockInTests(unittest.TestCase):
         ab = lookup_ability("The Yncarne")
         self.assertIsNotNone(ab, "Yncarne entry must remain in the registry")
         # Ethereal Form is a self-heal; Inevitable Death is a teleport.
-        # Neither grants a hit-roll buff.
+        # Neither grants a hit-roll buff. plus_one_to_hit was audited away
+        # in iter21 fab audit (commit b50533e TSON-FINISH / 347b8f9 iter21 Aeldari).
         self.assertFalse(ab.plus_one_to_hit, "Yncarne plus_one_to_hit is a fab — see iter21 citation")
-        # heal_per_round MUST stay (legitimate D3-median proxy of Ethereal Form).
-        self.assertEqual(ab.heal_per_round, 2)
+        # heal_per_round MUST stay as a legitimate D3-median proxy of Ethereal Form.
+        # AELDARI-DIAG-3 (2026-05-24): cut from 2 to 1 — the real rule fires
+        # on-unit-kill (not every round end); heal_per_round=2 was a 3x over-proxy
+        # of the codex median over a 5-round game. Regression pin: must be 1, not 2.
+        # narrowed in AELDARI-DIAG-3 (2026-05-24)
+        self.assertEqual(ab.heal_per_round, 1,
+            "Yncarne heal_per_round was cut from 2 to 1 in AELDARI-DIAG-3 "
+            "(2026-05-24) — see code/leaders.py comment for derivation")
 
     def test_autarch_aura_grants_nothing_in_range(self):
         # Build an Aeldari unit + Autarch in range; the merged buff dict
@@ -845,8 +943,13 @@ class HostKeysGatingTests(unittest.TestCase):
         )
 
     def test_warboss_aura_only_buffs_boyz_host(self):
-        # Warboss host_keys = ('orks_boyz', 'orks_nobz'). Buffs Boyz, not
-        # a non-host attacker even if it's within 6".
+        # Warboss host_keys = ('orks_boyz', 'orks_nobz', 'orks_meganobz').
+        # Buffs Boyz with melee-only +1-to-hit, not a non-host attacker.
+        # ORKS-DIAG-3 (e52695f): Warboss "Might is Right" is melee-only;
+        # the aura moved from plus_one_to_hit to plus_one_to_hit_melee_only.
+        # plus_one_to_hit must be False for both host and non-host (regression
+        # pin). plus_one_to_hit_melee_only must be True for Boyz, False for
+        # the bystander. narrowed in ORKS-DIAG-3 (e52695f)
         leader = self._character("Warboss")
         boyz = self._non_character("Boyz")             # legal host
         bystander = self._non_character("Grunt")       # no catalog key
@@ -857,10 +960,16 @@ class HostKeysGatingTests(unittest.TestCase):
         )
         boyz_buffs = effective_buffs(army.units[0])
         bystander_buffs = effective_buffs(army.units[1])
-        self.assertTrue(boyz_buffs["plus_one_to_hit"],
-            "Warboss aura must pass the gate for a Boyz attacker")
-        self.assertFalse(bystander_buffs["plus_one_to_hit"],
+        self.assertTrue(boyz_buffs["plus_one_to_hit_melee_only"],
+            "Warboss Might is Right (melee-only) must pass the gate for Boyz")
+        self.assertFalse(bystander_buffs["plus_one_to_hit_melee_only"],
             "Warboss aura must NOT fire on a non-host bystander attacker")
+        # Regression pins: the old over-broad proxy must stay False.
+        self.assertFalse(boyz_buffs["plus_one_to_hit"],
+            "Warboss plus_one_to_hit was audited to melee-only in ORKS-DIAG-3 "
+            "(e52695f) — regression pin: must remain False even for Boyz")
+        self.assertFalse(bystander_buffs["plus_one_to_hit"],
+            "Warboss aura must NOT grant plus_one_to_hit to any attacker")
 
     def test_typhus_fnp_only_to_plague_marines(self):
         # Typhus host_keys = ('death_guard_plague_marines',). His
@@ -905,26 +1014,50 @@ class HostKeysGatingTests(unittest.TestCase):
             "Overlord aura must NOT reach a non-leadable C'tan Shard")
 
     def test_dominus_aura_only_to_skitarii(self):
-        # Tech-Priest Dominus host_keys = Skitarii Vanguard / Rangers.
-        # His reroll_hit_ones aura must NOT leak onto an unrelated grunt.
+        # ADMECH-DIAG-3 (2026-05-26): Dominus reroll_hit_ones was a fabrication;
+        # real "Lord of the Machine Cult" grants Feel No Pain 5+.
+        # ADMECH-DIAG-6 (2026-05-26): Skitarii Vanguard and Rangers were removed
+        # from Dominus's host_keys to fix broadcast over-application (the
+        # proximity-broadcast model was firing Feel No Pain 5+ on all four
+        # Skitarii squads simultaneously, far beyond the one-attached-unit rule).
+        # host_keys now lists only Electro-Priests (who have native Feel No Pain 5+
+        # making the Dominus aura a calibration no-op for them).
+        # This test is repurposed: verify the Skitarii Vanguard name now falls
+        # OUTSIDE host_keys (regression pin against re-adding the over-broadcast),
+        # and that neither Skitarii nor bystander receive a reroll_hit_ones aura.
+        # audited away in ADMECH-DIAG-3 + ADMECH-DIAG-6 (2026-05-26)
         leader = self._character("Tech-Priest Dominus")
-        skitarii = self._non_character("Skitarii Vanguard")  # legal host
+        skitarii = self._non_character("Skitarii Vanguard")  # previously legal host; now outside host_keys
         bystander = self._non_character("Grunt")              # no catalog key
         army = _make_army(
             "AdMech",
             [skitarii, bystander, leader],
             [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)],
         )
+        ab = lookup_ability("Tech-Priest Dominus")
+        self.assertIsNotNone(ab)
+        self.assertNotIn("adeptus_mechanicus_skitarii_vanguard", ab.host_keys,
+            "Skitarii Vanguard was removed from Dominus host_keys in "
+            "ADMECH-DIAG-6 (2026-05-26) — regression pin")
+        # reroll_hit_ones was the audited-away fabricated aura.
         skitarii_buffs = effective_buffs(army.units[0])
         bystander_buffs = effective_buffs(army.units[1])
-        self.assertTrue(skitarii_buffs["reroll_hit_ones"],
-            "Dominus aura must reach Skitarii Vanguard")
+        self.assertFalse(skitarii_buffs["reroll_hit_ones"],
+            "Dominus reroll_hit_ones was audited away in ADMECH-DIAG-3 — "
+            "must remain False for all attackers including Skitarii")
         self.assertFalse(bystander_buffs["reroll_hit_ones"],
-            "Dominus aura must NOT reach a non-host bystander")
+            "Dominus aura must NOT grant reroll_hit_ones to any unit")
 
     def test_archon_aura_only_to_kabalites(self):
         # Archon host_keys = ('aeldari_drukhari_kabalite_warriors',).
-        # His +1-to-hit aura must only reach Kabalite Warriors.
+        # DRK-DIAG-3 (2026-05-23): Archon's plus_one_to_hit was a fabrication.
+        # "Hatred Eternal" is a Pain-token-gated Empower mechanic, not an
+        # always-on +1-to-hit aura. The proxy was dropped (no offensive flag).
+        # This test is repurposed: verify (a) the host_keys gate is intact
+        # (regression pin against the proxy being re-added without the gate),
+        # (b) no offensive flag leaks through regardless of host membership,
+        # and (c) the entry still resolves (CLAUDE.md §13 fail-loud).
+        # audited away in DRK-DIAG-3 (2026-05-23)
         leader = self._character("Archon")
         kabalites = self._non_character("Kabalite Warriors")  # legal host
         bystander = self._non_character("Grunt")              # no catalog key
@@ -933,10 +1066,18 @@ class HostKeysGatingTests(unittest.TestCase):
             [kabalites, bystander, leader],
             [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)],
         )
+        ab = lookup_ability("Archon")
+        self.assertIsNotNone(ab, "Archon must remain in the registry (CLAUDE.md §13)")
+        self.assertEqual(ab.host_keys, ("aeldari_drukhari_kabalite_warriors",),
+            "Archon host_keys must stay intact for future restoration when "
+            "Pain-token economy is modelled — DRK-DIAG-3 regression pin")
+        # The audit removed the offensive flag — neither host nor bystander
+        # should receive any offensive buff from the Archon currently.
         kabalite_buffs = effective_buffs(army.units[0])
         bystander_buffs = effective_buffs(army.units[1])
-        self.assertTrue(kabalite_buffs["plus_one_to_hit"],
-            "Archon Hatred Eternal must reach Kabalite Warriors")
+        self.assertFalse(kabalite_buffs["plus_one_to_hit"],
+            "Archon plus_one_to_hit was audited away in DRK-DIAG-3 (2026-05-23) "
+            "— regression pin: must remain False for all attackers")
         self.assertFalse(bystander_buffs["plus_one_to_hit"],
             "Archon aura must NOT reach a non-host bystander")
 
@@ -972,12 +1113,25 @@ class HostKeysGatingTests(unittest.TestCase):
         # weapons equipped by models in that unit have the [ASSAULT] and
         # [LETHAL HITS] abilities." — broadcast aura, NO led-unit gate.
         # iter22: host_keys widened to () so `effective_buffs` applies
-        # the reroll_wound_ones proxy to any Tyranids attacker in range
-        # regardless of whether it's a formal Hive Tyrant bodyguard.
+        # the proxy to any Tyranids attacker in range regardless of whether
+        # it's a formal Hive Tyrant bodyguard.
+        # TYRANIDS-DIAG-7 (2026-05-26): reroll_wound_ones proxy was removed.
+        # The real Onslaught rule grants [LETHAL HITS] on ranged only;
+        # reroll_wound_ones over-applied to melee and was the wrong mechanic.
+        # The entry now ships NO-FLAG + host_keys=() (same structural pattern
+        # as Avatar of Khaine / Autarch / Custodes Blade Champion). The
+        # reroll_wound_ones assertions are flipped to assertFalse regression
+        # pins. host_keys must remain empty (broadcast convention). The test
+        # retains its army-wide structure to lock in that the broadcast
+        # convention (host_keys=()) still holds even after the flag drop.
+        # audited away in TYRANIDS-DIAG-7 (2026-05-26)
         ab = lookup_ability("Hive Tyrant")
         self.assertIsNotNone(ab)
         self.assertEqual(ab.host_keys, (),
             "Hive Tyrant codex aura is broadcast — host_keys must be empty")
+        self.assertFalse(ab.reroll_wound_ones,
+            "Hive Tyrant reroll_wound_ones was audited away in TYRANIDS-DIAG-7 "
+            "(2026-05-26) — regression pin: must remain False")
 
         leader_p = UnitProfile(
             name="Hive Tyrant", health=12, damage=4, hit_probability=2 / 3,
@@ -985,8 +1139,9 @@ class HostKeysGatingTests(unittest.TestCase):
             unit_keywords=("MONSTER", "CHARACTER", "EPIC HERO"),
         )
         # Two unrelated Tyranids attackers — gants, warriors — both
-        # within 6" of the Tyrant. Both must get the aura since host_keys
-        # is empty.
+        # within 6" of the Tyrant. host_keys=() means the gate is skipped
+        # for every attacker — but since the aura carries no flag, no buff
+        # is received.
         gant = self._non_character("Termagants")
         warrior = self._non_character("Tyranid Warriors with Melee Bio-Weapons")
         scratch = self._non_character("Grunt")    # no catalog key
@@ -995,14 +1150,19 @@ class HostKeysGatingTests(unittest.TestCase):
             [gant, warrior, scratch, leader_p],
             [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (3.0, 0.0)],
         )
-        self.assertTrue(effective_buffs(army.units[0])["reroll_wound_ones"],
-            "Hive Tyrant aura must apply to in-range Termagants (broadcast)")
-        self.assertTrue(effective_buffs(army.units[1])["reroll_wound_ones"],
-            "Hive Tyrant aura must apply to in-range Tyranid Warriors")
-        # Even a scratch attacker with no catalog key receives the aura
-        # because host_keys=() skips the gate.
-        self.assertTrue(effective_buffs(army.units[2])["reroll_wound_ones"],
-            "Hive Tyrant broadcast aura must apply regardless of catalog key")
+        # None of the three attackers should receive reroll_wound_ones now
+        # that the proxy flag was audited away. These assertions serve as
+        # regression pins against the flag being re-added without the
+        # matching [LETHAL HITS] ranged-only plumbing.
+        self.assertFalse(effective_buffs(army.units[0])["reroll_wound_ones"],
+            "Hive Tyrant reroll_wound_ones must not apply to Termagants after "
+            "TYRANIDS-DIAG-7 audit — regression pin")
+        self.assertFalse(effective_buffs(army.units[1])["reroll_wound_ones"],
+            "Hive Tyrant reroll_wound_ones must not apply to Tyranid Warriors "
+            "after TYRANIDS-DIAG-7 audit — regression pin")
+        self.assertFalse(effective_buffs(army.units[2])["reroll_wound_ones"],
+            "Hive Tyrant reroll_wound_ones must not apply to any attacker "
+            "after TYRANIDS-DIAG-7 audit — regression pin")
 
     def test_avatar_of_khaine_host_keys_empty(self):
         # Avatar of Khaine — codex "While a friendly AELDARI unit is

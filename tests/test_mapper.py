@@ -314,14 +314,17 @@ class RealBSDataSquadRegressionTests(unittest.TestCase):
         # (damage ~2.0) and pure-multi-melta cheese (damage ~7).
         self.assertGreater(u["damage"], 2.0)
         self.assertLess(u["damage"], 6.0)
-        # Melta keyword proportion-weighted (#iter20): the real Devastator
-        # squad basket includes boltguns (5), bolt pistols (5+4=9), and
-        # multi-meltas (4) — 4-of-18 weapons carry Melta 2 = 22%, weighted
-        # to round(0.22 * 2) = 0. Pre-#iter20 this was 2 (legacy max(...) —
-        # a minority of weapon carriers set the squad-wide keyword).
-        # AP/strength/loadout assertions below still hold via the per-shot
-        # averaging path; only the boolean-union semantic changed.
-        self.assertEqual(u["melta"], 0)
+        # Melta keyword proportion-weighted (#iter20): the original basket
+        # included boltguns (5), bolt pistols (5+4=9), and multi-meltas (4) —
+        # giving 4-of-18 weapons with Melta 2 = 22% fraction, which rounded
+        # to 0. After GSC-REGRESSION-V1 (basket_best_ranged_per_model fix),
+        # bolt pistols are no longer included in the basket (each model fires
+        # its BEST ranged weapon, not all of them). The basket is now boltguns
+        # (5), multi-meltas (4), and sergeant (1) — 4-of-10 models carry Melta
+        # 2, fraction = (4*2) / (5*2+4*2+1*1) = 8/19 ≈ 42%, weighted to
+        # round(0.42 * 2) = 1. The melta keyword is now visible for the
+        # 40% of attacks that come from multi-melta models.
+        self.assertEqual(u["melta"], 1)
         # AP averages the bolter (0) with the multi-melta (-4) — should
         # land negative but well above -4.
         self.assertLess(u["ap"], 0)

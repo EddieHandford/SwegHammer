@@ -27,6 +27,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PARSED_PATH = REPO_ROOT / "data" / "bsdata" / "parsed.json"
 OVERRIDES_PATH = REPO_ROOT / "data" / "overrides.json"
 CALIBRATED_PATH = REPO_ROOT / "data" / "calibrated_points.json"
+# Codex corrections layer (added wave 47): per-codex-edition file that
+# corrects BSData's lag against the live errata. Distinct from
+# overrides.json because corrections are *not* SwegHammer hand-tuning —
+# they restore the canonical codex value when BSData hasn't caught up yet.
+# Filename templated by codex_version: codex_corrections_10e.json,
+# codex_corrections_11e.json (etc.) so an 11e release can be selected at
+# load time without touching overrides.json. Default is 10e.
+def _codex_corrections_path(codex_version: str) -> "Path":
+    return REPO_ROOT / "data" / f"codex_corrections_{codex_version}.json"
+DEFAULT_CODEX_VERSION = "10e"
 
 
 @dataclass
@@ -58,6 +68,7 @@ class CatalogEntry:
     twin_linked: bool = False
     devastating_wounds: bool = False
     invuln_save: int = 7
+    invuln_ranged_only: bool = False
     rapid_fire: int = 0
     melta: int = 0
     ignores_cover: bool = False
@@ -113,6 +124,18 @@ class CatalogEntry:
     # does not yet parse this rule out of the cache; the override is the
     # authoritative source). Cited as `simulator.resolute_will`.
     resolute_will: bool = False
+    # CHAOS DAEMONS — Murderer's Cowl (Khorne army rule). BSData verbatim:
+    # "This unit is eligible to shoot and declare a charge in a turn in
+    # which it Advanced." Set per-unit via overrides.json. Enables the
+    # charge-after-Advance exemption in simulator._do_charge.
+    # Cited as `simulator.murderers_cowl`.
+    murderers_cowl: bool = False
+    # CHAOS DAEMONS — Gloam Rot (Nurgle army rule). BSData verbatim:
+    # "Each time an attack targets this unit, if the Strength characteristic
+    # of that attack is greater than this unit's Toughness characteristic,
+    # subtract 1 from the Wound roll." Set per-unit via overrides.json.
+    # Cited as `simulator.gloam_rot`.
+    gloam_rot: bool = False
     # NECRONS-CTAN — Necrodermis (C'tan datasheet ability). Halves the
     # Damage characteristic of each allocated attack (rounding up); D1
     # attacks deal 0 damage. Set per-unit via overrides.json (the BSData
@@ -161,6 +184,31 @@ class CatalogEntry:
     # hit_probability, ap, strength, range_inches, anti_keywords, plus the
     # ranged keyword flags). Empty = no extras. See MappedUnit comment.
     extra_ranged_profiles: Optional[List[Dict[str, Any]]] = None
+    # KNIGHTS-MULTIPROFILE-2: TERTIARY+ melee weapon profiles (Knight Abominant
+    # Balemace, Knight Rampager Reaper chainsword, etc.). List of dicts, each
+    # carrying the melee weapon-attack contract (weapon, attacks,
+    # weapon_damage_per_shot, hit_probability, ap, strength, plus per-weapon
+    # keyword flags: sustained_hits, lethal_hits, devastating_wounds,
+    # lance, precision, twin_linked, anti_keywords). Empty / missing = no
+    # extras. ADDITIVE in simulator resolution (every entry fires alongside
+    # the primary melee in the same Fight phase), as distinct from the MUTEX
+    # extra_ranged_profiles picker. Cited as `simulator.extra_melee_profiles`.
+    extra_melee_profiles: Optional[List[Dict[str, Any]]] = None
+    # PER-MODEL-LOADOUTS (Stage 1 mapper / Stage 2 plumbing) — the actual
+    # per-model-type weapon loadout for this unit. List of dicts, one per
+    # distinct model type in the squad, each shaped
+    #   {"name": str, "count": float, "ranged": [wdict, ...], "melee": [wdict, ...]}
+    # where each `wdict` carries the same scalar weapon fields as the
+    # extra_ranged_profiles dicts (weapon, attacks, weapon_damage_per_shot,
+    # hit_probability, ap, strength, range_inches, anti_keywords, the ranged /
+    # melee keyword flags) PLUS the raw dice strings `attacks_dice` and
+    # `damage_dice`. Distinct from the aggregate synthetic primary/secondary/
+    # extra_* weapon blocks above (which collapse the whole squad into one
+    # averaged weapon): this field preserves who-carries-what so a later stage
+    # can fire each model's real loadout. GATE-INERT in Stage 2 — nothing reads
+    # it for behaviour yet; it is purely carried from parsed.json → UnitProfile.
+    # Empty / missing = no per-model loadout recorded (legacy entries).
+    model_loadouts: Optional[List[Dict[str, Any]]] = None
     # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
     # Defaults to 1.0 preserve legacy single-weapon behaviour. Heterogeneous
     # squads (Rubric Marines, Skyweavers, Beast Snagga Boyz) carry values
@@ -210,6 +258,7 @@ class CatalogEntry:
             twin_linked=bool(d.get("twin_linked", False)),
             devastating_wounds=bool(d.get("devastating_wounds", False)),
             invuln_save=int(d.get("invuln_save", 7)),
+            invuln_ranged_only=bool(d.get("invuln_ranged_only", False)),
             rapid_fire=int(d.get("rapid_fire", 0)),
             melta=int(d.get("melta", 0)),
             ignores_cover=bool(d.get("ignores_cover", False)),
@@ -237,6 +286,8 @@ class CatalogEntry:
             fnp=int(d.get("fnp", 7)),
             sticky_objective=bool(d.get("sticky_objective", False)),
             resolute_will=bool(d.get("resolute_will", False)),
+            murderers_cowl=bool(d.get("murderers_cowl", False)),
+            gloam_rot=bool(d.get("gloam_rot", False)),
             necrodermis=bool(d.get("necrodermis", False)),
             reanimates_with_army=bool(d.get("reanimates_with_army", False)),
             unit_keywords=list(d.get("unit_keywords") or []),
@@ -269,6 +320,17 @@ class CatalogEntry:
             # MAP-1: list of tertiary+ ranged profiles. Each is a dict mirroring
             # the secondary_* fields. Missing key = no extras (most units).
             extra_ranged_profiles=list(d.get("extra_ranged_profiles") or []),
+            # KNIGHTS-MULTIPROFILE-2: list of tertiary+ MELEE profiles. Each is
+            # a dict mirroring the melee weapon-attack contract. Missing key =
+            # no extras (most units). See CatalogEntry.extra_melee_profiles
+            # for the field-level contract.
+            extra_melee_profiles=list(d.get("extra_melee_profiles") or []),
+            # PER-MODEL-LOADOUTS: list of per-model-type loadout dicts. Missing
+            # key = no per-model loadout recorded. Mirrors the
+            # extra_ranged_profiles read convention (carried verbatim; the
+            # nested ranged/melee weapon dicts are not flattened until the
+            # UnitProfile build in code.units._build_catalog).
+            model_loadouts=list(d.get("model_loadouts") or []),
             # MAP-3-FIX — parse basket fractions. Missing key = 1.0 (legacy:
             # any unit predating this change keeps full-keyword behaviour).
             devastating_wounds_basket_fraction=float(
@@ -309,6 +371,49 @@ def _load_overrides() -> Dict[str, Dict]:
     return payload.get("units", {})
 
 
+def _load_codex_corrections(codex_version: str) -> Dict[str, Dict]:
+    """Load the per-codex-edition BSData-lag corrections file.
+
+    Layered into load_catalog BETWEEN the BSData base and the hand-tuning
+    overrides.json. Two reasons for keeping it separate from
+    overrides.json:
+
+      1. Auditability — when BSData updates and the lag closes, the
+         corrections entry can be retired by checking that BSData now
+         carries the field at the corrected value. Mixed with
+         hand-tuning entries in overrides.json this would be lost.
+      2. Codex version selection — when 11e (or any subsequent edition)
+         releases, a parallel codex_corrections_11e.json file pins the
+         simulator to the chosen edition without rewriting overrides.json.
+         Pass codex_version="11e" to load_catalog (or the eval CLI) to
+         flip baselines.
+
+    Each entry has the shape:
+      "unit_key": {
+        "fields": {"<field>": <value>, ...},  # applied as override
+        "source": "<wahapedia URL>",
+        "errata": "<change description>",
+        "bsdata_was": {"<field>": <stale value>}  # audit aid
+      }
+
+    Returns a flat {unit_key: fields_dict} suitable for the same
+    `_apply_override` merge path used by overrides / calibrated.
+    Metadata keys (source, errata, bsdata_was, notes) are stripped.
+    Silent no-op if the corrections file doesn't exist.
+    """
+    path = _codex_corrections_path(codex_version)
+    if not path.exists():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    out: Dict[str, Dict] = {}
+    for key, record in payload.get("corrections", {}).items():
+        fields = record.get("fields") or {}
+        if not fields:
+            continue
+        out[key] = dict(fields)
+    return out
+
+
 def _load_calibrated_overrides() -> Dict[str, Dict]:
     """
     Read data/calibrated_points.json (written by code/balancer.py) and shape
@@ -333,7 +438,23 @@ def _load_calibrated_overrides() -> Dict[str, Dict]:
 def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> CatalogEntry:
     """Apply an override dict to a base entry, or create a new entry from scratch."""
     if base is None:
-        # Fresh entry from overrides only — fields must be present
+        # An override with no BSData base is only legitimate when it carries
+        # the core stat fields needed to describe a unit from scratch. A
+        # partial override (e.g. anti_keywords-only) on a key that doesn't
+        # match any BSData entry is a typo'd key — silently fabricating a
+        # zero-stat ghost entry caused a 14 GB pytest leak via build_random_army
+        # (the zero-cost ghost was eternally affordable). Fail loud per
+        # CLAUDE.md rule 13.
+        required = ("name", "health", "damage")
+        missing = [f for f in required if f not in override]
+        if missing:
+            raise KeyError(
+                f"data/overrides.json key {key!r} has no matching entry in "
+                f"data/bsdata/parsed.json and the override is partial "
+                f"(missing required fields: {missing}; got: {sorted(override)}). "
+                f"Either fix the typo so it matches a BSData key, or fill in "
+                f"the missing fields to create a fresh unit from scratch."
+            )
         return CatalogEntry.from_dict({"key": key, **override})
 
     merged = {
@@ -360,6 +481,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "twin_linked": override.get("twin_linked", base.twin_linked),
         "devastating_wounds": override.get("devastating_wounds", base.devastating_wounds),
         "invuln_save": override.get("invuln_save", base.invuln_save),
+        "invuln_ranged_only": override.get("invuln_ranged_only", base.invuln_ranged_only),
         "rapid_fire": override.get("rapid_fire", base.rapid_fire),
         "melta": override.get("melta", base.melta),
         "ignores_cover": override.get("ignores_cover", base.ignores_cover),
@@ -387,6 +509,8 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "fnp": override.get("fnp", base.fnp),
         "sticky_objective": override.get("sticky_objective", base.sticky_objective),
         "resolute_will": override.get("resolute_will", base.resolute_will),
+        "murderers_cowl": override.get("murderers_cowl", base.murderers_cowl),
+        "gloam_rot": override.get("gloam_rot", base.gloam_rot),
         "necrodermis": override.get("necrodermis", base.necrodermis),
         "reanimates_with_army": override.get("reanimates_with_army", base.reanimates_with_army),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),
@@ -422,6 +546,21 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "extra_ranged_profiles": override.get(
             "extra_ranged_profiles", base.extra_ranged_profiles or []
         ),
+        # KNIGHTS-MULTIPROFILE-2: tertiary+ MELEE profiles. Same convention
+        # as extra_ranged_profiles — override fully replaces the list; base
+        # value defaults to [] when None. Cited as
+        # `simulator.extra_melee_profiles`.
+        "extra_melee_profiles": override.get(
+            "extra_melee_profiles", base.extra_melee_profiles or []
+        ),
+        # PER-MODEL-LOADOUTS: per-model-type loadout list. Same full-replacement
+        # convention as extra_ranged_profiles / extra_melee_profiles — an
+        # override key replaces the whole list (overrides almost never touch it;
+        # the mapper populates it from BSData). base value defaults to [] when
+        # None.
+        "model_loadouts": override.get(
+            "model_loadouts", base.model_loadouts or []
+        ),
         # MAP-3-FIX — basket fractions. Override path almost never sets these
         # (the mapper computes them from BSData) but allow overrides for
         # corner cases / hand-tuning. Default 1.0 preserves legacy behaviour.
@@ -453,26 +592,39 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
 def load_catalog(
     include_disabled: bool = False,
     use_calibrated: bool = False,
+    codex_version: str = DEFAULT_CODEX_VERSION,
 ) -> Dict[str, CatalogEntry]:
     """
     Build the merged catalogue. Layers, in precedence order (later wins):
 
-      1. data/bsdata/parsed.json     — BSData-derived base stats
-      2. data/overrides.json         — hand-tuned modifications
-      3. data/calibrated_points.json — balancer-derived points_override
-                                       (only applied if use_calibrated=True
-                                       AND the calibration converged)
+      1. data/bsdata/parsed.json                 — BSData-derived base stats
+      2. data/codex_corrections_<version>.json   — BSData-lag corrections
+                                                   (canonical codex values
+                                                   for the chosen edition)
+      3. data/overrides.json                     — SwegHammer hand-tuning
+      4. data/calibrated_points.json             — balancer-derived points
+                                                   (only if use_calibrated=True
+                                                   AND calibration converged)
+
+    `codex_version` selects which corrections file to layer in. Default is
+    "10e". When 11e releases, copy codex_corrections_10e.json to
+    codex_corrections_11e.json, edit the 11e entries, and pass
+    codex_version="11e" to lock the simulator to the 11e codex without
+    touching overrides.json.
     """
     base = _load_parsed()
+    corrections = _load_codex_corrections(codex_version)
     overrides = _load_overrides()
     calibrated = _load_calibrated_overrides() if use_calibrated else {}
 
     out: Dict[str, CatalogEntry] = {}
-    keys = set(base) | set(overrides) | set(calibrated)
+    keys = set(base) | set(corrections) | set(overrides) | set(calibrated)
     for key in keys:
-        # Merge overrides FIRST, then calibrated on top so balancer output
-        # wins over manual overrides for points only.
-        merged_override = dict(overrides.get(key, {}))
+        # Merge order: corrections first (canonical codex), then overrides
+        # (SwegHammer hand-tuning), then calibrated (balancer output).
+        # Each later layer wins on overlapping fields.
+        merged_override = dict(corrections.get(key, {}))
+        merged_override.update(overrides.get(key, {}))
         merged_override.update(calibrated.get(key, {}))
         entry = _apply_override(base.get(key), merged_override, key)
         if not include_disabled and not entry.enabled:
@@ -481,11 +633,13 @@ def load_catalog(
     return out
 
 
-def summary() -> str:
-    catalog = load_catalog()
+def summary(codex_version: str = DEFAULT_CODEX_VERSION) -> str:
+    catalog = load_catalog(codex_version=codex_version)
     return (
         f"{len(catalog)} units in catalogue "
-        f"({len(_load_parsed())} from BSData, {len(_load_overrides())} override entries)"
+        f"({len(_load_parsed())} from BSData, "
+        f"{len(_load_codex_corrections(codex_version))} codex_{codex_version} corrections, "
+        f"{len(_load_overrides())} override entries)"
     )
 
 

@@ -1,4 +1,12 @@
 {
+  "simulator.basket_best_ranged_per_model": {
+    "rule_name": "Shooting Phase — one ranged weapon per model",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Shooting-Phase",
+    "quoted_text": "Select one ranged weapon that model is equipped with and make attacks with it. … [PISTOL]: … each time a model makes an attack with this weapon, if the attacking unit is within Engagement Range of one or more enemy units, that attack can only target one of those enemy units.",
+    "trigger": "Any time the heterogeneous-squad mapper collects fixed ranged weapons for a single model type and the model carries more than one fixed ranged weapon (e.g. Mining laser + Autopistol, Plasma incinerator + Bolt pistol). A model will always elect to fire its highest-damage weapon in the Shooting phase; the Autopistol/Bolt pistol secondary is only usable during the Fight phase under the [PISTOL] rule.",
+    "effect": "When _collect_weapons_for_model yields multiple fixed ranged weapons for one model type, only the single best (by expected_damage_through_baseline) non-[PISTOL] weapon is kept. This prevents the Autopistol/Bolt pistol secondary from diluting the basket average of the model's primary weapon in _flatten_to_basket. Pistol-only models are unaffected.",
+    "scope": "weapon-keyword"
+  },
   "AWAKENED_DYNASTY.bonus_to_hit_when_led": {
     "effect": "+1 to the Hit roll",
     "quoted_text": "While a NECRONS CHARACTER model is leading this unit, each time a model in this unit makes an attack, add 1 to the Hit roll.",
@@ -17,12 +25,12 @@
     "trigger": "Plain-English when-it-fires."
   },
   "simulator.acts_of_faith": {
-    "effect": "Gain 1 Miracle die at the start of each battle round, plus 1 each time a friendly Sororitas unit is destroyed; each die is a pre-rolled D6 banked in a pool. Before any d6 roll (Advance / Battle-shock / Charge / Damage / Hit / Saving throw / Wound) a unit with this ability may perform one Act of Faith per phase, substituting one banked die for ONE d6 of that roll (multi-die rolls only allow a single substitution). The substituted die is removed from the pool and counts as an unmodified roll of its banked value.",
+    "effect": "Gain 1 Miracle die at the start of each battle round (while at least one Sororitas unit is alive), plus 1 each time a friendly Sororitas codex-unit is fully destroyed (last sim-instance of that profile.name dies, non-TRANSPORT only, while at least one other Sororitas unit is still alive). Each die is a pre-rolled D6 banked in a pool (soft cap 8, no hard codex limit). Before any d6 roll a unit may perform one Act of Faith per phase (sim: one per codex-unit per round), substituting one banked die for ONE d6 of that roll. Only substitutes when the swap converts fail -> success (simulator greedy heuristic).",
     "quoted_text": "If your Army Faction is Adepta Sororitas, each unit from your army with this ability can perform one Act of Faith per phase. This is done using Miracle dice. GAINING MIRACLE DICE If your Army Faction is Adepta Sororitas, you gain 1 Miracle dice: - At the start of each battle round. - Each time an Adepta Sororitas unit from your army is destroyed. Each time you gain a Miracle dice, roll one D6. The number you roll is the value of that Miracle dice. This value cannot be changed or re-rolled, unless a rule specifically states otherwise. Keep your Miracle dice to one side â€“ this is your Miracle dice pool. PERFORMING AN ACT OF FAITH Before making a dice roll for a model or unit from your army with the Acts of Faith ability, if you have one or more dice in your Miracle dice pool, that unit can perform an Act of Faith. If it does, select one of the dice from your Miracle dice pool to substitute that dice roll (if a roll involves more than one dice, e.g. a Charge roll or Battle-shock test, only a single dice can be substituted). The dice that is being substituted is not rolled; instead the value of the selected Miracle dice is used as if it had been rolled (this counts as an unmodified dice roll of that value for all rules purposes). Each Miracle dice can only be selected for substitution once. Once all Miracle dice substitutions have been made, remove the chosen Miracle dice from your Miracle dice pool, and roll all remaining, unsubstituted dice that are a part of the dice roll. You can use Miracle dice when a unit performs an Act of Faith for any of the following types of dice roll: Advance roll, Battle-shock test, Charge roll, Damage roll, Hit roll, Saving throw, Wound roll.",
     "rule_name": "Acts of Faith",
     "scope": "army-wide",
     "source": "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/",
-    "trigger": "attacker / defender unit has Adepta Sororitas faction tag AND its army has at least one Miracle die banked AND the natural d6 roll (hit / wound / save) would fail; the simulator's greedy heuristic only substitutes when a banked die flips fail -> success"
+    "trigger": "attacker / defender unit has Adepta Sororitas faction tag AND its army has at least one Miracle die banked AND the natural d6 roll (hit / wound / save) would fail AND the codex-unit (profile.name group) has not already used its Acts of Faith budget this round; the simulator greedy heuristic only substitutes when a banked die flips fail -> success. APPROXIMATION (SOROR-ACTS-OF-FAITH-V1): the codex allows one Act of Faith per unit per phase (up to 4 phases per round); the simulator collapses to one per codex-unit per round (conservative under-approximation). Squad-level cap: all sim instances sharing a profile.name count as one codex unit, enforcing the per-squad-not-per-model constraint. APPROXIMATION (retroactive substitution): the codex requires declaring the substitution BEFORE the roll; the simulator substitutes retroactively only on failures (equivalent in expectation under optimal play, noted per CLAUDE.md section 10). SOROR-DETACHMENT-V1 on-death generation fix: the previous code fired one die per sim-instance destroyed (e.g. 25 dice for 25 Repentia Squad instances), over-generating by ~4.65x. Fixed to fire only when the LAST alive sim-instance of a given profile.name dies (the codex unit is fully destroyed), and excluding TRANSPORT units which do not carry the Acts of Faith ability on their datasheets. TRANSPORT gate: Sororitas Immolator / Sororitas Rhino / Repressor are VEHICLE TRANSPORT datasheets and do not list the Acts of Faith ability; their destruction does not award Miracle dice."
   },
   "simulator.basket_fraction_gating": {
     "effect": "Unit.attack gates LANCE / DEVASTATING WOUNDS / ANTI-X consumption per shot via a Bernoulli draw against a basket-weight fraction recorded by the mapper. For heterogeneous squads (Rubric Marines, Skyweavers, Beast Snagga Boyz, AdMech Skitarii) the MAP-3 boolean UNION marks the keyword present on the synthetic average weapon so the picker is aware of it; this fraction then ensures each shot only fires the keyword with probability equal to the proportion of basket weight whose underlying weapon legitimately carries it. Single-weapon units default to fraction 1.0 (keyword fires for every shot) so the legacy gate is preserved. Rule-correct: each MODEL in a squad shoots its OWN weapon and squad attacks come from the mixed pool of those weapons; we don't track per-model weapon assignments so the random-expectation Bernoulli matches the real per-attack distribution.",
@@ -41,12 +49,12 @@
     "trigger": "attacker is a World Eaters unit; a friendly Eightbound or Exalted Eightbound unit is alive (sim does not track 6\" aura ranges precisely, see leaders.effective_buffs for the same approximation); attack is melee; target lacks MONSTER and VEHICLE keywords"
   },
   "simulator.benefits_of_cover": {
-    "effect": "+1 to the armour save (one pip better). INFANTRY models cap at 3+ (a 3+ Marine in cover stays at 3+). Vehicles / monsters / mounted models do not share the 3+ cap. The universal 2+ armour-save floor still applies. Melee attacks ignore cover entirely.",
-    "quoted_text": "When you make an armour saving throw for a model that has the Benefits of Cover, add 1 to that saving throw. INFANTRY models cannot improve their Save characteristic to better than 3+ by virtue of this rule.",
-    "rule_name": "Benefits of Cover",
+    "effect": "+1 to the armour save (one pip better; cover never improves a save by more than 1). AP0 / 3+-save exception applied to ALL models (not just INFANTRY): a model with a Save characteristic of 3+ or better gets NO Benefit of Cover against an attack whose Armour Penetration is 0; it still gains the +1 save against any attack with AP. The universal 2+ armour-save floor still applies. Melee attacks ignore cover entirely. The stale 9th-edition terrain -1-to-hit and the 'INFANTRY cap at 3+' approximation have been removed.",
+    "quoted_text": "Until the end of the phase, each time a ranged attack is allocated to a model in this unit while it is receiving the Benefit of Cover, add 1 to the armour saving throw made against that attack. If a model has a Save characteristic of 3+ or better, that model cannot have the Benefit of Cover against attacks made with weapons that have an Armour Penetration characteristic of 0.",
+    "rule_name": "Benefit of Cover",
     "scope": "phase-gated",
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Features",
-    "trigger": "ranged attack resolves against a defender whose `in_cover` flag is set (inside terrain that grants cover, or the army's blanket cover flag); precision against CHARACTER and Ignores Cover bypass this"
+    "trigger": "ranged attack resolves against a defender whose `in_cover` flag is set (inside terrain that grants cover, or the army's blanket cover flag); precision against CHARACTER and Ignores Cover bypass this; the AP0 / 3+-save exception suppresses cover when the attack's AP is 0 and the target's base Save is 3+ or better"
   },
   "simulator.big_guns_never_tire": {
     "effect": "permitted to shoot; -1 to all hit rolls this activation",
@@ -73,7 +81,7 @@
     "trigger": "defender is a World Eaters Khorne Berzerkers unit; an enemy unit has shot at it during the opponent's Shooting phase; one or more models were destroyed as a result of those attacks"
   },
   "simulator.combat_drugs": {
-    "effect": "one Combat Drug is active army-wide on every WYCH CULT unit; the drugs are mutually exclusive when picked manually (the same drug cannot be reselected in the same battle). SwegHammer applies Adrenalight (+1 melee Attacks on every WYCH CULT model) as the canonical single army-wide pick; the other five drugs (Hypex, Serpentin, Painbringer, Grave Lotus, Splintermind) are not modelled. DRK-DIAG-4 corrected the prior implementation, which had stacked four drugs simultaneously across four different WYCH CULT units (rules-illegal).",
+    "effect": "one Combat Drug is active army-wide on every WYCH CULT unit until the start of the next Command phase; the drugs are mutually exclusive when picked manually (the same drug cannot be reselected in the same battle). SwegHammer applies Adrenalight (+1 melee Attacks on every WYCH CULT model) as the canonical single army-wide pick for Round 1 only; the other five drugs (Hypex, Serpentin, Painbringer, Grave Lotus, Splintermind) are not modelled. DRK-DIAG-4 corrected the prior implementation, which had stacked four drugs simultaneously across four different WYCH CULT units (rules-illegal). DRK-NON-SKYSPLINTER-V1 (2026-05-29) corrected the per-round timing: drug was previously applied at battle start and persisted for the entire battle (5 rounds), giving Adrenalight x5 the codex magnitude. The fix moves application to the Command phase and clears the drug at each round-start, so Adrenalight fires for Round 1 only (matching the codex \"cannot reselect\" restriction). Rounds 2-5 have no active drug (no other drugs wired).",
     "quoted_text": "At the start of your Command phase, select which Combat Drugs will be active for your army until the start of your next Command phase. To do so, either select one from the list below (you cannot select the same Combat Drug more than once per battle), or randomly select two by rolling two D6. Adrenalight: Add 1 to the Attacks characteristic of melee weapons equipped by WYCH CULT models. Hypex: Add 2\" to the Move characteristic of WYCH CULT models. Serpentin: Improve the Weapon Skill characteristic of melee weapons equipped by WYCH CULT models by 1. Painbringer: Add 1 to the Toughness characteristic of WYCH CULT models. Grave Lotus: Add 1 to the Strength characteristic of melee weapons equipped by WYCH CULT models. Splintermind: Improve the Leadership characteristic of WYCH CULT models by 1, and improve the Ballistic Skill characteristic of ranged weapons equipped by WYCH CULT models by 1.",
     "rule_name": "Combat Drugs",
     "scope": "army-wide",
@@ -87,14 +95,6 @@
     "scope": "army-wide",
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/",
     "trigger": "attacker unit has CHAOS SPACE MARINES army-rule keyword AND is selected to attack"
-  },
-  "simulator.disembark": {
-    "effect": "When a unit disembarks from a TRANSPORT via the voluntary `_maybe_disembark_before_move` hook or the forced `_destroyed_transport_disembark` path, the passenger is placed within 3\" of the transport, its uid is added to `_did_move_this_round` (surfacing the move to the Heavy keyword check), and its uid is added to `_disembarked_this_round`. When that passenger's own activation arrives, `_do_move` returns early after the disembark hook so it cannot make a Normal, Advance or Fall Back move that turn. The passenger can still Shoot and Charge — those are dispatched separately via `_do_shoot` / `_do_charge` and are NOT blocked by the disembark lockout. DRK-DISEMBARK (2026-05-23) added the lockout; prior code let the disembarked unit Move/Advance again on its own activation, granting an extra phase of action per disembark.",
-    "quoted_text": "If a unit disembarks from a Transport in your Movement phase, it cannot make a Normal, Advance or Fall Back move that turn. The unit is then treated as having moved a distance equal to its Move characteristic this turn.",
-    "rule_name": "Transports — Disembark",
-    "scope": "phase-gated",
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#TRANSPORTS",
-    "trigger": "a unit disembarks from a TRANSPORT in the Movement phase (voluntary hook or destroyed-transport forced disembark)"
   },
   "simulator.fights_first_chargers": {
     "effect": "Within the active player's Fight phase pass (`_run_round_vanilla_turns`), units that charged this turn (uid in `_charging_this_round`) fight before units that did not. Implemented as a stable sort with key `0 if charging else 1` so non-charger relative order is preserved.",
@@ -128,14 +128,6 @@
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Shooting-Phase",
     "trigger": "datasheet carries TWO distinct ranged weapon profiles (Stormsurge Pulse Driver 72\" vs Pulse Blastcannon-focused 18\", Magnus the Red Gaze of Magnus vs Tzeentch's Firestorm, etc.); the bsdata mapper records the runner-up as `secondary_*` on UnitProfile when present"
   },
-  "simulator.oath_of_moment": {
-    "effect": "Re-roll the Hit roll (full hit re-rolls, not just 1s; HIT only, no wound re-roll)",
-    "quoted_text": "At the start of your Command phase, select one enemy unit that is on the battlefield to be the target of the Oath of Moment. Until the start of your next Command phase, each time an attack made by a model from your army targets the unit selected as the target of the Oath of Moment, you can re-roll the Hit roll.",
-    "rule_name": "Oath of Moment",
-    "scope": "army-wide",
-    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/",
-    "trigger": "Marine player selects one enemy unit each Command phase; while that unit is the chosen target, every attack from any model in the Marine army against it gates the buff"
-  },
   "simulator.pistol_exclusivity": {
     "effect": "unit fires the Pistol set OR the non-Pistol set, not both",
     "quoted_text": "A model armed with one or more Pistols can either shoot with all of its Pistols or with all of its other ranged weapons. Choose which it will do each time it shoots.",
@@ -167,5 +159,21 @@
     "scope": "phase-gated",
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#MAKING-ATTACKS",
     "trigger": "AI threat-score heuristic in `code/strategy.py._durability` â€” paired compensation for the iter26-S1 FNP re-land. After folding FNP into durability, opponent AI correctly diverted fire from FNP-bearing defenders to no-FNP horde armies (Orks regressed +5.7 -> +10.1 at N=20). Real play: a 10-model Boyz squad still threatens return fire after losing 4 models, because the defender allocates wounds per attack and the unit only ceases to be a threat when fully wiped. Modelling: multiply effective durability by (1.0 + max(0, sibling_count - 1) * 0.05) where sibling_count is alive same-name models in the defender's army."
+  },
+  "simulator.primary_vp_no_round_1": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-tournament-companion/#Primary-Objectives",
+    "rule_name": "Primary Objectives - Scoring Timing",
+    "quoted_text": "At the end of the Command phase, each player scores Victory Points for the primary objectives they control. Note that the Command phase in the first battle round does not score primary Victory Points.",
+    "trigger": "end of Command phase, rounds 2-5 only (not round 1)",
+    "effect": "Primary VP scored only from battle round 2 onward; round 1 scores 0 primary VP",
+    "scope": "army-wide"
+  },
+  "simulator.secondary_selection": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+    "rule_name": "Secondary Missions - Selection",
+    "quoted_text": "Before deployment, each player must either select two different Fixed Secondary Missions from the four below, or use the Tactical Secondary Missions deck. Each player scores Victory Points from their two chosen Fixed Secondary Missions throughout the battle, or draws from the Tactical Secondary Missions deck each battle round.",
+    "trigger": "battle start; `code/secondaries.py::pick_secondaries(own_army, enemy_army)` selects 2 Fixed (bring_it_down / cull_the_horde / assassination — no_prisoners is Tactical-only in CA-2025-26 tournament play) + 2 Tactical (engage_on_all_fronts / behind_enemy_lines) per army by a deterministic heuristic on enemy MONSTER/VEHICLE count and own FLY/MOUNT count; persisted on `Army.chosen_secondaries`",
+    "effect": "Only the picked 2 Fixed Secondaries (+ chosen Tactical cards) score VP for that army. `score_round_delta` / `score_position_delta` zero any component absent from `chosen_secondaries`. Previously all four Fixed + both Tactical scored every round for every army, asymmetrically over-rewarding balanced kill-heavy / mobile rosters.",
+    "scope": "army-wide"
   }
 }

@@ -817,39 +817,49 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
     # remaining seed budget is filled by `_random_fill` with same-faction
     # picks. Detachment names match the registry where one exists.
     "Chaos Space Marines": {
-        # FX-ALL CSM catalog limitation: BSData v10.6.0 doesn't expose
-        # Legionaries / Chaos Terminator Squad / Chosen / Chaos Lord in
-        # Terminator Armour as catalog keys. Available CSM catalog leans
-        # on dedicated chassis + named CHARACTERs. Template below uses
-        # what's catalogued — provides COVERAGE per FX-ALL goal even if
-        # not fully tournament-realistic. Follow-up: refresh BSData
-        # mapper or add overrides for the missing 10e generics.
+        # Pactbound Zealots is the vanilla Chaos Space Marines Dark Pacts
+        # detachment — Legionaries-backbone with character support, elite
+        # melee, Obliterator firepower and a daemon-engine/vehicle core.
+        # Rebuilt after the wave-145 faction-misassignment fix: the generic
+        # Heretic Astartes datasheets (Legionaries, Chosen, Havocs, Chaos
+        # Lord, Chaos Terminators, Possessed, Dark Apostle, Master of
+        # Possession, etc.) were being mis-filed under faction "Chaos
+        # Daemons" because BSData's Chaos Daemons catalogue imports them as
+        # allies and the mapper credited the first importer. They are now
+        # correctly homed to the CSM codex, so the old workaround (a
+        # cult-marine soup of Khorne Berzerkers + Plague + Rubric + Noise
+        # Marines, which in 10e actually belong to the standalone World
+        # Eaters / Death Guard / Thousand Sons / Emperor's Children codices)
+        # is replaced with a faithful Legionaries-based list.
         "Pactbound Zealots": {
-            # BATTLELINE: cult troops (Berzerkers / Plague / Rubric) are
-            # the catalogued BATTLELINE options for CSM; vanilla
-            # Legionaries / Chosen / generic CSM Terminators / Chaos Lord
-            # in Terminator Armour remain absent in BSData v10.6.0 — log
-            # in commit and skip per AX-A constraint.
-            "chaos_space_marines_khorne_berzerkers": 2,
-            "chaos_space_marines_plague_marines": 2,
-            "chaos_space_marines_rubric_marines": 1,
-            "chaos_space_marines_noise_marines": 1,
-            "chaos_space_marines_chaos_bikers": 1,
-            "chaos_space_marines_obliterators": 1,
-            "chaos_space_marines_mutilators": 1,
-            "chaos_space_marines_chaos_spawn": 1,
-            "chaos_space_marines_helbrute": 1,
-            "chaos_space_marines_maulerfiend": 1,
-            "chaos_space_marines_venomcrawler": 1,
-            "chaos_space_marines_forgefiend": 1,
-            "chaos_space_marines_heldrake": 1,
-            "chaos_space_marines_chaos_predator_destructor": 1,
-            "chaos_space_marines_chaos_rhino": 1,
-            "chaos_space_marines_master_of_executions": 1,
-            "chaos_space_marines_warpsmith": 1,
-            "chaos_space_marines_lord_discordant_on_helstalker": 1,
-            "chaos_space_marines_heretic_astartes_daemon_prince_with_wings": 1,
+            # BATTLELINE backbone — Legionaries are the Dark Pacts engine
+            # (multiple squads), screened by a cheap Cultist Mob.
+            "chaos_space_marines_legionaries": 3,
+            "chaos_space_marines_cultist_mob": 1,
+            # CHARACTERS — Abaddon warlord + Chaos Lord (leads Legionaries)
+            # + Dark Apostle (Dark Pacts re-rolls) + Master of Possession.
             "chaos_space_marines_abaddon_the_despoiler": 1,
+            "chaos_space_marines_chaos_lord": 1,
+            "chaos_space_marines_dark_apostle": 1,
+            "chaos_space_marines_master_of_possession": 1,
+            # Elite / melee.
+            "chaos_space_marines_chosen": 1,
+            "chaos_space_marines_chaos_terminator_squad": 1,
+            "chaos_space_marines_possessed": 1,
+            "chaos_space_marines_raptors": 1,
+            # Firepower.
+            "chaos_space_marines_obliterators": 1,
+            "chaos_space_marines_havocs": 1,
+            # Daemon engines / vehicles.
+            "chaos_space_marines_forgefiend": 1,
+            "chaos_space_marines_maulerfiend": 1,
+            "chaos_space_marines_helbrute": 1,
+            "chaos_space_marines_chaos_predator_destructor": 1,
+            "chaos_space_marines_venomcrawler": 1,
+            "chaos_space_marines_lord_discordant_on_helstalker": 1,
+            "chaos_space_marines_chaos_rhino": 1,
+            "chaos_space_marines_heretic_astartes_daemon_prince_with_wings": 1,
+            "chaos_space_marines_chaos_spawn": 1,
         },
     },
     "World Eaters": {
@@ -1253,6 +1263,49 @@ SEED_FRACTION: float = 0.3
 SEED_FRACTION_BY_FACTION: Dict[str, float] = {
     "Leagues of Votann": 0.4,
     "Adeptus Custodes": 0.55,
+    # AdMech-DIAG (wave 173): the cited Skitarii Hunter Cohort seed encodes the
+    # real May-2026 list's DURABLE CORE (Belisarius Cawl, an Onager Dunecrawler,
+    # a Skorpius Disintegrator, two Kataphron bodies). At the default 0.3 slice
+    # (600pt at 2000pt) that expensive core does not fit, so the seed walk drops
+    # the Onager (realizes ~0.4/btl vs the seeded 1) and the 70% random_fill
+    # piles on cheap fragile Skitarii — the REALIZED list is more fragile than
+    # the cited real list, the under-side mirror of an unfaithful realization.
+    # The AdMech diagnostic localized AdMech's under-shoot to ATTRITION (38%
+    # survival vs 60%); the over-fragile realization is part of that. 0.65 (1300pt
+    # seed) reliably realizes the durable core (Onager 1.1, Skorpius 1.4,
+    # Kataphrons, Cawl) and trims the fragile fill (68→57 units/btl) so the
+    # realized list matches the cited Goonhammer/Frontline/Stat-Check May-2026
+    # Skitarii Hunter Cohort. FAITHFUL list-realism (matching reality), not
+    # win-rate tuning — landed even though it is expected to raise AdMech's
+    # under-shooting win rate toward 50% (fidelity-first; the "faithful but
+    # raises the metric -> skip" reflex is forbidden).
+    "Adeptus Mechanicus": 0.65,
+    # SYSTEMATIC LIST-REALISM PASS (wave 174, user-requested audit). The default
+    # 0.3 seed slice drops the FIXED durable/support core of several factions'
+    # cited real lists (the units the real list ALWAYS runs), filling instead
+    # with cheap fragile units → an unfaithful realization. `diag_list_realism.py`
+    # found the drops; each fraction below is the lowest that realizes the cited
+    # dropped core (verified realized-MATCHES-real, NOT chosen to move win rate).
+    # EVEN-HANDED: applied to ALL distorted fixed-core factions regardless of
+    # over/under/in-band, accepting whatever metric direction. MENU seeds
+    # (IK/CK/Daemons/Emperor's Children/Aeldari/World Eaters — a menu of big
+    # variants @1 from which the builder picks a faithful subset) are LEFT alone.
+    "Astra Militarum": 0.55,     # realizes Scout Sentinels + Leman Russ + Manticore (tank/support core)
+    "Chaos Space Marines": 0.65,  # realizes Forgefiend + Lord Discordant + Daemon Prince (heavy support + characters)
+    "Adepta Sororitas": 0.55,    # realizes Castigator + Saint Celestine
+    "Grey Knights": 0.45,        # realizes Nemesis Dreadknight
+    "T'au Empire": 0.55,         # realizes Ghostkeel + keeps Riptide (Stormsurge/Ghostkeel are menu alternatives)
+    # KNIGHTS-DIAG-3 (wave 33): Default 0.3 = 300pt seed budget at 1000pt
+    # eval. Every Questoris-class Chaos Knight costs 355–410pt — more
+    # than the entire seed budget — so the template seed always picks
+    # War Dogs (140–150pt) and the random-fill 50% cap excludes
+    # Rampager (365pt) entirely and Abominant (355pt) in 67% of builds.
+    # Raising to 0.45 = 450pt seeds one Questoris knight per build,
+    # which is required for KNIGHTS-MULTIPROFILE-2 extra_melee_profiles
+    # work to reach the faction-level metric. Imperial Knights mirrors
+    # the same chassis cost shape so the bump applies symmetrically.
+    "Chaos Knights": 0.45,
+    "Imperial Knights": 0.45,
 }
 
 
@@ -1289,6 +1342,48 @@ def _instantiate_template(
     seed_fraction = SEED_FRACTION_BY_FACTION.get(faction or "", SEED_FRACTION)
     seed_budget = points_budget * seed_fraction
 
+    # DAEMONS-FIX-1 — Chaos Daemons mono-god Greater Daemon anchor.
+    # The four Chaos Daemons mono-god sub-archetypes (Khorne Murderhost,
+    # Tzeentch Manifestation, Nurgle Pestilence, Slaanesh Excess) each
+    # name a single Greater Daemon as their centerpiece:
+    #   chaos_daemons_library_bloodthirster        (Khorne)
+    #   chaos_daemons_library_lord_of_change       (Tzeentch)
+    #   chaos_daemons_library_great_unclean_one    (Nurgle)
+    #   chaos_daemons_library_keeper_of_secrets    (Slaanesh)
+    # These four cost ~305pt each, do not carry the EPIC HERO keyword in
+    # BSData v10.6.0, and lose the (-count, -cost) walk below to the
+    # multi-copy Bloodletters / Pink Horrors / Plaguebearers / Daemonettes
+    # battleline entries (count=3) that exhaust seed_budget first. The
+    # DAEMONS-DIAG-10 audit (docs/DAEMONS_DIAG_10_findings.md) measured 80
+    # builds: Bloodthirster 1%, Lord of Change 0%, Keeper of Secrets 0%,
+    # Great Unclean One 5% — the mono-god army's anchor was almost never
+    # actually seeded.
+    #
+    # Real 10e Chaos Daemons mono-god lists are built around their Greater
+    # Daemon (Wahapedia codex restriction: 1 per army for each named
+    # Greater Daemon datasheet). Force-include it BEFORE the walking pass,
+    # reserving its cost from `running` so the rest of the seed walk
+    # accounts for it. Overflow is allowed (mirrors the EPIC HERO anchor's
+    # 1.5x rule below) — the Greater Daemon is the archetype's flagship
+    # and seeding it is more important than staying under seed_budget.
+    _MONO_GOD_GREATER_DAEMONS = (
+        "chaos_daemons_library_bloodthirster",
+        "chaos_daemons_library_lord_of_change",
+        "chaos_daemons_library_great_unclean_one",
+        "chaos_daemons_library_keeper_of_secrets",
+    )
+
+    scaled: Dict[str, int] = {}
+    running = 0.0
+
+    mono_god_anchor = next(
+        (k for k in _MONO_GOD_GREATER_DAEMONS if k in template),
+        None,
+    )
+    if mono_god_anchor is not None and mono_god_anchor in UNIT_CATALOG:
+        scaled[mono_god_anchor] = 1
+        running += _squad_cost(mono_god_anchor)
+
     # Walk the template in (-template_count, -squad_cost) order so that
     # archetype-defining units land first:
     #   * Multi-copy entries (e.g. Rubric Marines @ count=2) outrank
@@ -1309,10 +1404,10 @@ def _instantiate_template(
     def sort_key(key: str):
         return (-template.get(key, 0), -_squad_cost(key))
 
-    scaled: Dict[str, int] = {}
-    running = 0.0
-
     for key in sorted(template, key=sort_key):
+        if key in scaled:
+            # Already seeded by the mono-god anchor pre-pass.
+            continue
         cost = _squad_cost(key)
         if running + cost <= seed_budget:
             scaled[key] = 1
@@ -1595,9 +1690,11 @@ def build_archetype_army(
     for key, count in counts.items():
         profile: UnitProfile = UNIT_CATALOG[key]
         squad_size = max(1, profile.min_models)
+        # SQUAD-ACTIVATION (Lever 1, P1): each instantiated squad gets its own
+        # squad_id so P3 activates it once. Same Units / order as the previous
+        # per-model add_unit loop — behaviour-neutral until P3 reads squad_id.
         for _ in range(count):
-            for _ in range(squad_size):
-                army.add_unit(profile)
+            army.add_squad(profile, squad_size)
 
     # Fill the remaining budget with random same-faction picks. Keeps the
     # archetype's flavour seed but lets the total cost converge to the

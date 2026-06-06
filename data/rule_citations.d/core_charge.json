@@ -1,0 +1,21 @@
+{
+  "_comment": "Citation for the 10e Charge Phase core rule that a unit makes ONE charge roll. Wahapedia source: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Charge-Phase",
+
+  "simulator.charge_per_unit": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Charge-Phase",
+    "rule_name": "Charge Roll (one per unit)",
+    "quoted_text": "Make a Charge roll for the charging unit by rolling 2D6. This is the maximum number of inches that each model in the charging unit can move when making its charge move.",
+    "trigger": "a multi-model codex unit (models sharing a squad_id) declares a charge; the first model to roll caches the 2D6 result for the squad for that round and the rest reuse it",
+    "effect": "the whole squad shares ONE 2D6 charge roll per round, instead of SwegHammer's one-Unit-per-model representation rolling a separate 2D6 for every model (which gave an N-model squad N independent attempts and massively over-rated melee charge reliability). Lone models (squad_id < 0) keep their own roll. Implemented in Battle._do_charge via the per-round _squad_charge_roll cache.",
+    "scope": "army-wide"
+  },
+
+  "simulator.advance_per_unit": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Movement-Phase",
+    "rule_name": "Advance Roll (one per unit)",
+    "quoted_text": "If you want a unit to Advance, when you select that unit to move, make an Advance roll for that unit by rolling one D6. Add the result (in inches) to the Move characteristic of each model in that unit until the end of the phase.",
+    "trigger": "a multi-model codex unit (models sharing a squad_id) Advances; the first model to roll caches the D6 for the squad for the round and the rest reuse it",
+    "effect": "the whole squad shares ONE Advance D6 per round (same per-unit correctness pattern as the charge roll), instead of SwegHammer's one-Unit-per-model representation rolling a separate Advance D6 for every model. Lone models (squad_id < 0) keep their own roll. Implemented in Battle._do_move via the per-round _squad_advance_roll cache.",
+    "scope": "army-wide"
+  }
+}

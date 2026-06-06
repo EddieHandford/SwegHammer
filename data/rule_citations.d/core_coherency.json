@@ -1,0 +1,30 @@
+{
+  "_comment": "Citation for the Unit Coherency core rule (10e). Wahapedia source: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Unit-Coherency",
+
+  "simulator.unit_coherency": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Unit-Coherency",
+    "rule_name": "Unit Coherency",
+    "quoted_text": "Whenever a unit is set up or moves, all of its models must be placed/moved so that the unit is in Unit Coherency. A unit is in Unit Coherency if every model in that unit is within 2\" horizontally ... of at least one other model in their unit.",
+    "trigger": "a unit is deployed or scores Objective Control",
+    "effect": "models of a unit stay clustered; the unit contributes Objective Control to a single objective",
+    "scope": "army-wide"
+  },
+
+  "simulator.coherency_enforcement": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Unit-Coherency",
+    "rule_name": "Unit Coherency (enforced after movement)",
+    "quoted_text": "Whenever a unit is set up or moves, all of its models must be placed/moved so that the unit is in Unit Coherency. A unit is in Unit Coherency if every model in that unit is within 2\" horizontally ... of at least one other model in their unit.",
+    "trigger": "squad rebuild Stage B (env-gated SWEG_COHERE): after every model of the active army has taken its individual Movement-phase move, a model is left out of Unit Coherency (more than 2\" from its nearest squadmate) because the per-model move AI let it chase its own intent and scatter from the squad",
+    "effect": "the straggler is moved toward its squad centroid, spending only the movement it has left this phase (its Move characteristic minus the distance it already moved), so it returns toward Unit Coherency without exceeding its legal move. This corrects the one-Unit-per-model representation artifact where a squad a human would keep tight scatters and strands models outside the 3\" Objective Control band; with the squad coherent, its surviving models mass their Objective Control on one marker as 10e intends. Deterministic (no random draws); lone models (no squad) and models that Advanced or Fell Back this round are skipped. Default OFF; SWEG_COHERE=1 enables the isolation A/B.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.m4_squad_cluster": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Objective-Control",
+    "rule_name": "Objective Control (massing models on a marker)",
+    "quoted_text": "Each player counts the number of models they have within range of the objective marker (within 3\" horizontally ...), and adds together the Objective Control characteristics of those models. The player with the highest total controls that objective marker.",
+    "trigger": "anti-Knight stack component 1 (env-gated SWEG_M4): the move-AI is choosing where a model carrying Objective Control should go, and a marker is within ~6\" of it",
+    "effect": "(positioning approximation) a model with Objective Control that is near but not tight on a marker, and not locked in melee, genuinely moves to a cover-rich slot within 2\" of the marker centre — i.e. inside the 3\" Objective Control range — so a squad's surviving models mass on the objective and contribute their whole Objective Control, rather than half of it stranding in the 3\"-6\" band outside scoring range. Faithful positioning (the models really move; per-model OC scoring in `_score_objectives` is unchanged), NOT a coherency-footprint counting shortcut. Even-handed: a 1-model unit targets the marker centre and is unaffected because it already parks there. Default OFF; SWEG_M4=1 enables for the isolation A/B.",
+    "scope": "phase-gated"
+  }
+}

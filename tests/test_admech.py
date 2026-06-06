@@ -1,20 +1,50 @@
 """Tests for the Adeptus Mechanicus army rule Doctrina Imperatives (#119).
 
-Doctrina Imperatives (10e AdMech army rule, Wahapedia):
-    "At the start of your Command phase, select one of the following
-     Doctrina Imperatives to be active for your army until the start of
-     your next Command phase:
-       Protector Imperative — +1 to hit on ranged attacks, -1 to hit on
-         melee attacks for ADEPTUS MECHANICUS models from your army.
-       Conqueror Imperative — +1 to hit on melee attacks, -1 to hit on
-         ranged attacks for ADEPTUS MECHANICUS models from your army."
+Doctrina Imperatives (10e AdMech army rule, Wahapedia verbatim):
+    "At the start of the battle round, you can select one of the Doctrina
+     Imperatives below. Until the end of the battle round, that Doctrina
+     Imperative is active for your army, and all units from your army that
+     have the Doctrina Imperatives ability gain the relevant abilities shown
+     below.
+       Protector Imperative — Ranged weapons equipped by models in this unit
+         have the [HEAVY] ability. Improve the Ballistic Skill characteristic
+         of ranged weapons equipped by models in this unit by 1. Each time a
+         melee attack targets this unit, if this unit has the BATTLELINE
+         keyword and/or it is within 6\" of one or more friendly ADEPTUS
+         MECHANICUS BATTLELINE units, subtract 1 from the Hit roll.
+       Conqueror Imperative — Ranged weapons equipped by models in this unit
+         have the [ASSAULT] ability. Improve the Weapon Skill characteristic
+         of melee weapons equipped by models in this unit by 1. Each time a
+         model in this unit makes an attack, if this unit has the BATTLELINE
+         keyword and/or it is within 6\" of one or more friendly ADEPTUS
+         MECHANICUS BATTLELINE units, improve the Armour Penetration
+         characteristic of that attack by 1."
+
+BOTH imperatives are BUFF-ONLY — there is NO penalty to the off-mode.
+  Protector gives +1 Ballistic Skill (improves ranged hit_target by 1) to
+  all AdMech units, PLUS a defensive -1 to incoming melee Hit rolls for
+  BATTLELINE-adjacent AdMech units. It does NOT penalise the AdMech player's
+  own melee attacks.
+  Conqueror gives +1 Weapon Skill (improves melee hit_target by 1) to all
+  AdMech units, PLUS +1 Armour Penetration on all attacks for BATTLELINE-
+  adjacent units. It does NOT penalise the AdMech player's own ranged attacks.
 
 Implementation:
     * `Army.doctrina_imperative` — per-Army state, str ("protector" /
       "conqueror") or None. Reset each round, re-picked by the AI.
-    * Hit-roll modifier: `Unit.attack` reads attacker.army_ref's imperative
-      and shifts hit_target up/down based on attack mode. Faction-gated on
-      `attacker.profile.faction == "Adeptus Mechanicus"`.
+      Set only while at least one AdMech unit is alive (alive_units gate
+      at round start — ADMECH-DOCTRINA-V1 fix mirrors SOROR-ACTS-OF-FAITH-V1).
+    * Offensive hit-roll modifier: `Unit.attack` reads attacker.army_ref's
+      imperative and adds +1 to hit_mod_delta (lowers hit_target) for the
+      matched mode only. Faction-gated on attacker.profile.faction ==
+      "Adeptus Mechanicus". No off-mode penalty.
+    * Defensive hit-roll modifier: when mode == "melee" and the TARGET is
+      an AdMech unit whose army has Protector active and which passes the
+      BATTLELINE-or-within-6"-of-BATTLELINE proximity gate, the attacker's
+      hit_mod_delta gets -1 (raises the attacker's hit_target).
+    * Conqueror AP+1: `Unit.attack` reads attacker.army_ref's imperative and
+      applies ap -= 1 (better penetration) for all attacks when Conqueror is
+      active and the BATTLELINE proximity gate is met.
     * AI: `code.strategy.pick_doctrina_imperative(army, enemy)` — picks
       "conqueror" when engaged_count >= shooty_count, else "protector".
 
@@ -75,29 +105,31 @@ def _effective_hit_target(attacker, target, mode: str) -> int:
       shift. Skipping intermediate +1-to-hit / heavy-cover / stealth /
       Heavy keyword effects is fine for these tests — the AdMech profile
       and target don't trigger any of those.
+
+    IMPORTANT: Doctrina is BUFF-ONLY. Protector improves the ranged
+    hit_target (lowers it = easier to hit). Conqueror improves the melee
+    hit_target. Neither imperative penalises the off-mode for the ATTACKER
+    (the Protector defensive -1 applies to INCOMING melee attacks against an
+    AdMech target, not to the AdMech attacker's own melee attacks — that is
+    handled separately in the defender block of Unit.attack).
     """
     p = attacker.profile
     if mode == "melee":
         hit_target = _prob_to_target(p.melee_hit_probability)
     else:
         hit_target = _prob_to_target(p.hit_probability)
-    # Apply the same Doctrina logic Unit.attack uses.
+    # Apply the same Doctrina offensive logic Unit.attack uses.
+    # Buff-only: +1 to hit for the matched mode, NO penalty for the other.
     if p.faction == "Adeptus Mechanicus":
         own_army = getattr(attacker, "army_ref", None)
         imperative = (
             getattr(own_army, "doctrina_imperative", None)
             if own_army is not None else None
         )
-        if imperative == "protector":
-            if mode != "melee":
-                hit_target = max(2, hit_target - 1)
-            else:
-                hit_target = min(6, hit_target + 1)
-        elif imperative == "conqueror":
-            if mode == "melee":
-                hit_target = max(2, hit_target - 1)
-            else:
-                hit_target = min(6, hit_target + 1)
+        if imperative == "protector" and mode != "melee":
+            hit_target = max(2, hit_target - 1)   # +1 Ballistic Skill
+        elif imperative == "conqueror" and mode == "melee":
+            hit_target = max(2, hit_target - 1)   # +1 Weapon Skill
     return hit_target
 
 
@@ -129,19 +161,29 @@ class DoctrinaHitRollTests(unittest.TestCase):
         self.assertEqual(shifted, max(2, base - 1),
                          "Protector must lower ranged hit_target by 1 (+1 to hit)")
 
-    def test_protector_imposes_minus_one_to_hit_melee(self):
+    def test_protector_no_penalty_on_own_melee(self):
+        """Protector is buff-only for the AdMech ATTACKER. The Wahapedia rule
+        grants +1 Ballistic Skill (ranged) plus a DEFENSIVE -1 to incoming
+        melee attacks against AdMech targets. It does NOT penalise the AdMech
+        attacker's own melee hit_target — that would be a fabrication.
+        MR-D (claude/sim-calibration-5) removed this fabrication from the live
+        code; ADMECH-DOCTRINA-V1 corrects the stale test description."""
         battle = self._make_battle()
         attacker = battle.a.units[0]
         target = battle.b.units[0]
         battle.a.doctrina_imperative = "protector"
         base = _prob_to_target(attacker.profile.melee_hit_probability)   # 4+
         shifted = _effective_hit_target(attacker, target, mode="melee")
-        self.assertEqual(shifted, min(6, base + 1),
-                         "Protector must raise melee hit_target by 1 (-1 to hit)")
+        self.assertEqual(shifted, base,
+                         "Protector must NOT penalise the AdMech attacker's "
+                         "own melee hit_target (buff-only rule)")
 
-    def test_conqueror_inverse(self):
-        """Conqueror is the symmetric inverse of Protector: melee gets +1
-        to hit, ranged gets -1 to hit."""
+    def test_conqueror_buff_only(self):
+        """Conqueror is buff-only: melee attacks get +1 Weapon Skill (lower
+        hit_target = easier to hit). Ranged attacks are UNAFFECTED — Conqueror
+        does NOT penalise the AdMech attacker's own ranged hit_target. That
+        would be a fabrication. MR-D (claude/sim-calibration-5) removed this
+        fabrication; ADMECH-DOCTRINA-V1 corrects the stale test description."""
         battle = self._make_battle()
         attacker = battle.a.units[0]
         target = battle.b.units[0]
@@ -150,13 +192,14 @@ class DoctrinaHitRollTests(unittest.TestCase):
         melee_base = _prob_to_target(attacker.profile.melee_hit_probability)
         self.assertEqual(
             _effective_hit_target(attacker, target, mode="ranged"),
-            min(6, ranged_base + 1),
-            "Conqueror must raise ranged hit_target by 1 (-1 to hit)",
+            ranged_base,
+            "Conqueror must NOT penalise the AdMech attacker's own ranged "
+            "hit_target (buff-only rule)",
         )
         self.assertEqual(
             _effective_hit_target(attacker, target, mode="melee"),
             max(2, melee_base - 1),
-            "Conqueror must lower melee hit_target by 1 (+1 to hit)",
+            "Conqueror must lower melee hit_target by 1 (+1 Weapon Skill)",
         )
 
     def test_non_admech_unaffected(self):
