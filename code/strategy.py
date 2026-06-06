@@ -1418,6 +1418,17 @@ def _drukhari_depleted_unit_penalty(attacker) -> float:
     return 1.0
 
 
+def _score_profile(unit):
+    """Per-model AI-isolation (per-model loadouts Stage 5). OFFENSIVE tactical scoring
+    reads the SQUAD AGGREGATE profile, not a single model's narrowed per-model loadout.
+    Under SWEG_PERMODEL each model-Unit carries only its own weapons (Stage 3); without
+    this isolation the AI would value a whole squad by one model's gun and mis-target /
+    mis-charge (the measured Daemons-crater confound). `squad_profile_ref` is stamped
+    with the aggregate by Army.add_squad's per-model path; legacy / collision-OFF units
+    leave it None, so this returns `unit.profile` and AI behaviour is byte-identical."""
+    return getattr(unit, "squad_profile_ref", None) or unit.profile
+
+
 def _melee_target_score(attacker, defender) -> float:
     """How attractive `defender` is as a melee target for `attacker`.
 
@@ -1427,8 +1438,8 @@ def _melee_target_score(attacker, defender) -> float:
     bricks pick fragile gunline targets (T'au Fire Warriors, Devastators,
     snipers) over near-but-tough enemies with strong saves.
     """
-    p = attacker.profile
-    tp = defender.profile
+    p = _score_profile(attacker)
+    tp = _score_profile(defender)
 
     a_melee_dpa = (p.melee_attacks * p.melee_hit_probability
                    * (p.melee_damage_per_shot or 1.0))
@@ -1586,7 +1597,7 @@ def pick_charge_target(attacker, enemy):
     if not alive_enemies:
         return None, None
 
-    p = attacker.profile
+    p = _score_profile(attacker)
     # Attacker's per-activation melee output.
     a_melee_dpa = (p.melee_attacks * p.melee_hit_probability
                    * (p.melee_damage_per_shot or 1.0))
@@ -1596,7 +1607,7 @@ def pick_charge_target(attacker, enemy):
         d = _dist(attacker.position, e.position)
         if d > 12.0 or d <= 1.0:
             continue   # out of charge range / already engaged
-        tp = e.profile
+        tp = _score_profile(e)
 
         kill_potential = a_melee_dpa / _durability(
             tp, e.current_health, p.melee_ap, defender_unit=e)
@@ -2171,8 +2182,8 @@ def pick_move_intent(
     if _pt is not None:
         return _pt, "pursue_card"
 
-    role = classify(unit.profile)
-    own_oc = unit.profile.oc or 0
+    role = classify(_score_profile(unit))   # Stage 5: a unit's OWN movement role is its
+    own_oc = unit.profile.oc or 0            # SQUAD role, not one per-model model's gun
 
     # S1 — faction posture lookup. AI behaviour-shaping per faction, not a
     # 10e rule. `balanced` preserves the pre-S1 behaviour exactly.
@@ -2216,7 +2227,7 @@ def pick_move_intent(
     # platforms (Knight Castellan/Valiant, gunline tanks, Votann Hearthkyn)
     # eligible to break off and free their guns. Stage-1 AI heuristic only —
     # no rule citation, this is play-style modelling.
-    if role in _fall_back_eligible_roles and not _is_melee_class(unit.profile):
+    if role in _fall_back_eligible_roles and not _is_melee_class(_score_profile(unit)):
         enemies = enemy.alive_units
         in_engagement = any(
             _dist(unit.position, e.position) <= _ENGAGEMENT_RANGE

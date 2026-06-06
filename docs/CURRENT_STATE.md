@@ -1,5 +1,21 @@
 # SwegHammer calibration — current state
 
+**WAVE 210 (2026-06-06) — FIDELITY-FIRST SWEEP #1 LANDED: per-model weapon firing flipped DEFAULT-ON; new honest baseline
+gated MAE ~5.57 (was 4.89).** Per the user-authorised fidelity-revisit sweep (docs/FIDELITY_REVISIT_WORKLIST.md), each parked
+faithful 10e mechanic is now landed even though the metric RISES (the rise un-masks the over-rate the bad representation was
+compensating — that's the point). **#1 per-model loadouts** (each model fires its OWN real weapons; single-model units stop
+firing mutually-exclusive arm options) is now production (`SWEG_PERMODEL=0` reverts). It required completing the AI-isolation
+(`strategy._score_profile`: the tactical AI scores the SQUAD aggregate, not one model's gun — offensive scorers + the
+movement-role `classify`) so per-model doesn't confound targeting/movement. Net A/B (deck frame N=80): OFF 4.89 → ON **5.57**.
+KEY SYNTHESIS: the faithful version HELPS Daemons (movement role correct) but HURTS the under-pole (AM/AdMech) — because faithful
+gunlines hold-and-shoot (correct 10e) and score LESS primary VP than advancing. So BOTH poles are the positional/representation
+gap (faithful units don't advance-to-score), the SAME root, owned by option-B (anti-walling) + Stage 2 — NOT an abilities gap.
+Sweep continues #2 (Tactical deck) → #3 (Command-phase scoring) → … on the 5.57 honest frame. (Avenue-2 physics: board-wide
+collision is DEAD even with pathfinding — collision+pathfind regressed 5.68→8.02 by walling big bases; pathfinding code kept as
+gated/inert infra. Over-pole headline is now option-B anti-walling.)
+
+---
+
 **WAVE 210 (2026-06-06) — DECISION POINT FOR THE USER: the fork-agnostic levers are exhausted; the substantive residual is
 the POSITIONAL/PHYSICS axis, blocked on your scale-fork call.** Production frame = the real CA-2025-26 deck rotation
 (`SWEG_PRIMARY_DECK` default-ON), gated MAE **~4.89**. The session worked three big tracks to faithful conclusions, all
