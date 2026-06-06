@@ -7133,7 +7133,12 @@ class Battle:
         # stay wholly inside the army's own deployment zone. This is an AI
         # tactical heuristic (faithful competitive deployment), NOT a 10e game
         # rule — cited as `simulator.intelligent_deployment`.
-        if __import__("os").environ.get("SWEG_DEPLOY") == "1":
+        # Fidelity-revisit sweep #6 (wave 210): now DEFAULT-ON — competent players
+        # deploy this way; it improved the metric (5.44→5.23 N=80) by lifting the
+        # under-pole gunlines (Astra Militarum / Adeptus Mechanicus deploy their durable
+        # shooters safely behind screens). `SWEG_DEPLOY=0` reverts to the legacy
+        # massed-block deployment.
+        if __import__("os").environ.get("SWEG_DEPLOY", "1") != "0":
             dz = self.map.deployment_width
             # REFINEMENT (wave 103): the high-value / gunline group sits at the
             # deployment-zone MIDLINE (`a_y`/`b_y` — its legacy single-line
