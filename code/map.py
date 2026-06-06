@@ -61,8 +61,31 @@ class TerrainType(Enum):
 
 
 @dataclass(frozen=True)
+class Wall:
+    """A line-segment barrier within a Terrain feature (avenue-2 Stage 3,
+    walls-vs-area model). In 10e a Ruin's WALLS block line of sight (and, for
+    non-INFANTRY, movement — Stage 4) while the footprint AREA grants Benefit of
+    Cover and is standable: the two are distinct, and the gaps BETWEEN wall
+    segments (doorways) are see-through + passable. A Wall is the segment from
+    (x1, y1) to (x2, y2), inches from the board origin. Frozen + hashable so it
+    can live in a frozen Terrain's tuple. An empty `Terrain.walls` (the default)
+    preserves the legacy solid-rectangle behaviour byte-for-byte."""
+
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+
+
+@dataclass(frozen=True)
 class Terrain:
-    """An axis-aligned rectangle of terrain on the board."""
+    """An axis-aligned rectangle of terrain on the board.
+
+    `walls` (avenue-2 Stage 3) is an optional tuple of `Wall` line-segments — the
+    feature's actual barriers (a Ruin's standing walls, with doorway gaps). It
+    defaults to empty, so every existing map and the rectangle line-of-sight /
+    cover behaviour are unchanged; the wall geometry is consulted only by the
+    gated walls-vs-area line-of-sight + movement paths."""
 
     name: str
     x: float            # bottom-left corner, inches from board origin
@@ -70,6 +93,7 @@ class Terrain:
     width: float
     height: float
     type: TerrainType
+    walls: Tuple["Wall", ...] = ()
 
     @property
     def x2(self) -> float:
