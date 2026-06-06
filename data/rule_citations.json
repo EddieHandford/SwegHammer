@@ -89,7 +89,7 @@
     "trigger": "Drukhari army; one Combat Drug active army-wide at a time on every WYCH CULT unit"
   },
   "simulator.dark_pacts": {
-    "effect": "unit gains [LETHAL HITS] OR [SUSTAINED HITS 1] for the phase (proxied as +1 hit shooting / +1 wound melee); on failed 2D6>=Ld test the unit suffers D3 mortal wounds. COVERAGE (gated SWEG_DARKPACT_COVERAGE, wave 209): per the verbatim quoted_text every eligible unit (DPA>=3) may pact each phase with its own Ld test; the legacy default narrows this to one highest-DPA unit/round (a known under-application of the army rule).",
+    "effect": "unit gains [LETHAL HITS] OR [SUSTAINED HITS 1] for the phase; on failed 2D6>=Ld test the unit suffers D3 mortal wounds",
     "quoted_text": "Each time a unit with this ability is selected to shoot or fight, it can make a Dark Pact. If it does, it must first take a Leadership test before any effects of that Dark Pact are resolved; if that test is failed, that unit suffers D3 mortal wounds.",
     "rule_name": "Dark Pacts",
     "scope": "army-wide",
