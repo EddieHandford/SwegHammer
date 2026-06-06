@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Tuple
 
 from .army import Army
 from .detachments import effective_move
+from .pathfind import find_path
 from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, DeadlyDemiseExploded,
     InitialUnit, JudgementTokenAwarded, OathTargetChosen, ObjectiveScored,
@@ -121,13 +122,85 @@ def _distance(a: Tuple[float, float], b: Tuple[float, float]) -> float:
     return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
 
 
+class _OccupantGrid:
+    """Per-mover spatial hash over the collision occupant list (avenue-2 Stage 2,
+    docs/PATHFINDING_PLAN.md). Buckets `(x, y, radius, is_enemy)` occupants by a coarse
+    cell so a legality query touches only the handful of occupants NEAR the test point
+    instead of the whole list — turning the O(models) `_collision_pos_legal` inner loop
+    (run ~18x per blocked move by the sidestep, the O(models^2) dense-horde cost) into
+    O(local).
+
+    The legality result is BYTE-IDENTICAL to iterating the full list: a model further
+    than `mover_radius + max_orad + 1"` in centre-distance can never overlap or be within
+    Engagement Range, and `near()` is built to include every occupant within that reach.
+    So the grid is a pure speedup — no behaviour change, gated for measurement only.
+
+    DETERMINISM: `near()` walks buckets in fixed (cx, cy) order and within a bucket in
+    INSERTION order (the original occupant order, which the caller builds in a fixed
+    (friendly-then-enemy, alive_units) order). The grid is also fully list-compatible
+    (`__iter__`/`__len__`/`__bool__`/`__getitem__` over the original ordered list) so any
+    order-dependent consumer (make-way / clear-lane) that iterates it sees the unchanged
+    order."""
+
+    __slots__ = ("cell", "buckets", "max_orad", "_list")
+
+    def __init__(self, occupants, cell: float = 8.0):
+        self.cell = cell
+        self.buckets: dict = {}
+        self.max_orad = 0.0
+        self._list = occupants
+        for occ in occupants:
+            ox, oy, orad = occ[0], occ[1], occ[2]
+            if orad > self.max_orad:
+                self.max_orad = orad
+            key = (int(ox // cell), int(oy // cell))
+            b = self.buckets.get(key)
+            if b is None:
+                self.buckets[key] = [occ]
+            else:
+                b.append(occ)
+
+    def near(self, pos, mover_radius: float):
+        """Occupants whose bucket lies within the max interaction reach of `pos`."""
+        reach = mover_radius + self.max_orad + 1.0
+        c = self.cell
+        cx0 = int((pos[0] - reach) // c)
+        cx1 = int((pos[0] + reach) // c)
+        cy0 = int((pos[1] - reach) // c)
+        cy1 = int((pos[1] + reach) // c)
+        out = []
+        buckets = self.buckets
+        for cx in range(cx0, cx1 + 1):
+            for cy in range(cy0, cy1 + 1):
+                b = buckets.get((cx, cy))
+                if b:
+                    out.extend(b)
+        return out
+
+    def __iter__(self):
+        return iter(self._list)
+
+    def __len__(self):
+        return len(self._list)
+
+    def __bool__(self):
+        return bool(self._list)
+
+    def __getitem__(self, i):
+        return self._list[i]
+
+
 def _collision_pos_legal(pos, mover_radius, occupants, mover_fly) -> bool:
     """Avenue-2 Stage 1 (no-overlap collision): is `pos` a legal END position for a
-    mover of footprint `mover_radius` (inches), given `occupants` — a list of
-    (x, y, radius, is_enemy) for every OTHER alive model? Real 10e: a model cannot
-    END a move overlapping another model, nor (for non-FLY) within Engagement Range
-    (1") of an enemy. FLY ends are exempt from the enemy/ER test (it flew over).
-    Pure + deterministic. Only consulted when collision is wired ON by a caller."""
+    mover of footprint `mover_radius` (inches), given `occupants` — a list (or
+    `_OccupantGrid`) of (x, y, radius, is_enemy) for every OTHER alive model? Real 10e:
+    a model cannot END a move overlapping another model, nor (for non-FLY) within
+    Engagement Range (1") of an enemy. FLY ends are exempt from the enemy/ER test (it
+    flew over). Pure + deterministic. Only consulted when collision is wired ON by a
+    caller. When `occupants` is an `_OccupantGrid`, only the occupants NEAR `pos` are
+    tested (identical result, O(local) instead of O(models))."""
+    if type(occupants) is _OccupantGrid:
+        occupants = occupants.near(pos, mover_radius)
     for ox, oy, orad, is_enemy in occupants:
         d2 = (pos[0] - ox) ** 2 + (pos[1] - oy) ** 2
         # No model may END overlapping another model's base (applies to FLY too).
@@ -211,6 +284,19 @@ def _move_toward(
             lo = mid
         else:
             hi = mid
+    # PATHFINDING (avenue-2 Stage 2, gated SWEG_PATHFIND): a BIG mover whose straight
+    # end is blocked routes AROUND the obstacle field via coarse grid A* (code/pathfind)
+    # instead of the local 6-angle sidestep, which dead-ends against a wall of blockers
+    # (screen + ruins) and crashes big-base reach (62%->16%). Big-bases-only; small
+    # INFANTRY keep the O(1) sidestep below. The returned furthest-legal point is
+    # re-validated exactly (the A* grid is coarse) and falls back to the straight
+    # walk-back on the rare coarse-grid miss. OFF (gate unset) -> byte-identical.
+    if mover_radius >= _PATHFIND_BIG_RADIUS_IN and __import__("os").environ.get("SWEG_PATHFIND"):
+        walls = map_.wall_segments() if map_ is not None else ()
+        p = find_path(start, goal, max_dist, mover_radius, occupants, walls=walls, map_=map_)
+        if _collision_pos_legal(p, mover_radius, occupants, mover_fly):
+            return p
+        return best
     if not sidestep:
         # Big movers (blocker-makes-way model): stop straight at the blocker — an
         # ENEMY blocker SHOULD halt a Knight (faithful screening); friendly blockers
@@ -325,6 +411,10 @@ _PATHFIND_BIG_RADIUS_IN = 1.5
 
 def _bc_model_radius_in(profile) -> float:
     """Base-footprint radius in INCHES for a model (read-only instrument helper).
+    NOTE: deliberately NOT lru_cache'd — UnitProfile is a large frozen dataclass
+    (carries the model_loadouts tuple), so hashing it per call costs MORE than this
+    arithmetic (measured: caching slowed the dense-horde bench). The per-phase occupant
+    grid is the right place to avoid the O(models^2) repetition, not a per-call cache.
     25.4 mm/in. CRITICAL: oval/rect bases (Knights, big VEHICLEs) store their real
     footprint in base_width_mm x base_length_mm while base_diameter_mm holds a 32mm
     PLACEHOLDER — so take the LARGER of the circle-derived and the width/length-
@@ -1664,9 +1754,14 @@ class Battle:
         enemy_flag = False if allow_engagement else True
         for u in enemy.alive_units:
             occ.append((u.position[0], u.position[1], _bc_model_radius_in(u.profile), enemy_flag))
+        # Avenue-2 Stage 2: wrap the per-mover occupant list in a spatial grid so the
+        # sidestep's repeated `_collision_pos_legal` queries touch only nearby occupants
+        # (O(local) not O(models)). Byte-identical legality result — gated SWEG_OCCGRID
+        # for measurement; contains the dense-horde O(models^2) collision cost (4.06x).
+        occupants = _OccupantGrid(occ) if __import__("os").environ.get("SWEG_OCCGRID") else occ
         return {
             "mover_radius": _bc_model_radius_in(mover.profile),
-            "occupants": occ,
+            "occupants": occupants,
             "mover_fly": "FLY" in (mover.profile.unit_keywords or ()),
         }
 
@@ -2708,10 +2803,12 @@ class Battle:
     # ------------------------------------------------------------------
 
     def _tac_deck_enabled(self) -> bool:
-        """M2 real 2-card Tactical secondary deck. Env-gated SWEG_TAC_DECK; unset
-        → legacy union-of-sources secondary scoring runs byte-for-byte. Kept as a
-        method so a future A/B can re-gate via a one-line edit."""
-        return __import__("os").environ.get("SWEG_TAC_DECK") == "1"
+        """M2 real 2-card Tactical secondary deck — now DEFAULT-ON (fidelity-revisit
+        sweep #2, wave 210). The CA-2025-26 match draws a 2-card hand from a curated
+        pool of faithful cards (3 un-sourced cards intentionally deferred); the legacy
+        "score every secondary source simultaneously" was unfaithful (both armies cap
+        at 40 = a wash). `SWEG_TAC_DECK=0` restores the legacy union-of-sources path."""
+        return __import__("os").environ.get("SWEG_TAC_DECK", "1") != "0"
 
     def _init_tactical_deck(self, army: Army) -> None:
         """Seed a TACTICAL army's 2-card hand + remaining deck deterministically.
