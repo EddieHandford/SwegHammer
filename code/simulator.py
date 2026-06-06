@@ -8895,6 +8895,62 @@ class Battle:
                     return (px, py)
         return None
 
+    def _ring_slots(self, obj, n: int) -> list:
+        """Reusable coordination primitive (avenue-2 note A): `n` DISTINCT positions in
+        a COHERENT cluster within `obj`'s control ring — every slot within the marker's
+        control_radius (so its Objective Control counts) AND within ~2" of a neighbour
+        (Unit Coherency). Deterministic concentric hex pattern (centre, then rings); no
+        RNG. Used to fan a squad out around a marker instead of stacking on the centre."""
+        import math
+        cr = obj.control_radius
+        pts = [(obj.x, obj.y)]
+        # (radius_fraction, count, angle_offset) — all radii < control_radius.
+        for frac, count, off in ((0.40, 6, 0.0), (0.72, 12, math.pi / 6.0), (0.93, 12, 0.0)):
+            radius = cr * frac
+            for k in range(count):
+                ang = off + k * (2.0 * math.pi / count)
+                pts.append((obj.x + radius * math.cos(ang), obj.y + radius * math.sin(ang)))
+                if len(pts) >= n:
+                    return pts[:n]
+        while len(pts) < n:
+            pts.append((obj.x, obj.y))
+        return pts[:n]
+
+    def _make_way_target(self, mover, intent, target_pos):
+        """Avenue-2 Stage 2 (gate SWEG_MOVEPLAN, requires SWEG_COLLISION): the IN-MOVE
+        distinct-slot spread. For an OBJECTIVE-capture move, send each squad model to its
+        OWN slot in the marker's control ring (deterministic by uid index) instead of the
+        shared centre, so the squad fans out under collision (fills the ring) rather than
+        single-filing behind the leader. Faithful (a real squad fans coherently around a
+        marker). Returns target_pos unchanged for lone models, non-objective intents, or
+        when the gates are off (byte-identical)."""
+        if intent in ("HOLD", "ENGAGE", "REPOSITION", "FALL_BACK"):
+            return target_pos
+        if not (__import__("os").environ.get("SWEG_MOVEPLAN")
+                and __import__("os").environ.get("SWEG_COLLISION")):
+            return target_pos
+        sid = getattr(mover, "squad_id", -1)
+        if sid < 0 or not self.map.objectives:
+            return target_pos
+        obj = min(self.map.objectives,
+                  key=lambda o: (target_pos[0] - o.x) ** 2 + (target_pos[1] - o.y) ** 2)
+        # Only spread when the move is actually heading ONTO this marker.
+        if (target_pos[0] - obj.x) ** 2 + (target_pos[1] - obj.y) ** 2 > (obj.control_radius + 1.5) ** 2:
+            return target_pos
+        army = getattr(mover, "army_ref", None)
+        if army is None:
+            return target_pos
+        members = sorted((u for u in army.units
+                          if u.is_alive and getattr(u, "squad_id", -1) == sid),
+                         key=lambda u: u.uid)
+        if len(members) < 2:
+            return target_pos
+        try:
+            idx = members.index(mover)
+        except ValueError:
+            return target_pos
+        return self._ring_slots(obj, len(members))[idx]
+
     def _make_way(self, army: Army, move_start_pos: dict) -> None:
         """Avenue-2 Stage 2 (gate SWEG_MOVEPLAN, requires SWEG_COLLISION): un-jam the
         collision pass. Collision without coordination piles a squad's models behind
@@ -9002,6 +9058,11 @@ class Battle:
             army_plan=attacker_army.army_plan,
             _phase_their_oc=_phase_their_oc,
         )
+        # Avenue-2 Stage 2 make-way (distinct-slot spread): on an objective move,
+        # redirect this model to its own slot in the marker's control ring so the
+        # squad fans out under collision instead of stacking on the centre. No-op
+        # (byte-identical) unless SWEG_MOVEPLAN+SWEG_COLLISION and a multi-model squad.
+        target_pos = self._make_way_target(attacker, intent, target_pos)
 
         # Fall Back (10e core). Units already locked in melee that the
         # strategy layer wants to disengage move up to M" toward the picked
