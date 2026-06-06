@@ -1,28 +1,32 @@
 """Tests for the real-world base-footprint renderer path.
 
-The renderer now draws each unit using its `base_shape` + millimetre
-dimensions sourced from `UnitProfile`, converted to world inches at
-25.4 mm/inch. These tests assert that:
+The renderer draws each unit using its `base_shape` + millimetre dimensions
+sourced from `UnitProfile`, converted to world inches at 25.4 mm/inch and then
+to pixels. The renderer is Pillow-based: `_draw_unit_base` draws onto an
+`ImageDraw` canvas (no matplotlib), and `render_frame` returns a PIL `Image`.
+These tests assert that:
 
-  - circle profiles -> matplotlib `Circle` patch sized by `base_diameter_mm`
-  - rect profiles   -> `Rectangle` patch sized by `base_width_mm` x `base_length_mm`
-  - oval profiles   -> `Ellipse` patch sized by `base_width_mm` x `base_length_mm`
-  - the default UnitProfile (no override) renders as a 32mm round Circle
+  - circle profiles -> a square-bounded `draw.ellipse` sized by `base_diameter_mm`
+  - rect profiles   -> a `draw.rectangle` sized by `base_width_mm` x `base_length_mm`
+  - oval profiles   -> a rectangular-bounded `draw.ellipse`
+  - an unknown shape falls back to a circle
+  - the default UnitProfile (no override) renders as a 32mm round
+  - `render_frame` completes end-to-end and returns a PIL image (regression
+    guard for the half-migrated renderer that referenced an undefined `cx`)
 
-The tests build a minimal event log by hand (one `BattleStarted` carrying
-an `InitialUnit` per scenario) so they're independent of the simulator and
-the BSData catalogue.
+The tests build a minimal event log by hand (one `BattleStarted` carrying an
+`InitialUnit` per scenario) so they're independent of the simulator and the
+BSData catalogue.
 """
 
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
-import matplotlib
-matplotlib.use("Agg")  # headless backend — no display required
-import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, Ellipse, Rectangle
+from PIL import Image
 
+import code.renderer as renderer
 from code.events import BattleStarted, InitialUnit
 from code.map import Map
 from code.renderer import (
@@ -47,10 +51,6 @@ def _battle_started(initial_units: list) -> BattleStarted:
     )
 
 
-def _patches_of(ax, cls):
-    return [p for p in ax.patches if isinstance(p, cls)]
-
-
 class MmToInchesTests(unittest.TestCase):
 
     def test_one_inch_is_25_4_mm(self):
@@ -63,69 +63,76 @@ class MmToInchesTests(unittest.TestCase):
 
 
 class DrawUnitBaseTests(unittest.TestCase):
-    """Unit-test the patch dispatcher directly — no full render_frame."""
+    """Unit-test the Pillow shape dispatcher directly via a recording mock.
 
-    def _fresh_ax(self):
-        fig, ax = plt.subplots(figsize=(2, 2))
-        return fig, ax
+    `_draw_unit_base(draw, cx, cy, color, base_shape, w_px, h_px)` takes
+    pre-computed pixel half-extents and issues exactly one Pillow primitive:
+    `draw.rectangle` for rect, `draw.ellipse` for oval / circle / fallback.
+    """
 
-    def test_circle_shape_produces_circle_patch(self):
-        fig, ax = self._fresh_ax()
-        _draw_unit_base(ax, 5.0, 7.0, "#ff0000",
-                        base_shape="circle", base_diameter_mm=32,
-                        base_width_mm=32, base_length_mm=32)
-        circles = _patches_of(ax, Circle)
-        self.assertEqual(len(circles), 1)
-        # 32mm diameter -> 16mm radius -> 16/25.4 world inches
-        self.assertAlmostEqual(circles[0].radius, 16 / 25.4, places=5)
-        plt.close(fig)
+    def test_circle_shape_draws_square_bounded_ellipse(self):
+        draw = mock.Mock()
+        # 20px diameter base centred at (50, 70) -> half-extent 10.
+        _draw_unit_base(draw, 50, 70, (255, 0, 0, 255), "circle",
+                        w_px=20, h_px=20)
+        draw.ellipse.assert_called_once()
+        draw.rectangle.assert_not_called()
+        bbox = draw.ellipse.call_args[0][0]
+        self.assertEqual(list(bbox), [40, 60, 60, 80])
 
-    def test_rect_shape_produces_rectangle_patch_with_correct_size(self):
-        # Rhino footprint reference: 89mm x 152mm
-        fig, ax = self._fresh_ax()
-        _draw_unit_base(ax, 0.0, 0.0, "#00ff00",
-                        base_shape="rect", base_diameter_mm=32,
-                        base_width_mm=89, base_length_mm=152)
-        rects = _patches_of(ax, Rectangle)
-        self.assertEqual(len(rects), 1)
-        self.assertAlmostEqual(rects[0].get_width(), 89 / 25.4, places=5)
-        self.assertAlmostEqual(rects[0].get_height(), 152 / 25.4, places=5)
-        plt.close(fig)
+    def test_rect_shape_draws_rectangle_with_correct_bbox(self):
+        # Rhino-ish footprint: 40px wide x 80px tall, centred at (100, 100).
+        draw = mock.Mock()
+        _draw_unit_base(draw, 100, 100, (0, 255, 0, 255), "rect",
+                        w_px=40, h_px=80)
+        draw.rectangle.assert_called_once()
+        draw.ellipse.assert_not_called()
+        bbox = draw.rectangle.call_args[0][0]
+        self.assertEqual(list(bbox), [80, 60, 120, 140])
 
-    def test_oval_shape_produces_ellipse_patch_with_correct_size(self):
-        # GW 60x35mm oval (small flying base)
-        fig, ax = self._fresh_ax()
-        _draw_unit_base(ax, 1.0, 2.0, "#0000ff",
-                        base_shape="oval", base_diameter_mm=32,
-                        base_width_mm=35, base_length_mm=60)
-        ellipses = _patches_of(ax, Ellipse)
-        self.assertEqual(len(ellipses), 1)
-        self.assertAlmostEqual(ellipses[0].width, 35 / 25.4, places=5)
-        self.assertAlmostEqual(ellipses[0].height, 60 / 25.4, places=5)
-        plt.close(fig)
+    def test_oval_shape_draws_rectangular_bounded_ellipse(self):
+        # GW small flying oval: distinct width vs length -> rectangular bbox.
+        draw = mock.Mock()
+        _draw_unit_base(draw, 100, 100, (0, 0, 255, 255), "oval",
+                        w_px=30, h_px=60)
+        draw.ellipse.assert_called_once()
+        draw.rectangle.assert_not_called()
+        bbox = draw.ellipse.call_args[0][0]
+        self.assertEqual(list(bbox), [85, 70, 115, 130])
+        # rectangular, not square
+        self.assertNotEqual(bbox[2] - bbox[0], bbox[3] - bbox[1])
 
     def test_unknown_shape_falls_back_to_circle(self):
-        # A bad override value shouldn't take the renderer down — it falls
-        # back to the 32mm round (or whatever diameter the caller passed).
-        fig, ax = self._fresh_ax()
-        _draw_unit_base(ax, 0.0, 0.0, "#ffffff",
-                        base_shape="bogus", base_diameter_mm=40,
-                        base_width_mm=99, base_length_mm=99)
-        circles = _patches_of(ax, Circle)
-        self.assertEqual(len(circles), 1)
-        self.assertAlmostEqual(circles[0].radius, 20 / 25.4, places=5)
-        plt.close(fig)
+        # A bad override value shouldn't take the renderer down — it falls back
+        # to a square-bounded ellipse (circle) sized by the width.
+        draw = mock.Mock()
+        _draw_unit_base(draw, 100, 100, (255, 255, 255, 255), "bogus",
+                        w_px=50, h_px=50)
+        draw.ellipse.assert_called_once()
+        draw.rectangle.assert_not_called()
+        bbox = draw.ellipse.call_args[0][0]
+        self.assertEqual(list(bbox), [75, 75, 125, 125])
 
 
 class RenderFrameBaseShapeTests(unittest.TestCase):
-    """End-to-end: build a minimal event log, render it, inspect axes patches."""
+    """End-to-end: build a minimal event log, render it, and capture the
+    (base_shape, w_px, h_px) that reaches `_draw_unit_base`. Also asserts the
+    frame renders to a PIL image — the regression guard for the unbound-`cx`
+    crash in the half-migrated renderer."""
 
-    def _render(self, initial_unit: InitialUnit):
+    def _render_capturing(self, initial_unit: InitialUnit):
         events = [_battle_started([initial_unit])]
         frames = aggregate_activations(events)
-        fig = render_frame(_empty_map(), events, frame=0, frames=frames)
-        ax = fig.axes[0]
-        return fig, ax
+        calls: list = []
+        real = renderer._draw_unit_base
+
+        def _spy(draw, cx, cy, color, base_shape, w_px, h_px):
+            calls.append((base_shape, w_px, h_px))
+            return real(draw, cx, cy, color, base_shape, w_px, h_px)
+
+        with mock.patch.object(renderer, "_draw_unit_base", _spy):
+            img = render_frame(_empty_map(), events, frame=0, frames=frames)
+        return img, calls
 
     def test_default_profile_renders_as_32mm_circle(self):
         # Default InitialUnit (no base overrides) -> 32mm round.
@@ -133,42 +140,32 @@ class RenderFrameBaseShapeTests(unittest.TestCase):
             uid="u1", name="default", army="A",
             position=(5.0, 5.0), max_health=1.0,
         )
-        fig, ax = self._render(u)
-        # Filter to the unit's Circle (objective markers are unrelated and
-        # we made the map empty, so there should be none).
-        unit_circles = [
-            c for c in _patches_of(ax, Circle)
-            if c.get_facecolor()[3] > 0   # alpha > 0 (filled, not the outline-only objective rings)
-        ]
-        # The objective ring is `fill=False` so its facecolor alpha is 0;
-        # the unit's base is filled. We also asserted no objectives above.
-        self.assertGreaterEqual(len(unit_circles), 1)
-        # 32mm diameter -> radius 16/25.4 in
-        radii = [round(c.radius, 5) for c in unit_circles]
-        self.assertIn(round(16 / 25.4, 5), radii)
-        plt.close(fig)
+        img, calls = self._render_capturing(u)
+        self.assertIsInstance(img, Image.Image)
+        self.assertEqual(len(calls), 1)
+        shape, w_px, h_px = calls[0]
+        self.assertEqual(shape, "circle")
+        # circle -> square footprint
+        self.assertAlmostEqual(w_px, h_px, places=6)
+        self.assertGreater(w_px, 0)
 
-    def test_rect_profile_renders_a_rectangle_patch(self):
-        # Rhino-ish footprint via the InitialUnit overrides.
+    def test_rect_profile_reaches_renderer_with_rhino_ratio(self):
+        # Rhino-ish footprint via the InitialUnit overrides (89 x 152 mm).
         u = InitialUnit(
             uid="u1", name="vehicle", army="A",
             position=(10.0, 10.0), max_health=10.0,
             base_shape="rect", base_diameter_mm=32,
             base_width_mm=89, base_length_mm=152,
         )
-        fig, ax = self._render(u)
-        rects = _patches_of(ax, Rectangle)
-        # The board frame / terrain may add other rects; we filter to the
-        # one matching our vehicle's dimensions.
-        match = [
-            r for r in rects
-            if abs(r.get_width() - 89 / 25.4) < 1e-4
-            and abs(r.get_height() - 152 / 25.4) < 1e-4
-        ]
-        self.assertEqual(len(match), 1)
-        plt.close(fig)
+        img, calls = self._render_capturing(u)
+        self.assertIsInstance(img, Image.Image)
+        self.assertEqual(len(calls), 1)
+        shape, w_px, h_px = calls[0]
+        self.assertEqual(shape, "rect")
+        # the mm aspect ratio is preserved through the mm->inch->px pipeline
+        self.assertAlmostEqual(w_px / h_px, 89 / 152, places=5)
 
-    def test_oval_profile_renders_an_ellipse_patch(self):
+    def test_oval_profile_reaches_renderer_with_flyer_ratio(self):
         # 60x35mm GW small flying oval.
         u = InitialUnit(
             uid="u1", name="flyer", army="A",
@@ -176,15 +173,12 @@ class RenderFrameBaseShapeTests(unittest.TestCase):
             base_shape="oval", base_diameter_mm=32,
             base_width_mm=35, base_length_mm=60,
         )
-        fig, ax = self._render(u)
-        ellipses = _patches_of(ax, Ellipse)
-        match = [
-            e for e in ellipses
-            if abs(e.width - 35 / 25.4) < 1e-4
-            and abs(e.height - 60 / 25.4) < 1e-4
-        ]
-        self.assertEqual(len(match), 1)
-        plt.close(fig)
+        img, calls = self._render_capturing(u)
+        self.assertIsInstance(img, Image.Image)
+        self.assertEqual(len(calls), 1)
+        shape, w_px, h_px = calls[0]
+        self.assertEqual(shape, "oval")
+        self.assertAlmostEqual(w_px / h_px, 35 / 60, places=5)
 
 
 class UnitProfileBaseSizeFieldsTests(unittest.TestCase):
