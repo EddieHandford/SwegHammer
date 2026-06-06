@@ -1,26 +1,25 @@
 """
-Matplotlib top-down renderer for SwegHammer battles.
+Pillow top-down renderer for SwegHammer battles.
 
 Given a Map and an event log, ``render_frame(map, events, frame)`` returns a
-matplotlib Figure showing the world state at the end of the given replay
-frame. A frame is a contiguous slice of events that represents one logical
-beat of the battle — typically a full unit activation (move + shoot + charge
-+ fight collapsed into a single visual). Boundary events (round start/end,
-objective scoring, battleshock) each occupy their own frame.
+PIL Image showing the world state at the end of the given replay frame. A
+frame is a contiguous slice of events that represents one logical beat of the
+battle — typically a full unit activation (move + shoot + charge + fight
+collapsed into a single visual). Boundary events (round start/end, objective
+scoring, battleshock) each occupy their own frame.
 
-Frames are built by ``aggregate_activations(events)``; this is what shrinks
-the slider in the Replay tab from "one tick per event" (painful) to "one tick
-per activation" (watchable). The renderer is read-only: it never mutates the
-simulator state, so the same event log can be scrubbed forwards and backwards.
+Frames are built by ``aggregate_activations(events)``; this shrinks the
+slider from "one tick per event" to "one tick per activation". The renderer
+is read-only: it never mutates the simulator state, so the same event log
+can be scrubbed forwards and backwards.
 """
 
 from __future__ import annotations
 
+import math
 from typing import Dict, List, Optional, Tuple
 
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from matplotlib.patches import Ellipse, Rectangle
+from PIL import Image, ImageDraw, ImageFont
 
 from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, ObjectiveScored,
@@ -35,28 +34,41 @@ from .map import Map, TerrainType
 # Visual palette
 # ---------------------------------------------------------------------------
 
-COL_FIG_BG = "#0e1117"
-COL_BOARD_BG = "#3a3530"
-COL_GRID = "#5a5550"
+COL_FIG_BG    = "#0e1117"
+COL_BOARD_BG  = "#3a3530"
+COL_GRID      = "#5a5550"
 
 TERRAIN_COLORS = {
-    TerrainType.LIGHT_COVER: "#8b6f47",   # brown barricades
-    TerrainType.HEAVY_COVER: "#6e6e6e",   # grey ruins
-    TerrainType.RUIN:        "#7a5a3a",   # rust-brown ruined building (INFANTRY-traversable LoS)
-    TerrainType.OBSCURING:   "#3f5c3a",   # dark green woods
-    TerrainType.IMPASSABLE:  "#1a1a1a",   # black wall
+    TerrainType.LIGHT_COVER: "#8b6f47",
+    TerrainType.HEAVY_COVER: "#6e6e6e",
+    TerrainType.RUIN:        "#7a5a3a",
+    TerrainType.OBSCURING:   "#3f5c3a",
+    TerrainType.IMPASSABLE:  "#1a1a1a",
 }
 
-COL_ARMY_A = "#4e9af1"   # blue
-COL_ARMY_B = "#e05c5c"   # red
-COL_DEAD   = "#444444"
+COL_ARMY_A        = "#4e9af1"
+COL_ARMY_B        = "#e05c5c"
+COL_DEAD          = "#444444"
+COL_MOVE_ARROW    = "#cccccc"
+COL_SHOT_ARROW    = "#f7d147"
+COL_CHARGE_ARROW  = "#ff7f3f"
+COL_MELEE_FLASH   = "#e05c5c"
+COL_OBJECTIVE     = "#ffd700"
+COL_REANIMATE     = "#5cd65c"
 
-COL_MOVE_ARROW = "#cccccc"
-COL_SHOT_ARROW = "#f7d147"
-COL_CHARGE_ARROW = "#ff7f3f"   # orange — charge declaration
-COL_MELEE_FLASH = "#e05c5c"    # red — melee strike
-COL_OBJECTIVE = "#ffd700"      # gold — objective marker
-COL_REANIMATE = "#5cd65c"      # green — Necron Reanimation Protocols revival
+# Legacy shape tags — kept for _shape_for backward compatibility.
+SHAPE_LARGE_RECT       = "large_rect"
+SHAPE_MEDIUM_RECT      = "medium_rect"
+SHAPE_LARGE_CIRCLE     = "large_circle"
+SHAPE_ELLIPSE          = "ellipse"
+SHAPE_SWARM            = "swarm"
+SHAPE_CHARACTER_CIRCLE = "character_circle"
+SHAPE_SMALL_CIRCLE     = "small_circle"
+
+MM_PER_INCH = 25.4
+
+_RENDER_DPI  = 90
+_TITLE_H_PX  = 42   # pixels reserved for the title bar above the board
 
 
 # ---------------------------------------------------------------------------
@@ -64,14 +76,7 @@ COL_REANIMATE = "#5cd65c"      # green — Necron Reanimation Protocols revival
 # ---------------------------------------------------------------------------
 
 def _activation_actor(event) -> Optional[str]:
-    """The uid of the unit *acting* in this event, if any.
-
-    Only events that are part of a unit's normal-turn activation
-    (UnitActivated / UnitMoved / UnitAdvanced / UnitShot / UnitCharged /
-    UnitFought) return a uid. Everything else — round boundaries, scoring,
-    battleshock, deployment abilities — returns None and breaks the
-    aggregation chain, so those events each get their own frame.
-    """
+    """The uid of the unit *acting* in this event, if any."""
     if isinstance(event, (UnitActivated, UnitMoved, UnitAdvanced, UnitCharged)):
         return event.unit_uid
     if isinstance(event, (UnitShot, UnitFought)):
@@ -83,22 +88,7 @@ def aggregate_activations(events: List) -> List[Tuple[int, int]]:
     """Group consecutive events of the same activating unit into frames.
 
     A "frame" is a (start_idx, end_idx) inclusive event range that should be
-    rendered as a single visual beat in the replay. Within one activation a
-    unit may move, shoot multiple targets, charge and fight — without this
-    aggregation each of those is its own slider tick, which makes any
-    non-trivial battle painful to watch. With it, the move/shoots/charge/
-    fight collapse into ONE tick that draws the final position plus every
-    arc/arrow/burst emitted along the way.
-
-    Aggregation rules:
-      - Consecutive events sharing the same actor uid (the active unit)
-        merge into one frame.
-      - A UnitKilled that immediately follows an event of the current frame
-        (its target died) is pulled into that frame.
-      - A different actor's event ends the current frame.
-      - Any non-activation event (round boundary, objective scoring,
-        battleshock, deployment ability, BattleStarted, BattleEnded) gets
-        its own frame and never absorbs neighbours.
+    rendered as a single visual beat in the replay.
     """
     frames: List[Tuple[int, int]] = []
     n = len(events)
@@ -107,13 +97,9 @@ def aggregate_activations(events: List) -> List[Tuple[int, int]]:
         ev = events[i]
         actor = _activation_actor(ev)
         if actor is None:
-            # Boundary / standalone event — own frame, no merging.
             frames.append((i, i))
             i += 1
             continue
-
-        # Open a new activation frame and pull in subsequent same-actor
-        # events plus their UnitKilled tails.
         start = i
         end = i
         j = i + 1
@@ -125,12 +111,12 @@ def aggregate_activations(events: List) -> List[Tuple[int, int]]:
                 j += 1
                 continue
             if nxt_actor is not None:
-                break  # different unit's activation — close ours
+                break
             if isinstance(nxt, UnitKilled):
                 end = j
                 j += 1
                 continue
-            break  # round boundary / objective / battleshock / deployment
+            break
         frames.append((start, end))
         i = end + 1
     return frames
@@ -141,15 +127,7 @@ def aggregate_activations(events: List) -> List[Tuple[int, int]]:
 # ---------------------------------------------------------------------------
 
 def reconstruct_state(events: List, tick: int) -> Dict[str, dict]:
-    """Replay events[:tick+1] and return uid -> state dict.
-
-    Note: ``tick`` here is an EVENT index, not a frame index. ``render_frame``
-    translates a frame index into the event index of the frame's last event
-    before calling this, so the function still operates on a raw event prefix
-    (which makes it composable for callers that want intermediate snapshots).
-
-    Each state dict carries: name, army, position, current_hp, max_hp, alive.
-    """
+    """Replay events[:tick+1] and return uid -> state dict."""
     state: Dict[str, dict] = {}
     for ev in events:
         if isinstance(ev, BattleStarted):
@@ -162,7 +140,6 @@ def reconstruct_state(events: List, tick: int) -> Dict[str, dict]:
                     "max_hp": u.max_health,
                     "alive": True,
                     "unit_keywords": tuple(getattr(u, "unit_keywords", ()) or ()),
-                    # Renderer-only base footprint snapshot — see UnitProfile.
                     "base_shape": getattr(u, "base_shape", "circle"),
                     "base_diameter_mm": int(getattr(u, "base_diameter_mm", 32)),
                     "base_width_mm": int(getattr(u, "base_width_mm", 32)),
@@ -181,9 +158,6 @@ def reconstruct_state(events: List, tick: int) -> Dict[str, dict]:
             if ev.unit_uid in state:
                 state[ev.unit_uid]["position"] = ev.position
         elif isinstance(ev, UnitReanimated):
-            # A previously-destroyed model is back on the board — flip it
-            # back to alive at full HP and update its position to wherever
-            # the simulator placed it.
             if ev.unit_uid in state:
                 state[ev.unit_uid]["position"] = ev.position
                 state[ev.unit_uid]["alive"] = True
@@ -218,51 +192,16 @@ def _army_names(events: List) -> tuple:
 # ---------------------------------------------------------------------------
 # Model base footprint — real-world GW dimensions in world inches
 # ---------------------------------------------------------------------------
-#
-# Each `UnitProfile` carries a `base_shape` ("circle" / "rect" / "oval") plus
-# the relevant millimetre dimensions (diameter for circles, width+length for
-# rect/oval). The renderer converts those to world inches at the 25.4 mm/inch
-# scale and draws a matching matplotlib patch. This replaces the previous
-# keyword-driven "TITANIC = big rectangle, MONSTER = big circle" dispatcher
-# with a data-driven path that respects each unit's actual model footprint
-# (e.g. Repulsor 102x178mm rect, Riptide 80mm circle, Hive Tyrant 80mm).
-#
-# The keyword dispatcher below (``_shape_for``) is retained as a legacy
-# fallback for callers that only have keyword data — primarily the existing
-# tests, and any consumer that hasn't been ported to ``base_shape`` yet.
-
-MM_PER_INCH = 25.4
-
 
 def _mm_to_inches(mm: float) -> float:
-    """Convert millimetres to world inches at the GW scale (25.4 mm/inch)."""
     return float(mm) / MM_PER_INCH
-
-
-# Shape hint tags. Legacy dispatcher output — kept for backward compatibility
-# with `_shape_for`. The new draw path uses `base_shape` directly off the
-# unit's state dict and ignores these tags.
-SHAPE_LARGE_RECT = "large_rect"        # TITANIC / TOWERING
-SHAPE_MEDIUM_RECT = "medium_rect"      # VEHICLE / WALKER (non-Titanic)
-SHAPE_LARGE_CIRCLE = "large_circle"    # MONSTER
-SHAPE_ELLIPSE = "ellipse"              # BIKE / MOUNTED
-SHAPE_SWARM = "swarm"                  # SWARM — cluster of jittered dots
-SHAPE_CHARACTER_CIRCLE = "character_circle"  # CHARACTER — small circle, thick outline
-SHAPE_SMALL_CIRCLE = "small_circle"    # default INFANTRY
 
 
 def _shape_for(unit_keywords) -> tuple:
     """Legacy: map a unit's 10e keyword set to a (shape_tag, size_hint) pair.
 
     Superseded by the data-driven ``base_shape`` path in ``render_frame``.
-    Retained because the existing renderer tests assert on its dispatch
-    behaviour and because callers that only have a keyword tuple (no real
-    base size) still need a sensible fallback silhouette.
-
-    Returns:
-        (shape_tag, size_hint) where size_hint is either a scatter ``s=``
-        value for circle/swarm tags or a (width, height) tuple in world
-        inches for rectangle/ellipse tags.
+    Retained for backward compatibility with callers that only have keywords.
     """
     kw = set(k.upper() for k in (unit_keywords or ()))
     if "TITANIC" in kw or "TOWERING" in kw:
@@ -280,91 +219,163 @@ def _shape_for(unit_keywords) -> tuple:
     return SHAPE_SMALL_CIRCLE, 100
 
 
-def _draw_unit_base(
-    ax, x: float, y: float, color: str,
-    base_shape: str,
-    base_diameter_mm: int,
-    base_width_mm: int,
-    base_length_mm: int,
+# ---------------------------------------------------------------------------
+# Colour helpers
+# ---------------------------------------------------------------------------
+
+def _hex_to_rgb(h: str) -> Tuple[int, int, int]:
+    h = h.lstrip("#")
+    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+
+
+def _rgba(h: str, alpha: int = 255) -> Tuple[int, int, int, int]:
+    r, g, b = _hex_to_rgb(h)
+    return (r, g, b, alpha)
+
+
+def _blend(col: str, alpha: float, bg: str) -> Tuple[int, int, int, int]:
+    """Pre-multiply col over bg at alpha (0–1), returning an opaque RGBA tuple."""
+    r1, g1, b1 = _hex_to_rgb(col)
+    r2, g2, b2 = _hex_to_rgb(bg)
+    return (
+        int(r1 * alpha + r2 * (1 - alpha)),
+        int(g1 * alpha + g2 * (1 - alpha)),
+        int(b1 * alpha + b2 * (1 - alpha)),
+        255,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Font loader
+# ---------------------------------------------------------------------------
+
+def _load_font(size: int) -> ImageFont.ImageFont:
+    for path in (
+        "C:/Windows/Fonts/Arial.ttf",
+        "C:/Windows/Fonts/calibri.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    ):
+        try:
+            return ImageFont.truetype(path, size)
+        except (IOError, OSError):
+            continue
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
+
+
+def _draw_text_centered(
+    draw: ImageDraw.ImageDraw,
+    cx: int, cy: int,
+    text: str,
+    font: ImageFont.ImageFont,
+    fill: tuple,
 ) -> None:
-    """Draw a single alive unit using its real-world GW base footprint.
+    """Draw text centered at pixel (cx, cy), compatible with both font types."""
+    try:
+        draw.text((cx, cy), text, fill=fill, font=font, anchor="mm")
+        return
+    except TypeError:
+        pass
+    try:
+        bbox = font.getbbox(text)
+        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    except AttributeError:
+        tw, th = font.getsize(text)  # type: ignore[attr-defined]
+    draw.text((cx - tw // 2, cy - th // 2), text, fill=fill, font=font)
 
-    All millimetre dimensions are converted to world inches at the
-    ``MM_PER_INCH`` scale. The ``base_shape`` selects the matplotlib patch:
 
-      - ``"circle"`` -> matplotlib ``Circle`` of diameter ``base_diameter_mm``
-      - ``"rect"``   -> ``Rectangle`` sized ``base_width_mm`` x ``base_length_mm``
-      - ``"oval"``   -> ``Ellipse`` sized ``base_width_mm`` x ``base_length_mm``
+# ---------------------------------------------------------------------------
+# Pixel-space drawing primitives
+# ---------------------------------------------------------------------------
 
-    Any unrecognised shape value silently falls back to a 32mm round so a
-    bad override doesn't take the renderer down.
-    """
+def _dashed_line(
+    draw: ImageDraw.ImageDraw,
+    x0: float, y0: float, x1: float, y1: float,
+    color: tuple, width: int = 1, dash: int = 7, gap: int = 4,
+) -> None:
+    dx, dy = x1 - x0, y1 - y0
+    length = math.hypot(dx, dy)
+    if length < 1:
+        return
+    nx, ny = dx / length, dy / length
+    t, drawing = 0.0, True
+    while t < length:
+        t2 = min(t + (dash if drawing else gap), length)
+        if drawing:
+            draw.line(
+                [(int(x0 + nx * t), int(y0 + ny * t)),
+                 (int(x0 + nx * t2), int(y0 + ny * t2))],
+                fill=color, width=width,
+            )
+        t, drawing = t2, not drawing
+
+
+def _arrow(
+    draw: ImageDraw.ImageDraw,
+    x0: float, y0: float, x1: float, y1: float,
+    color: tuple, width: int = 2, head: int = 9, dashed: bool = False,
+) -> None:
+    dx, dy = x1 - x0, y1 - y0
+    length = math.hypot(dx, dy)
+    if length < 2:
+        return
+    nx, ny = dx / length, dy / length
+    sx, sy = x1 - nx * head, y1 - ny * head
+    if dashed:
+        _dashed_line(draw, x0, y0, sx, sy, color, width)
+    else:
+        draw.line([(int(x0), int(y0)), (int(sx), int(sy))], fill=color, width=width)
+    px, py = -ny * head * 0.45, nx * head * 0.45
+    draw.polygon([
+        (int(x1), int(y1)),
+        (int(sx + px), int(sy + py)),
+        (int(sx - px), int(sy - py)),
+    ], fill=color)
+
+
+def _star(draw: ImageDraw.ImageDraw, cx: int, cy: int, r: float, color: tuple) -> None:
+    pts = []
+    for i in range(10):
+        angle = math.pi * i / 5 - math.pi / 2
+        radius = r if i % 2 == 0 else r * 0.4
+        pts.append((int(cx + radius * math.cos(angle)), int(cy + radius * math.sin(angle))))
+    draw.polygon(pts, fill=color)
+
+
+def _plus(draw: ImageDraw.ImageDraw, cx: int, cy: int, r: int, color: tuple, width: int = 3) -> None:
+    draw.line([(cx - r, cy), (cx + r, cy)], fill=color, width=width)
+    draw.line([(cx, cy - r), (cx, cy + r)], fill=color, width=width)
+
+
+def _cross(draw: ImageDraw.ImageDraw, cx: int, cy: int, r: int, color: tuple, width: int = 2) -> None:
+    draw.line([(cx - r, cy - r), (cx + r, cy + r)], fill=color, width=width)
+    draw.line([(cx + r, cy - r), (cx - r, cy + r)], fill=color, width=width)
+
+
+def _draw_unit_base(
+    draw: ImageDraw.ImageDraw,
+    cx: int, cy: int,
+    color: tuple,
+    base_shape: str,
+    w_px: float, h_px: float,
+) -> None:
+    """Draw a unit base centred at pixel (cx, cy)."""
+    white = (255, 255, 255, 255)
     shape = (base_shape or "circle").lower()
+    hw, hh = max(4, int(w_px / 2)), max(4, int(h_px / 2))
     if shape == "rect":
-        w = _mm_to_inches(base_width_mm)
-        h = _mm_to_inches(base_length_mm)
-        ax.add_patch(Rectangle(
-            (x - w / 2, y - h / 2), w, h,
-            facecolor=color, edgecolor="white", linewidth=0.9, zorder=5,
-        ))
+        draw.rectangle([cx - hw, cy - hh, cx + hw, cy + hh],
+                       fill=color, outline=white, width=1)
     elif shape == "oval":
-        w = _mm_to_inches(base_width_mm)
-        h = _mm_to_inches(base_length_mm)
-        ax.add_patch(Ellipse(
-            (x, y), w, h,
-            facecolor=color, edgecolor="white", linewidth=0.9, zorder=5,
-        ))
-    else:  # "circle" or fallback
-        r = _mm_to_inches(base_diameter_mm) / 2.0
-        ax.add_patch(plt.Circle(
-            (x, y), r,
-            facecolor=color, edgecolor="white", linewidth=0.9, zorder=5,
-        ))
-
-
-def _draw_unit_shape(ax, x: float, y: float, color: str,
-                     shape_tag: str, size_hint) -> None:
-    """Legacy: draw a single alive unit using the shape dispatcher's output.
-
-    Retained for backward compatibility; the new draw path is
-    ``_draw_unit_base``. Both are kept in the public surface so external
-    consumers (older notebooks, regression scripts) keep working.
-    """
-    if shape_tag == SHAPE_LARGE_RECT:
-        w, h = size_hint
-        ax.add_patch(Rectangle(
-            (x - w / 2, y - h / 2), w, h,
-            facecolor=color, edgecolor="white", linewidth=1.0, zorder=5,
-        ))
-    elif shape_tag == SHAPE_MEDIUM_RECT:
-        w, h = size_hint
-        ax.add_patch(Rectangle(
-            (x - w / 2, y - h / 2), w, h,
-            facecolor=color, edgecolor="white", linewidth=0.9, zorder=5,
-        ))
-    elif shape_tag == SHAPE_LARGE_CIRCLE:
-        ax.scatter([x], [y], s=size_hint, c=color, edgecolors="white",
-                   linewidths=1.0, zorder=5)
-    elif shape_tag == SHAPE_ELLIPSE:
-        w, h = size_hint
-        ax.add_patch(Ellipse(
-            (x, y), w, h,
-            facecolor=color, edgecolor="white", linewidth=0.9, zorder=5,
-        ))
-    elif shape_tag == SHAPE_SWARM:
-        # Cluster of 5 small dots jittered around the centre. Deterministic
-        # offsets so the same unit always draws the same swarm pattern.
-        offsets = [(0.0, 0.0), (0.3, 0.15), (-0.25, 0.2), (0.15, -0.3), (-0.2, -0.18)]
-        xs = [x + dx for dx, _ in offsets]
-        ys = [y + dy for _, dy in offsets]
-        ax.scatter(xs, ys, s=size_hint, c=color, edgecolors="white",
-                   linewidths=0.6, zorder=5)
-    elif shape_tag == SHAPE_CHARACTER_CIRCLE:
-        ax.scatter([x], [y], s=size_hint, c=color, edgecolors="white",
-                   linewidths=1.6, zorder=5)
-    else:  # SHAPE_SMALL_CIRCLE
-        ax.scatter([x], [y], s=size_hint, c=color, edgecolors="white",
-                   linewidths=0.9, zorder=5)
+        draw.ellipse([cx - hw, cy - hh, cx + hw, cy + hh],
+                     fill=color, outline=white, width=1)
+    else:
+        r = max(4, hw)
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r],
+                     fill=color, outline=white, width=1)
 
 
 # ---------------------------------------------------------------------------
@@ -379,180 +390,171 @@ def render_frame(
     frames: Optional[List[Tuple[int, int]]] = None,
     colour_a: str = COL_ARMY_A,
     colour_b: str = COL_ARMY_B,
-) -> Figure:
+) -> Image.Image:
     """Render the replay state at the given FRAME index.
 
     ``frame`` indexes into ``aggregate_activations(events)`` (NOT the raw
-    event list). A frame may span an entire activation — move + several
-    shots + charge + fight — so the figure shows the unit at its final
-    post-activation position plus every arc/arrow/burst emitted during the
-    activation, all overlaid in one image.
+    event list). Pass ``frames=`` to skip recomputing the aggregation.
 
-    Pass ``frames=`` to skip the internal ``aggregate_activations`` call when
-    you've already computed and cached it — meaningful speedup when the
-    Streamlit slider re-invokes this on every tick.
+    Returns a PIL RGBA Image. ``figsize`` sets the output size at
+    ``_RENDER_DPI`` pixels per inch (e.g. (5.5, 7.0) → 495 × 630 px).
     """
     if frames is None:
         frames = aggregate_activations(events)
     if not frames:
-        # Empty event log — return a blank board so callers don't crash.
         start_idx = end_idx = 0
     else:
-        # Clamp to valid range so a stale slider value doesn't blow up.
         frame = max(0, min(frame, len(frames) - 1))
         start_idx, end_idx = frames[frame]
 
     state = reconstruct_state(events, end_idx)
     a_name, b_name = _army_names(events)
-    frame_events: List = events[start_idx:end_idx + 1] if events else []
+    frame_events: List = events[start_idx : end_idx + 1] if events else []
+    pre_state = reconstruct_state(events, start_idx - 1) if start_idx > 0 else {}
 
-    # Pre-compute pre-activation positions so we can draw the move arrow
-    # from where the unit STARTED the activation to where it finished.
-    pre_state = (
-        reconstruct_state(events, start_idx - 1) if start_idx > 0 else {}
-    )
+    # --- Canvas ---
+    img_w = int(figsize[0] * _RENDER_DPI)
+    img_h = int(figsize[1] * _RENDER_DPI)
+    img = Image.new("RGBA", (img_w, img_h), _rgba(COL_FIG_BG))
+    draw = ImageDraw.Draw(img, "RGBA")
 
-    fig, ax = plt.subplots(figsize=figsize)
-    fig.patch.set_facecolor(COL_FIG_BG)
-    ax.set_facecolor(COL_BOARD_BG)
-
+    # --- Coordinate transform: world inches → pixel (y-flipped) ---
     pad = 1.0
-    ax.set_xlim(-pad, map_.width + pad)
-    ax.set_ylim(-pad, map_.height + pad)
-    ax.set_aspect("equal")
-    ax.set_xticks([])
-    ax.set_yticks([])
-    for spine in ax.spines.values():
-        spine.set_edgecolor("#777")
-        spine.set_linewidth(1.0)
+    board_h_px = img_h - _TITLE_H_PX
+    world_w = map_.width + 2 * pad
+    world_h = map_.height + 2 * pad
+    scale = min(img_w / world_w, board_h_px / world_h)
+    board_px_w = int(world_w * scale)
+    board_px_h = int(world_h * scale)
+    x_off = (img_w - board_px_w) // 2
+    y_off = _TITLE_H_PX + (board_h_px - board_px_h) // 2
 
-    # Deployment zone hints
-    for y in (map_.deployment_width, map_.height - map_.deployment_width):
-        ax.axhline(y, color=COL_GRID, linestyle=":", linewidth=0.6, alpha=0.45, zorder=1)
+    def to_px(wx: float, wy: float) -> Tuple[int, int]:
+        px = x_off + int((wx + pad) * scale)
+        py = y_off + board_px_h - int((wy + pad) * scale)
+        return px, py
 
-    # Terrain
+    # --- Board background ---
+    draw.rectangle([x_off, y_off, x_off + board_px_w, y_off + board_px_h],
+                   fill=_rgba(COL_BOARD_BG))
+
+    # --- Deployment zone hint lines ---
+    grid_col = _blend(COL_GRID, 0.45, COL_BOARD_BG)
+    for wy in (map_.deployment_width, map_.height - map_.deployment_width):
+        lx0, ly = to_px(0.0, wy)
+        lx1, _  = to_px(map_.width, wy)
+        _dashed_line(draw, lx0, ly, lx1, ly, grid_col, width=1, dash=6, gap=4)
+
+    # --- Terrain ---
+    font_terrain = _load_font(7)
     for t in map_.terrain:
-        color = TERRAIN_COLORS.get(t.type, "#555555")
-        ax.add_patch(Rectangle(
-            (t.x, t.y), t.width, t.height,
-            facecolor=color, edgecolor="#222", linewidth=0.8, alpha=0.85, zorder=2,
-        ))
-        ax.text(
-            t.x + t.width / 2, t.y + t.height / 2, t.name,
-            color="white", fontsize=6, ha="center", va="center", alpha=0.7, zorder=3,
-        )
+        tc = TERRAIN_COLORS.get(t.type, "#555555")
+        tx0, ty0 = to_px(t.x, t.y + t.height)   # top-left in pixel space
+        tx1, ty1 = to_px(t.x + t.width, t.y)    # bottom-right in pixel space
+        draw.rectangle([tx0, ty0, tx1, ty1],
+                       fill=_blend(tc, 0.85, COL_BOARD_BG),
+                       outline=_rgba("#222222"), width=1)
+        tcx, tcy = to_px(t.x + t.width / 2, t.y + t.height / 2)
+        _draw_text_centered(draw, tcx, tcy, t.name,
+                            font_terrain, _rgba("#ffffff", 178))
 
-    # Draw every visual effect emitted during this frame's activation. Shot
-    # arcs are deliberately faded so multiple-target activations stay legible
-    # (a Boyz mob shooting into three different Marine squads paints three
-    # arrows from the same unit; without alpha the latest would obscure the
-    # rest). Charge arrow and melee burst use full opacity since each
-    # activation has at most one.
+    # --- Frame events ---
     n_shots = sum(1 for ev in frame_events if isinstance(ev, UnitShot))
-    shot_alpha = 0.85 if n_shots <= 1 else max(0.35, 0.85 / n_shots ** 0.5)
+    shot_alpha = int(255 * (0.85 if n_shots <= 1 else max(0.35, 0.85 / n_shots ** 0.5)))
+    shot_col = _rgba(COL_SHOT_ARROW, shot_alpha)
 
     for ev in frame_events:
         if isinstance(ev, UnitMoved):
-            fx, fy = ev.from_pos
-            tx, ty = ev.to_pos
-            ax.annotate(
-                "", xy=(tx, ty), xytext=(fx, fy),
-                arrowprops=dict(arrowstyle="->", color=COL_MOVE_ARROW,
-                                lw=1.3, alpha=0.8),
-                zorder=4,
-            )
+            p0 = to_px(*ev.from_pos)
+            p1 = to_px(*ev.to_pos)
+            _arrow(draw, p0[0], p0[1], p1[0], p1[1],
+                   _rgba(COL_MOVE_ARROW, 204), width=2)
+
         elif isinstance(ev, UnitShot):
-            attacker_pos = None
-            if ev.attacker_uid in state:
-                attacker_pos = state[ev.attacker_uid]["position"]
-            target_pos = None
-            if ev.target_uid in pre_state:
-                target_pos = pre_state[ev.target_uid]["position"]
-            elif ev.target_uid in state:
-                target_pos = state[ev.target_uid]["position"]
-            if attacker_pos and target_pos:
-                ax.annotate(
-                    "", xy=target_pos, xytext=attacker_pos,
-                    arrowprops=dict(arrowstyle="->", color=COL_SHOT_ARROW,
-                                    lw=1.2, alpha=shot_alpha, linestyle="--"),
-                    zorder=4,
-                )
+            ap = state.get(ev.attacker_uid, {}).get("position")
+            tp = (pre_state.get(ev.target_uid) or state.get(ev.target_uid, {})).get("position")
+            if ap and tp:
+                p0 = to_px(*ap)
+                p1 = to_px(*tp)
+                _arrow(draw, p0[0], p0[1], p1[0], p1[1],
+                       shot_col, width=1, dashed=True)
+
         elif isinstance(ev, UnitCharged):
             if ev.unit_uid in state and ev.target_uid in state:
-                attacker_pos = (
-                    pre_state[ev.unit_uid]["position"]
-                    if ev.unit_uid in pre_state
-                    else state[ev.unit_uid]["position"]
-                )
-                target_pos = state[ev.target_uid]["position"]
-                ax.annotate(
-                    "", xy=target_pos, xytext=attacker_pos,
-                    arrowprops=dict(arrowstyle="-|>", color=COL_CHARGE_ARROW,
-                                    lw=2.0, alpha=0.9 if ev.succeeded else 0.4),
-                    zorder=4,
-                )
+                ap = (pre_state.get(ev.unit_uid) or state[ev.unit_uid])["position"]
+                tp = state[ev.target_uid]["position"]
+                alpha = 230 if ev.succeeded else 102
+                p0 = to_px(*ap)
+                p1 = to_px(*tp)
+                _arrow(draw, p0[0], p0[1], p1[0], p1[1],
+                       _rgba(COL_CHARGE_ARROW, alpha), width=2, head=11)
+
         elif isinstance(ev, UnitFought):
-            if ev.attacker_uid in state and ev.target_uid in state:
-                tg_pos = state[ev.target_uid]["position"]
-                ax.scatter([tg_pos[0]], [tg_pos[1]], s=220, c=COL_MELEE_FLASH,
-                           marker="*", alpha=0.9, zorder=7)
+            if ev.target_uid in state:
+                cx, cy = to_px(*state[ev.target_uid]["position"])
+                _star(draw, cx, cy, 9.0, _rgba(COL_MELEE_FLASH, 230))
+
         elif isinstance(ev, UnitReanimated):
-            # Green "+" where a destroyed model just got back up.
-            px, py = ev.position
-            ax.scatter([px], [py], s=260, c=COL_REANIMATE, marker="+",
-                       linewidths=2.5, alpha=0.95, zorder=7)
+            cx, cy = to_px(*ev.position)
+            _plus(draw, cx, cy, 8, _rgba(COL_REANIMATE, 242))
 
-    # Objective markers
+    # --- Objective markers ---
     for obj in map_.objectives:
-        circle = plt.Circle(
-            (obj.x, obj.y), obj.control_radius,
-            fill=False, edgecolor=COL_OBJECTIVE, linewidth=1.0, alpha=0.55, zorder=2,
+        cx, cy = to_px(obj.x, obj.y)
+        r = max(3, int(obj.control_radius * scale))
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r],
+                     fill=None, outline=_rgba(COL_OBJECTIVE, 140), width=1)
+        dr = max(3, int(3.5 * scale))
+        draw.polygon(
+            [(cx, cy - dr), (cx + dr, cy), (cx, cy + dr), (cx - dr, cy)],
+            fill=_rgba(COL_OBJECTIVE, 191),
         )
-        ax.add_patch(circle)
-        ax.scatter([obj.x], [obj.y], s=40, c=COL_OBJECTIVE, marker="D",
-                   edgecolors="black", linewidths=0.5, alpha=0.75, zorder=3)
 
-    # Units — drawn at their real-world GW base footprint. The state dict
-    # carries base_shape + dimensions sourced from UnitProfile via the
-    # BattleStarted snapshot; missing fields default to a 32mm round so
-    # legacy / synthetic event logs keep rendering.
+    # --- Units ---
+    col_a_rgba = _rgba(colour_a)
+    col_b_rgba = _rgba(colour_b)
+
     for uid, s in state.items():
-        color = colour_a if s["army"] == a_name else colour_b
-        x, y = s["position"]
+        color = col_a_rgba if s["army"] == a_name else col_b_rgba
+        cx, cy = to_px(*s["position"])
+
         if s["alive"]:
-            _draw_unit_base(
-                ax, x, y, color,
-                base_shape=s.get("base_shape", "circle"),
-                base_diameter_mm=int(s.get("base_diameter_mm", 32)),
-                base_width_mm=int(s.get("base_width_mm", 32)),
-                base_length_mm=int(s.get("base_length_mm", 32)),
-            )
-            # HP indicator: if wounded, smaller inner dot. Sized off a baseline
-            # 100 marker so it remains a readable overlay across all shape
-            # variants (rect/ellipse/circle).
+            bs = s.get("base_shape", "circle")
+            if bs in ("rect", "oval"):
+                w_px = _mm_to_inches(s.get("base_width_mm", 32)) * scale
+                h_px = _mm_to_inches(s.get("base_length_mm", 32)) * scale
+            else:
+                diam = _mm_to_inches(s.get("base_diameter_mm", 32)) * scale
+                w_px = h_px = diam
+
+            _draw_unit_base(draw, cx, cy, color, bs, w_px, h_px)
+
+            # HP bar: small white inner circle when wounded
             if s["max_hp"] > 1 and s["current_hp"] < s["max_hp"]:
                 hp_frac = max(0.05, s["current_hp"] / s["max_hp"])
-                ax.scatter([x], [y], s=100 * hp_frac, c="white", alpha=0.5, zorder=6)
+                r = max(2, int(w_px / 2 * math.sqrt(hp_frac) * 0.7))
+                draw.ellipse([cx - r, cy - r, cx + r, cy + r],
+                             fill=(255, 255, 255, 120))
         else:
-            ax.scatter([x], [y], s=70, c=COL_DEAD, marker="x",
-                       linewidths=1.3, zorder=4, alpha=0.7)
+            r = max(4, int(_mm_to_inches(32) / 2 * scale))
+            _cross(draw, cx, cy, r, _rgba(COL_DEAD, 178))
 
-    # Title — show frame index (one per activation / boundary), not raw
-    # event index, so the slider value matches what the viewer sees.
+    # --- Title bar ---
+    font_title = _load_font(11)
     total_frames = max(0, len(frames) - 1)
-    ax.set_title(
-        f"Round {_current_round(events, end_idx)}   "
-        f"|   Frame {frame if frames else 0}/{total_frames}   "
-        f"|   {a_name} (blue) vs {b_name} (red)",
-        color="white", fontsize=9, pad=8,
+    title = (
+        f"Round {_current_round(events, end_idx)}  │  "
+        f"Frame {frame if frames else 0}/{total_frames}  │  "
+        f"{a_name} vs {b_name}"
     )
+    _draw_text_centered(draw, img_w // 2, _TITLE_H_PX // 2, title,
+                        font_title, (255, 255, 255, 255))
 
-    fig.tight_layout()
-    return fig
+    return img
 
 
 # ---------------------------------------------------------------------------
-# Text helpers
+# Text helpers (unchanged)
 # ---------------------------------------------------------------------------
 
 def event_description(event) -> str:
@@ -609,12 +611,7 @@ def event_description(event) -> str:
 
 
 def frame_description(events: List, frame_range: Tuple[int, int]) -> str:
-    """Multi-line summary of a replay frame.
-
-    Single-event frames render exactly like ``event_description``; multi-event
-    activation frames list every event in the activation on its own line, so
-    the log panel mirrors what the figure shows.
-    """
+    """Multi-line summary of a replay frame."""
     start, end = frame_range
     if start == end:
         return event_description(events[start])
