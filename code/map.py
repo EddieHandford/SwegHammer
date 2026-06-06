@@ -209,13 +209,28 @@ class Map:
             _has_aircraft(attacker_keywords)
             or _has_aircraft(target_keywords)
         )
+        # Avenue-2 Stage 3 doorway line of sight (gated SWEG_RUINWALLS): when set,
+        # Ruins with encoded wall segments block sight only across those segments
+        # (doorway gaps pass) instead of the whole rectangle. OFF (default) and any
+        # Ruin without walls keep the legacy whole-rect block — byte-identical.
+        walls_los = bool(__import__("os").environ.get("SWEG_RUINWALLS"))
         return _los_query(
             self,
             round(attacker[0] * 2), round(attacker[1] * 2),
             round(target[0] * 2), round(target[1] * 2),
             ruin_pass,
             towering,
+            walls_los,
         )
+
+    def wall_segments(self) -> Tuple["Wall", ...]:
+        """All Ruin wall segments across the map's terrain (avenue-2 Stage 3) —
+        used by the segment line-of-sight / movement paths and the renderer.
+        Empty until per-ruin wall layouts are encoded."""
+        out = []
+        for t in self.terrain:
+            out.extend(t.walls)
+        return tuple(out)
 
 
 # ---------------------------------------------------------------------------
@@ -312,12 +327,37 @@ def _has_towering(kw_iter: Optional[Iterable[str]]) -> bool:
     return False
 
 
+def _segment_segment_intersects(
+    p1: Tuple[float, float],
+    p2: Tuple[float, float],
+    wall: "Wall",
+) -> bool:
+    """True iff the line-of-sight segment p1->p2 crosses the Wall segment
+    (avenue-2 Stage 3 doorway line-of-sight). Standard orientation (ccw) test;
+    collinear-overlap is treated as non-blocking, which is the conservative,
+    rare edge case for grazing sight lines."""
+    x1, y1 = p1
+    x2, y2 = p2
+    x3, y3, x4, y4 = wall.x1, wall.y1, wall.x2, wall.y2
+
+    def _ccw(ax_, ay_, bx_, by_, cx_, cy_):
+        return (cy_ - ay_) * (bx_ - ax_) - (by_ - ay_) * (cx_ - ax_)
+
+    d1 = _ccw(x3, y3, x4, y4, x1, y1)
+    d2 = _ccw(x3, y3, x4, y4, x2, y2)
+    d3 = _ccw(x1, y1, x2, y2, x3, y3)
+    d4 = _ccw(x1, y1, x2, y2, x4, y4)
+    return (((d1 > 0) != (d2 > 0)) and (d1 != 0) and (d2 != 0)
+            and ((d3 > 0) != (d4 > 0)) and (d3 != 0) and (d4 != 0))
+
+
 def _los_query(
     map_: "Map",
     ax: int, ay: int,
     tx: int, ty: int,
     ruin_pass: bool,
     towering: bool = False,
+    walls_los: bool = False,
 ) -> bool:
     """Line-of-sight check on a 0.5-inch grid, with per-map caching.
 
@@ -328,7 +368,7 @@ def _los_query(
     block, plus the per-terrain "endpoint contained" allowance below which lets
     any model wholly within the Ruin (including a TOWERING one) see out.
     """
-    key = (_terrain_epoch(map_.terrain), ax, ay, tx, ty, ruin_pass, towering)
+    key = (_terrain_epoch(map_.terrain), ax, ay, tx, ty, ruin_pass, towering, walls_los)
     try:
         return _los_cache[key]
     except KeyError:
@@ -348,7 +388,15 @@ def _los_query(
         elif terrain.type is TerrainType.RUIN:
             if terrain.contains(a) or terrain.contains(t):
                 continue
-            if not _segment_rect_intersects(a, t, terrain):
+            if walls_los and terrain.walls:
+                # Walls-vs-area line of sight (avenue-2 Stage 3): a Ruin blocks
+                # the sight line only where it crosses an actual WALL segment;
+                # gaps between segments (doorways) are see-through. A Ruin with
+                # no encoded walls falls through to the legacy whole-rect block
+                # below, so this is byte-identical until per-ruin walls land.
+                if not any(_segment_segment_intersects(a, t, w) for w in terrain.walls):
+                    continue
+            elif not _segment_rect_intersects(a, t, terrain):
                 continue
             if ruin_pass:
                 continue
