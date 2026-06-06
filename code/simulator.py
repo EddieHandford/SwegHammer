@@ -177,14 +177,22 @@ def _move_toward(
         return start
     if occupants is None:
         return new_point
-    # Collision ON: keep the destination if legal, else bisect back toward start.
+    # Collision ON: keep the destination if legal.
     if _collision_pos_legal(new_point, mover_radius, occupants, mover_fly):
         return new_point
-    lo, hi = 0.0, 1.0   # fraction of the start->new_point segment that is legal
-    best = start
+    # Blocked end. MINIMAL make-way SIDESTEP (avenue-2 Stage 2, bounded O(few), NOT
+    # an A* path search — the perf-killer note C warns against): evaluate the straight
+    # walk-back AND a few fixed angular deviations that step AROUND the blocker, then
+    # take the legal endpoint that makes the MOST progress toward goal. This is the
+    # faithful "models go around each other" un-jam for the user's board-wide
+    # no-overlap directive. Deterministic (fixed angle order, no RNG).
+    import math as _m
     sx, sy = start
+    # (a) straight walk-back — furthest legal point on the direct line.
+    lo, hi = 0.0, 1.0
+    best = start
     vx, vy = new_point[0] - sx, new_point[1] - sy
-    for _ in range(14):
+    for _ in range(12):
         mid = (lo + hi) / 2.0
         cand = (sx + vx * mid, sy + vy * mid)
         if not map_.is_blocked(cand) and _collision_pos_legal(cand, mover_radius, occupants, mover_fly):
@@ -192,6 +200,24 @@ def _move_toward(
             lo = mid
         else:
             hi = mid
+    best_d2 = (best[0] - goal[0]) ** 2 + (best[1] - goal[1]) ** 2
+    # (b) angular sidesteps at full reach — step AROUND the blocker. Take the legal
+    # candidate closest to goal (most forward progress). Reach capped so a wide angle
+    # near the goal does not overshoot.
+    reach = min(max_dist, dist)
+    base = _m.atan2(goal[1] - sy, goal[0] - sx)
+    for deg in (20.0, -20.0, 40.0, -40.0, 60.0, -60.0):
+        ang = base + _m.radians(deg)
+        cx = max(0.0, min(map_.width, sx + reach * _m.cos(ang)))
+        cy = max(0.0, min(map_.height, sy + reach * _m.sin(ang)))
+        if map_.is_blocked((cx, cy)):
+            continue
+        if not _collision_pos_legal((cx, cy), mover_radius, occupants, mover_fly):
+            continue
+        d2 = (cx - goal[0]) ** 2 + (cy - goal[1]) ** 2
+        if d2 < best_d2:
+            best = (cx, cy)
+            best_d2 = d2
     return best
 
 
