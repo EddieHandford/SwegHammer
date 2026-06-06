@@ -6342,8 +6342,18 @@ class Battle:
                 # Grant the offensive uplift regardless of pass/fail (the
                 # codex wording resolves the keyword grant whether or not
                 # the Ld test passes; the test gates only the MW penalty).
-                self._set_transient_squad(attacker, "transient_plus_one_to_hit_shooting")
-                self._set_transient_squad(attacker, "transient_plus_one_to_wound_melee")
+                # COVERAGE mode (wave 209 one-shot) grants TRUE [LETHAL HITS]
+                # (crit-6 auto-wounds — the real value vs tough targets the +1/+1
+                # proxy missed) + [SUSTAINED HITS 1] (crit-6 -> extra hit), via the
+                # transient_lethal_hits / transient_sustained_hits the attack() crit
+                # path already honours (reset each round). Legacy (gate OFF) keeps the
+                # +1/+1 proxy -> byte-identical default.
+                if __import__("os").environ.get("SWEG_DARKPACT_COVERAGE"):
+                    self._set_transient_squad(attacker, "transient_lethal_hits")
+                    self._set_transient_squad(attacker, "transient_sustained_hits")
+                else:
+                    self._set_transient_squad(attacker, "transient_plus_one_to_hit_shooting")
+                    self._set_transient_squad(attacker, "transient_plus_one_to_wound_melee")
 
                 if not passed:
                     # D3 mortal wounds on the pact bearer. Mortals bypass
