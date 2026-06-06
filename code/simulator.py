@@ -147,6 +147,7 @@ def _move_toward(
     mover_radius: float = 0.0,
     occupants=None,
     mover_fly: bool = False,
+    sidestep: bool = True,
 ) -> Tuple[float, float]:
     """Move from start toward goal up to max_dist inches.
 
@@ -200,6 +201,11 @@ def _move_toward(
             lo = mid
         else:
             hi = mid
+    if not sidestep:
+        # Big movers (blocker-makes-way model): stop straight at the blocker — an
+        # ENEMY blocker SHOULD halt a Knight (faithful screening); friendly blockers
+        # are cleared beforehand by _clear_lane. No detour around own army.
+        return best
     best_d2 = (best[0] - goal[0]) ** 2 + (best[1] - goal[1]) ** 2
     # (b) angular sidesteps at full reach — step AROUND the blocker. Take the legal
     # candidate closest to goal (most forward progress). Reach capped so a wide angle
@@ -8605,12 +8611,15 @@ class Battle:
             # enforces it (N=80 4.05 -> 3.93, IK -3.3, holding under-shooters up).
             # Disable only by explicitly setting SWEG_COHERE=0 (retained for A/B).
             _cohere = __import__("os").environ.get("SWEG_COHERE", "1") != "0"
-            _move_start_pos: dict = {}
+            # Recorded UNCONDITIONALLY (not just under _cohere) so the blocker-
+            # makes-way pass (_clear_lane, avenue-2 Stage 2) can compute each
+            # friendly's remaining move budget. Stored on self for that access.
+            self._move_start_pos = {}
+            _move_start_pos = self._move_start_pos
             for unit in list(active.units):
                 if not unit.is_alive:
                     continue
-                if _cohere:
-                    _move_start_pos[unit.uid] = unit.position
+                _move_start_pos[unit.uid] = unit.position
                 if _squadact:
                     # The squad — not the model — is the real activation unit.
                     # On the squad's FIRST alive model this phase, compute the
@@ -8921,6 +8930,58 @@ class Battle:
                     return (px, py)
         return None
 
+    def _clear_lane(self, mover, goal) -> None:
+        """Avenue-2 Stage 2 BLOCKER-makes-way (gate SWEG_MOVEPLAN+SWEG_COLLISION): when
+        a BIG mover (TITANIC / VEHICLE / MONSTER) heads to `goal`, step FRIENDLY models
+        out of its straight lane so it does NOT detour around its own army (the user's
+        "move one unit out of the way of another"; the wave-208 mover-sidestep failed
+        exactly because a Knight endlessly detoured its own friendlies). Each blocking
+        friendly shuffles perpendicular by just enough to clear the lane, within its
+        REMAINING move budget. ENEMY blockers are NOT moved (they faithfully screen —
+        the Knight stops). Deterministic (uid order); no RNG; O(friendlies) per call."""
+        import math
+        if not (__import__("os").environ.get("SWEG_MOVEPLAN")
+                and __import__("os").environ.get("SWEG_COLLISION")):
+            return
+        kw = mover.profile.unit_keywords or ()
+        if not ("TITANIC" in kw or "VEHICLE" in kw or "MONSTER" in kw):
+            return
+        army = getattr(mover, "army_ref", None)
+        if army is None:
+            return
+        sx, sy = mover.position
+        dx, dy = goal[0] - sx, goal[1] - sy
+        seglen = math.hypot(dx, dy)
+        if seglen < 0.5:
+            return
+        ux, uy = dx / seglen, dy / seglen      # unit vector ALONG the path
+        px, py = -uy, ux                       # unit vector PERPENDICULAR
+        mr = _bc_model_radius_in(mover.profile)
+        start_pos = getattr(self, "_move_start_pos", {})
+        for f in sorted(army.alive_units, key=lambda u: u.uid):
+            if f is mover:
+                continue
+            fr = _bc_model_radius_in(f.profile)
+            fx, fy = f.position
+            t = (fx - sx) * ux + (fy - sy) * uy      # projection along the path
+            if t < 0.0 or t > seglen:
+                continue                              # not ahead on the lane
+            signed = (fx - sx) * px + (fy - sy) * py  # perpendicular offset (signed)
+            clear = mr + fr + 0.2
+            if abs(signed) >= clear:
+                continue                              # already out of the lane
+            used = _distance(start_pos.get(f.uid, f.position), f.position)
+            budget = effective_move(f) - used
+            if budget <= 0.0:
+                continue
+            side = 1.0 if signed >= 0 else -1.0       # push to the nearer side
+            step = min(clear - abs(signed), budget)
+            nx = max(0.0, min(self.map.width, fx + side * px * step))
+            ny = max(0.0, min(self.map.height, fy + side * py * step))
+            if self.map.is_blocked((nx, ny)):
+                continue
+            f.position = (nx, ny)
+
     def _ring_slots(self, obj, n: int) -> list:
         """Reusable coordination primitive (avenue-2 note A): `n` DISTINCT positions in
         a COHERENT cluster within `obj`'s control ring — every slot within the marker's
@@ -9221,9 +9282,18 @@ class Battle:
         did_advance = advance_d6 > 0
 
         old_pos = attacker.position
+        # Avenue-2 Stage 2 blocker-makes-way: a BIG mover clears FRIENDLIES from its
+        # lane (they step aside) then moves STRAIGHT, halting only at ENEMY screens
+        # (sidestep=False — no detour around its own army). No-op unless the gates +
+        # a big mover. _akw is the big-mover keyword set.
+        _akw = attacker.profile.unit_keywords or ()
+        _big_mover = "TITANIC" in _akw or "VEHICLE" in _akw or "MONSTER" in _akw
+        if _big_mover:
+            self._clear_lane(attacker, target_pos)
         new_pos = _move_toward(
             attacker.position, target_pos,
             move_distance, self.map,
+            sidestep=not _big_mover,
             **self._collision_kwargs(attacker),
         )
         if new_pos != old_pos:
