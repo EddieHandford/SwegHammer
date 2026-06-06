@@ -121,18 +121,47 @@ def _distance(a: Tuple[float, float], b: Tuple[float, float]) -> float:
     return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
 
 
+def _collision_pos_legal(pos, mover_radius, occupants, mover_fly) -> bool:
+    """Avenue-2 Stage 1 (no-overlap collision): is `pos` a legal END position for a
+    mover of footprint `mover_radius` (inches), given `occupants` — a list of
+    (x, y, radius, is_enemy) for every OTHER alive model? Real 10e: a model cannot
+    END a move overlapping another model, nor (for non-FLY) within Engagement Range
+    (1") of an enemy. FLY ends are exempt from the enemy/ER test (it flew over).
+    Pure + deterministic. Only consulted when collision is wired ON by a caller."""
+    for ox, oy, orad, is_enemy in occupants:
+        d2 = (pos[0] - ox) ** 2 + (pos[1] - oy) ** 2
+        # No model may END overlapping another model's base (applies to FLY too).
+        if d2 < (mover_radius + orad) ** 2:
+            return False
+        # Non-FLY may not end within Engagement Range (1") of an enemy base.
+        if is_enemy and not mover_fly and d2 < (mover_radius + orad + 1.0) ** 2:
+            return False
+    return True
+
+
 def _move_toward(
     start: Tuple[float, float],
     goal: Tuple[float, float],
     max_dist: float,
     map_: Map,
+    mover_radius: float = 0.0,
+    occupants=None,
+    mover_fly: bool = False,
 ) -> Tuple[float, float]:
     """Move from start toward goal up to max_dist inches.
 
     Clamps to map bounds. If the destination point lies inside impassable
     terrain, the move is aborted and the unit stays put — crude but enough
     for Phase A.
-    """
+
+    Avenue-2 Stage 1 no-overlap collision (default-OFF / byte-identical): when
+    `occupants` is None (every caller today, and whenever SWEG_COLLISION is off) the
+    function behaves exactly as before. When a caller passes the per-phase occupant
+    list (other alive models as (x, y, radius, is_enemy)) plus the mover's footprint
+    radius, the END position is validated against `_collision_pos_legal`; if illegal,
+    the destination is walked back toward `start` by deterministic bisection (capped
+    iterations) to the last legal point. `start` is assumed legal (the mover is there
+    now). FLY skips the enemy/Engagement-Range test (handled in the helper)."""
     dx = goal[0] - start[0]
     dy = goal[1] - start[1]
     dist = (dx * dx + dy * dy) ** 0.5
@@ -146,7 +175,24 @@ def _move_toward(
     new_point = (new_x, new_y)
     if map_.is_blocked(new_point):
         return start
-    return new_point
+    if occupants is None:
+        return new_point
+    # Collision ON: keep the destination if legal, else bisect back toward start.
+    if _collision_pos_legal(new_point, mover_radius, occupants, mover_fly):
+        return new_point
+    lo, hi = 0.0, 1.0   # fraction of the start->new_point segment that is legal
+    best = start
+    sx, sy = start
+    vx, vy = new_point[0] - sx, new_point[1] - sy
+    for _ in range(14):
+        mid = (lo + hi) / 2.0
+        cand = (sx + vx * mid, sy + vy * mid)
+        if not map_.is_blocked(cand) and _collision_pos_legal(cand, mover_radius, occupants, mover_fly):
+            best = cand
+            lo = mid
+        else:
+            hi = mid
+    return best
 
 
 # ---------------------------------------------------------------------------
