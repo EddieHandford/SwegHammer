@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -33,6 +34,8 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from code.equation_data_fit import (  # noqa: E402
+    FEATURE_FAMILIES,
+    compute_family_contributions,
     default_feature_specs,
     extract_features,
     faction_multipliers,
@@ -90,7 +93,6 @@ def _per_unit_feature_contributions(
 def bake(
     out_path: Path,
     alpha: float = DEFAULT_ALPHA,
-    super_heavy_threshold: float = DEFAULT_SUPER_HEAVY,
 ) -> dict:
     """Build the dataset dict. Caller writes the JSON."""
     print(f"[bake] extracting features from {len(UNIT_CATALOG)} units …",
@@ -118,7 +120,6 @@ def bake(
               f"{META_SNAPSHOT_FALLBACK}; every faction defaults to 1.0× "
               "multiplier.", flush=True)
 
-    n_super_heavy = 0
     n_priced = 0
     prices: dict[str, dict] = {}
 
@@ -132,20 +133,20 @@ def bake(
         mult = float(mults.get(faction, 1.0))
         adjusted = equation_per_model * mult
 
-        if gw_pts > super_heavy_threshold:
-            # Super-heavy fallback: trust GW.
-            sweg_pts = _round_to(gw_pts, ROUND_TO)
-            method = "gw_fallback_super_heavy"
-            n_super_heavy += 1
-        elif gw_pts <= 0:
-            # No GW baseline (units priced 0 in the catalogue). Use equation.
+        # Every unit gets priced by the equation — super-heavies included.
+        # Earlier versions fell back to the printed GW cost above a 500 pt/model
+        # threshold; that was dropped on purpose so playtesters can field
+        # Titans / Knights / strongpoints at math-fitted prices like every
+        # other model. Predictions at that weight class are noisier (rare
+        # profiles, less training signal) — flag the uncertainty in the
+        # methodology blurb, but don't hide the prediction.
+        if gw_pts <= 0:
             sweg_pts = _round_to(adjusted, ROUND_TO)
             method = "equation_no_gw_baseline"
-            n_priced += 1
         else:
             sweg_pts = _round_to(adjusted, ROUND_TO)
             method = "equation_plus_faction_multiplier"
-            n_priced += 1
+        n_priced += 1
 
         delta_pct = ((sweg_pts - gw_pts) / gw_pts * 100.0) if gw_pts > 0 else None
 
@@ -163,12 +164,38 @@ def bake(
             "top_features": top3,
         }
 
+    # Family rollups — sidestep the multicollinearity in individual
+    # coefficients by summing each feature family's contribution per unit,
+    # then averaging across the catalogue. Signs survive aggregation and the
+    # bars on the playtester HTML actually mean what they look like.
+    family_arrays = compute_family_contributions(features_df, fit_result, specs)
+    family_rollup = {
+        family: {
+            "signed_mean": round(float(np.mean(arr)), 4),
+            "abs_mean": round(float(np.mean(np.abs(arr))), 4),
+        }
+        for family, arr in family_arrays.items()
+    }
+
+    # Faction adjustment as an additional rollup row. Mathematically it's not
+    # a feature in the regression — it's applied as a multiplicative factor
+    # to the predicted price — but log(price × mult) = log(price) + log(mult),
+    # so log(mult) lives in the same units as every other family contribution
+    # and slots into the chart honestly. Per-unit value is log(mult) where
+    # mult is the unit's faction multiplier (1.0 if the faction has none).
+    faction_log_mults = np.array(
+        [math.log(mults.get(row["faction"], 1.0)) for _, row in features_df.iterrows()]
+    )
+    family_rollup["Faction adjustment"] = {
+        "signed_mean": round(float(np.mean(faction_log_mults)), 4),
+        "abs_mean": round(float(np.mean(np.abs(faction_log_mults))), 4),
+    }
+
     payload = {
         "version": "1.0.0",
         "built_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "method": "equation_data_fit + faction_multipliers",
         "alpha": alpha,
-        "super_heavy_threshold_pts_per_model": super_heavy_threshold,
         "fit_metrics": {
             "r_squared": round(float(fit_result.r_squared), 4),
             "mae_log": round(float(fit_result.mae_log), 4),
@@ -188,13 +215,13 @@ def bake(
                 fit_result.coefficients,
             )
         ],
+        "family_contributions_avg": family_rollup,
         "faction_multipliers_active": {
             f: round(float(m), 3) for f, m in sorted(mults.items())
         },
         "counts": {
             "total_units": len(prices),
             "priced_by_equation": n_priced,
-            "super_heavy_fallback": n_super_heavy,
         },
         "prices": prices,
     }
@@ -206,24 +233,18 @@ def main() -> int:
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--alpha", type=float, default=DEFAULT_ALPHA,
                         help="Faction-multiplier sensitivity α (default 2.0).")
-    parser.add_argument("--super-heavy-threshold", type=float,
-                        default=DEFAULT_SUPER_HEAVY,
-                        help="GW pts/model above which to use GW prices "
-                             "instead of the equation (default 500).")
     args = parser.parse_args()
 
-    payload = bake(args.out, alpha=args.alpha,
-                   super_heavy_threshold=args.super_heavy_threshold)
+    payload = bake(args.out, alpha=args.alpha)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     n_total = payload["counts"]["total_units"]
     n_eq = payload["counts"]["priced_by_equation"]
-    n_sh = payload["counts"]["super_heavy_fallback"]
     print(f"[bake] wrote {args.out}", flush=True)
-    print(f"[bake]   {n_total} units priced "
-          f"({n_eq} via equation, {n_sh} super-heavy fallback)", flush=True)
+    print(f"[bake]   {n_total} units priced via equation (no GW fallback)",
+          flush=True)
     print(f"[bake]   R²={payload['fit_metrics']['r_squared']}  "
           f"MAE(log)={payload['fit_metrics']['mae_log']}", flush=True)
     return 0

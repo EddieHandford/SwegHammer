@@ -226,16 +226,12 @@ def _render_frame_png(replay_id: int, frame_idx: int) -> bytes:
     frames = st.session_state.get("replay_frames")
     col_a = st.session_state.get("replay_colour_a", "#4e9af1")
     col_b = st.session_state.get("replay_colour_b", "#e05c5c")
-    fig = render_frame(
+    img = render_frame(
         map_, events, frame_idx, frames=frames,
         colour_a=col_a, colour_b=col_b,
     )
     buf = BytesIO()
-    # DPI 90 (was 110): ~30% faster encode with no visible loss in the
-    # Streamlit column width (which is typically ~500-700px wide).
-    fig.savefig(buf, format="png", bbox_inches="tight",
-                facecolor=fig.get_facecolor(), dpi=90)
-    plt.close(fig)
+    img.save(buf, format="PNG")
     return buf.getvalue()
 
 # ---------------------------------------------------------------------------
@@ -294,6 +290,15 @@ def _build_army_from_composition(name: str, comp, in_cover: bool = False) -> Arm
         for _ in range(count):
             army.add_squad(profile, size)
     return army
+
+
+def _army_spec_from_composition(
+    name: str, comp: List[Tuple[str, int]], in_cover: bool = False,
+) -> dict:
+    keys: List[str] = []
+    for unit_key, count in comp:
+        keys.extend([unit_key] * max(0, int(count)))
+    return {"name": name, "keys": keys, "in_cover": in_cover}
 
 
 def _composition_from_random(
@@ -358,7 +363,23 @@ def run_simulations(
     n: int,
     map_: Map = DEFAULT_MAP,
     on_progress: Optional[Callable[[int, int], None]] = None,
+    spec_a: Optional[dict] = None,
+    spec_b: Optional[dict] = None,
 ) -> List[BattleResult]:
+    if spec_a is not None and spec_b is not None:
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+        from code.sim_worker import run_one_battle
+        results: List[Optional[BattleResult]] = [None] * n
+        with ProcessPoolExecutor() as executor:
+            fs = {executor.submit(run_one_battle, spec_a, spec_b, map_): i
+                  for i in range(n)}
+            done = 0
+            for future in as_completed(fs):
+                results[fs[future]] = future.result()
+                done += 1
+                if on_progress:
+                    on_progress(done, n)
+        return results  # type: ignore[return-value]
     results = []
     for i in range(n):
         results.append(Battle(factory_a(), factory_b(), map_=map_).run())
@@ -1168,21 +1189,72 @@ def _render_equation_lite(sweg_data):
     fit = sweg_data.get("fit_metrics", {})
     r2 = fit.get("r_squared", "?")
     mae_log = fit.get("mae_log", "?")
+    mae_price = fit.get("mae_price", None)
+    mae_price_str = f"{mae_price:.1f}" if mae_price is not None else "?"
     feat_n = sweg_data.get("feature_count", "?")
 
+    # Headline metrics up top — these are the numbers a viewer should leave with.
+    cols = st.columns(4)
+    cols[0].metric("Units priced", f"{sweg_data.get('counts', {}).get('total_units', '?')}")
+    cols[1].metric("Stat features", f"{feat_n}")
+    cols[2].metric("R² vs GW", f"{r2}")
+    cols[3].metric("Mean error", f"{mae_price_str} pts/model")
+
     st.markdown(
-        "SwegHammer's points are produced by a small regression equation "
-        "fitted to **stat-line features** — Wounds, Toughness, Save, "
-        "Attacks, Damage, Move, OC, weapon keywords, plus a few interaction "
-        "terms like `toughness × wounds`. The equation predicts "
-        "`log(price per model)`, which is exponentiated back to a points "
-        "value and then multiplied by a **per-faction tournament-meta "
-        "correction**.\n\n"
-        f"The fit covers **{feat_n}** features and lands at **R² = {r2}** "
-        f"against the printed GW prices (mean absolute error in log space "
-        f"is **{mae_log}**, so most predicted prices land within roughly "
-        f"±20 % of GW)."
+        "Every unit is priced by one regression equation over the stat line — "
+        "wounds, toughness, save, AP, attacks, damage, hit probability, "
+        "secondary weapon profile, special weapon keywords (precision, lance, "
+        "assault, indirect fire, anti-X), leader aura buffs, even Necron "
+        "reanimation. The equation predicts `log(price per model)`, which is "
+        "exponentiated back to a points value and then multiplied by a "
+        "**per-faction tournament-meta correction**.\n\n"
+        f"The fit lands at **R² = {r2}** against GW's printed prices "
+        f"(mean absolute error **{mae_price_str} pts/model**, log-space MAE "
+        f"**{mae_log}**)."
     )
+
+    # Family rollups — group correlated features (wounds, wounds², toughness×wounds, …)
+    # into one bar per family so the signs are interpretable. Same shape the
+    # playtester HTML shows.
+    family_rollups = sweg_data.get("family_contributions_avg", {})
+    if family_rollups:
+        st.divider()
+        st.markdown("### What drives a unit's cost?")
+        st.caption(
+            "Four big buckets the equation cares about — Durability, Offense, "
+            "Mobility, Special abilities. Signed mean is the family's average "
+            "contribution to log(price) per unit; magnitude shows how much each "
+            "family moves prices around. Family rollups instead of raw "
+            "coefficients because dozens of correlated features (wounds, wounds², "
+            "toughness × wounds, …) cancel out in opposing directions individually "
+            "— sums across a whole family are stable and interpretable."
+        )
+        family_items = [
+            (family, float(stats.get("signed_mean", 0)), float(stats.get("abs_mean", 0)))
+            for family, stats in family_rollups.items()
+        ]
+        family_items.sort(key=lambda x: -x[2])
+        family_df = pd.DataFrame(
+            family_items,
+            columns=["Family", "Signed mean", "Magnitude (abs mean)"],
+        )
+        st.dataframe(
+            family_df,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "Signed mean": st.column_config.NumberColumn(
+                    format="%+.3f",
+                    help="Average signed contribution per unit (gold = adds to price, red = subtracts).",
+                ),
+                "Magnitude (abs mean)": st.column_config.ProgressColumn(
+                    format="%.3f",
+                    min_value=0.0,
+                    max_value=max((m for _, _, m in family_items), default=1.0),
+                    help="Average absolute contribution per unit — how much each family moves prices around.",
+                ),
+            },
+        )
 
     st.divider()
     st.markdown("### Worked example")
@@ -1312,7 +1384,7 @@ with st.sidebar:
         b_name = preset["b_name"]
         profile_a = UNIT_CATALOG[preset["a_key"]]
         profile_b = UNIT_CATALOG[preset["b_key"]]
-        points = st.slider("Points per army", 100, 1500, preset["points"], step=50)
+        points = st.slider("Points per army", 100, 2000, preset["points"], step=50)
         # Preset uses a homogeneous army filled to the points budget.
         a_count = max(1, int(points // profile_a.points_cost))
         b_count = max(1, int(points // profile_b.points_cost))
@@ -1643,6 +1715,8 @@ st.divider()
 # ---------------------------------------------------------------------------
 
 if run:
+    _spec_a = None
+    _spec_b = None
     if mode == "Faction vs Faction (random)":
         budget = st.session_state.get("fvf_budget", 1000)
         size_policy = st.session_state.get("fvf_size_policy", "max")
@@ -1655,6 +1729,8 @@ if run:
     else:
         factory_a = lambda: _build_army_from_composition(a_name, a_comp, in_cover=a_cover)
         factory_b = lambda: _build_army_from_composition(b_name, b_comp, in_cover=b_cover)
+        _spec_a = _army_spec_from_composition(a_name, a_comp, in_cover=a_cover)
+        _spec_b = _army_spec_from_composition(b_name, b_comp, in_cover=b_cover)
 
     _battle_bar = st.progress(0, text=f"Running battles… 0 / {n_battles:,}")
     def _battle_progress(done: int, total: int) -> None:
@@ -1663,6 +1739,7 @@ if run:
     results = run_simulations(
         factory_a, factory_b, n_battles,
         map_=selected_map, on_progress=_battle_progress,
+        spec_a=_spec_a, spec_b=_spec_b,
     )
     _battle_bar.empty()
 
@@ -1703,7 +1780,7 @@ if run:
     best_result = None
     best_score = float("inf")
     with st.spinner("Capturing representative replay…"):
-        for _ in range(30):
+        for _ in range(5):
             log = EventLog()
             res = Battle(
                 factory_a(), factory_b(), subscribers=[log], map_=selected_map,
