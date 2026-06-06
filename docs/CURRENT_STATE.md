@@ -17,8 +17,17 @@ re-base; numbers before and after the adoption are different scales). Out-of-ban
 compressed toward target, Imperial Knights eased 20.84→19.70, under-pole unchanged, none cratered). Reversible:
 `SWEG_PRIMARY_DECK=0` restores the legacy all-Take-and-Hold frame for an audit/A-B. The remaining 5 primaries (Unexploded
 Ordnance / Supply Drop / Hidden Supplies / Linchpin / Burden of Trust) are an opportunistic follow-on to complete the frame
-(minor, non-blocking). **Now: avenue 2 (selective displacement / maneuver AI) — Imperial Knights gated 19.70 is the #1
-residual and the structural bulk no scoring lever reaches; instrument-first (read-only object-trace) per the watchdog.**
+(minor, non-blocking).
+
+**Avenue 2 (physical board control) — wave 204-208.** Instrument-first (`diag_boardcontrol`, gated `SWEG_BOARDCTRL_INSTR`):
+the over-pole has two physical-board gaps — OC over-packing on contested markers (145%, a Knight's 170mm base over-fills the
+3" ring) and 50% of big VEHICLE/MONSTER models sitting inside ruins they should be walled out of. **Collision sub-lever
+REJECTED (wave 208):** board-wide no-overlap collision + make-way (3 attempts: ring-fill / distinct-slot / sidestep) N=80
+A/B regressed 4.89→6.81 — it strands the big-base Knights (reach 52%→20%, both Knights crater) and inflates the mobile shooty
+cluster (global reach-loss in this greedy-no-pathfind one-Unit-per-model representation, not selective displacement). Kept
+gated default-OFF (`SWEG_COLLISION`/`SWEG_MOVEPLAN`), production deck frame 4.89 unaffected. The marker-only-collision variant
+is escalated to the user (departs from the board-wide directive). **Now: the TERRAIN pair (Stages 3-4, `SWEG_RUINWALLS`) —
+the other high-leverage board-control lever (50% big-in-ruin), independent; non-INFANTRY can't cross ruin walls >2" (sourced).**
 
 **What landed (default-ON, env-gated for isolation):**
 1. **Damaged-bracket generalization** (`SWEG_DMGBRACKET`, wave 191, commit `adb3000`): the 10e "Damaged: 1-X Wounds
