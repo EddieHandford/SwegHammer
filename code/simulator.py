@@ -224,16 +224,19 @@ BOARDCONTROL_STATS: dict = {
 
 def _bc_model_radius_in(profile) -> float:
     """Base-footprint radius in INCHES for a model (read-only instrument helper).
-    Prefers the round base_diameter_mm; falls back to the mean of width/length for
-    rect/oval bases; defaults to a ~32mm round (0.63") if no base data. 25.4 mm/in."""
+    25.4 mm/in. CRITICAL: oval/rect bases (Knights, big VEHICLEs) store their real
+    footprint in base_width_mm x base_length_mm while base_diameter_mm holds a 32mm
+    PLACEHOLDER — so take the LARGER of the circle-derived and the width/length-
+    derived radius (a 170mm Knight must not be mis-sized as a 32mm infantry base,
+    which 4x-undercounts its footprint area and hides the marker-denial it causes).
+    Defaults to ~32mm round (0.63") only if no base data at all."""
     d = getattr(profile, "base_diameter_mm", 0) or 0
-    if d > 0:
-        return (d / 25.4) / 2.0
     w = getattr(profile, "base_width_mm", 0) or 0
     ln = getattr(profile, "base_length_mm", 0) or 0
-    if w and ln:
-        return ((w + ln) / 2.0 / 25.4) / 2.0
-    return 0.63
+    r_circle = (d / 25.4) / 2.0 if d > 0 else 0.0
+    r_wl = ((w + ln) / 2.0 / 25.4) / 2.0 if (w and ln) else 0.0
+    r = max(r_circle, r_wl)
+    return r if r > 0 else 0.63
 
 
 @dataclass(frozen=True)
