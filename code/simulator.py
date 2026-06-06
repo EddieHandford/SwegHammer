@@ -10109,8 +10109,12 @@ class Battle:
         # legal for THIS model (present in its own range / line-of-sight pool);
         # otherwise fall through to the focus / lowest-health pick below. OFF
         # path: gate unset, plan empty, `_assigned` stays None — byte-identical.
+        # Fidelity-revisit sweep #4 (wave 210): squad split-fire is now DEFAULT-ON —
+        # 10e lets a unit's models target different enemy units in range (the legacy
+        # path forced the whole unit onto one). Metric-neutral (5.44→5.49 N=80).
+        # `SWEG_SQUADSHOOT=0` reverts to the single-target legacy path.
         _assigned = None
-        if __import__("os").environ.get("SWEG_SQUADSHOOT") == "1":
+        if __import__("os").environ.get("SWEG_SQUADSHOOT", "1") != "0":
             _sid = getattr(attacker, "squad_id", -1)
             _skey = ((attacker_army.name, _sid) if _sid >= 0
                      else (attacker_army.name, id(attacker)))
