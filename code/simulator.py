@@ -6308,40 +6308,52 @@ class Battle:
                 ranged = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
                 melee = (p.melee_attacks or 0) * (p.melee_hit_probability or 0) * (p.melee_damage_per_shot or 0.0)
                 return ranged + melee
-            attacker = max(csm_units, key=_dpa)
-            if _dpa(attacker) < 6.0:
-                # Opt out: not worth the D3 MW gamble on a weak attacker.
-                continue
+            # Dark Pacts COVERAGE (avenue-3 #52, gated SWEG_DARKPACT_COVERAGE).
+            # Verbatim 10e: "Each time a unit ... is selected to shoot or fight, it
+            # can be subjected to a Dark Pact" — i.e. EVERY eligible unit, every
+            # phase. The legacy default elects ONE highest-DPA unit per round (DPA>=6),
+            # ~4-8x too narrow — under-modelling the army rule and CSM output. ON:
+            # every CSM unit with worthwhile attacks (DPA>=3) makes its own pact,
+            # each with its own Leadership test + D3-MW risk (the rule's balancing
+            # cost, KEPT). The +1-hit/+1-wound proxy for Lethal/Sustained Hits is
+            # unchanged; if CSM over-shoots, the faithful fix is true LH/SH crit
+            # modelling, NOT re-narrowing coverage. Cited simulator.dark_pacts.
+            if __import__("os").environ.get("SWEG_DARKPACT_COVERAGE"):
+                pact_units = [u for u in csm_units if _dpa(u) >= 3.0]
+            else:
+                _top = max(csm_units, key=_dpa)
+                pact_units = [_top] if _dpa(_top) >= 6.0 else []
 
-            # Leadership test: 2D6 >= Ld passes (same convention as the
-            # existing `_run_battleshock_phase`).
-            ld = attacker.profile.leadership
-            roll = random.randint(1, 6) + random.randint(1, 6)
-            passed = roll >= ld
+            for attacker in pact_units:
+                # Leadership test: 2D6 >= Ld passes (same convention as the
+                # existing `_run_battleshock_phase`).
+                ld = attacker.profile.leadership
+                roll = random.randint(1, 6) + random.randint(1, 6)
+                passed = roll >= ld
 
-            # Grant the offensive uplift regardless of pass/fail (the
-            # codex wording resolves the keyword grant whether or not
-            # the Ld test passes; the test gates only the MW penalty).
-            self._set_transient_squad(attacker, "transient_plus_one_to_hit_shooting")
-            self._set_transient_squad(attacker, "transient_plus_one_to_wound_melee")
+                # Grant the offensive uplift regardless of pass/fail (the
+                # codex wording resolves the keyword grant whether or not
+                # the Ld test passes; the test gates only the MW penalty).
+                self._set_transient_squad(attacker, "transient_plus_one_to_hit_shooting")
+                self._set_transient_squad(attacker, "transient_plus_one_to_wound_melee")
 
-            if not passed:
-                # D3 mortal wounds on the pact bearer. Mortals bypass
-                # armour/invuln but FNP applies via receive_damage, and spill
-                # across the pacting unit's models (10e core,
-                # _apply_mortal_wounds). Cited as simulator.mortal_wound_spillover.
-                d3 = random.randint(1, 3)
-                self._apply_mortal_wounds(attacker, d3)
-                if self.verbose:
+                if not passed:
+                    # D3 mortal wounds on the pact bearer. Mortals bypass
+                    # armour/invuln but FNP applies via receive_damage, and spill
+                    # across the pacting unit's models (10e core,
+                    # _apply_mortal_wounds). Cited as simulator.mortal_wound_spillover.
+                    d3 = random.randint(1, 3)
+                    self._apply_mortal_wounds(attacker, d3)
+                    if self.verbose:
+                        print(
+                            f"  DARK PACT: {attacker.profile.name} failed Ld "
+                            f"({roll} < {ld}), suffers {d3} mortal wounds"
+                        )
+                elif self.verbose:
                     print(
-                        f"  DARK PACT: {attacker.profile.name} failed Ld "
-                        f"({roll} < {ld}), suffers {d3} mortal wounds"
+                        f"  DARK PACT: {attacker.profile.name} passed Ld "
+                        f"({roll} >= {ld}), no self-damage"
                     )
-            elif self.verbose:
-                print(
-                    f"  DARK PACT: {attacker.profile.name} passed Ld "
-                    f"({roll} >= {ld}), no self-damage"
-                )
 
     # ---- Drukhari Combat Drugs (army rule, 10e). Profile-name allowlist of
     # the four WYCH CULT datasheets currently in the catalogue. BSData's

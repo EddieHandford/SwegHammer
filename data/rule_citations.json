@@ -1,12 +1,4 @@
 {
-  "simulator.basket_best_ranged_per_model": {
-    "rule_name": "Shooting Phase — one ranged weapon per model",
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Shooting-Phase",
-    "quoted_text": "Select one ranged weapon that model is equipped with and make attacks with it. … [PISTOL]: … each time a model makes an attack with this weapon, if the attacking unit is within Engagement Range of one or more enemy units, that attack can only target one of those enemy units.",
-    "trigger": "Any time the heterogeneous-squad mapper collects fixed ranged weapons for a single model type and the model carries more than one fixed ranged weapon (e.g. Mining laser + Autopistol, Plasma incinerator + Bolt pistol). A model will always elect to fire its highest-damage weapon in the Shooting phase; the Autopistol/Bolt pistol secondary is only usable during the Fight phase under the [PISTOL] rule.",
-    "effect": "When _collect_weapons_for_model yields multiple fixed ranged weapons for one model type, only the single best (by expected_damage_through_baseline) non-[PISTOL] weapon is kept. This prevents the Autopistol/Bolt pistol secondary from diluting the basket average of the model's primary weapon in _flatten_to_basket. Pistol-only models are unaffected.",
-    "scope": "weapon-keyword"
-  },
   "AWAKENED_DYNASTY.bonus_to_hit_when_led": {
     "effect": "+1 to the Hit roll",
     "quoted_text": "While a NECRONS CHARACTER model is leading this unit, each time a model in this unit makes an attack, add 1 to the Hit roll.",
@@ -31,6 +23,14 @@
     "scope": "army-wide",
     "source": "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/",
     "trigger": "attacker / defender unit has Adepta Sororitas faction tag AND its army has at least one Miracle die banked AND the natural d6 roll (hit / wound / save) would fail AND the codex-unit (profile.name group) has not already used its Acts of Faith budget this round; the simulator greedy heuristic only substitutes when a banked die flips fail -> success. APPROXIMATION (SOROR-ACTS-OF-FAITH-V1): the codex allows one Act of Faith per unit per phase (up to 4 phases per round); the simulator collapses to one per codex-unit per round (conservative under-approximation). Squad-level cap: all sim instances sharing a profile.name count as one codex unit, enforcing the per-squad-not-per-model constraint. APPROXIMATION (retroactive substitution): the codex requires declaring the substitution BEFORE the roll; the simulator substitutes retroactively only on failures (equivalent in expectation under optimal play, noted per CLAUDE.md section 10). SOROR-DETACHMENT-V1 on-death generation fix: the previous code fired one die per sim-instance destroyed (e.g. 25 dice for 25 Repentia Squad instances), over-generating by ~4.65x. Fixed to fire only when the LAST alive sim-instance of a given profile.name dies (the codex unit is fully destroyed), and excluding TRANSPORT units which do not carry the Acts of Faith ability on their datasheets. TRANSPORT gate: Sororitas Immolator / Sororitas Rhino / Repressor are VEHICLE TRANSPORT datasheets and do not list the Acts of Faith ability; their destruction does not award Miracle dice."
+  },
+  "simulator.basket_best_ranged_per_model": {
+    "effect": "When _collect_weapons_for_model yields multiple fixed ranged weapons for one model type, only the single best (by expected_damage_through_baseline) non-[PISTOL] weapon is kept. This prevents the Autopistol/Bolt pistol secondary from diluting the basket average of the model's primary weapon in _flatten_to_basket. Pistol-only models are unaffected.",
+    "quoted_text": "Select one ranged weapon that model is equipped with and make attacks with it. … [PISTOL]: … each time a model makes an attack with this weapon, if the attacking unit is within Engagement Range of one or more enemy units, that attack can only target one of those enemy units.",
+    "rule_name": "Shooting Phase — one ranged weapon per model",
+    "scope": "weapon-keyword",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Shooting-Phase",
+    "trigger": "Any time the heterogeneous-squad mapper collects fixed ranged weapons for a single model type and the model carries more than one fixed ranged weapon (e.g. Mining laser + Autopistol, Plasma incinerator + Bolt pistol). A model will always elect to fire its highest-damage weapon in the Shooting phase; the Autopistol/Bolt pistol secondary is only usable during the Fight phase under the [PISTOL] rule."
   },
   "simulator.basket_fraction_gating": {
     "effect": "Unit.attack gates LANCE / DEVASTATING WOUNDS / ANTI-X consumption per shot via a Bernoulli draw against a basket-weight fraction recorded by the mapper. For heterogeneous squads (Rubric Marines, Skyweavers, Beast Snagga Boyz, AdMech Skitarii) the MAP-3 boolean UNION marks the keyword present on the synthetic average weapon so the picker is aware of it; this fraction then ensures each shot only fires the keyword with probability equal to the proportion of basket weight whose underlying weapon legitimately carries it. Single-weapon units default to fraction 1.0 (keyword fires for every shot) so the legacy gate is preserved. Rule-correct: each MODEL in a squad shoots its OWN weapon and squad attacks come from the mixed pool of those weapons; we don't track per-model weapon assignments so the random-expectation Bernoulli matches the real per-attack distribution.",
@@ -89,7 +89,7 @@
     "trigger": "Drukhari army; one Combat Drug active army-wide at a time on every WYCH CULT unit"
   },
   "simulator.dark_pacts": {
-    "effect": "unit gains [LETHAL HITS] OR [SUSTAINED HITS 1] for the phase; on failed 2D6>=Ld test the unit suffers D3 mortal wounds",
+    "effect": "unit gains [LETHAL HITS] OR [SUSTAINED HITS 1] for the phase (proxied as +1 hit shooting / +1 wound melee); on failed 2D6>=Ld test the unit suffers D3 mortal wounds. COVERAGE (gated SWEG_DARKPACT_COVERAGE, wave 209): per the verbatim quoted_text every eligible unit (DPA>=3) may pact each phase with its own Ld test; the legacy default narrows this to one highest-DPA unit/round (a known under-application of the army rule).",
     "quoted_text": "Each time a unit with this ability is selected to shoot or fight, it can make a Dark Pact. If it does, it must first take a Leadership test before any effects of that Dark Pact are resolved; if that test is failed, that unit suffers D3 mortal wounds.",
     "rule_name": "Dark Pacts",
     "scope": "army-wide",
@@ -136,6 +136,14 @@
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Pistols",
     "trigger": "a unit shooting in its Shooting phase that owns both Pistol and non-Pistol ranged weapons"
   },
+  "simulator.primary_vp_no_round_1": {
+    "effect": "Primary VP scored only from battle round 2 onward; round 1 scores 0 primary VP",
+    "quoted_text": "At the end of the Command phase, each player scores Victory Points for the primary objectives they control. Note that the Command phase in the first battle round does not score primary Victory Points.",
+    "rule_name": "Primary Objectives - Scoring Timing",
+    "scope": "army-wide",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-tournament-companion/#Primary-Objectives",
+    "trigger": "end of Command phase, rounds 2-5 only (not round 1)"
+  },
   "simulator.rend_and_tear": {
     "effect": "+1 to the Damage characteristic of that attack",
     "quoted_text": "Each time a model in this unit makes a melee attack that targets a Monster or Vehicle unit, until the end of the phase, improve the Damage characteristic of that attack by 1.",
@@ -152,6 +160,14 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Custodian-Wardens",
     "trigger": "defender has `resolute_will` set on the UnitProfile (per overrides.json), defender is actually led â€” leaders.is_actually_led() returns True (at least one in-range friendly CHARACTER whose LeaderAbility.host_keys lists the defender's UNIT_CATALOG key), AND the attack's Strength characteristic is strictly greater than the defender's Toughness characteristic"
   },
+  "simulator.secondary_selection": {
+    "effect": "Only the picked 2 Fixed Secondaries (+ chosen Tactical cards) score VP for that army. `score_round_delta` / `score_position_delta` zero any component absent from `chosen_secondaries`. Previously all four Fixed + both Tactical scored every round for every army, asymmetrically over-rewarding balanced kill-heavy / mobile rosters.",
+    "quoted_text": "Before deployment, each player must either select two different Fixed Secondary Missions from the four below, or use the Tactical Secondary Missions deck. Each player scores Victory Points from their two chosen Fixed Secondary Missions throughout the battle, or draws from the Tactical Secondary Missions deck each battle round.",
+    "rule_name": "Secondary Missions - Selection",
+    "scope": "army-wide",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+    "trigger": "battle start; `code/secondaries.py::pick_secondaries(own_army, enemy_army)` selects 2 Fixed (bring_it_down / cull_the_horde / assassination — no_prisoners is Tactical-only in CA-2025-26 tournament play) + 2 Tactical (engage_on_all_fronts / behind_enemy_lines) per army by a deterministic heuristic on enemy MONSTER/VEHICLE count and own FLY/MOUNT count; persisted on `Army.chosen_secondaries`"
+  },
   "simulator.squad_size_durability_factor": {
     "effect": "AI threat heuristic multiplies effective durability by a squad-size factor (lone model 1.0; 2-model squad 1.05; 5-model 1.20; 10-model 1.45; 20-model 1.95). This is an AI design heuristic, NOT a 10e rule â€” the cited core wording motivates why per-attack allocation makes high-model-count squads structurally harder to remove than 1-vs-1 durability suggests. Does NOT change combat math; only fixes opponent target selection.",
     "quoted_text": "If one or more models in the target unit have already lost one or more wounds, or have already had attacks allocated to them this phase, the attack must be allocated to one of those models. Otherwise, the player commanding the target unit chooses which model in their unit the attack is allocated to.",
@@ -159,21 +175,5 @@
     "scope": "phase-gated",
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#MAKING-ATTACKS",
     "trigger": "AI threat-score heuristic in `code/strategy.py._durability` â€” paired compensation for the iter26-S1 FNP re-land. After folding FNP into durability, opponent AI correctly diverted fire from FNP-bearing defenders to no-FNP horde armies (Orks regressed +5.7 -> +10.1 at N=20). Real play: a 10-model Boyz squad still threatens return fire after losing 4 models, because the defender allocates wounds per attack and the unit only ceases to be a threat when fully wiped. Modelling: multiply effective durability by (1.0 + max(0, sibling_count - 1) * 0.05) where sibling_count is alive same-name models in the defender's army."
-  },
-  "simulator.primary_vp_no_round_1": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-tournament-companion/#Primary-Objectives",
-    "rule_name": "Primary Objectives - Scoring Timing",
-    "quoted_text": "At the end of the Command phase, each player scores Victory Points for the primary objectives they control. Note that the Command phase in the first battle round does not score primary Victory Points.",
-    "trigger": "end of Command phase, rounds 2-5 only (not round 1)",
-    "effect": "Primary VP scored only from battle round 2 onward; round 1 scores 0 primary VP",
-    "scope": "army-wide"
-  },
-  "simulator.secondary_selection": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Secondary Missions - Selection",
-    "quoted_text": "Before deployment, each player must either select two different Fixed Secondary Missions from the four below, or use the Tactical Secondary Missions deck. Each player scores Victory Points from their two chosen Fixed Secondary Missions throughout the battle, or draws from the Tactical Secondary Missions deck each battle round.",
-    "trigger": "battle start; `code/secondaries.py::pick_secondaries(own_army, enemy_army)` selects 2 Fixed (bring_it_down / cull_the_horde / assassination — no_prisoners is Tactical-only in CA-2025-26 tournament play) + 2 Tactical (engage_on_all_fronts / behind_enemy_lines) per army by a deterministic heuristic on enemy MONSTER/VEHICLE count and own FLY/MOUNT count; persisted on `Army.chosen_secondaries`",
-    "effect": "Only the picked 2 Fixed Secondaries (+ chosen Tactical cards) score VP for that army. `score_round_delta` / `score_position_delta` zero any component absent from `chosen_secondaries`. Previously all four Fixed + both Tactical scored every round for every army, asymmetrically over-rewarding balanced kill-heavy / mobile rosters.",
-    "scope": "army-wide"
   }
 }
