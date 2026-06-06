@@ -1,10 +1,16 @@
 # Sweghammer: Data-Driven Unit Costing for Warhammer 40K
 
 > **v1.0 — Recalibrated.** Frozen prices dataset at [`data/sweg_points_v1.json`](data/sweg_points_v1.json).
-> The Streamlit dashboard opens in **Player view** by default (sidebar toggle
-> switches to the full **Calibration view** with the simulator and
-> calibration tools). Player view tabs: Home, Unit Browser, Army Compare,
-> Faction Overview, The Equation.
+> 1,479 units priced by a 111-feature regression (R² 0.96 vs Games Workshop,
+> mean absolute error 17 pts/model). The first release is **equation-only**
+> — the simulator is built but does not feed into these prices yet. A
+> single-file playtester HTML reference lives at
+> [`docs/sweghammer_points.html`](docs/sweghammer_points.html) — hero, the
+> equation, family contribution breakdown, faction multipliers, methodology,
+> and a searchable unit table. The Streamlit dashboard opens in **Player
+> view** by default (sidebar toggle switches to the full **Calibration view**
+> with the simulator and calibration tools). Player view tabs: Home, Unit
+> Browser, Army Compare, Faction Overview, The Equation.
 
 
 <img width="939" height="961" alt="image" src="https://github.com/user-attachments/assets/5f350602-b775-449b-a1de-a26387f56333" />
