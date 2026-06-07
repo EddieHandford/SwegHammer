@@ -1769,6 +1769,10 @@
       "notes": "AK-2: Armiger Moirax already shows primary anti_keywords={'VEHICLE':2} from its Lightning Lock / Volkite combo. Mirror the secondary tag so the unit's swappable Graviton-Pulsar / Siege Claw loadout (BSData 'Imperium - Imperial Knights - Library.cat.gz' profile name='Graviton pulsar' Keywords='Anti-Vehicle 2+, Blast') keeps anti-VEHICLE coverage when the simulator selects the secondary basket. Source: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Armiger-Moirax",
       "invuln_ranged_only": true
     },
+    "chaos_space_marines_legionaries": {
+      "veterans_of_the_long_war": true,
+      "notes": "Wave 217: Legionaries datasheet ability 'Veterans of the Long War' — in melee, re-roll Wound rolls of 1; if the target is within range of an objective marker, re-roll the full Wound roll instead. Read at the melee wound step gated SWEG_VETERANS. Cross-checked verbatim: BSData v10.6.0 Chaos Space Marines.cat.gz ability a5ea-d708-db75-226c + Wahapedia https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Legionaries. Cited simulator.veterans_of_the_long_war."
+    },
     "chaos_space_marines_heldrake": {
       "devastating_wounds": true,
       "notes": "AK-1: Heldrake claws carry [DEVASTATING WOUNDS] per BSData v10.6.0 Chaos Space Marines.cat.gz (Range=Melee, Keywords=\"Anti-FLY 2+, Devastating Wounds\"). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Heldrake."

@@ -71,6 +71,9 @@ class CatalogEntry:
     invuln_ranged_only: bool = False
     invuln_save_melee: int = 7    # Task #92: per-attack invuln (default set in from_dict = invuln_save)
     invuln_save_ranged: int = 7
+    # CSM Legionaries datasheet ability "Veterans of the Long War" (override-only,
+    # not a mapper output). Set via overrides.json; read at the melee wound step.
+    veterans_of_the_long_war: bool = False
     rapid_fire: int = 0
     melta: int = 0
     ignores_cover: bool = False
@@ -274,6 +277,7 @@ class CatalogEntry:
             # parsed.json / overrides that predate these keys.
             invuln_save_melee=int(d.get("invuln_save_melee", d.get("invuln_save", 7))),
             invuln_save_ranged=int(d.get("invuln_save_ranged", d.get("invuln_save", 7))),
+            veterans_of_the_long_war=bool(d.get("veterans_of_the_long_war", False)),
             rapid_fire=int(d.get("rapid_fire", 0)),
             melta=int(d.get("melta", 0)),
             ignores_cover=bool(d.get("ignores_cover", False)),
@@ -507,6 +511,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         # back to any override of the single value, else the base per-attack value.
         "invuln_save_melee": override.get("invuln_save_melee", override.get("invuln_save", base.invuln_save_melee)),
         "invuln_save_ranged": override.get("invuln_save_ranged", override.get("invuln_save", base.invuln_save_ranged)),
+        "veterans_of_the_long_war": override.get("veterans_of_the_long_war", base.veterans_of_the_long_war),
         "rapid_fire": override.get("rapid_fire", base.rapid_fire),
         "melta": override.get("melta", base.melta),
         "ignores_cover": override.get("ignores_cover", base.ignores_cover),

@@ -457,6 +457,11 @@ class UnitProfile:
     # these; Stage 1b adds the multi-VALUE mapper parse (Wyches melee 4).
     invuln_save_melee: int = 7                 # invuln vs melee attacks (7 = none)
     invuln_save_ranged: int = 7                # invuln vs ranged attacks (7 = none)
+    # CSM Legionaries datasheet ability "Veterans of the Long War" (10e): in melee,
+    # re-roll Wound rolls of 1; if the target is within range of an objective marker,
+    # re-roll the full Wound roll instead. Override-only flag; read at the melee
+    # wound step gated SWEG_VETERANS. Cited simulator.veterans_of_the_long_war.
+    veterans_of_the_long_war: bool = False
     leadership: int = 7                        # Ld target for Battleshock tests (10e: 2D6 >= Ld passes)
     oc: int = 1                                # Objective Control characteristic (10e)
     # Phase A2 + A3 weapon keywords (carried from the unit's chosen ranged weapon)
@@ -3024,6 +3029,25 @@ class Unit:
             if getattr(self, "transient_reroll_wounds_ones", False):
                 att_reroll_wound_ones = True
 
+            # Chaos Space Marines Legionaries "Veterans of the Long War" (10e
+            # datasheet ability). Verbatim, cross-checked (Wahapedia CSM
+            # Legionaries datasheet + BSData ability a5ea-d708-db75-226c): "Each
+            # time a model in this unit targets an enemy unit with a melee attack,
+            # re-roll a Wound roll of 1. If that enemy unit is within range of an
+            # objective marker, you can re-roll the Wound roll instead." So in
+            # melee the unit always re-rolls wound 1s, upgraded to a full failed-
+            # wound re-roll when the target is within range of any objective marker
+            # (`target.on_objective`, set per round). Melee-only — the flags below
+            # apply to both modes, so the `mode == "melee"` guard is required.
+            # Composes with the 1s/all variants above via OR (one re-roll per die).
+            # Gated SWEG_VETERANS (default-on; `=0` reverts). Cited as
+            # `simulator.veterans_of_the_long_war`.
+            if (mode == "melee" and getattr(p, "veterans_of_the_long_war", False)
+                    and __import__("os").environ.get("SWEG_VETERANS", "1") != "0"):
+                att_reroll_wound_ones = True
+                if getattr(target, "on_objective", False):
+                    att_reroll_all_wounds = True
+
             # Drukhari Power From Pain (10e codex, current Wahapedia text):
             # the army rule does NOT grant passive LETHAL HITS from holding a
             # Pain Token. Tokens accrue into a pool and can be SPENT to
@@ -4451,6 +4475,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             # to 7 (none) when that flag is set. Inert until Stage 2 reads them.
             invuln_save_ranged=entry.invuln_save_ranged,
             invuln_save_melee=(7 if entry.invuln_ranged_only else entry.invuln_save_melee),
+            veterans_of_the_long_war=entry.veterans_of_the_long_war,
             rapid_fire=entry.rapid_fire,
             melta=entry.melta,
             ignores_cover=entry.ignores_cover,

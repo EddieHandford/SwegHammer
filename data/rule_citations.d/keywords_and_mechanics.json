@@ -321,5 +321,13 @@
     "trigger": "A model whose datasheet invulnerable save is conditional on the attack type makes an invulnerable saving throw; the value differs (or is absent) depending on whether the incoming attack is melee or ranged. Examples: Aeldari Wyches (6+, improving to 4+ against melee attacks); Imperial Knight Ion Shield (a 5+ invulnerable save against ranged attacks only, none in melee).",
     "effect": "The defender uses its melee invulnerable save (UnitProfile.invuln_save_melee) against melee attacks and its ranged invulnerable save (invuln_save_ranged) against ranged attacks; a save that applies to one attack type only gives no invulnerable save against the other. Per-attack values are mapper-extracted from the datasheet \"X+ invulnerable save against melee/ranged attacks\" clauses and combined with the invuln_ranged_only override. Gated SWEG_COND_INVULN (default-on); subsumes simulator.ion_shield_ranged_only.",
     "scope": "phase-gated"
+  },
+  "simulator.veterans_of_the_long_war": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Legionaries",
+    "rule_name": "Veterans of the Long War",
+    "quoted_text": "Each time a model in this unit targets an enemy unit with a melee attack, re-roll a Wound roll of 1. If that enemy unit is within range of an objective marker, you can re-roll the Wound roll instead.",
+    "trigger": "A model in a Chaos Space Marines Legionaries unit makes a melee attack. The objective clause upgrades the re-roll when the target unit is within range of an objective marker.",
+    "effect": "In the Fight phase the Legionaries re-roll Wound rolls of 1 (att_reroll_wound_ones); if the target is within range of any objective marker (target.on_objective), they re-roll the full failed Wound roll instead (att_reroll_all_wounds). Ranged attacks are unaffected. Applied via the override-only UnitProfile.veterans_of_the_long_war flag on chaos_space_marines_legionaries. Gated SWEG_VETERANS (default-on). Cross-checked verbatim against BSData v10.6.0 Chaos Space Marines.cat.gz ability a5ea-d708-db75-226c.",
+    "scope": "phase-gated"
   }
 }
