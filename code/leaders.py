@@ -32,6 +32,7 @@ which is enough to demonstrate the mechanic. Bespoke per-character abilities
 from __future__ import annotations
 
 import functools
+import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
@@ -330,6 +331,19 @@ _LEGIONES_DAEMONICA_HOSTS: Tuple[str, ...] = (
     "chaos_daemons_library_daemon_prince_of_chaos_with_wings",
 )
 
+# T'au "Coordinated Fire Plan" (Commander in Battlesuit / Coldstar) fidelity
+# gate (wave 212). The real 10e rule (cited verbatim in the LeaderAbility
+# .Coordinated Fire Plan citation) grants the LED unit a Move characteristic of
+# 12" and the [ASSAULT] ability on its ranged weapons — there is NO Hit-roll
+# bonus, and the buff is led-unit-scoped. The prior implementation proxied this
+# as `plus_one_to_hit=True` with no host_keys, which the LeaderAbility docstring
+# defines as ARMY-WIDE — so it fabricated an army-wide +1 to Hit that over-
+# credited every T'au unit's shooting. The faithful default removes that
+# fabricated buff (the [ASSAULT] / Move 12" mobility effects are left unmodelled,
+# as the simulator does not model Movement-characteristic bonuses). Set
+# `SWEG_TAU_CMD=0` to revert to the prior fabricated +1-to-hit proxy for the A/B.
+_TAU_CMD_FIX = os.environ.get("SWEG_TAU_CMD", "1") != "0"
+
 _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # ORDER NOTE — iter21: substring matching is greedy first-match, so
     # cross-faction CHARACTERs whose names CONTAIN "Captain" (Custodes
@@ -555,7 +569,13 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Avatar of Khaine",   LeaderAbility(name="Avatar's Fury",              aura_range=6.0)),  # Monster, no formal host
     # T'au Empire
     ("Ethereal",           LeaderAbility(name="Failure Is Not an Option",   aura_range=6.0, fnp=5,                  host_keys=_TAU_FIRE_HOSTS)),
-    ("Commander in",       LeaderAbility(name="Coordinated Fire Plan",      aura_range=6.0, plus_one_to_hit=True)),  # Battlesuit, no INFANTRY host
+    # Battlesuit Commander (Coldstar / Crisis / Enforcer); leads CRISIS Battlesuits,
+    # no INFANTRY host. Faithful default = no offensive buff (real rule is [ASSAULT]
+    # + Move 12" to the led unit, both unmodelled); SWEG_TAU_CMD=0 reverts to the
+    # prior fabricated army-wide +1-to-hit proxy. See _TAU_CMD_FIX above.
+    ("Commander in",       LeaderAbility(name="Coordinated Fire Plan",      aura_range=6.0)
+                           if _TAU_CMD_FIX else
+                           LeaderAbility(name="Coordinated Fire Plan",      aura_range=6.0, plus_one_to_hit=True)),
     ("Cadre Fireblade",    LeaderAbility(name="Volley Fire",                aura_range=6.0, plus_one_attack=1,      host_keys=_TAU_FIRE_HOSTS)),
     # Thousand Sons — character LeaderAbility entries (iter21 fix).
     # TSON characters were previously unwired: Ahriman / Infernal Master

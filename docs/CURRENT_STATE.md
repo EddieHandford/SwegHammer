@@ -1,5 +1,23 @@
 # SwegHammer calibration — current state
 
+**WAVE 212 (2026-06-07) — BAND PROGRAM begins: first faithful over-pole fix lands (T'au Commander fabrication removed).**
+With collision the production frame (wave 211, gated 7.27) and the push handoff done (pull request #41 open), the post-push band
+program started with rules-implementation review. A static-vs-runtime double-count audit on the inflated elites returned a clean
+negative (no active double-counts; Aeldari +21.9 is faithful collision-induced Fly/mobility, not an error) but surfaced a genuine
+fabrication: the T'au "Coordinated Fire Plan" (Commander in Battlesuit / Coldstar) granted a **fabricated army-wide +1 to Hit**.
+The real 10e rule (triple-confirmed — the citation's own quoted text, the audit, AND a pre-existing `expectedFailure` test) grants
+the **led unit** a Move characteristic of 12" and the [ASSAULT] ability on its ranged weapons — no Hit bonus, led-unit-scoped. The
+fix (gated `SWEG_TAU_CMD`, default-on; `=0` reverts for the comparison) removes the fabricated buff; the [ASSAULT]/Move mobility
+effects are left unmodelled (the simulator does not model Movement-characteristic bonuses, and [ASSAULT] is near-inert in this
+hold-and-shoot frame). **N=80 A/B: T'au +14.0 (gated 9.74) → +12.4 (gated 8.17), −1.57 gated; headline 7.27 → 7.23; perfectly
+even-handed — only T'au moved materially (every other faction within ±0.7 stochastic ripple), and T'au did not over-crater (still
++12.4 over).** Kept default-on (faithful + metric-positive). A further fidelity step (scoping `host_keys` to the Crisis Battlesuit
+led unit) remains as the still-`expectedFailure` follow-up. NEXT band levers: Chaos Space Marines Dark Pacts under-modelling
+(under-pole), and the Drukhari static 6++ invuln check (parked — needs Wahapedia to verify it is a 9th-edition carryover). Committed
+locally; NOT pushed (rule 3 — the push is held for the user; it would update pull request #41 or a follow-up).
+
+---
+
 **WAVE 211 (2026-06-07) — COLLISION IS NOW THE PRODUCTION BASELINE (user ruling): the Imperial Knights over-pole is FAITHFULLY
 RESOLVED. New frame = collision-ON + reach-fix; re-based gated mean absolute error ~7.27 (was 5.23 pre-collision; 6.54 collision-only).**
 USER RULING (verbatim): *"I want it on, figure out how to fix movement / get the over/under shooters in band with it on."* No-overlap
