@@ -3360,6 +3360,48 @@ _INVULN_BARE_RE = re.compile(r"^\s*(\d)\+\s*$")
 # (vs the simulator's symmetric shooting-then-melee phase, the effective uplift
 # is approximate but on the correct side). If we later add ranged-only invuln
 # modelling, that's the right place to slice this distinction.
+#
+# Task #92 does exactly that. `_parse_invuln_per_attack` (below) generalises the
+# single-value parse into (melee, ranged) so 10e CONDITIONAL invulns model
+# faithfully — Wyches "6+ Invulnerable save, 4+ against melee attacks" ->
+# (melee 4, ranged 6); the Ion Shield "5+ against ranged attacks" ->
+# (melee none=7, ranged 5). 58 such clauses span 14 faction files, so the
+# single-value model wrongly grants ranged-only invulns in melee. The single
+# `extract_invuln` value is kept unchanged for back-compat; the per-attack
+# values are extracted in parallel from the same Shape-2/3 descriptions.
+_INVULN_PER_ATTACK_RE = re.compile(
+    r"(\d)\+\s*[Ii]nvulnerable\s+[Ss]ave"
+    r"(?:\s+against\s+(melee|ranged)\s+attacks)?",
+    re.IGNORECASE,
+)
+
+
+def _parse_invuln_per_attack(desc: str) -> Tuple[int, int]:
+    """Parse ALL invulnerable-save clauses in a Description WITH their attack-type
+    qualifiers. Returns (melee, ranged) as the best (lowest) value each; 7 = none.
+
+    Unqualified clauses apply to both attack types; "against melee attacks" /
+    "against ranged attacks" qualify. Each attack type takes the best (lowest) of
+    the unconditional value and its own qualified values.
+    """
+    if not desc:
+        return (7, 7)
+    uncond: List[int] = []
+    melee: List[int] = []
+    ranged: List[int] = []
+    for m in _INVULN_PER_ATTACK_RE.finditer(desc):
+        v = int(m.group(1))
+        q = (m.group(2) or "").lower()
+        if q == "melee":
+            melee.append(v)
+        elif q == "ranged":
+            ranged.append(v)
+        else:
+            uncond.append(v)
+    base = min(uncond) if uncond else None
+    pool_m = ([base] if base is not None else []) + melee
+    pool_r = ([base] if base is not None else []) + ranged
+    return (min(pool_m) if pool_m else 7, min(pool_r) if pool_r else 7)
 
 
 def _parse_invuln_from_description(desc: str) -> Optional[int]:

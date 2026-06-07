@@ -28,6 +28,7 @@ from code.bsdata.mapper import (
     Registry,
     WeaponStats,
     _flatten_to_basket,
+    _parse_invuln_per_attack,
     extract_squad_size,
     gather_squad_loadout,
     map_unit,
@@ -462,3 +463,35 @@ class SquadSizeShapeRegressionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PerAttackInvulnParseTests(unittest.TestCase):
+    """Task #92 Stage 1b — `_parse_invuln_per_attack` splits a datasheet's
+    invulnerable-save description into (melee, ranged) best values so 10e
+    CONDITIONAL invulns model faithfully. 7 = no invuln for that attack type."""
+
+    def test_unconditional_applies_to_both(self):
+        self.assertEqual(_parse_invuln_per_attack("This model has a 4+ invulnerable save."), (4, 4))
+        self.assertEqual(_parse_invuln_per_attack("Models in this unit have a 6+ invulnerable save."), (6, 6))
+
+    def test_wyches_melee_improves(self):
+        # "6+ Invulnerable save" + "4+ ... against melee attacks" -> melee 4, ranged 6.
+        desc = ("This unit has a 6+ Invulnerable save. "
+                "This unit has a 4+ Invulnerable save against melee attacks.")
+        self.assertEqual(_parse_invuln_per_attack(desc), (4, 6))
+
+    def test_ynnari_wyches_both_conditional(self):
+        desc = ("This unit has a 6+ Invulnerable save against ranged attacks, "
+                "and 4+ Invulnerable save against melee attacks.")
+        self.assertEqual(_parse_invuln_per_attack(desc), (4, 6))
+
+    def test_ion_shield_ranged_only(self):
+        # Imperial Knight: invuln vs ranged only -> no invuln in melee.
+        self.assertEqual(
+            _parse_invuln_per_attack("This model has a 5+ invulnerable save against ranged attacks."),
+            (7, 5),
+        )
+
+    def test_no_invuln(self):
+        self.assertEqual(_parse_invuln_per_attack(""), (7, 7))
+        self.assertEqual(_parse_invuln_per_attack("This model has the Stealth ability."), (7, 7))
