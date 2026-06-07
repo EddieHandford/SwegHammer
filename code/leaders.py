@@ -344,6 +344,35 @@ _LEGIONES_DAEMONICA_HOSTS: Tuple[str, ...] = (
 # `SWEG_TAU_CMD=0` to revert to the prior fabricated +1-to-hit proxy for the A/B.
 _TAU_CMD_FIX = os.environ.get("SWEG_TAU_CMD", "1") != "0"
 
+# Chaos Space Marines leader host-routing fidelity gate (wave 213). The CSM
+# Dark Apostle and Sorcerer had host_keys pointing at units absent from (or
+# marginal in) the army — Traitor Guardsmen (not fielded) and a single Cultist
+# Mob — so their auras fired on chaff or nothing, never on the Legionaries /
+# Chosen core that does the fighting. BSData v10.6.0 (Chaos - Chaos Space
+# Marines.cat.gz, "This model can be attached to the following units:") confirms
+# the Dark Apostle leads ACCURSED CULTISTS / CHOSEN / CULTIST MOB / LEGIONARIES
+# and the Sorcerer leads CHOSEN / LEGIONARIES. The faithful default routes them
+# to the core combat squads (their existing effect proxies are unchanged — the
+# Dark Apostle's reroll-1s and the Sorcerer's Feel No Pain proxy still approximate
+# the real +1-to-Wound-melee and -1-to-Hit-defensive abilities respectively).
+# The Chaos Lord is deliberately NOT touched here: its current +1-to-Wound aura
+# is a fabrication (the real "Chance for Glory" is a once-per-battle SELF buff,
+# not a unit aura), and it currently fires on nothing — routing it would inject
+# the fabrication onto the core squad. It is handled in a separate wave.
+# Set SWEG_CSM_LEADERS=0 to revert to the prior (mis-routed) host_keys for the A/B.
+_CSM_LEADER_FIX = os.environ.get("SWEG_CSM_LEADERS", "1") != "0"
+_CSM_APOSTLE_HOSTS = (
+    ("chaos_space_marines_legionaries", "chaos_space_marines_chosen",
+     "chaos_space_marines_cultist_mob")
+    if _CSM_LEADER_FIX else
+    ("chaos_space_marines_cultist_mob",)
+)
+_CSM_SORCERER_HOSTS = (
+    ("chaos_space_marines_legionaries", "chaos_space_marines_chosen")
+    if _CSM_LEADER_FIX else
+    ("chaos_space_marines_traitor_guardsmen_squad", "chaos_space_marines_cultist_mob")
+)
+
 _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # ORDER NOTE — iter21: substring matching is greedy first-match, so
     # cross-faction CHARACTERs whose names CONTAIN "Captain" (Custodes
@@ -687,10 +716,9 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Chaos Space Marines (legacy "Chaos Space Marines squad" not in 10e BSData;
     # use the closest battleline that is, otherwise let the heuristic decide.)
     ("Sorcerer",           LeaderAbility(name="Prescience",                 aura_range=6.0, fnp=5,
-                                          host_keys=("chaos_space_marines_traitor_guardsmen_squad",
-                                                     "chaos_space_marines_cultist_mob"))),
+                                          host_keys=_CSM_SORCERER_HOSTS)),
     ("Dark Apostle",       LeaderAbility(name="Profane Litanies",           aura_range=6.0, reroll_hit_ones=True,
-                                          host_keys=("chaos_space_marines_cultist_mob",))),
+                                          host_keys=_CSM_APOSTLE_HOSTS)),
     ("Chaos Lord",         LeaderAbility(name="Lord of Hosts",              aura_range=6.0, plus_one_to_wound=True,
                                           host_keys=("chaos_space_marines_traitor_guardsmen_squad",))),
     # Chaos Daemons heralds (MR-CHAOS-DAEMONS-LOCUS, claude/sim-calibration-6).

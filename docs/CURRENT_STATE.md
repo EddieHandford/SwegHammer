@@ -1,5 +1,22 @@
 # SwegHammer calibration — current state
 
+**WAVE 213 (2026-06-07) — BAND PROGRAM: Chaos Space Marines leader host-routing fixed (faithful, small lever).**
+The Chaos Space Marines under-pole (−12.9) review found the Dark Apostle and Sorcerer had their `host_keys` pointing at units
+absent from or marginal in the army (Traitor Guardsmen, a single Cultist Mob), so their auras fired on chaff or nothing instead of
+the Legionaries / Chosen core that fights. The BSData primary source ("This model can be attached to the following units:")
+confirms the Dark Apostle leads Accursed Cultists / Chosen / Cultist Mob / Legionaries and the Sorcerer leads Chosen / Legionaries.
+Fix (gated `SWEG_CSM_LEADERS`, default-on; `=0` reverts): route both to the Legionaries/Chosen core (effect proxies unchanged —
+this wave is a pure scope correction). The Chaos Lord is deliberately deferred: its current `+1-to-wound` aura is a fabrication
+(the real "Chance for Glory" is a once-per-battle self buff, not a unit aura) that currently fires on nothing, so routing it would
+inject the fabrication onto the core squad. **N=80 A/B: Chaos Space Marines 42.7 (gated 10.46) → 43.0 (gated 10.20), +0.3 / −0.26;
+headline 7.23 → 7.21; even-handed (only Chaos Space Marines moved materially).** KEEP (faithful + the substrate for future Chaos
+Space Marines work). **KEY FINDING: the −12.9 under-pole is mostly NOT the mis-routed leaders — a genuine routing bug recovered
+only +0.3.** The bulk is the missing per-unit Dark Pact abilities (Terminators "Despoilers" full reroll, Legionaries "Veterans of
+the Long War", Possessed "Unholy Bloodshed"), Abaddon's absent army reroll aura, the weak reroll-1s proxy on the Dark Apostle
+(real rule is +1-to-wound-melee), OR the deeper output/durability issue the project already tracks. Committed locally; not pushed.
+
+---
+
 **WAVE 212 (2026-06-07) — BAND PROGRAM begins: first faithful over-pole fix lands (T'au Commander fabrication removed).**
 With collision the production frame (wave 211, gated 7.27) and the push handoff done (pull request #41 open), the post-push band
 program started with rules-implementation review. A static-vs-runtime double-count audit on the inflated elites returned a clean
