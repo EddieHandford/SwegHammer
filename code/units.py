@@ -2805,15 +2805,23 @@ class Unit:
                 # Clamp net save-modifier to +1 (the ±1 cap). The 2+ floor
                 # remains as a hard armour-save floor independent of the cap.
                 save_after_ap = max(2, save_after_ap - 1)
-            invuln = target.profile.invuln_save
-            # Imperial Knight Ion Shield (10e): "This model has a 5+ invulnerable
-            # save against ranged attacks only." Big Imperial Knights have NO
-            # invulnerable save in melee — only their 3+ armour. Suppress the
-            # datasheet invuln for melee attacks when invuln_ranged_only is set.
-            # (Chaos Knights' Ion Shield is ranged AND melee, so their flag stays
-            # False.) Cited as `simulator.ion_shield_ranged_only`.
-            if mode == "melee" and target.profile.invuln_ranged_only:
-                invuln = 7
+            # Task #92 (gated SWEG_COND_INVULN, default-ON): use the per-attack-type
+            # invulnerable save. 10e has CONDITIONAL invulns — Wyches 4+ vs melee /
+            # 6+ vs ranged; ranged-only saves (Imperial Knight Ion Shield) give NO
+            # invuln in melee. The per-attack values (invuln_save_melee /
+            # invuln_save_ranged) are mapper-extracted + override-combined; this
+            # generalises and subsumes the old invuln_ranged_only melee suppressor.
+            # Cited as `simulator.conditional_invuln_save`. `=0` reverts to the
+            # single value + the Ion-Shield-only special-case below.
+            if __import__("os").environ.get("SWEG_COND_INVULN", "1") != "0":
+                invuln = (target.profile.invuln_save_melee if mode == "melee"
+                          else target.profile.invuln_save_ranged)
+            else:
+                invuln = target.profile.invuln_save
+                # Imperial Knight Ion Shield (10e): ranged-only — suppress the
+                # datasheet invuln for melee. Cited as `simulator.ion_shield_ranged_only`.
+                if mode == "melee" and target.profile.invuln_ranged_only:
+                    invuln = 7
             # ---- Target's buffs: army-wide invuln. Only overrides if better
             # (lower number) than what the target already has. 7 = unset.
             tgt_invuln_buff = int(tgt_buffs["extra_invuln"])

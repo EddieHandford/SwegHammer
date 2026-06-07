@@ -538,6 +538,10 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # applies the real per-datasheet OC + Hit penalty to every model with a bracket,
     # superseding the two Knight-only keys above. Data is BSData-sourced (rule 7).
     "simulator.damaged_bracket",
+    # Task #92 — per-attack-type conditional invulnerable save (Wyches 4+ melee /
+    # 6+ ranged; Ion Shield ranged-only). Gated SWEG_COND_INVULN; generalises and
+    # subsumes simulator.ion_shield_ranged_only.
+    "simulator.conditional_invuln_save",
     # SC4-A — 10e Pariah Nexus Fixed Secondary Missions. Bring it Down
     # (5 VP per enemy MONSTER/VEHICLE destroyed this round, capped 15)
     # and No Prisoners (5 VP per enemy unit destroyed this round, capped
