@@ -447,6 +447,16 @@ class UnitProfile:
     devastating_wounds: bool = False           # critical wound (6 to wound) bypasses saves
     invuln_save: int = 7                       # invulnerable save (7 = none); use better of save-after-AP or invuln
     invuln_ranged_only: bool = False           # 10e Imperial Knight Ion Shield: invuln applies vs ranged attacks only (no invuln in melee)
+    # Task #92 — per-attack-type invulnerable save (Stage 1, gate-inert: populated
+    # but NOT YET read by the save step). Generalises the single `invuln_save` +
+    # `invuln_ranged_only` bool into two values so 10e CONDITIONAL invulns model
+    # faithfully — e.g. Wyches "6+ Invulnerable save, 4+ against melee attacks"
+    # (ranged 6, melee 4); Imperial Knight Ion Shield (ranged 5, melee none=7).
+    # Default 7 (none); the builder derives them from the existing fields so the
+    # common case has both == invuln_save. Stage 2 switches the save step to read
+    # these; Stage 1b adds the multi-VALUE mapper parse (Wyches melee 4).
+    invuln_save_melee: int = 7                 # invuln vs melee attacks (7 = none)
+    invuln_save_ranged: int = 7                # invuln vs ranged attacks (7 = none)
     leadership: int = 7                        # Ld target for Battleshock tests (10e: 2D6 >= Ld passes)
     oc: int = 1                                # Objective Control characteristic (10e)
     # Phase A2 + A3 weapon keywords (carried from the unit's chosen ranged weapon)
@@ -4424,6 +4434,12 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             devastating_wounds=entry.devastating_wounds,
             invuln_save=entry.invuln_save,
             invuln_ranged_only=entry.invuln_ranged_only,
+            # Task #92 Stage 1: derive the per-attack-type invuln losslessly from
+            # the existing model — ranged always gets the unconditional value;
+            # melee gets none (7) when the invuln is ranged-only (Ion Shield),
+            # else the unconditional value. Inert until Stage 2 reads them.
+            invuln_save_ranged=entry.invuln_save,
+            invuln_save_melee=(7 if entry.invuln_ranged_only else entry.invuln_save),
             rapid_fire=entry.rapid_fire,
             melta=entry.melta,
             ignores_cover=entry.ignores_cover,
