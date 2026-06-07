@@ -212,6 +212,98 @@ def _collision_pos_legal(pos, mover_radius, occupants, mover_fly) -> bool:
     return True
 
 
+def _enemy_path_cap_t(start, end, mover_radius, occupants, mover_fly) -> float:
+    """Avenue-2 collision: the furthest fraction t in [0, 1] of the segment
+    start->end a NON-FLY mover (footprint `mover_radius` inches) may travel before
+    any part of its base would cross an ENEMY model's base.
+
+    Real 10e (cited simulator.collision_friendly_passthrough): a model "can be
+    moved through friendly models, but it cannot end its move on top of another
+    model", and "no part of its base can be moved through an enemy model". So
+    FRIENDLIES never cap the PATH (only the END is constrained, in
+    _collision_pos_legal) and an ENEMY base on the path stops a non-FLY mover at
+    its near boundary (faithful screening). FLY moves OVER enemy models -> never
+    path-capped (returns 1.0). Returns 1.0 when nothing caps the path. Pure +
+    deterministic; iterates occupants in list order (no set/id ordering)."""
+    if mover_fly:
+        return 1.0
+    occ_iter = occupants._list if type(occupants) is _OccupantGrid else occupants
+    sx, sy = start
+    ex, ey = end
+    vx, vy = ex - sx, ey - sy
+    seg2 = vx * vx + vy * vy
+    if seg2 == 0.0:
+        return 1.0
+    # Perf bbox-cull: precompute the segment's axis-aligned bounds. An enemy whose
+    # centre lies outside this box expanded by the contact radius rr cannot reach the
+    # path, so the (expensive) quadratic is skipped for it. Exact — the bbox+rr is a
+    # conservative superset of the real intersection region, so an intersecting enemy
+    # is never wrongly skipped and the returned cap is byte-identical to the full scan.
+    minx, maxx = (sx, ex) if sx <= ex else (ex, sx)
+    miny, maxy = (sy, ey) if sy <= ey else (ey, sy)
+    cap = 1.0
+    for ox, oy, orad, is_enemy in occ_iter:
+        if not is_enemy:
+            continue
+        rr = mover_radius + orad
+        if ox < minx - rr or ox > maxx + rr or oy < miny - rr or oy > maxy + rr:
+            continue   # centre outside segment bbox + rr → cannot intersect the path
+        # First crossing t of the segment with the circle (centre o, radius rr):
+        # |start + t*v - o|^2 = rr^2 -> seg2*t^2 + b*t + c = 0, take the lesser root.
+        wx, wy = sx - ox, sy - oy
+        b = 2.0 * (wx * vx + wy * vy)
+        c = wx * wx + wy * wy - rr * rr
+        disc = b * b - 4.0 * seg2 * c
+        if disc < 0.0:
+            continue   # the segment never reaches this enemy's base
+        t_entry = (-b - disc ** 0.5) / (2.0 * seg2)
+        if t_entry <= 0.0:
+            # Already touching this enemy at start (start is assumed legal, so this
+            # is a numerical edge) -> no legal forward travel past it.
+            return 0.0
+        if t_entry < cap:
+            cap = t_entry
+    return cap
+
+
+def _fan_to_goal(start, goal, max_dist, mover_radius, occupants, mover_fly, map_, best):
+    """Open-blocked reach recovery (wave 211, gated SWEG_REACH_FIX). A BIG mover whose
+    straight end was blocked by a FRIENDLY/terrain (the caller gates this to cap_t>=1,
+    i.e. NO enemy on the straight path) and whose pathfinder could not place its base
+    near the goal: fan a ring of positions AROUND the goal and take the legal one
+    CLOSEST to goal the mover can REACH this move without crossing an enemy.
+
+    The per-candidate `_enemy_path_cap_t >= 1` check is the screening guardrail: a
+    FULLY enemy-screened goal yields NO admissible candidate (every approach crosses an
+    enemy), so this can never let a mover bypass a screen — the IK over-pole stays
+    intact. Only ever IMPROVES on `best` (takes a candidate strictly closer to goal).
+    Deterministic: fixed ring + 30°-step angle order, no RNG."""
+    import math as _m
+    sx, sy = start
+    gx, gy = goal
+    md2 = max_dist * max_dist
+    best_d2 = (best[0] - gx) ** 2 + (best[1] - gy) ** 2
+    for ring in (mover_radius + 0.5, mover_radius + 2.0, 3.5, 6.0):
+        for k in range(12):
+            ang = _m.radians(k * 30.0)
+            cx = max(0.0, min(map_.width, gx + ring * _m.cos(ang)))
+            cy = max(0.0, min(map_.height, gy + ring * _m.sin(ang)))
+            d2 = (cx - gx) ** 2 + (cy - gy) ** 2
+            if d2 >= best_d2:
+                continue                                  # not closer to goal
+            if (cx - sx) ** 2 + (cy - sy) ** 2 > md2:
+                continue                                  # out of this move's reach
+            if map_.is_blocked((cx, cy)):
+                continue
+            if _enemy_path_cap_t(start, (cx, cy), mover_radius, occupants, mover_fly) < 1.0:
+                continue                                  # path crosses an enemy → screened, skip
+            if not _collision_pos_legal((cx, cy), mover_radius, occupants, mover_fly):
+                continue                                  # would end on a model
+            best = (cx, cy)
+            best_d2 = d2
+    return best
+
+
 def _move_toward(
     start: Tuple[float, float],
     goal: Tuple[float, float],
@@ -251,39 +343,56 @@ def _move_toward(
         return start
     if occupants is None:
         return new_point
-    # Collision ON: keep the destination if legal.
-    legal = _collision_pos_legal(new_point, mover_radius, occupants, mover_fly)
+    # Collision ON. Faithful 10e movement vs other models (cited
+    # simulator.collision_friendly_passthrough): a model "can be moved through
+    # friendly models, but it cannot end its move on top of another model", and
+    # "no part of its base can be moved through an enemy model" (FLY moves over
+    # enemies). So FRIENDLIES never block the PATH — they are passed through, only
+    # the END must be clear of every model (+ enemy Engagement Range); an ENEMY
+    # base on the straight path CAPS how far a non-FLY mover travels (faithful
+    # screening — a Knight cannot pass through an enemy horde).
+    cap_t = _enemy_path_cap_t(start, new_point, mover_radius, occupants, mover_fly)
+    straight_legal = (
+        cap_t >= 1.0
+        and _collision_pos_legal(new_point, mover_radius, occupants, mover_fly)
+    )
     # PATHFINDING Stage-0 GO/NO-GO counter (read-only, gated). Records how often the
-    # straight end is blocked — the blocked-move frequency that, times the per-call A*
-    # cost, is the perf-feasibility decision. Only runs under the gate; behaviour is
-    # unchanged (legal is computed exactly once, as before).
+    # straight end is blocked (now: enemy-capped path OR an illegal end) — the
+    # blocked-move frequency that, times the per-call A* cost, is the perf decision.
     if __import__("os").environ.get("SWEG_PATHFIND_STAGE0"):
         _big = mover_radius >= _PATHFIND_BIG_RADIUS_IN
         PATHFIND_STAGE0_STATS["total_big" if _big else "total_small"] += 1
-        if not legal:
+        if not straight_legal:
             PATHFIND_STAGE0_STATS["blocked_big" if _big else "blocked_small"] += 1
-    if legal:
+    # Reach instrument (read-only): classify big-mover blocks as faithful enemy
+    # screening (cap_t<1) vs open-space artifact (cap_t>=1 but end illegal).
+    if __import__("os").environ.get("SWEG_REACH_INSTR") and mover_radius >= _PATHFIND_BIG_RADIUS_IN:
+        REACH_STATS["big_moves"] += 1
+        if straight_legal:
+            REACH_STATS["big_reached"] += 1
+        elif cap_t < 1.0:
+            REACH_STATS["big_enemy_capped"] += 1
+        else:
+            REACH_STATS["big_open_blocked"] += 1
+    if straight_legal:
         return new_point
-    # Blocked end. MINIMAL make-way SIDESTEP (avenue-2 Stage 2, bounded O(few), NOT
-    # an A* path search — the perf-killer note C warns against): evaluate the straight
-    # walk-back AND a few fixed angular deviations that step AROUND the blocker, then
-    # take the legal endpoint that makes the MOST progress toward goal. This is the
-    # faithful "models go around each other" un-jam for the user's board-wide
-    # no-overlap directive. Deterministic (fixed angle order, no RNG).
+    # Straight move capped by an enemy and/or its end overlaps a model. Find the
+    # furthest LEGAL END at or before the enemy cap, PASSING THROUGH friendlies:
+    # scan inward from the capped reach and take the first legal end. A legal end
+    # BEYOND a friendly (within the enemy cap) is reached — fixing the self-jam
+    # where the old bisection halted the mover at a friendly model's near edge.
+    # Deterministic (fixed step order, no RNG).
     import math as _m
     sx, sy = start
-    # (a) straight walk-back — furthest legal point on the direct line.
-    lo, hi = 0.0, 1.0
-    best = start
     vx, vy = new_point[0] - sx, new_point[1] - sy
-    for _ in range(12):
-        mid = (lo + hi) / 2.0
-        cand = (sx + vx * mid, sy + vy * mid)
+    best = start
+    _STEPS = 24
+    for _i in range(_STEPS, -1, -1):
+        t = cap_t * (_i / _STEPS)
+        cand = (sx + vx * t, sy + vy * t)
         if not map_.is_blocked(cand) and _collision_pos_legal(cand, mover_radius, occupants, mover_fly):
             best = cand
-            lo = mid
-        else:
-            hi = mid
+            break
     # PATHFINDING (avenue-2 Stage 2, gated SWEG_PATHFIND): a BIG mover whose straight
     # end is blocked routes AROUND the obstacle field via coarse grid A* (code/pathfind)
     # instead of the local 6-angle sidestep, which dead-ends against a wall of blockers
@@ -291,11 +400,19 @@ def _move_toward(
     # INFANTRY keep the O(1) sidestep below. The returned furthest-legal point is
     # re-validated exactly (the A* grid is coarse) and falls back to the straight
     # walk-back on the rare coarse-grid miss. OFF (gate unset) -> byte-identical.
-    if mover_radius >= _PATHFIND_BIG_RADIUS_IN and __import__("os").environ.get("SWEG_PATHFIND"):
+    if mover_radius >= _PATHFIND_BIG_RADIUS_IN and __import__("os").environ.get("SWEG_PATHFIND", "1") != "0":
         walls = map_.wall_segments() if map_ is not None else ()
         p = find_path(start, goal, max_dist, mover_radius, occupants, walls=walls, map_=map_)
         if _collision_pos_legal(p, mover_radius, occupants, mover_fly):
-            return p
+            best = p   # pathfinder's furthest legal point (may still strand the base short)
+        # Open-blocked reach recovery (gated SWEG_REACH_FIX, default-ON; =0 reverts):
+        # ONLY when no enemy capped the straight path (cap_t>=1) — an enemy-capped move
+        # (cap_t<1) is faithful screening and is left exactly as-is, so this cannot undo
+        # the Knight over-pole fix. Fans a big mover around its own clustered army to a
+        # legal spot near the goal it could not stack on (per-candidate enemy-clear).
+        if cap_t >= 1.0 and __import__("os").environ.get("SWEG_REACH_FIX", "1") != "0":
+            best = _fan_to_goal(start, goal, max_dist, mover_radius, occupants,
+                                mover_fly, map_, best)
         return best
     if not sidestep:
         # Big movers (blocker-makes-way model): stop straight at the blocker — an
@@ -402,6 +519,14 @@ BOARDCONTROL_STATS: dict = {
 # production default path returns before this block, so it stays byte-identical.
 PATHFIND_STAGE0_STATS: dict = {
     "total_big": 0, "blocked_big": 0, "total_small": 0, "blocked_small": 0,
+}
+# Reach-degradation instrument (gated SWEG_REACH_INSTR, wave 211): per BIG-mover
+# move under collision, classify the block — an ENEMY on the path (cap_t<1) is
+# FAITHFUL screening (keep), while reaching short with NO enemy on the path
+# (cap_t>=1 but the straight end is illegal → overlaps a friendly/terrain) is the
+# open-space over-impediment ARTIFACT to fix. Read-only; the diag runner resets it.
+REACH_STATS: dict = {
+    "big_moves": 0, "big_reached": 0, "big_enemy_capped": 0, "big_open_blocked": 0,
 }
 # A mover is "big" for pathfinding purposes when its footprint radius exceeds this
 # (~38mm base). A 170mm Knight is ~3.3", infantry ~0.63" — the threshold cleanly
@@ -1114,6 +1239,11 @@ class Battle:
         #   oc[obj_idx]            -> summed Objective Control credited there
         #   sticky_present[obj_idx] -> True if any crediting squad is sticky
         #   dg_present[obj_idx]     -> True if any crediting squad is Death Guard
+        # Read the collision gate once: under no-overlap collision the Objective
+        # Control contest measures to the base edge (faithful 10e range), fixing
+        # the entrenchment artifact where a Knight's base evicts contesters.
+        oc_collide = __import__("os").environ.get("SWEG_COLLISION", "1") != "0"  # default-ON
+
         def _assign_army_oc(army):
             oc_by_obj: dict = {}
             sticky_by_obj: dict = {}
@@ -1135,7 +1265,24 @@ class Battle:
                             continue   # Battleshocked = OC 0
                         dx = u.position[0] - obj2.x
                         dy = u.position[1] - obj2.y
-                        if dx * dx + dy * dy <= r2b:
+                        # 10e measures range to the CLOSEST POINT of a model's base
+                        # (core "Measuring Distances"), so a model is within range of
+                        # an objective marker when its base edge reaches within the
+                        # control radius: center-distance - base_radius <= control_r.
+                        # The collision-OFF baseline uses the center-only approximation
+                        # (dx^2+dy^2<=r2b); under no-overlap collision a big base (a
+                        # Knight) pushes enemy CENTERS past 3" of a marker it sits on,
+                        # which would unfaithfully EVICT base-to-base contesters whose
+                        # base edge is still within 3". So when collision is active,
+                        # count the model's base reach. Cited
+                        # simulator.objective_control_base_range; gated SWEG_COLLISION
+                        # so the OFF path stays byte-identical.
+                        if oc_collide:
+                            reach = obj2.control_radius + _bc_model_radius_in(u.profile)
+                            within = (dx * dx + dy * dy) <= reach * reach
+                        else:
+                            within = (dx * dx + dy * dy) <= r2b
+                        if within:
                             count += 1
                             oc_sum += self._effective_oc(u)
                             sum_dx += dx
@@ -1738,7 +1885,9 @@ class Battle:
         moves keep ER (allow_engagement=False) — only a Charge may end within 1".
         Note C perf: only the gated path pays this O(models) cost; benchmark +
         spatial-bucket if the Stage-1 A/B wall-clock exceeds 1.5x. No RNG."""
-        if not __import__("os").environ.get("SWEG_COLLISION"):
+        # Collision is DEFAULT-ON (user ruling 2026-06-07: no-overlap collision is the
+        # production baseline); set SWEG_COLLISION=0 to A/B the legacy no-collision path.
+        if __import__("os").environ.get("SWEG_COLLISION", "1") == "0":
             return {}
         friendly = getattr(mover, "army_ref", None)
         if friendly is self.a:
@@ -1759,7 +1908,7 @@ class Battle:
         # sidestep's repeated `_collision_pos_legal` queries touch only nearby occupants
         # (O(local) not O(models)). Byte-identical legality result — gated SWEG_OCCGRID
         # for measurement; contains the dense-horde O(models^2) collision cost (4.06x).
-        occupants = _OccupantGrid(occ) if __import__("os").environ.get("SWEG_OCCGRID") else occ
+        occupants = _OccupantGrid(occ) if __import__("os").environ.get("SWEG_OCCGRID", "1") != "0" else occ
         return {
             "mover_radius": _bc_model_radius_in(mover.profile),
             "occupants": occupants,
@@ -8705,6 +8854,14 @@ class Battle:
             _phase_their_oc: Dict[int, int] = {
                 id(obj): _oc_on_objective(_other_alive, obj) for obj in _objectives
             }
+            # Friendly OC: the move-phase's #1 perf hot spot (re-summed per
+            # activation inside pick_move_intent). Maintained INCREMENTALLY here
+            # — full scan once, then ±the moved unit's OC on the markers it
+            # entered/left after each _do_move — and passed down. Byte-identical
+            # to the per-activation rescan; O(friendly·obj) per phase, not O(²).
+            _phase_our_oc: Dict[int, int] = {
+                id(obj): _oc_on_objective(active.alive_units, obj) for obj in _objectives
+            }
             # Wave 121: reset any pursuit targets from the previous turn. The
             # field is per-turn (not per-round) so that each army's turn gets a
             # fresh assignment. When the pursuit gate is off this is a no-op
@@ -8772,12 +8929,30 @@ class Battle:
                             unit, active, other, self.map,
                             army_plan=active.army_plan,
                             _phase_their_oc=_phase_their_oc,
+                            _phase_our_oc=_phase_our_oc,
                         )
                         self._emit(UnitActivated(
                             unit_uid=unit.uid,
                             army_name=active.name,
                         ))
-                self._do_move(unit, active, other, _phase_their_oc=_phase_their_oc)
+                self._do_move(unit, active, other, _phase_their_oc=_phase_their_oc,
+                              _phase_our_oc=_phase_our_oc)
+                # OC-cache incremental maintenance (byte-identical to the per-call
+                # rescan): this unit may have entered/left objectives' control
+                # radii, so adjust _phase_our_oc by ±its OC on each affected marker.
+                # Deterministic (objective list order, no RNG). Units do not die
+                # during the move phase, so alive-set membership is stable here.
+                _uoc = unit.profile.oc or 0
+                if _uoc:
+                    _o = _move_start_pos[unit.uid]
+                    _n = unit.position
+                    if _o != _n:
+                        for _obj in _objectives:
+                            _r2 = _obj.control_radius * _obj.control_radius
+                            _wo = (_o[0] - _obj.x) ** 2 + (_o[1] - _obj.y) ** 2 <= _r2
+                            _wn = (_n[0] - _obj.x) ** 2 + (_n[1] - _obj.y) ** 2 <= _r2
+                            if _wo != _wn:
+                                _phase_our_oc[id(_obj)] += _uoc if _wn else -_uoc
             # Squad rebuild Stage B (gate SWEG_COHERE): now that every model has
             # moved individually, pull any model left out of Unit Coherency back
             # toward its squad within its remaining move. Deterministic; the OFF
@@ -9231,7 +9406,7 @@ class Battle:
                     self._emit(UnitMoved(unit_uid=m.uid, from_pos=old_pos, to_pos=new_pos))
 
     def _do_move(self, attacker, attacker_army: Army, defender_army: Army,
-                 _phase_their_oc=None) -> None:
+                 _phase_their_oc=None, _phase_our_oc=None) -> None:
         # Embarked passengers do not act on their own activation — the
         # transport carries them. The simulator emits UnitActivated for the
         # transport, not the passenger. Cited as `simulator.embark`.
@@ -9278,6 +9453,7 @@ class Battle:
             attacker, attacker_army, defender_army, self.map,
             army_plan=attacker_army.army_plan,
             _phase_their_oc=_phase_their_oc,
+            _phase_our_oc=_phase_our_oc,
         )
         # Avenue-2 Stage 2 make-way (distinct-slot spread): on an objective move,
         # redirect this model to its own slot in the marker's control ring so the

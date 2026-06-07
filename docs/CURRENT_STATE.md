@@ -1,5 +1,32 @@
 # SwegHammer calibration — current state
 
+**WAVE 211 (2026-06-07) — COLLISION IS NOW THE PRODUCTION BASELINE (user ruling): the Imperial Knights over-pole is FAITHFULLY
+RESOLVED. New frame = collision-ON + reach-fix; re-based gated mean absolute error ~7.27 (was 5.23 pre-collision; 6.54 collision-only).**
+USER RULING (verbatim): *"I want it on, figure out how to fix movement / get the over/under shooters in band with it on."* No-overlap
+collision + base-edge Objective Control contest + friendly-pass-through / enemy-path-block movement are flipped **DEFAULT-ON**
+(`SWEG_COLLISION`/`SWEG_PATHFIND`/`SWEG_OCCGRID`; `=0` reverts each; the make-way `SWEG_MOVEPLAN` stays OFF — it is the forbidden
+horde-AI nerf). **The N=80 keep/reject (the proof the direction is right): Imperial Knights +25.1 (gated 22.17) → +1.6 (gated 0.00,
+IN BAND)** — sim 72.8%→49.4% vs real 47.7%, via faithful screening + base-edge contest, NOT cratered. The #1 residual the whole
+project chased is resolved by modelling the positional/screening representation gap. Also helped: CSM/AdMech/Tyranids/Necrons/World Eaters.
+**Efficiency / fidelity bundle landed (4 components, all gated-reversible):** (1) collision flip default-ON; (2) bbox-cull on the
+`_enemy_path_cap_t` scan (1.70×/battle → parity); (3) Objective-Control cache — per-phase incremental `_phase_our_oc`, proven
+byte-identical under `SWEG_OC_CACHE_VERIFY` (the 27% hot spot); (4) the **reach-fix** (`_fan_to_goal`, gated `SWEG_REACH_FIX`,
+default-ON) — a big mover whose straight end is blocked with NO enemy on the path fans a ring around the goal and takes the legal
+spot closest to goal it can reach WITHOUT crossing an enemy (a fully enemy-screened goal admits no candidate → cannot undo the
+Imperial Knights over-pole). **Reach-fix verified faithful but band-NEGATIVE** (collision-only gated 6.75 → +reach-fix 7.27, +0.52):
+the guardrail HELD (Imperial Knights stayed in-band g0.00) but the under-pole did NOT recover — sending fragile gunline vehicles
+forward to contest is a bad trade (advance → die). **KEY RE-DIAGNOSIS: the under-pole crater is NOT reach.** It is
+durability / combat-output / advance-to-score AI + rules-implementation review. The reach-fix is KEPT default-ON (fidelity-first:
+faithful movement-correctness AND the necessary substrate for an advance-to-score AI — units must be able to reach before the AI
+can correctly decide who advances; gating it would re-mask the AI gap). **NEXT (the band program, multi-wave) — PIVOTED OFF MOVEMENT
+onto:** (A) advance-to-score AI (gunlines hold-and-shoot, don't suicide-advance; even-handed); (B) rules-implementation reviews
+(Chaos Space Marines Dark Pacts under-modelled; static-vs-runtime over-credit check for the inflated elites Aeldari/Drukhari/T'au);
+(C) durability / combat-output (over-fragile vehicles, [[project-faction-residual-rootcause]]). Cited
+`simulator.objective_control_base_range` + `simulator.collision_friendly_passthrough`. Bundle COMMITTED LOCALLY (checkpoint);
+NOT pushed (rule 3 — the outward push is held for explicit user go; the frame regressed 6.54→7.27 so the push is escalated).
+
+---
+
 **WAVE 210 (2026-06-06) — FIDELITY-FIRST REVISIT SWEEP COMPLETE: all 6 worklist items flipped DEFAULT-ON + committed; new
 honest baseline gated MAE ~5.23 (was 4.89).** Per the user-authorised sweep (docs/FIDELITY_REVISIT_WORKLIST.md), each parked
 faithful mechanic / competent-play AI heuristic is now production — one flip + one N=80 A/B + verify-before-flip + commit each:

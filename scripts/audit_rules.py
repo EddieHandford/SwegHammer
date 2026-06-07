@@ -193,6 +193,16 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # 10e core "greater Level of Control" rule — applies to objective scoring
     # and sticky-claim promotion (`_score_objectives`, `_sticky_owner`).
     "simulator.objective_control_strictly_greater",
+    # 10e core "Measuring Distances" — range to an objective marker is measured
+    # to the closest point of a model's base; gated SWEG_COLLISION base-edge
+    # Objective Control contest in `_assign_army_oc` (fixes the big-base
+    # entrenchment eviction artifact under no-overlap collision).
+    "simulator.objective_control_base_range",
+    # 10e core "Making a Move" — a model may be moved THROUGH friendly models but
+    # not through enemy models, and may not end on top of a model; gated
+    # SWEG_COLLISION friendly-pass-through / enemy-path-cap in `_move_toward`
+    # (`_enemy_path_cap_t`), fixing the friend-blind self-jam.
+    "simulator.collision_friendly_passthrough",
     "simulator.battle_focus",
     # Aeldari army rule (10e). Strands of Fate — 6D6 rolled at start of
     # battle into Army.fate_dice; each die later substituted for one d6

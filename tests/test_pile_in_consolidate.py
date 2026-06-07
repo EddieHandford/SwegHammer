@@ -19,6 +19,7 @@ Cited as `simulator.pile_in` / `simulator.consolidate`.
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
 from unittest import mock
@@ -76,6 +77,14 @@ def _make_army(name: str, profile: UnitProfile, positions: list) -> Army:
 
 class PileInTests(unittest.TestCase):
     """Pile-In: free 3" toward closest enemy BEFORE the fight resolves."""
+
+    def setUp(self):
+        # Collision is now default-ON; these tests verify pile-in/consolidate
+        # geometry, not collision movement — pin to legacy no-collision.
+        os.environ["SWEG_COLLISION"] = "0"
+
+    def tearDown(self):
+        os.environ.pop("SWEG_COLLISION", None)
 
     def test_unit_just_out_of_engagement_piles_in_then_fights(self):
         """After a charge, an attacker 1.5" away (just outside the 1"
@@ -170,6 +179,14 @@ class PileInTests(unittest.TestCase):
 
 class ConsolidateTests(unittest.TestCase):
     """Consolidate: free 3" toward closest enemy AFTER fight resolves."""
+
+    def setUp(self):
+        # Collision is now default-ON; these tests verify consolidate
+        # geometry, not collision movement — pin to legacy no-collision.
+        os.environ["SWEG_COLLISION"] = "0"
+
+    def tearDown(self):
+        os.environ.pop("SWEG_COLLISION", None)
 
     def test_consolidate_chases_next_enemy_after_target_dies(self):
         """Brawler kills victim, then consolidates toward the next enemy.

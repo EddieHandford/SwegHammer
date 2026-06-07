@@ -18,6 +18,7 @@ positioned so the nearest is the WRONG pick under the scoring rule.
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
 
@@ -135,30 +136,36 @@ class FightPickerDoFightTests(unittest.TestCase):
         return battle, attacker, gunner, brick
 
     def test_picker_targets_higher_score_not_nearest(self):
-        battle, attacker, gunner, brick = self._setup()
-        # Subscribe an event capture so we can read the UnitFought target.
-        captured = []
-        battle.subscribers.append(_Recorder(captured))
+        # Pin to legacy no-collision movement: collision is now default-ON,
+        # but this test is about fight-picker geometry, not collision.
+        os.environ["SWEG_COLLISION"] = "0"
+        try:
+            battle, attacker, gunner, brick = self._setup()
+            # Subscribe an event capture so we can read the UnitFought target.
+            captured = []
+            battle.subscribers.append(_Recorder(captured))
 
-        # Deterministic seed — outcome is the picker's choice, not the dice.
-        random.seed(0)
-        battle._do_fight(attacker, battle.a, battle.b)
+            # Deterministic seed — outcome is the picker's choice, not the dice.
+            random.seed(0)
+            battle._do_fight(attacker, battle.a, battle.b)
 
-        # Filter to fights INITIATED BY our attacker — Counter-Offensive
-        # may emit a retaliatory UnitFought from the defender side.
-        fights = [
-            e for e in captured
-            if isinstance(e, UnitFought) and e.attacker_uid == attacker.uid
-        ]
-        self.assertEqual(
-            len(fights), 1,
-            "Expected exactly one attacker-initiated UnitFought event.",
-        )
-        self.assertEqual(
-            fights[0].target_uid, gunner.uid,
-            "Picker should attack the squishy gunner (highest"
-            " `_melee_target_score`), NOT the nearer heavy brick.",
-        )
+            # Filter to fights INITIATED BY our attacker — Counter-Offensive
+            # may emit a retaliatory UnitFought from the defender side.
+            fights = [
+                e for e in captured
+                if isinstance(e, UnitFought) and e.attacker_uid == attacker.uid
+            ]
+            self.assertEqual(
+                len(fights), 1,
+                "Expected exactly one attacker-initiated UnitFought event.",
+            )
+            self.assertEqual(
+                fights[0].target_uid, gunner.uid,
+                "Picker should attack the squishy gunner (highest"
+                " `_melee_target_score`), NOT the nearer heavy brick.",
+            )
+        finally:
+            del os.environ["SWEG_COLLISION"]
 
     def test_picker_respects_engagement_range(self):
         """A high-score enemy outside 1.5" must be ignored — the picker

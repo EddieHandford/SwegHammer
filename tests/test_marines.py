@@ -128,6 +128,13 @@ class OathTargetPickerTests(unittest.TestCase):
     def setUp(self):
         # command-phase scoring is now default-ON; this mechanic test uses the legacy timing
         os.environ["SWEG_CMDSCORE"] = "0"
+        # collision is now default-ON; test_oath_picks_highest_points_enemy
+        # tests target-picking geometry, not collision movement
+        os.environ["SWEG_COLLISION"] = "0"
+
+    def tearDown(self):
+        os.environ.pop("SWEG_CMDSCORE", None)
+        os.environ.pop("SWEG_COLLISION", None)
 
     def test_oath_target_chosen_in_command_phase(self):
         random.seed(0)

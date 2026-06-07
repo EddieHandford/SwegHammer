@@ -263,6 +263,24 @@
     "scope": "phase-gated"
   },
 
+  "simulator.objective_control_base_range": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Measuring-Distances",
+    "rule_name": "Measuring Distances",
+    "quoted_text": "When measuring the distance between models, measure between the closest points of the bases of the models you're measuring to and from.",
+    "trigger": "the Objective Control contest checks whether a model is within an objective marker's control range, while no-overlap collision (SWEG_COLLISION) is active",
+    "effect": "a model is within range of an objective marker when the CLOSEST POINT of its base is within the control radius, i.e. centre-distance - base_radius <= control_radius (base_radius from code.simulator._bc_model_radius_in). The collision-OFF baseline keeps the centre-only approximation (centre within control_radius) so the OFF path is byte-identical; the base-edge measure is gated SWEG_COLLISION because the artifact it corrects only arises under no-overlap collision — a large base (e.g. a 170mm Imperial Knight) physically pushes enemy model CENTRES past 3\" of a marker it stands on, which under the centre-only check would unfaithfully evict base-to-base contesters whose base edge is still within range. Applied in _assign_army_oc. Symmetric across all models and factions (it widens every model's reach by its own base radius); not a per-faction knob.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.collision_friendly_passthrough": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Move-Units",
+    "rule_name": "Making a Move — moving through models",
+    "quoted_text": "It can be moved through friendly models, but it cannot end its move on top of another model.",
+    "trigger": "a model resolves a move (_move_toward) while no-overlap collision (SWEG_COLLISION) is active",
+    "effect": "Under no-overlap collision the mover's PATH is blocked only by ENEMY bases — a non-FLY model 'cannot move through an enemy model' (same Move Units section: 'no part of its base can be moved through an enemy model'), so code.simulator._enemy_path_cap_t stops it at the enemy's near boundary (faithful screening — a Knight cannot pass through an enemy horde). FRIENDLY models are passed through: they never cap the path; only the END is constrained by _collision_pos_legal (no overlap with any model, and a non-FLY model may not end within 1\" Engagement Range of an enemy). FLY moves over enemy models (path uncapped) but still may not end on a model or within Engagement Range. This replaces the prior friend-blind bisection walk-back that halted a mover at the near edge of the FIRST blocker (friend or foe), which self-jammed armies — notably clustered Imperial Knight bases — behind their own models. Gated SWEG_COLLISION; the OFF path (occupants is None) is byte-identical. Symmetric across all factions; not a per-faction knob and not a make-way (no other model is moved aside).",
+    "scope": "phase-gated"
+  },
+
   "simulator.battle_focus": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Battle-Focus",
     "rule_name": "Battle Focus (Star Engines manoeuvre)",
