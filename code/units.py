@@ -4434,12 +4434,15 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             devastating_wounds=entry.devastating_wounds,
             invuln_save=entry.invuln_save,
             invuln_ranged_only=entry.invuln_ranged_only,
-            # Task #92 Stage 1: derive the per-attack-type invuln losslessly from
-            # the existing model — ranged always gets the unconditional value;
-            # melee gets none (7) when the invuln is ranged-only (Ion Shield),
-            # else the unconditional value. Inert until Stage 2 reads them.
-            invuln_save_ranged=entry.invuln_save,
-            invuln_save_melee=(7 if entry.invuln_ranged_only else entry.invuln_save),
+            # Task #92 Stage 1b: per-attack-type invuln = the mapper-parsed
+            # per-attack values, combined with the invuln_ranged_only override.
+            # The mapper reads "X+ ... against melee/ranged attacks" clauses
+            # directly (Wyches melee 4 / ranged 6; Chaos Knights ranged-only); the
+            # Imperial Knight Ion Shield is encoded unconditionally in BSData and
+            # its ranged-only-ness lives in invuln_ranged_only, so suppress melee
+            # to 7 (none) when that flag is set. Inert until Stage 2 reads them.
+            invuln_save_ranged=entry.invuln_save_ranged,
+            invuln_save_melee=(7 if entry.invuln_ranged_only else entry.invuln_save_melee),
             rapid_fire=entry.rapid_fire,
             melta=entry.melta,
             ignores_cover=entry.ignores_cover,
