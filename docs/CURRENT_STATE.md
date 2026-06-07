@@ -1,5 +1,12 @@
 # SwegHammer calibration — current state
 
+**WAVES 214–216 (2026-06-07) — over-pole fabrication vein EXHAUSTED; Task #92 (conditional invulnerable saves) BUILT; loop in build-only mode.**
+After the band program's T'au Commander (wave 212) and Chaos Space Marines leader-routing (wave 213) fixes — each faithful but small; headline gated mean absolute error 7.27 → 7.21 — a systematic over-pole fabricated-flag sweep (wave 214) concluded the CLEAN-FABRICATION vein is essentially EXHAUSTED: most over-rated factions (Drukhari, Adeptus Astartes, Thousand Sons, Adeptus Custodes, World Eaters) were already cleaned in earlier waves. So the remaining over-pole is STRUCTURAL (positioning / representation / Stage 2), not removable buffs. The watchdog pivoted to the structural levers.
+**Task #92 — per-attack-type conditional invulnerable saves — BUILT end-to-end (the user-flagged structural fidelity fix).** 10th edition has invulnerable saves conditional on the attack type (Aeldari Wyches 4+ against melee / 6+ against ranged; Imperial Knight Ion Shield ranged-only). The simulator modelled a SINGLE invulnerable value, mis-modelling durability for ~58 such datasheet clauses across 14 factions — many ranged-only saves wrongly applied in melee (over-durable), and the melee-improved ones under-modelled. Fix: per-attack `invuln_save_melee` / `invuln_save_ranged` fields, mapper-extracted from the "X+ invulnerable save against melee/ranged attacks" clauses and combined with the `invuln_ranged_only` override, read at the save step. Gated `SWEG_COND_INVULN` (default-on). Six commits: `06bd644` (Stage 1a scaffold), `d7d1d97` + `4dffc44` + `33b9b42` (Stage 1b data pipeline + parsed.json regeneration, verified additive / deterministic / zero-drift), `febc8ae` (Stage 2 save-step switch, cited `simulator.conditional_invuln_save`), `3ad2535` (behavioural test). Audit 318/318, run.py --cli exits 0 on both gate states, tests green. **Its N=80 metric A/B is DEFERRED — the user paused sims ("planning and building only").**
+**LOOP STATE.** Build/plan-only (no evaluations) per user directive; faithful builds accumulate and every A/B queues for when sims are re-enabled. NOT pushed: the band-program + Task #92 commits are local-ahead of the collision pull request #41 (push held for the user's go). Next build/plan: faithful mechanic builds (e.g. Chaos Space Marines Legionaries "Veterans of the Long War"), each gated + cited + tested with the A/B deferred.
+
+---
+
 **WAVE 213 (2026-06-07) — BAND PROGRAM: Chaos Space Marines leader host-routing fixed (faithful, small lever).**
 The Chaos Space Marines under-pole (−12.9) review found the Dark Apostle and Sorcerer had their `host_keys` pointing at units
 absent from or marginal in the army (Traitor Guardsmen, a single Cultist Mob), so their auras fired on chaff or nothing instead of
@@ -123,7 +130,7 @@ recorded and all leaving the baseline untouched (every experiment gated):
 
 ---
 
-**Last updated:** Wave 203 (2026-06-06) — AVENUE 1 (mission/scoring displacement) is a faithful WIN once measured cleanly.
+**Last updated:** Waves 214–216 (2026-06-07) — over-pole fabrication vein exhausted; Task #92 conditional invulnerable saves built end-to-end (A/B deferred, sims paused); loop in build/plan-only mode.
 Gated MAE **5.76 → 5.19** (objective-game arc), then the user-greenlit displacement re-model's avenue 1 (Scorched Burn +
 Terraform + The Ritual + the CA-2025-26 deck rotation). A measurement CONFOUND (the deck locked each mission to one map via
 the shared seed) had made the rotation look metric-neutral; **fixed (mission draw decoupled from the map), the clean
