@@ -316,9 +316,26 @@ def _run_battle_job(
     return (a_fac, b_fac, s, r.winner)
 
 
+def _write_game_log(path: str, n: int,
+                    games: List[Tuple[str, str, int, Optional[str]]]) -> None:
+    """Persist every per-game winner for a paired / Common-Random-Numbers join.
+
+    Format: a JSON object ``{"n": N, "games": [[a_fac, b_fac, seed, winner], …]}``
+    where ``winner`` is ``"A"`` (a_fac won), ``"B"`` (b_fac won), or ``null``
+    (draw). The deterministic ``pair_seed`` schedule means the A/B's other arm
+    produces the SAME ``(a_fac, b_fac, seed)`` keys, so ``scripts/paired_delta.py``
+    can join the two logs game-for-game and read the low-variance paired delta.
+    Written once at the end of ``run_matrix`` so the hot loop stays light.
+    """
+    import json as _json
+    with open(path, "w", encoding="utf-8") as fh:
+        _json.dump({"n": n, "games": games}, fh)
+
+
 def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
                max_workers: Optional[int] = None,
-               price_overrides: Optional[Dict[str, float]] = None) -> Dict[str, float]:
+               price_overrides: Optional[Dict[str, float]] = None,
+               log_games_path: Optional[str] = None) -> Dict[str, float]:
     """Average win-rate per faction across all opponents in the FACTIONS list.
 
     Seeds the global random module per battle so the same code base produces
@@ -357,6 +374,18 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
     # Aggregate winners per (a_fac, b_fac) pair. Job-completion order does
     # not affect the per-pair Counter because each pair_seed is unique.
     pair_winners: Dict[Tuple[str, str], Counter] = {}
+    # Paired / Common-Random-Numbers support (speed lever #1): when
+    # `log_games_path` is set, record every per-game winner keyed by
+    # (a_fac, b_fac, seed) so a sibling run (the A/B's other arm, on the same
+    # deterministic pair_seed schedule) can be JOINED game-for-game by
+    # scripts/paired_delta.py. The paired per-game delta has far lower variance
+    # than the difference of two aggregate win-rates, making keep/reject
+    # decisive at low N. This is purely additive — when `log_games_path` is
+    # None the loop below is byte-identical to the original aggregation, so the
+    # default eval frame is unchanged.
+    game_log: Optional[List[Tuple[str, str, int, Optional[str]]]] = (
+        [] if log_games_path else None
+    )
     if max_workers is None:
         # Reserve ~30% of cores for the user's other work — use ~70%.
         max_workers = max(1, int((os.cpu_count() or 2) * 0.7))
@@ -379,9 +408,14 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
                 pair_winners[key] = Counter()
             if winner is not None:
                 pair_winners[key][winner] += 1
+            if game_log is not None:
+                game_log.append((a_fac, b_fac, _s, winner))
     finally:
         if max_workers > 1:
             executor.shutdown(wait=True)
+
+    if log_games_path:
+        _write_game_log(log_games_path, n, game_log)
 
     sim_wr: Dict[Tuple[str, str], float] = {}
     for a_fac in FACTIONS:
@@ -589,6 +623,17 @@ def main() -> None:
              "`python3 scripts/bake_swegpoints_v1.py`). Convenience "
              "wrapper over --equation-prices for the canonical v1 release.",
     )
+    p.add_argument(
+        "--log-games",
+        type=str,
+        default=None,
+        help="If given, write every per-game winner to this JSON path for a "
+             "paired / Common-Random-Numbers A/B. Run both arms with the same "
+             "--battles to identical --log-games paths, then join them with "
+             "scripts/paired_delta.py for a low-variance keep/reject verdict "
+             "that is decisive at low N. Purely additive — the win-rate frame "
+             "is unchanged whether or not this flag is set.",
+    )
     args = p.parse_args()
     rules = RulesConfig.sweghammer() if args.sweghammer else None
     mode = "sweghammer" if args.sweghammer else "vanilla"
@@ -625,7 +670,11 @@ def main() -> None:
     print(f"Mode: {'SwegHammer' if args.sweghammer else 'vanilla WH40k 10e'} | "
           f"Lists: {list_mode} | N={args.battles} | workers={workers}\n")
     sim = run_matrix(args.battles, rules=rules, use_archetype=args.use_archetype,
-                     max_workers=workers, price_overrides=price_overrides)
+                     max_workers=workers, price_overrides=price_overrides,
+                     log_games_path=args.log_games)
+    if args.log_games:
+        print(f"Per-game winners written to {args.log_games} "
+              f"(join with scripts/paired_delta.py).")
     mae_raw, mae_gated, mae_sweg = report(sim)
     if args.out:
         trusted = eq_data.get("trusted_factions") if args.equation_prices else None
