@@ -29,8 +29,11 @@ from .map import Map, Wall
 
 Point = Tuple[float, float]
 # An occupant is (x, y, footprint_radius, is_enemy) — the same shape the collision
-# helper passes; is_enemy is unused by the geometry (every body is an obstacle to
-# route around) but kept so the caller can pass its list verbatim.
+# helper passes. Only ENEMY bases block the PATH (10e "Making a Move": a model may
+# be moved THROUGH friendly models, but no part of its base can be moved through an
+# enemy model); friendlies are path-transparent here, the same rule _move_toward /
+# _enemy_path_cap_t apply. The returned point's END-legality vs ALL models (it may
+# not end on a friendly) is validated separately by the caller (_collision_pos_legal).
 Occupant = Tuple[float, float, float, bool]
 
 # Stage-0 spike picked these: a 3" cell keeps per-call cost low while still finding the
@@ -116,7 +119,14 @@ def find_path(
     # --- blocked-cell set (config-space) ------------------------------------
     blocked = set()
     if occupants:
-        for (ox, oy, orad, _enemy) in occupants:
+        for (ox, oy, orad, is_enemy) in occupants:
+            # Only ENEMY bases block the PATH — a model may be moved THROUGH
+            # friendly models (10e "Making a Move"); friendlies constrain only the
+            # END (validated against ALL models by _collision_pos_legal in the
+            # caller). Keeps find_path consistent with _move_toward's straight-line
+            # friendly pass-through. Cited simulator.collision_friendly_passthrough.
+            if not is_enemy:
+                continue
             rr = orad + mover_radius
             c0x = int((ox - rr - minx) / cell_size)
             c1x = int((ox + rr - minx) / cell_size)

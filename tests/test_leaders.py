@@ -196,7 +196,11 @@ class ExpandedRegistryTests(unittest.TestCase):
         ("Farseer",                 "reroll_wound_ones"),
         # T'au — Ethereal Failure Is Not an Option grants FNP 5+ (defensive)
         ("Ethereal",                "fnp"),
-        ("Commander in XV85 Enforcer Battlesuit", "plus_one_to_hit"),
+        # NOTE: the "Commander in <variant> Battlesuit" Coordinated Fire Plan
+        # used to assert plus_one_to_hit here; wave 212 removed that fabricated
+        # proxy (the real rule grants [ASSAULT] + Move 12" to the led unit, no
+        # Hit bonus). The absence is now locked by
+        # CoordinatedFirePlanFidelityTests below.
         # Cadre Fireblade Volley Fire: +1 Attack to ranged weapons
         ("Cadre Fireblade",         "plus_one_attack"),
         # Chaos Space Marines — Sorcerer Prescience is -1 to Hit on attacks
@@ -1222,6 +1226,26 @@ class HostKeysGatingFlaggedTests(unittest.TestCase):
             "host_keys=() is the broadcast convention — should be "
             "(crisis_battlesuit, stealth_battlesuit) per the 10e codex "
             "Leader block.")
+
+
+class CoordinatedFirePlanFidelityTests(unittest.TestCase):
+    """Wave 212 — the T'au "Coordinated Fire Plan" (Commander in Battlesuit /
+    Coldstar) is faithful by default: it grants NO Hit-roll bonus. The real
+    rule (cited verbatim in LeaderAbility.Coordinated Fire Plan) grants the led
+    unit a Move characteristic of 12" and the [ASSAULT] ability on its ranged
+    weapons — neither of which the simulator models — so the faithful default
+    is offensively inert rather than the prior fabricated army-wide +1 to Hit.
+    The fabricated proxy is reachable only via SWEG_TAU_CMD=0 for the A/B."""
+
+    def test_default_grants_no_fabricated_hit_bonus(self):
+        # Default registry (SWEG_TAU_CMD unset/on): the fabrication is gone.
+        ab = lookup_ability("Commander in XV85 Enforcer Battlesuit")
+        self.assertIsNotNone(ab, "Commander in <Battlesuit> must remain in the registry")
+        self.assertFalse(
+            ab.plus_one_to_hit,
+            "Coordinated Fire Plan must NOT grant +1 to Hit by default — the real "
+            "rule is [ASSAULT] + Move 12\" to the led unit, no Hit bonus (wave 212).",
+        )
 
 
 if __name__ == "__main__":

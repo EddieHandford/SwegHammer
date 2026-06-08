@@ -281,8 +281,8 @@ def _deploy_with_gate(a: Army, b: Army, gate_on: bool):
     prev = os.environ.get("SWEG_DEPLOY")
     if gate_on:
         os.environ["SWEG_DEPLOY"] = "1"
-    elif "SWEG_DEPLOY" in os.environ:
-        del os.environ["SWEG_DEPLOY"]
+    else:
+        os.environ["SWEG_DEPLOY"] = "0"   # intelligent deployment is now default-ON
     try:
         battle = Battle(a, b)
         battle._assign_uids()

@@ -2157,6 +2157,7 @@ def _m4_cluster_intent(unit, own_oc, enemy_alive, objectives, map_):
 def pick_move_intent(
     unit, friendly, enemy, map_, army_plan: Optional[str] = None,
     _phase_their_oc: Optional[Dict] = None,
+    _phase_our_oc: Optional[Dict] = None,
 ) -> Tuple[Tuple[float, float], str]:
     """
     Decide where `unit` should move this activation, and label the reason.
@@ -2246,7 +2247,20 @@ def pick_move_intent(
     # for every activation.
     friendly_alive = friendly.alive_units
     enemy_alive = enemy.alive_units
-    _our_oc = {id(obj): _oc_on_objective(friendly_alive, obj) for obj in objectives}
+    # Perf: friendly OC on every objective is the move-phase's #1 hot spot
+    # (O(friendly·obj) re-summed per activation). The caller (Battle move loop)
+    # may pass `_phase_our_oc`, a dict it maintains INCREMENTALLY as units move
+    # (full scan once per phase, then ±this-unit's OC on the markers it entered/
+    # left after each move) — byte-identical to the per-call rescan, just faster.
+    # Under SWEG_OC_CACHE_VERIFY the cache is asserted == a fresh scan every call
+    # (proves byte-identical). None (legacy callers) → recompute as before.
+    if _phase_our_oc is not None:
+        _our_oc = _phase_our_oc
+        if __import__("os").environ.get("SWEG_OC_CACHE_VERIFY"):
+            _check = {id(obj): _oc_on_objective(friendly_alive, obj) for obj in objectives}
+            assert _our_oc == _check, "OC cache drift: %r != %r" % (_our_oc, _check)
+    else:
+        _our_oc = {id(obj): _oc_on_objective(friendly_alive, obj) for obj in objectives}
     if _phase_their_oc is not None:
         _their_oc = _phase_their_oc
     else:

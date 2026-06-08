@@ -447,6 +447,21 @@ class UnitProfile:
     devastating_wounds: bool = False           # critical wound (6 to wound) bypasses saves
     invuln_save: int = 7                       # invulnerable save (7 = none); use better of save-after-AP or invuln
     invuln_ranged_only: bool = False           # 10e Imperial Knight Ion Shield: invuln applies vs ranged attacks only (no invuln in melee)
+    # Task #92 — per-attack-type invulnerable save (Stage 1, gate-inert: populated
+    # but NOT YET read by the save step). Generalises the single `invuln_save` +
+    # `invuln_ranged_only` bool into two values so 10e CONDITIONAL invulns model
+    # faithfully — e.g. Wyches "6+ Invulnerable save, 4+ against melee attacks"
+    # (ranged 6, melee 4); Imperial Knight Ion Shield (ranged 5, melee none=7).
+    # Default 7 (none); the builder derives them from the existing fields so the
+    # common case has both == invuln_save. Stage 2 switches the save step to read
+    # these; Stage 1b adds the multi-VALUE mapper parse (Wyches melee 4).
+    invuln_save_melee: int = 7                 # invuln vs melee attacks (7 = none)
+    invuln_save_ranged: int = 7                # invuln vs ranged attacks (7 = none)
+    # CSM Legionaries datasheet ability "Veterans of the Long War" (10e): in melee,
+    # re-roll Wound rolls of 1; if the target is within range of an objective marker,
+    # re-roll the full Wound roll instead. Override-only flag; read at the melee
+    # wound step gated SWEG_VETERANS. Cited simulator.veterans_of_the_long_war.
+    veterans_of_the_long_war: bool = False
     leadership: int = 7                        # Ld target for Battleshock tests (10e: 2D6 >= Ld passes)
     oc: int = 1                                # Objective Control characteristic (10e)
     # Phase A2 + A3 weapon keywords (carried from the unit's chosen ranged weapon)
@@ -2795,15 +2810,23 @@ class Unit:
                 # Clamp net save-modifier to +1 (the ±1 cap). The 2+ floor
                 # remains as a hard armour-save floor independent of the cap.
                 save_after_ap = max(2, save_after_ap - 1)
-            invuln = target.profile.invuln_save
-            # Imperial Knight Ion Shield (10e): "This model has a 5+ invulnerable
-            # save against ranged attacks only." Big Imperial Knights have NO
-            # invulnerable save in melee — only their 3+ armour. Suppress the
-            # datasheet invuln for melee attacks when invuln_ranged_only is set.
-            # (Chaos Knights' Ion Shield is ranged AND melee, so their flag stays
-            # False.) Cited as `simulator.ion_shield_ranged_only`.
-            if mode == "melee" and target.profile.invuln_ranged_only:
-                invuln = 7
+            # Task #92 (gated SWEG_COND_INVULN, default-ON): use the per-attack-type
+            # invulnerable save. 10e has CONDITIONAL invulns — Wyches 4+ vs melee /
+            # 6+ vs ranged; ranged-only saves (Imperial Knight Ion Shield) give NO
+            # invuln in melee. The per-attack values (invuln_save_melee /
+            # invuln_save_ranged) are mapper-extracted + override-combined; this
+            # generalises and subsumes the old invuln_ranged_only melee suppressor.
+            # Cited as `simulator.conditional_invuln_save`. `=0` reverts to the
+            # single value + the Ion-Shield-only special-case below.
+            if __import__("os").environ.get("SWEG_COND_INVULN", "1") != "0":
+                invuln = (target.profile.invuln_save_melee if mode == "melee"
+                          else target.profile.invuln_save_ranged)
+            else:
+                invuln = target.profile.invuln_save
+                # Imperial Knight Ion Shield (10e): ranged-only — suppress the
+                # datasheet invuln for melee. Cited as `simulator.ion_shield_ranged_only`.
+                if mode == "melee" and target.profile.invuln_ranged_only:
+                    invuln = 7
             # ---- Target's buffs: army-wide invuln. Only overrides if better
             # (lower number) than what the target already has. 7 = unset.
             tgt_invuln_buff = int(tgt_buffs["extra_invuln"])
@@ -3005,6 +3028,25 @@ class Unit:
                 att_reroll_all_wounds = True
             if getattr(self, "transient_reroll_wounds_ones", False):
                 att_reroll_wound_ones = True
+
+            # Chaos Space Marines Legionaries "Veterans of the Long War" (10e
+            # datasheet ability). Verbatim, cross-checked (Wahapedia CSM
+            # Legionaries datasheet + BSData ability a5ea-d708-db75-226c): "Each
+            # time a model in this unit targets an enemy unit with a melee attack,
+            # re-roll a Wound roll of 1. If that enemy unit is within range of an
+            # objective marker, you can re-roll the Wound roll instead." So in
+            # melee the unit always re-rolls wound 1s, upgraded to a full failed-
+            # wound re-roll when the target is within range of any objective marker
+            # (`target.on_objective`, set per round). Melee-only — the flags below
+            # apply to both modes, so the `mode == "melee"` guard is required.
+            # Composes with the 1s/all variants above via OR (one re-roll per die).
+            # Gated SWEG_VETERANS (default-on; `=0` reverts). Cited as
+            # `simulator.veterans_of_the_long_war`.
+            if (mode == "melee" and getattr(p, "veterans_of_the_long_war", False)
+                    and __import__("os").environ.get("SWEG_VETERANS", "1") != "0"):
+                att_reroll_wound_ones = True
+                if getattr(target, "on_objective", False):
+                    att_reroll_all_wounds = True
 
             # Drukhari Power From Pain (10e codex, current Wahapedia text):
             # the army rule does NOT grant passive LETHAL HITS from holding a
@@ -4424,6 +4466,16 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             devastating_wounds=entry.devastating_wounds,
             invuln_save=entry.invuln_save,
             invuln_ranged_only=entry.invuln_ranged_only,
+            # Task #92 Stage 1b: per-attack-type invuln = the mapper-parsed
+            # per-attack values, combined with the invuln_ranged_only override.
+            # The mapper reads "X+ ... against melee/ranged attacks" clauses
+            # directly (Wyches melee 4 / ranged 6; Chaos Knights ranged-only); the
+            # Imperial Knight Ion Shield is encoded unconditionally in BSData and
+            # its ranged-only-ness lives in invuln_ranged_only, so suppress melee
+            # to 7 (none) when that flag is set. Inert until Stage 2 reads them.
+            invuln_save_ranged=entry.invuln_save_ranged,
+            invuln_save_melee=(7 if entry.invuln_ranged_only else entry.invuln_save_melee),
+            veterans_of_the_long_war=entry.veterans_of_the_long_war,
             rapid_fire=entry.rapid_fire,
             melta=entry.melta,
             ignores_cover=entry.ignores_cover,

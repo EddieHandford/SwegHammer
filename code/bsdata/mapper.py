@@ -1990,6 +1990,11 @@ class MappedUnit:
     twin_linked: bool = False
     devastating_wounds: bool = False
     invuln_save: int = 7    # parsed from "Invulnerable Save (X+*)" infoLinks in the tree
+    # Task #92: per-attack-type invuln (7 = none). Default = invuln_save so the
+    # common case is unconditional; conditional datasheets (Wyches 4+ melee, Ion
+    # Shield ranged-only) differ. Inert until the loader/builder + save step read them.
+    invuln_save_melee: int = 7
+    invuln_save_ranged: int = 7
     # Phase A2/A3 keywords carried forward from the chosen ranged weapon
     rapid_fire: int = 0
     melta: int = 0
@@ -2459,7 +2464,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     else:
         _LOADOUT_TELEMETRY["fallback"] += 1
     min_m, max_m = extract_squad_size(entry)
-    invuln = extract_invuln(entry, reg)
+    invuln, invuln_melee, invuln_ranged = extract_invuln(entry, reg)
     unit_kw = extract_unit_keywords(entry)
     fnp = extract_fnp(entry, reg)
     stealth = extract_stealth(entry, reg)
@@ -2538,6 +2543,8 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         twin_linked=primary.twin_linked,
         devastating_wounds=primary.devastating_wounds,
         invuln_save=invuln,
+        invuln_save_melee=invuln_melee,
+        invuln_save_ranged=invuln_ranged,
         rapid_fire=primary.rapid_fire,
         melta=primary.melta,
         ignores_cover=primary.ignores_cover,
@@ -3360,6 +3367,48 @@ _INVULN_BARE_RE = re.compile(r"^\s*(\d)\+\s*$")
 # (vs the simulator's symmetric shooting-then-melee phase, the effective uplift
 # is approximate but on the correct side). If we later add ranged-only invuln
 # modelling, that's the right place to slice this distinction.
+#
+# Task #92 does exactly that. `_parse_invuln_per_attack` (below) generalises the
+# single-value parse into (melee, ranged) so 10e CONDITIONAL invulns model
+# faithfully — Wyches "6+ Invulnerable save, 4+ against melee attacks" ->
+# (melee 4, ranged 6); the Ion Shield "5+ against ranged attacks" ->
+# (melee none=7, ranged 5). 58 such clauses span 14 faction files, so the
+# single-value model wrongly grants ranged-only invulns in melee. The single
+# `extract_invuln` value is kept unchanged for back-compat; the per-attack
+# values are extracted in parallel from the same Shape-2/3 descriptions.
+_INVULN_PER_ATTACK_RE = re.compile(
+    r"(\d)\+\s*[Ii]nvulnerable\s+[Ss]ave"
+    r"(?:\s+against\s+(melee|ranged)\s+attacks)?",
+    re.IGNORECASE,
+)
+
+
+def _parse_invuln_per_attack(desc: str) -> Tuple[int, int]:
+    """Parse ALL invulnerable-save clauses in a Description WITH their attack-type
+    qualifiers. Returns (melee, ranged) as the best (lowest) value each; 7 = none.
+
+    Unqualified clauses apply to both attack types; "against melee attacks" /
+    "against ranged attacks" qualify. Each attack type takes the best (lowest) of
+    the unconditional value and its own qualified values.
+    """
+    if not desc:
+        return (7, 7)
+    uncond: List[int] = []
+    melee: List[int] = []
+    ranged: List[int] = []
+    for m in _INVULN_PER_ATTACK_RE.finditer(desc):
+        v = int(m.group(1))
+        q = (m.group(2) or "").lower()
+        if q == "melee":
+            melee.append(v)
+        elif q == "ranged":
+            ranged.append(v)
+        else:
+            uncond.append(v)
+    base = min(uncond) if uncond else None
+    pool_m = ([base] if base is not None else []) + melee
+    pool_r = ([base] if base is not None else []) + ranged
+    return (min(pool_m) if pool_m else 7, min(pool_r) if pool_r else 7)
 
 
 def _parse_invuln_from_description(desc: str) -> Optional[int]:
@@ -3390,7 +3439,7 @@ def _is_bare_invuln_name(name: str) -> bool:
     return s.lower() == "invulnerable save"
 
 
-def extract_invuln(entry: ET.Element, reg: Registry) -> int:
+def extract_invuln(entry: ET.Element, reg: Registry) -> Tuple[int, int, int]:
     """
     Find the best invulnerable save on a unit by scanning for three shapes:
 
@@ -3420,7 +3469,15 @@ def extract_invuln(entry: ET.Element, reg: Registry) -> int:
     Returns the best (lowest) value found, or 7 if none.
     """
     best = 7
+    m_best = 7   # Task #92: per-attack best (melee), 7 = none
+    r_best = 7   # Task #92: per-attack best (ranged)
     seen: set = set()
+    def _consume(melee: int, ranged: int) -> None:
+        nonlocal m_best, r_best
+        if melee < m_best:
+            m_best = melee
+        if ranged < r_best:
+            r_best = ranged
     def walk(elem: ET.Element, depth: int):
         nonlocal best
         if depth > 3:
@@ -3438,6 +3495,7 @@ def extract_invuln(entry: ET.Element, reg: Registry) -> int:
                 v = int(m.group(1))
                 if v < best:
                     best = v
+                _consume(v, v)  # name-digit invuln is unconditional
                 continue
             # Shape 2: bare "Invulnerable Save" name → resolve target profile
             # and parse its Description characteristic for the digit.
@@ -3452,6 +3510,7 @@ def extract_invuln(entry: ET.Element, reg: Registry) -> int:
                 v = _parse_invuln_from_description(ch.text or "")
                 if v is not None and v < best:
                     best = v
+                _consume(*_parse_invuln_per_attack(ch.text or ""))
                 break
         # Shape 3: inline <profile typeName="Abilities"> on this entry whose
         # name starts with "invulnerable save".
@@ -3467,13 +3526,14 @@ def extract_invuln(entry: ET.Element, reg: Registry) -> int:
                 v = _parse_invuln_from_description(ch.text or "")
                 if v is not None and v < best:
                     best = v
+                _consume(*_parse_invuln_per_attack(ch.text or ""))
                 break
         for el in elem.findall("./entryLinks/entryLink"):
             target = reg.resolve(el.get("targetId") or "")
             if target is not None:
                 walk(target, depth + 1)
     walk(entry, 0)
-    return best
+    return best, m_best, r_best
 
 
 def map_all(reg: Optional[Registry] = None) -> List[MappedUnit]:

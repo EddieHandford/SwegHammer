@@ -217,8 +217,8 @@ class FocusFireGateTests(unittest.TestCase):
             os.environ["SWEG_FOCUSFIRE"] = self._saved
 
     def test_gate_off_no_focus_target(self):
-        """Gate unset: no focus target is ever nominated."""
-        os.environ.pop("SWEG_FOCUSFIRE", None)
+        """Gate OFF: no focus target is ever nominated (focus fire is now default-ON)."""
+        os.environ["SWEG_FOCUSFIRE"] = "0"
         battle, shooters, targets = _build(
             [_antitank("AT1"), _antitank("AT2"), _antitank("AT3"), _antitank("AT4")],
             [_knight_brick(), _chaff("Scout")],
@@ -231,7 +231,7 @@ class FocusFireGateTests(unittest.TestCase):
         lowest-health enemy (the chaff). With enough chaff bodies to absorb the
         activations, the Knight brick takes no anti-tank fire and survives the
         phase untouched — the inverse of the real focus-fire counter."""
-        os.environ.pop("SWEG_FOCUSFIRE", None)
+        os.environ["SWEG_FOCUSFIRE"] = "0"   # focus fire is now default-ON
         # One chaff body per anti-tank shooter, so the lowest-health picker
         # always has a fresh 2-wound target and never falls through to the
         # 26-wound Knight.

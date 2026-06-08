@@ -417,6 +417,8 @@ def render_frame(
     img_h = int(figsize[1] * _RENDER_DPI)
     img = Image.new("RGBA", (img_w, img_h), _rgba(COL_FIG_BG))
     draw = ImageDraw.Draw(img, "RGBA")
+    font_title = _load_font(13)
+    font_name  = _load_font(8)
 
     # --- Coordinate transform: world inches → pixel (y-flipped) ---
     pad = 1.0
@@ -447,18 +449,21 @@ def render_frame(
 
     # --- Terrain ---
     font_terrain = _load_font(7)
-    font_title = _load_font(11)
     for t in map_.terrain:
         color = TERRAIN_COLORS.get(t.type, "#555555")
-        # to_px flips y; terrain top-left in pixels = world (x, y+h), bottom-right = world (x+w, y)
-        px0, py0 = to_px(t.x, t.y + t.height)
-        px1, py1 = to_px(t.x + t.width, t.y)
-        draw.rectangle([px0, py0, px1, py1], fill=_rgba(color, 217),
+        # World rectangle (t.x, t.y)..(t.x+w, t.y+h) → pixel box. to_px flips y,
+        # so the top-left pixel corner comes from the world TOP edge (t.y+height).
+        tx0, ty0 = to_px(t.x, t.y + t.height)
+        tx1, ty1 = to_px(t.x + t.width, t.y)
+        draw.rectangle([tx0, ty0, tx1, ty1],
+                       fill=_blend(color, 0.85, COL_BOARD_BG),
                        outline=_rgba("#222222", 217), width=1)
-        # Terrain names are background context, not foreground — kept small,
-        # faded and BELOW the units so a unit shape always wins the pixel.
-        tx, ty = to_px(t.x + t.width / 2, t.y + t.height / 2)
-        _draw_text_centered(draw, tx, ty, t.name, font_terrain, _rgba("#bdb6aa", 97))
+        # Terrain names are background context, not foreground — kept small and
+        # faded so a unit shape always wins the pixel. (Units are drawn after,
+        # so they paint over this.)
+        tcx, tcy = to_px(t.x + t.width / 2, t.y + t.height / 2)
+        _draw_text_centered(draw, tcx, tcy, t.name, font_terrain,
+                            _rgba("#bdb6aa", 97))
 
     # Draw every visual effect emitted during this frame's activation. Shot
     # arcs are deliberately faded so multiple-target activations stay legible
@@ -539,10 +544,11 @@ def render_frame(
 
             _draw_unit_base(draw, cx, cy, color, bs, w_px, h_px)
 
-            # HP bar: small white inner circle when wounded
+            # HP bar: small white inner circle when wounded; radius scales with
+            # the remaining health fraction so a near-dead unit shows a tiny pip.
             if s["max_hp"] > 1 and s["current_hp"] < s["max_hp"]:
                 hp_frac = max(0.05, s["current_hp"] / s["max_hp"])
-                r_hp = max(2, int(min(w_px, h_px) / 2 * hp_frac))
+                r_hp = max(2, int(2 + 5 * hp_frac))
                 draw.ellipse([cx - r_hp, cy - r_hp, cx + r_hp, cy + r_hp],
                              fill=_rgba("#ffffff", 128))
             # Name-tag the LARGE / distinct units (vehicles, monsters, titanic,
@@ -560,60 +566,59 @@ def render_frame(
                 )
                 if name and not near:
                     tag = (name[:15] + "…") if len(name) > 16 else name
-                    font_tag = _load_font(8)
-                    try:
-                        bb = draw.textbbox((cx, cy), tag, font=font_tag, anchor="mm")
-                    except TypeError:
-                        try:
-                            tw, th = font_tag.getbbox(tag)[2:]
-                        except AttributeError:
-                            tw, th = font_tag.getsize(tag)  # type: ignore[attr-defined]
-                        bb = (cx - tw // 2, cy - th // 2, cx + tw // 2, cy + th // 2)
-                    pad_t = 3
+                    tb = font_name.getbbox(tag)
+                    tw, th = tb[2] - tb[0], tb[3] - tb[1]
                     draw.rectangle(
-                        [bb[0] - pad_t, bb[1] - pad_t, bb[2] + pad_t, bb[3] + pad_t],
-                        fill=_rgba("#0e1117", 158), outline=_rgba(color, 158), width=1,
+                        [cx - tw // 2 - 3, cy - th // 2 - 2,
+                         cx + tw // 2 + 3, cy + th // 2 + 2],
+                        fill=_rgba("#0e1117", 158), outline=_rgba(color, 200),
+                        width=1,
                     )
-                    _draw_text_centered(draw, cx, cy, tag, font_tag, (255, 255, 255, 255))
+                    _draw_text_centered(draw, cx, cy, tag, font_name,
+                                        _rgba("#ffffff", 235))
                     labelled.append((s["army"], name, x, y))
         else:
             r = max(4, int(_mm_to_inches(32) / 2 * scale))
             _cross(draw, cx, cy, r, _rgba(COL_DEAD, 178))
 
-    # Army colour legend — coloured swatches with army names in the top-left corner.
+    # Army colour legend — reinforces which colour is which army; the name
+    # tags above identify the individual big units. Drawn as a small panel in
+    # the board's upper-left corner.
     if legend_armies:
-        font_legend = _load_font(9)
-        swatch = 10
-        spacing = 16
-        entries = list(legend_armies.items())
-        panel_w = 130
-        panel_h = len(entries) * spacing + 6
-        leg_x = x_off + 6
-        leg_y = y_off + 6
-        draw.rectangle(
-            [leg_x - 3, leg_y - 3, leg_x + panel_w, leg_y + panel_h],
-            fill=_rgba("#0e1117", 184), outline=_rgba("#555555", 184), width=1,
-        )
-        for i, (nm, c) in enumerate(entries):
-            sy = leg_y + i * spacing
-            draw.rectangle([leg_x, sy, leg_x + swatch, sy + swatch],
-                           fill=_rgba(c), outline=(255, 255, 255, 180), width=1)
-            tx, ty = leg_x + swatch + 4, sy + swatch // 2
-            try:
-                draw.text((tx, ty), nm, fill=(255, 255, 255, 230), font=font_legend, anchor="lm")
-            except TypeError:
-                draw.text((tx, ty), nm, fill=(255, 255, 255, 230), font=font_legend)
+        font_legend = _load_font(11)
+        rows = list(legend_armies.items())
+        sw = 11          # colour-swatch size
+        row_h = sw + 5
+        label_w = 0
+        for nm, _c in rows:
+            lb = font_legend.getbbox(nm)
+            label_w = max(label_w, lb[2] - lb[0])
+        panel_w = sw + 6 + label_w + 12
+        panel_h = len(rows) * row_h + 6
+        lx0 = x_off + 8
+        ly0 = y_off + 8
+        draw.rectangle([lx0 - 5, ly0 - 5, lx0 - 5 + panel_w, ly0 - 5 + panel_h],
+                       fill=_rgba("#0e1117", 184), outline=_rgba("#555555", 200),
+                       width=1)
+        ly = ly0
+        for nm, c in rows:
+            draw.rectangle([lx0, ly, lx0 + sw, ly + sw],
+                           fill=_rgba(c), outline=_rgba("#ffffff", 200), width=1)
+            _draw_text_centered(draw, lx0 + sw + 6 + (label_w // 2), ly + sw // 2,
+                                nm, font_legend, _rgba("#ffffff", 235))
+            ly += row_h
 
     # Scale bar — a 6" reference so the true-base-size shapes read at a known
     # scale (a Knight base really is ~3x a Marine's).
     bar_len = 6.0
     bx0 = map_.width - bar_len - 1.0
-    bary = -0.6
-    sbx0, sby = to_px(bx0, bary)
-    sbx1, _   = to_px(bx0 + bar_len, bary)
-    font_bar = _load_font(8)
-    draw.line([(sbx0, sby), (sbx1, sby)], fill=(255, 255, 255, 255), width=2)
-    _draw_text_centered(draw, (sbx0 + sbx1) // 2, sby - 8, '6"', font_bar, (255, 255, 255, 255))
+    bary = 0.6
+    sx0, sy0 = to_px(bx0, bary)
+    sx1, _sy1 = to_px(bx0 + bar_len, bary)
+    draw.line([sx0, sy0, sx1, sy0], fill=_rgba("#ffffff", 235), width=2)
+    scx, _scy = to_px(bx0 + bar_len / 2.0, bary)
+    _draw_text_centered(draw, scx, sy0 - 8, '6"', _load_font(9),
+                        _rgba("#ffffff", 235))
 
     # Title — show frame index (one per activation / boundary), not raw
     # event index, so the slider value matches what the viewer sees.

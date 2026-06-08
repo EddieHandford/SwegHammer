@@ -270,7 +270,7 @@
     "rule_name": "Coldstar Commander (Aura)",
     "quoted_text": "While this model is leading a unit, models in that unit have a Move characteristic of 12\" and ranged weapons equipped by models in that unit have the [ASSAULT] ability.",
     "trigger": "attacker's unit is led by a T'au Commander in aura range (Coldstar variant cited as canonical example; sister Commander variants — Enforcer, Crisis — have differently-named auras)",
-    "effect": "+1 to Hit in aura range (approximation; the Coldstar Commander grants 12\" Move and the ASSAULT keyword to ranged weapons in the led unit, not a Hit-roll bonus. The simulator does not model movement boosts or ASSAULT, so +1-to-hit is a loose offensive-Commander proxy)",
+    "effect": "Faithful default (SWEG_TAU_CMD on): NO offensive buff. The real rule grants the led unit a Move characteristic of 12\" and the [ASSAULT] ability on its ranged weapons; the simulator models neither Movement-characteristic bonuses nor a leader-granted [ASSAULT] keyword, so the ability is left offensively inert rather than fabricating a Hit-roll bonus the rule does not give. The prior implementation proxied it as plus_one_to_hit with no host_keys, which the LeaderAbility convention treats as ARMY-WIDE, fabricating an army-wide +1 to Hit that over-credited all T'au shooting; that proxy is removed. SWEG_TAU_CMD=0 reverts to the prior fabricated +1-to-hit for the A/B comparison.",
     "scope": "unit-led"
   },
 
