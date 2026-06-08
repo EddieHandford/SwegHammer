@@ -208,8 +208,10 @@ def paired_report(off_path: str, on_path: str) -> None:
 
     print(f"PAIRED / CRN A/B  —  OFF={off_path}  ON={on_path}")
     print(f"matched games: {matched}  (N_off={n_off}, N_on={n_on})\n")
-    header = (f"{'Faction':<24}{'OFF':>7}{'ON':>7}{'aggΔ':>7}"
-              f"{'pairedΔ':>9}{'±95%':>7}{'flips':>7}  verdict")
+    # ASCII-only output: Windows cp1252 stdout crashes on Unicode (delta/+-),
+    # and eval tooling must print regardless of the console encoding.
+    header = (f"{'Faction':<24}{'OFF':>7}{'ON':>7}{'aggD':>7}"
+              f"{'pairedD':>9}{'ci95':>7}{'flips':>7}  verdict")
     print(header)
     print("-" * len(header))
 
@@ -233,7 +235,7 @@ def paired_report(off_path: str, on_path: str) -> None:
     nf = len(FACTIONS)
     print("-" * len(header))
     print(f"gated MAE:  OFF {gated_off / nf:.2f}   ON {gated_on / nf:.2f}   "
-          f"Δ {(gated_on - gated_off) / nf:+.2f}")
+          f"delta {(gated_on - gated_off) / nf:+.2f}")
     if decisive:
         print(f"DECISIVE movers (95% CI clear of 0): {', '.join(decisive)}")
     else:
