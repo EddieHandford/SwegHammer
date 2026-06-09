@@ -16,8 +16,19 @@ from scripts.paired_delta import (
     _frame,
     _verdict,
     _weighted_delta,
+    compute_paired,
+    decide_stop,
 )
 from scripts.evaluate_vs_meta import FACTIONS
+
+
+def _mk(a_awins, fac, opp, n=40):
+    """Synthetic game-dict: `fac` as A vs `opp` wins a_awins of n; opp-as-A 50/50."""
+    g = {}
+    for s in range(n):
+        g[(fac, opp, s)] = "A" if s < a_awins else "B"
+        g[(opp, fac, s)] = "A" if s < n // 2 else "B"
+    return g
 
 
 class CellFlipsTests(unittest.TestCase):
@@ -107,6 +118,51 @@ class FrameTests(unittest.TestCase):
         self.assertAlmostEqual(out[fac], 75.0, places=6)
         # A faction with no logged games scores 0 (no cells).
         self.assertEqual(out[FACTIONS[5]], 0.0)
+
+
+class ComputePairedTests(unittest.TestCase):
+    def test_structured_paired_result(self):
+        fac, opp = FACTIONS[2], FACTIONS[1]  # Aeldari vs Necrons
+        off = _mk(20, fac, opp, n=40)        # fac-as-A 20/40 OFF
+        on = _mk(28, fac, opp, n=40)         # fac-as-A 28/40 ON -> +8 flips to win
+        w = {f: 1 for f in FACTIONS}
+        tgt = {f: 50.0 for f in FACTIONS}
+        nz = {f: 0.0 for f in FACTIONS}
+        r = compute_paired(off, on, w, tgt, nz)
+        self.assertEqual(r["matched"], 80)
+        d = r["factions"][fac]
+        self.assertAlmostEqual(d["offwr"], 50.0, places=6)   # 20/40
+        self.assertAlmostEqual(d["onwr"], 70.0, places=6)    # 28/40
+        self.assertAlmostEqual(d["delta"], 20.0, places=6)   # +8/40 = +20 pts
+        self.assertEqual(d["disc"], 8)
+        self.assertEqual(d["verdict"], "UP")                 # clear of 0 at n=40
+
+
+class DecideStopTests(unittest.TestCase):
+    def _res(self, facs):
+        return {"matched": 0, "gated_off": 0.0, "gated_on": 0.0, "factions": facs}
+
+    def test_decisive_stops(self):
+        r = self._res({"X": {"delta": 5.0, "ci": 2.0, "verdict": "UP"},
+                       "Y": {"delta": 0.0, "ci": 1.0, "verdict": "flat"}})
+        stop, reason = decide_stop(r, threshold_pts=1.0)
+        self.assertTrue(stop)
+        self.assertIn("decisive", reason)
+
+    def test_neutral_stops(self):
+        # all flat AND every |delta|+ci < threshold -> bounded neutral.
+        r = self._res({"X": {"delta": 0.1, "ci": 0.3, "verdict": "flat"},
+                       "Y": {"delta": -0.2, "ci": 0.2, "verdict": "flat"}})
+        stop, reason = decide_stop(r, threshold_pts=1.0)
+        self.assertTrue(stop)
+        self.assertIn("neutral", reason)
+
+    def test_inconclusive_continues(self):
+        # flat but a faction's CI still straddles the threshold -> need more N.
+        r = self._res({"X": {"delta": 0.5, "ci": 1.5, "verdict": "flat"}})
+        stop, reason = decide_stop(r, threshold_pts=1.0)
+        self.assertFalse(stop)
+        self.assertIn("inconclusive", reason)
 
 
 if __name__ == "__main__":

@@ -167,6 +167,70 @@ def _frame(games: Dict[Tuple[str, str, int], Winner],
     return out
 
 
+def compute_paired(off_games, on_games, weights, target, noise) -> dict:
+    """Join two game-dicts on (a,b,seed) and return structured paired results.
+
+    Shared by the CLI report and the sequential orchestrator. Returns
+    ``{matched, gated_off, gated_on, factions: {fac: {offwr, onwr, aggd, delta,
+    se, ci, disc, verdict}}}``. Delta/ci are field-weighted McNemar paired
+    estimates of each faction's A-position win-rate change, in points.
+    """
+    keys = off_games.keys() & on_games.keys()
+    off_m = {k: off_games[k] for k in keys}
+    on_m = {k: on_games[k] for k in keys}
+    off_frame = _frame(off_m, weights)
+    on_frame = _frame(on_m, weights)
+    by_off: Dict[Tuple[str, str], List[Winner]] = defaultdict(list)
+    by_on: Dict[Tuple[str, str], List[Winner]] = defaultdict(list)
+    for (a, b, s) in sorted(keys):
+        by_off[(a, b)].append(off_m[(a, b, s)])
+        by_on[(a, b)].append(on_m[(a, b, s)])
+    factions = {}
+    gated_off = gated_on = 0.0
+    for fac in FACTIONS:
+        cells = []
+        for opp in FACTIONS:
+            if opp == fac or (fac, opp) not in by_off:
+                continue
+            bcell, ccell, ncell = _cell_flips(by_off[(fac, opp)], by_on[(fac, opp)])
+            cells.append((bcell, ccell, ncell, float(weights[opp])))
+        delta, se, disc = _weighted_delta(cells)
+        ci = 1.96 * se
+        factions[fac] = {
+            "offwr": off_frame[fac], "onwr": on_frame[fac],
+            "aggd": on_frame[fac] - off_frame[fac],
+            "delta": delta, "se": se, "ci": ci, "disc": disc,
+            "verdict": _verdict(delta, ci),
+        }
+        gated_off += _noise_gated_error(off_frame[fac], target[fac], noise[fac])
+        gated_on += _noise_gated_error(on_frame[fac], target[fac], noise[fac])
+    nf = len(FACTIONS)
+    return {"matched": len(keys), "gated_off": gated_off / nf,
+            "gated_on": gated_on / nf, "factions": factions}
+
+
+def decide_stop(result: dict, threshold_pts: float = 1.0) -> Tuple[bool, str]:
+    """Sequential early-stop rule for a paired result at the current N.
+
+    STOP when the keep/reject question is resolved at ``threshold_pts``:
+      - any faction's paired CI is clear of zero  -> decisive effect found;
+      - else every faction's |delta|+ci < threshold -> decisively neutral
+        (the effect, if any, is bounded below the threshold).
+    CONTINUE (extend seeds) only while some faction's CI still straddles the
+    threshold (could be a real >=threshold effect OR zero — N too small to tell).
+    """
+    movers = [f for f, d in result["factions"].items() if d["verdict"] != "flat"]
+    if movers:
+        return True, "decisive: " + ", ".join(
+            f"{f} {result['factions'][f]['verdict']} "
+            f"{result['factions'][f]['delta']:+.2f}" for f in movers)
+    inconclusive = [f for f, d in result["factions"].items()
+                    if abs(d["delta"]) + d["ci"] >= threshold_pts]
+    if not inconclusive:
+        return True, f"neutral: all factions bounded within +-{threshold_pts:.1f} pts"
+    return False, f"inconclusive: {len(inconclusive)} faction(s) straddle the threshold"
+
+
 def paired_report(off_path: str, on_path: str) -> None:
     n_off, off = _load_log(off_path)
     n_on, on = _load_log(on_path)
