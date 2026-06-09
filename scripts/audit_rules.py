@@ -123,6 +123,11 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # rule. Dread Tyrants Aura grants reroll-hit-ones + reroll-wound-ones to
     # War Dogs within 9" of a friendly TITANIC CK unit.
     ("dread_tyrants_aura", False),
+    # Chaos Daemons Daemonic Incursion — Warp Rifts (wave 221). Reduces the
+    # Deep Strike minimum gap from 9" to 6" for Chaos Daemons units arriving
+    # under this detachment (gated SWEG_WARP_RIFTS). Cited as
+    # `simulator.warp_rifts` in data/rule_citations.d/chaos_daemons.json.
+    ("warp_rifts", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
@@ -546,6 +551,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # (melee Wound-roll re-rolls, upgraded to full re-roll near objectives).
     # Gated SWEG_VETERANS.
     "simulator.veterans_of_the_long_war",
+    # Wave 221 — Chaos Daemons Daemonic Incursion "Warp Rifts" (env-gated
+    # SWEG_WARP_RIFTS). Reduces Deep Strike minimum gap from 9" to 6" for
+    # Chaos Daemons units arriving under the Daemonic Incursion detachment.
+    # Cited in data/rule_citations.d/chaos_daemons.json.
+    "simulator.warp_rifts",
     # SC4-A — 10e Pariah Nexus Fixed Secondary Missions. Bring it Down
     # (5 VP per enemy MONSTER/VEHICLE destroyed this round, capped 15)
     # and No Prisoners (5 VP per enemy unit destroyed this round, capped

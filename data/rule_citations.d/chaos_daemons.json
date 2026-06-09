@@ -59,6 +59,26 @@
     "effect": "APPROXIMATION: modelled via the existing stealth profile flag, which applies -1 to Hit rolls for ranged attacks only. The real rule applies to ALL attacks including melee; the melee half is not modelled. stealth flag set on: Tzeentch Soul Grinder, Lord of Change, Fateskimmer, Fluxmaster, Changecaster, Blue Horrors, Pink Horrors, Flamers, Exalted Flamer, Screamers, Burning Chariot.",
     "scope": "keyword-gated",
     "approximation": true
+  },
+
+  "simulator.warp_rifts": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Daemonic-Incursion",
+    "rule_name": "Warp Rifts",
+    "quoted_text": "Each time a LEGIONES DAEMONICA unit from your army is set up on the battlefield using the Deep Strike ability, if it is set up wholly within your army's Shadow of Chaos [or within 6\" of a matching Greater Daemon], it can be set up anywhere that is more than 6\" horizontally away from all enemy models, instead of more than 9\".",
+    "trigger": "A Chaos Daemons unit arrives via Deep Strike under the Daemonic Incursion detachment with env gate SWEG_WARP_RIFTS=1. Real trigger requires the unit to be set up wholly within Shadow of Chaos (own deployment zone + No Man's Land / opponent zone when objectives controlled) or within 6\" of a matching Greater Daemon. SwegHammer SIMPLIFICATION: applied uniformly to all Chaos Daemons deep-strikers under this detachment — the 'wholly within Shadow of Chaos' condition is the common case for Round-2 Daemon arrivals.",
+    "effect": "Deep Strike minimum gap reduced from 9\" to 6\" from all enemy models. This lets Chaos Daemons deep-strikers land on contested mid-board objectives that sit approximately 8\" from the enemy deployment edge — objectives that are blocked at the 9\" standard gap. Implemented in Battle._pick_arrival_point: after computing friendly army reference, the min_gap is overridden from 9.0 to 6.0 when the arriving unit belongs to a Chaos Daemons army whose detachment carries warp_rifts=True.",
+    "scope": "keyword-gated",
+    "approximation": true
+  },
+
+  "DAEMONIC_INCURSION.warp_rifts": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Daemonic-Incursion",
+    "rule_name": "Warp Rifts",
+    "quoted_text": "Each time a LEGIONES DAEMONICA unit from your army is set up on the battlefield using the Deep Strike ability, if it is set up wholly within your army's Shadow of Chaos [or within 6\" of a matching Greater Daemon], it can be set up anywhere that is more than 6\" horizontally away from all enemy models, instead of more than 9\".",
+    "trigger": "Daemonic Incursion detachment rule; fires on deep-strike arrival when SWEG_WARP_RIFTS env gate is set.",
+    "effect": "Grants warp_rifts=True on the DAEMONIC_INCURSION Detachment instance; the simulator reads this flag in _pick_arrival_point to reduce the minimum deep-strike gap to 6\" for Chaos Daemons arrivals.",
+    "scope": "keyword-gated",
+    "approximation": true
   }
 
 }

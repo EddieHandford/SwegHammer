@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import random
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
@@ -7668,6 +7669,24 @@ class Battle:
 
         # Identify uncontested objectives (no friendly within control radius).
         friendly = self.a if opponent is self.b else self.b
+
+        # Warp Rifts (Chaos Daemons Daemonic Incursion detachment rule, 10e).
+        # Wahapedia: "Each time a LEGIONES DAEMONICA unit from your army is set
+        # up on the battlefield using the Deep Strike ability, if it is set up
+        # wholly within your army's Shadow of Chaos … it can be set up anywhere
+        # that is more than 6\" horizontally away from all enemy models, instead
+        # of more than 9\"."
+        # SwegHammer simplification: applied uniformly to all Chaos Daemons
+        # deep-strikers under Daemonic Incursion. Gated SWEG_WARP_RIFTS.
+        # Cited as `simulator.warp_rifts`.
+        if (
+            os.environ.get("SWEG_WARP_RIFTS", "0") != "0"
+            and arriving_unit is not None
+            and (arriving_unit.profile.faction or "") == "Chaos Daemons"
+            and getattr(getattr(friendly, "detachment", None), "warp_rifts", False)
+        ):
+            min_gap = 6.0
+
         targetable_objs = []
         for obj in self.map.objectives:
             controlled_by_us = any(
