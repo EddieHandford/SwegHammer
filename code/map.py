@@ -9,6 +9,7 @@ the rectangles feel too crude.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Iterable, Optional, Tuple
@@ -288,6 +289,16 @@ _terrain_epoch_map: Dict[int, int] = {}   # id(terrain_tuple) → epoch int
 _terrain_live: list = []                   # holds strong refs; prevents GC
 _terrain_epoch_counter: list = [0]         # mutable int in a list for closure
 
+# Speed lever #2 (PART B) — line-of-sight cache gate. `SWEG_LOSCACHE` (default
+# "1" = ON) controls whether `_los_query` consults / fills `_los_cache`. The
+# cache is keyed purely by terrain configuration + rounded endpoint positions +
+# the keyword flags, none of which change for a given geometry, so it is
+# byte-identical: the same query always yields the same answer. When set to "0"
+# the OFF path runs the exact pre-existing geometry computation with no cache
+# read or write, so a validation A/B can confirm identical line-of-sight (and
+# therefore identical win rates). Read once at import.
+_LOSCACHE_ON: bool = os.environ.get("SWEG_LOSCACHE", "1") != "0"
+
 
 def _terrain_epoch(terrain) -> int:
     """Return a stable cheap int key for this terrain tuple configuration."""
@@ -367,12 +378,38 @@ def _los_query(
     only ``ruin_pass`` (set when either endpoint is AIRCRAFT) lifts the Ruin
     block, plus the per-terrain "endpoint contained" allowance below which lets
     any model wholly within the Ruin (including a TOWERING one) see out.
+
+    Caching is gated by ``SWEG_LOSCACHE`` (default ON). The cache key is purely
+    a function of the immutable terrain configuration, the rounded endpoint
+    positions and the keyword flags, so a cached answer is byte-identical to a
+    freshly computed one. With the gate OFF, the geometry is recomputed every
+    call with no cache read or write — the exact pre-existing behaviour, so an
+    A/B can confirm identical line-of-sight (and identical win rates).
     """
+    if not _LOSCACHE_ON:
+        return _los_compute(map_, ax, ay, tx, ty, ruin_pass, towering, walls_los)
     key = (_terrain_epoch(map_.terrain), ax, ay, tx, ty, ruin_pass, towering, walls_los)
     try:
         return _los_cache[key]
     except KeyError:
         pass
+    result = _los_compute(map_, ax, ay, tx, ty, ruin_pass, towering, walls_los)
+    _los_cache[key] = result
+    return result
+
+
+def _los_compute(
+    map_: "Map",
+    ax: int, ay: int,
+    tx: int, ty: int,
+    ruin_pass: bool,
+    towering: bool = False,
+    walls_los: bool = False,
+) -> bool:
+    """Pure line-of-sight geometry on a 0.5-inch grid (no caching).
+
+    Factored out of `_los_query` so the cache and its OFF path share one exact
+    implementation; see `_los_query` for the rule semantics."""
     a = (ax * 0.5, ay * 0.5)
     t = (tx * 0.5, ty * 0.5)
     result = True
@@ -402,5 +439,4 @@ def _los_query(
                 continue
             result = False
             break
-    _los_cache[key] = result
     return result
