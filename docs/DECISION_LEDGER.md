@@ -45,6 +45,8 @@ first.
 - Imperial Knights / Daemons positional residual — likely a one-Unit-per-model representation limit; reopen only with a representation change, never a knob. See [[project-oc-contest-faithful]].
 - Stage 2 (equation fit) outputs — provisional until Stage 1 converges; `calibrated_points` / `equilibrium_points` are redo-able, do not treat as final.
 - Chaos Lord "Chance for Glory" — the real rule is a once-per-battle self buff, NOT a +1-to-wound aura; current flag is a fabrication firing on nothing. Do NOT route it onto a squad until the effect is corrected.
+- Dice-roll vectorization (numpy-batch the per-attack `random.randint` loop, `units.py:3485`) — 2-4× per-game, but it BREAKS determinism and invalidates every Common-Random-Numbers anchor log; reopen only if eval speed becomes a permanent hard constraint that the cheaper levers can't meet.
+- PyPy / alternate runtime (the "Rust/faster runtime" angle) — 2-5× theoretical on the pure-Python hot path, but unproven Windows-spawn + dataclasses compatibility needs a real shakedown; the structural "big bet", deferred until the cheaper throughput levers are exhausted.
 
 ## FORBIDDEN (user-ruled out of bounds — never propose)
 - Re-fitting stats / overrides / lists to force win rates — metric-tuning, poisons Stage 2; the win-rate gap is sim-fidelity, not stats. See [[project-winrate-gap-is-sim-fidelity-not-stats]].
@@ -53,6 +55,6 @@ first.
 - The "re-calibration" conclusion (declaring the sim done by re-fitting to the target) — killed by user ruling.
 
 ## OPEN LEVERS (ranked; the live to-do — authority for ordering is the `docs/CURRENT_STATE.md` head)
-1. **Finish the speed/throughput tooling (BLOCKING).** `#1b` sequential early-stop + `#1c` rolling regression sentinel; `#2` line-of-sight per-phase cache + memoise `_durability` / `_fnp_resolved`; `#3` standardise the robust eval invocation. See [[feedback-paired-crn-low-n-ab]].
+1. **Throughput tooling.** Wave-218 suite (paired / Common-Random-Numbers delta, sequential early-stop, regression sentinel, gated caches, robust wrapper) — LANDED + watchdog-verified, shipped in pull request #64. **NEXT (user-approved 2026-06-09):** matchup-scoping (a `--factions` filter that runs only a changed faction's row + column — ~42 of 462 cells — and merges against a full saved anchor; about 10× on single-faction band waves, composes with the paired method) plus two trivial infra tweaks (a worker-count override flag, and chunksize 8 → 50-100). Full buildable spec is in `LOOP_QA.md`. See [[feedback-paired-crn-low-n-ab]].
 2. **Random-fill re-base (greenlit).** `_random_fill` `add_unit`-loop → `add_squad(chosen, size)`, gated `SWEG_FILL_SQUADS`, N=80 A/B (big re-base, low Common-Random-Numbers benefit), then re-verify collision + the band levers on the corrected frame. See [[project-one-unit-per-model-amplification]].
 3. **Band program (after the speed tooling lands).** More Chaos Space Marines Dark Pact abilities (Terminators "Despoilers", Possessed "Unholy Bloodshed"), advance-to-score AI, the durability under-pole cluster, the Aeldari Farseer once-per-phase fix-to-6, the Chaos Space Marines Dark Apostle +1-to-wound-melee.
