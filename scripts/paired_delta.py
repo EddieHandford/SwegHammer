@@ -231,9 +231,24 @@ def decide_stop(result: dict, threshold_pts: float = 1.0) -> Tuple[bool, str]:
     return False, f"inconclusive: {len(inconclusive)} faction(s) straddle the threshold"
 
 
-def paired_report(off_path: str, on_path: str) -> None:
+def paired_report(off_path: str, on_path: str, scoped: bool = False) -> None:
     n_off, off = _load_log(off_path)
     n_on, on = _load_log(on_path)
+    if scoped:
+        # Matchup-scoping merge: `on` is a SCOPED run (only the changed factions'
+        # cells, via evaluate_vs_meta --factions). Fill every other cell from the
+        # OFF anchor (which MUST be the full standing-frame log) so the frame is
+        # computed over all opponents. The filled cells are literal anchor copies
+        # -> they MUST show exactly 0 flips (a free correctness self-check; if any
+        # filled faction shows flips, the merge is wrong). Overwrite anchor cells
+        # with the scoped run's cells where they overlap.
+        scoped_cells = len(on)
+        filled = len(set(off) - set(on))
+        on = {**off, **on}
+        n_on = n_off
+        print(f"SCOPED merge vs anchor {off_path}: {scoped_cells} cells from the "
+              f"scoped run + {filled} filled from the anchor "
+              f"(filled cells must show 0 flips).\n")
     weights = _load_tournament_games()
     target = _load_tournament_target()
     noise = _load_noise_floor()
@@ -309,10 +324,14 @@ def paired_report(off_path: str, on_path: str) -> None:
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    p.add_argument("off_log", help="game-log JSON for the OFF arm (--log-games)")
-    p.add_argument("on_log", help="game-log JSON for the ON arm (--log-games)")
+    p.add_argument("off_log", help="game-log JSON for the OFF arm (the full anchor when --scoped)")
+    p.add_argument("on_log", help="game-log JSON for the ON arm (a scoped run when --scoped)")
+    p.add_argument("--scoped", action="store_true",
+                   help="ON is a matchup-scoped run (evaluate_vs_meta --factions); "
+                        "fill its unchanged cells from the OFF anchor before pairing. "
+                        "Filled cells must show 0 flips.")
     args = p.parse_args()
-    paired_report(args.off_log, args.on_log)
+    paired_report(args.off_log, args.on_log, scoped=args.scoped)
 
 
 if __name__ == "__main__":
