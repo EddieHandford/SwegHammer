@@ -25,4 +25,10 @@ os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 sys.argv[0] = "evaluate_vs_meta"
 from scripts import evaluate_vs_meta
 
-evaluate_vs_meta.main()
+# MUST be guarded: evaluate_vs_meta uses a ProcessPoolExecutor, and on Windows
+# (spawn start method) each worker re-imports this __main__ module. Without the
+# guard, every worker would re-run main() -> recursive process spawning ->
+# BrokenProcessPool. The guard makes the re-import inert in workers (they import
+# scripts.evaluate_vs_meta directly to unpickle _run_battle_job).
+if __name__ == "__main__":
+    evaluate_vs_meta.main()
