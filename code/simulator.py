@@ -7233,6 +7233,29 @@ class Battle:
         # each army into reserves. Two-pass routing so embarked passengers
         # follow their transport — first pass identifies direct routes,
         # second pass routes passengers whose transport is being routed.
+        #
+        # HOLDING-FORCE DEPLOY (env-gated SWEG_DEPLOY_AI, default OFF):
+        # A real player never sends their whole army to reserves — they keep a
+        # board-holding force of high-OC bodies on the table to contest
+        # objectives in Rounds 1–2 while the alpha-strike elements arrive from
+        # Round 2 onward. Without this gate the sim blindly reserves EVERY
+        # deep_strike unit (and the entire GSC army), so Daemons/GSC deploy
+        # 0 units on the board and lose the primary-VP race before the game
+        # starts. This is an AI piloting heuristic (not a 10e game rule), so
+        # no rule citation is required. The gate is OFF by default; SWEG_DEPLOY_AI=1
+        # enables it. The split algorithm:
+        #   1. Identify all units that WOULD be reserved (deep_strike or GSC).
+        #   2. Compute total army OC (all units, including non-reserved ones).
+        #   3. Compute already-on-board OC (units that would NOT be reserved).
+        #   4. Sort the would-be-reserved candidates by OC descending, then by
+        #      points_cost descending (bigger bodies anchor objectives better).
+        #   5. Promote candidates from the top of that ranking to on-board until
+        #      cumulative on-board OC >= 0.5 * total army OC.  The remainder
+        #      (lower-OC / hardest-hitting strikers) stay in reserves.
+        #   6. Armies with <2 reservable candidates are left unchanged (nothing
+        #      meaningful to split).
+        _deploy_ai_on = __import__("os").environ.get("SWEG_DEPLOY_AI", "0") == "1"
+
         for army in (self.a, self.b):
             direct_reserves_ids: set = set()
             for u in army.units:
@@ -7241,6 +7264,36 @@ class Battle:
                     u.cult_ambush_pending = True
                 if u.profile.deep_strike or is_gsc:
                     direct_reserves_ids.add(id(u))
+
+            # SWEG_DEPLOY_AI: holding-force promotion — move top-OC reservable
+            # units onto the board so at least half the army's total OC is present.
+            if _deploy_ai_on and len(direct_reserves_ids) >= 2:
+                total_oc = sum(u.profile.oc or 0 for u in army.units)
+                on_board_oc = sum(
+                    u.profile.oc or 0
+                    for u in army.units
+                    if id(u) not in direct_reserves_ids
+                )
+                # Only act when the reserve pull would leave the board thin on OC.
+                if on_board_oc < 0.5 * total_oc:
+                    # Sort reservable candidates: highest OC first, then highest
+                    # points cost as a tiebreaker (bigger models anchor better).
+                    candidates = sorted(
+                        [u for u in army.units if id(u) in direct_reserves_ids],
+                        key=lambda u: (u.profile.oc or 0, u.profile.points_cost or 0.0),
+                        reverse=True,
+                    )
+                    promoted: set = set()
+                    running_oc = on_board_oc
+                    for u in candidates:
+                        if running_oc >= 0.5 * total_oc:
+                            break
+                        # Do not promote units that have passengers embarked in
+                        # them — the transport-passenger coupling must stay intact.
+                        if u.embarked_in is None:
+                            promoted.add(id(u))
+                            running_oc += u.profile.oc or 0
+                    direct_reserves_ids -= promoted
 
             standard, reserves = [], []
             for u in army.units:
