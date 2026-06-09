@@ -1669,7 +1669,7 @@ def _random_fill(
         # army's total Units / models / points are identical — only the squad
         # GROUPING changes (representation-only). Default 0 reverts to the
         # byte-identical per-model loop. See [[project-one-unit-per-model-amplification]].
-        if os.environ.get("SWEG_FILL_SQUADS", "0") != "0":
+        if os.environ.get("SWEG_FILL_SQUADS", "1") != "0":
             army.add_squad(chosen, size)
         else:
             for _ in range(size):
