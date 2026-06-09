@@ -1,5 +1,31 @@
 # SwegHammer calibration — current state
 
+**WAVE 224 (2026-06-09) — DEPLOYMENT-AI / 10e RESERVES CAP flipped DEFAULT-ON (user "DO IT"). New standing frame gated 6.10.**
+The deployment-AI lever (gated `SWEG_DEPLOY_AI`) is now **default-ON** (`simulator.py:7272`, `"0"`→`"1"`; `=0` reverts). It enforces
+the Chapter Approved 2025-26 Reserves cap — *"No more than half of the units in your army can start the battle in Reserves, and the
+points total of those units cannot be more than half of the points total of your army"* (cited `simulator.reserves_cap`). The dual
+cap (≤50% units AND ≤50% points) governs which deep-strike / Genestealer Cults Cult-Ambush units may reserve; the AI reserves the
+alpha-strikers first (lowest Objective Control) and keeps the high-OC bodies on the board to contest. **Genestealer Cults Cult Ambush
+counts toward the cap — no exemption** (the user-corrected ruling; the sim previously reserved 100% of deep-strike / Genestealer
+armies, an illegal-in-10e all-reserve deployment that starved them of primary victory points). **Frame chain this session:** random-fill
+re-base 7.37→7.05 (wave landed default-ON) → reserves-cap dual-50% 7.05→**6.10** (−0.95, measured/verified N=80). The default-ON config
+is byte-identical to the measured reserves-cap run, so **NO re-eval was needed** for this flip. **New standing frame: gated mean
+absolute error 6.10.** New OFF anchor for the next A/B: `data/_reservescap_on_n80_log.json` (supersedes `data/_fillsquads_on_n80_log.json`).
+**Key revelation:** with the deployment bug fixed, Genestealer Cults flips from a −21 under-pole to a **+14.6 OVER** (a stat over-rating
+that was masked by the all-reserve starvation) — the Genestealer under-pole work is now obsolete; Chaos Daemons came **in-band**.
+**Test maintenance (this wave):** the all-Allarus `test_custodes_mobility::test_allarus_…` test and three `test_gsc.py` Cult-Ambush
+tests were un-pinned from the illegal gate-OFF all-reserve path and rewritten to the faithful **capped expectation** (a degenerate
+all-deep-strike army reserves only up to the cap; the mechanic — ambush flag / Round-1 arrival / >9" landing / event — is asserted on
+the reserved subset). Full pytest green, audit clean, `run.py --cli` exits 0 on the default (cap-ON) path. **Latent note for the
+watchdog:** cap-promoted on-board Genestealer units keep a stale `cult_ambush_pending=True` flag — inert (only read inside
+`_arrive_from_reserves`, which iterates reserves only), no production effect; a 1-line clear-on-promote is a candidate tidy, deferred.
+**NEXT LEVER — deployment-AI increment 2: scout / infiltrate pre-game move** (lifts Astra Militarum −3.4 / Sororitas −3.1 — both
+*worsened* by the cap — using their 10-20 currently-wasted scout/infiltrate units). Then: Genestealer +14.6 / Emperor's Children +4.3
+over-pole; transport-accounting + the round-3 "units not arrived are destroyed end of Round 3" follow-up (not independently enforced).
+Committed locally per the loop discipline; the outward push stays delegated to the watchdog.
+
+---
+
 **WAVE 218 (2026-06-08) — THROUGHPUT TOOLING is now the BLOCKING priority (user); paired/CRN eval mode core LANDED.**
 Push management is delegated to the watchdog (it pushed waves 212–217; origin at `d6748a3`, pull request #41 current) — going forward the worker COMMITS EACH WAVE LOCALLY and does NOT block on a push. The user set a new blocking priority: build ALL the simulator-speed / evaluation-throughput improvements BEFORE resuming band-program waves (they compound — every one makes later waves cheaper). Speed task list (#94–#96): **#1 paired / Common-Random-Numbers evaluation mode** (the eval already runs OFF/ON on identical `pair_seed`, so measuring the PAIRED per-game delta — the flipped-games count — makes keep/reject decisive at N=40/N=20 while the absolute frame stays noisy; supersedes the matrix-halving idea and makes N=40 *reliable*, not just fast), then **#2 base-time perf** (line-of-sight per-phase cache + memoize `_durability`/`_fnp_resolved`), then **#3 standardise the robust evaluation invocation**. **#1 core LANDED (`adf9140`):** additive `--log-games` flag on `evaluate_vs_meta` (default frame byte-identical) + `scripts/paired_delta.py` join tool (per-faction field-weighted OFF/ON win rate, naive aggregate delta, paired delta + McNemar 95% confidence interval + up/down/flat verdict, each arm's gated mean absolute error), unit-tested (`tests/test_paired_delta.py`, 13 cases). STILL TO BUILD on #1: sequential early-stop (N=20 → extend only if the paired confidence interval is inconclusive) + the rolling regression sentinel. CAVEAT: paired variance-reduction scales with OFF/ON correlation, so big re-bases (random-fill) stay N=80. Sequence: finish the wave-217 Veterans gate-off confirmation (running) → finish #1 → #2 → #3 → then resume band waves (now fast) with the random-fill re-base in parallel.
 

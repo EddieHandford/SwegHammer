@@ -7269,7 +7269,7 @@ class Battle:
         #        len(R_next) <= floor(0.5 * total_units)
         #        points(R_next) <= 0.5 * total_points
         #   5. Units not selected for R are promoted to on-board.
-        _deploy_ai_on = __import__("os").environ.get("SWEG_DEPLOY_AI", "0") == "1"
+        _deploy_ai_on = __import__("os").environ.get("SWEG_DEPLOY_AI", "1") == "1"
 
         for army in (self.a, self.b):
             direct_reserves_ids: set = set()
