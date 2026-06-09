@@ -22,7 +22,7 @@ from .factions import is_marine_faction
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
 from .strategy import (
-    _melee_target_score, _oc_on_objective,
+    _is_melee_class, _melee_target_score, _oc_on_objective,
     decide_deepstrike_drops, pick_army_plan, pick_doctrina_imperative,
     pick_mass_arrival_anchor, pick_move_intent, should_declare_waaagh,
     should_fire_stratagem,
@@ -7574,15 +7574,25 @@ class Battle:
             fragile gunline-scouts (Astra Militarum / Adeptus Mechanicus /
             Adepta Sororitas) this shoves them into turn-1 threat range and
             off their own objectives — anti-competitive.
-          * SWEG_SCOUT_AI=1: move toward the nearest FORWARD-BUT-SAFE
-            contestable objective (a board-control destination), never ending
-            in a strictly worse position than the unit started; if no
-            forward-but-safe objective exists, HOLD (do not charge the enemy).
+          * SWEG_SCOUT_AI=1: classify the scout by ROLE and pick the
+            destination that real competitive play would (v2 — the v1
+            "send every scout to an objective" was flat-to-worse because it
+            pulled aggressive melee scouts off their pressure and stranded
+            long-range gunline scouts on open markers):
+              (a) MELEE-oriented (primary profile is melee, per
+                  `_is_melee_class`) -> pressure FORWARD toward the nearest
+                  enemy (a War Dog / Serberys / assault scout wants to close).
+              (b) LONG-range shooty (range >= 24") -> HOLD: a long gun already
+                  threatens the midboard from its own zone; advancing it onto
+                  an open marker only exposes it.
+              (c) SHORT-range / fragile shooty -> move toward the nearest
+                  FORWARD-BUT-SAFE contestable objective (board control), never
+                  ending in a strictly worse position; if none exists, HOLD.
             The Scouts move itself is the real 10e rule (cited
-            `simulator.scout`); choosing a board-control destination over a
-            blind enemy-ward charge is the AI decision, analogous to
-            `simulator.intelligent_deployment`. Gated/default-OFF so the OFF
-            path is byte-identical to the legacy behaviour.
+            `simulator.scout`); choosing the destination by role is the AI
+            decision, analogous to `simulator.intelligent_deployment`.
+            Gated/default-OFF so the OFF path is byte-identical to the legacy
+            behaviour.
         """
         scout_ai = __import__("os").environ.get("SWEG_SCOUT_AI", "0") == "1"
         center_y = self.map.height / 2.0
@@ -7590,6 +7600,10 @@ class Battle:
         # Man's Land marker sitting on the centreline, not to charge deep into
         # the enemy half.
         safe_margin = 3.0
+        # A gun reaching this far already threatens the midboard from its own
+        # deployment zone, so a long-range shooty scout holds rather than
+        # advancing onto an exposed marker.
+        long_range_inches = 24.0
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
             for u in army.alive_units:
                 dist = u.profile.scout_distance
@@ -7599,24 +7613,42 @@ class Battle:
                     break
                 old_pos = u.position
                 if scout_ai:
-                    goal = self._scout_destination(u, center_y, safe_margin)
-                    if goal is None:
-                        # No forward-but-safe objective: hold rather than
-                        # charge the nearest enemy (the legacy mistake).
+                    if _is_melee_class(u.profile):
+                        # (a) aggressive melee scout -> pressure forward.
+                        nearest = min(
+                            opponent.alive_units,
+                            key=lambda e: _distance(u.position, e.position),
+                        )
+                        goal = nearest.position
+                    elif (u.profile.range_inches or 0) >= long_range_inches:
+                        # (b) long-range gunline scout -> hold its firing
+                        # position (already threatens the midboard).
                         continue
+                    else:
+                        # (c) short-range / fragile shooty -> grab a
+                        # forward-but-safe objective for board control.
+                        goal = self._scout_destination(u, center_y, safe_margin)
+                        if goal is None:
+                            continue
                 else:
                     nearest = min(
                         opponent.alive_units,
                         key=lambda e: _distance(u.position, e.position),
                     )
                     goal = nearest.position
+                # Under the AI policy, the "never worse position" guard applies
+                # only to the objective-seeking case (c); melee pressure (a)
+                # deliberately advances toward the enemy like the legacy move.
+                guarded = scout_ai and not _is_melee_class(u.profile)
                 new_pos = _move_toward(old_pos, goal, float(dist), self.map,
                                        **self._collision_kwargs(u))
                 # Never end in a strictly worse position than the start: under
-                # the AI policy only commit a move that gets the unit closer to
-                # its chosen objective (a blocked/aborted move leaves it put).
+                # the objective-seeking case only commit a move that gets the
+                # unit closer to its chosen objective (a blocked/aborted move
+                # leaves it put). Legacy and melee-pressure moves advance
+                # toward the enemy and are committed whenever they change.
                 if new_pos != old_pos and (
-                    not scout_ai
+                    not guarded
                     or _distance(new_pos, goal) < _distance(old_pos, goal)
                 ):
                     u.position = new_pos
