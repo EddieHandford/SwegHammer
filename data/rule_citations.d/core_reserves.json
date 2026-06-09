@@ -1,0 +1,10 @@
+{
+  "simulator.reserves_cap": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Reserves",
+    "rule_name": "Reserves restrictions",
+    "quoted_text": "No more than half of the units in your army can start the battle in Reserves, and the points total of those units cannot be more than half of the points total of your army.",
+    "trigger": "battle setup (deployment phase): before any units are placed, each army's reserve selection must satisfy both caps simultaneously — (1) number of units in Reserves <= floor(50% of total units in army), and (2) total points of units in Reserves <= 50% of total points of army. Deep Strike is a type of Reserves (units set up via Deep Strike count toward both caps). Cult Ambush (Genestealer Cults army rule) is a type of Strategic Reserves and also counts toward both caps. No faction or keyword grants an exemption.",
+    "effect": "enforced in Battle._deploy_armies (env-gated SWEG_DEPLOY_AI=1): for each army, the set of units placed in Reserves (deep_strike=True or GSC Cult Ambush) is trimmed to the largest legal subset satisfying both caps. The AI tactical choice of WHICH units to reserve is resolved by sorting reservable candidates ascending by Objective Control (lowest OC = best alpha-strikers reserved first; high-OC bodies stay on board to contest objectives), with name as a deterministic tiebreak. Transport passengers coupled to a reserved transport are excluded from the cap calculation (they are co-routed with their transport, not counted separately). Gate OFF (default, SWEG_DEPLOY_AI=0) leaves the cap unenforced to preserve byte-identical A/B anchor comparability.",
+    "scope": "army-wide"
+  }
+}

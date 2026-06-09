@@ -24,6 +24,7 @@ Cited as `simulator.cult_ambush`.
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
 
@@ -79,7 +80,24 @@ def _guard_profile(name: str = "Guardsman", **overrides) -> UnitProfile:
 
 class CultAmbushDeploymentTests(unittest.TestCase):
     """Verify GSC units are pulled out of the deployment-line path and held
-    in reserves, flagged ambush_pending, before Round 1 begins."""
+    in reserves, flagged ambush_pending, before Round 1 begins.
+
+    These tests pin SWEG_DEPLOY_AI=0 (gate OFF) so the Reserves cap is not
+    enforced. The purpose is to isolate the Cult Ambush mechanic itself
+    (every GSC unit goes to reserves with cult_ambush_pending=True) from the
+    AI piloting choice of which units to reserve. The cap behaviour is tested
+    separately in tests/test_deploy_ai.py.
+    """
+
+    def setUp(self):
+        self._prev_deploy_ai = os.environ.get("SWEG_DEPLOY_AI")
+        os.environ["SWEG_DEPLOY_AI"] = "0"
+
+    def tearDown(self):
+        if self._prev_deploy_ai is None:
+            os.environ.pop("SWEG_DEPLOY_AI", None)
+        else:
+            os.environ["SWEG_DEPLOY_AI"] = self._prev_deploy_ai
 
     def test_gsc_units_start_off_table(self):
         """Every GSC unit should be in reserves with cult_ambush_pending=True

@@ -7234,26 +7234,41 @@ class Battle:
         # follow their transport — first pass identifies direct routes,
         # second pass routes passengers whose transport is being routed.
         #
-        # HOLDING-FORCE DEPLOY (env-gated SWEG_DEPLOY_AI, default OFF):
-        # A real player never sends their whole army to reserves — they keep a
-        # board-holding force of high-OC bodies on the table to contest
-        # objectives in Rounds 1–2 while the alpha-strike elements arrive from
-        # Round 2 onward. Without this gate the sim blindly reserves EVERY
-        # deep_strike unit (and the entire GSC army), so Daemons/GSC deploy
-        # 0 units on the board and lose the primary-VP race before the game
-        # starts. This is an AI piloting heuristic (not a 10e game rule), so
-        # no rule citation is required. The gate is OFF by default; SWEG_DEPLOY_AI=1
-        # enables it. The split algorithm:
-        #   1. Identify all units that WOULD be reserved (deep_strike or GSC).
-        #   2. Compute total army OC (all units, including non-reserved ones).
-        #   3. Compute already-on-board OC (units that would NOT be reserved).
-        #   4. Sort the would-be-reserved candidates by OC descending, then by
-        #      points_cost descending (bigger bodies anchor objectives better).
-        #   5. Promote candidates from the top of that ranking to on-board until
-        #      cumulative on-board OC >= 0.5 * total army OC.  The remainder
-        #      (lower-OC / hardest-hitting strikers) stay in reserves.
-        #   6. Armies with <2 reservable candidates are left unchanged (nothing
-        #      meaningful to split).
+        # RESERVES CAP ENFORCEMENT (env-gated SWEG_DEPLOY_AI, default OFF):
+        # 10e core rule (Chapter Approved 2025-26, cited as simulator.reserves_cap):
+        # "No more than half of the units in your army can start the battle in
+        # Reserves, and the points total of those units cannot be more than half
+        # of the points total of your army."
+        # This is a DUAL CAP: reserves <= floor(50% of units) AND reserves
+        # <= 50% of total points. Deep Strike and Cult Ambush (a type of Strategic
+        # Reserves) BOTH count toward it — no exemptions.
+        #
+        # With the gate OFF (default), this cap is NOT enforced; the old behaviour
+        # reserves every deep_strike / GSC unit regardless of legality (ILLEGAL for
+        # most armies). Gate OFF must be byte-identical to the prior anchor so A/B
+        # evals remain valid.
+        #
+        # With the gate ON (SWEG_DEPLOY_AI=1), the cap IS enforced as the cited
+        # game rule, and the CHOICE of which units to reserve is an AI tactical
+        # decision: reserve the alpha-strike units preferentially (they benefit
+        # most from Deep Strike). Sort reservable candidates by ascending OC
+        # (low-OC hitters reserved first; high-OC bodies stay on board to hold
+        # objectives), tie-break ascending OC then by name for determinism. Greedily
+        # add to R while BOTH caps hold; stop before any unit that would breach
+        # either cap. Everything not in R deploys on board at game start.
+        #
+        # The split algorithm (gate ON):
+        #   1. Identify all units flagged for reserve (deep_strike=True or GSC
+        #      faction), EXCLUDING transport passengers (embarked_in is not None
+        #      — they are coupled to their transport and move together).
+        #   2. Compute total_units and total_points for the whole army.
+        #   3. Sort reservable candidates: ascending OC, then ascending name
+        #      (deterministic tiebreak). Lower OC = better alpha-striker,
+        #      higher OC = better objective holder.
+        #   4. Greedily add to reserve set R while BOTH caps hold:
+        #        len(R_next) <= floor(0.5 * total_units)
+        #        points(R_next) <= 0.5 * total_points
+        #   5. Units not selected for R are promoted to on-board.
         _deploy_ai_on = __import__("os").environ.get("SWEG_DEPLOY_AI", "0") == "1"
 
         for army in (self.a, self.b):
@@ -7265,35 +7280,53 @@ class Battle:
                 if u.profile.deep_strike or is_gsc:
                     direct_reserves_ids.add(id(u))
 
-            # SWEG_DEPLOY_AI: holding-force promotion — move top-OC reservable
-            # units onto the board so at least half the army's total OC is present.
+            # SWEG_DEPLOY_AI: enforce the 10e Reserves cap (dual cap: units AND
+            # points). The CHOICE of which units to reserve is the AI tactical
+            # decision — reserve alpha-strike units first (low OC), keep high-OC
+            # bodies on board to contest objectives.
             if _deploy_ai_on and len(direct_reserves_ids) >= 2:
-                total_oc = sum(u.profile.oc or 0 for u in army.units)
-                on_board_oc = sum(
-                    u.profile.oc or 0
-                    for u in army.units
-                    if id(u) not in direct_reserves_ids
+                import math as _math
+                # Exclude transport passengers from cap calculations — they are
+                # coupled to their transport and are not counted as independent
+                # deployment entities for the Reserves cap purposes.
+                non_passenger_units = [u for u in army.units if u.embarked_in is None]
+                total_units = len(non_passenger_units)
+                total_points = sum(u.profile.points_cost or 0.0 for u in non_passenger_units)
+                units_cap = _math.floor(0.5 * total_units)   # 10e rule: floor
+                points_cap = 0.5 * total_points              # 10e rule: 50%
+
+                # Candidates = units flagged for reserve that are NOT transport
+                # passengers (leave passengers coupled to their transport).
+                reservable = [
+                    u for u in army.units
+                    if id(u) in direct_reserves_ids and u.embarked_in is None
+                ]
+                # Sort: lowest OC first (best alpha-strikers go to reserves first),
+                # then by name for deterministic tiebreak.
+                reservable_sorted = sorted(
+                    reservable,
+                    key=lambda u: (u.profile.oc or 0, u.profile.name),
                 )
-                # Only act when the reserve pull would leave the board thin on OC.
-                if on_board_oc < 0.5 * total_oc:
-                    # Sort reservable candidates: highest OC first, then highest
-                    # points cost as a tiebreaker (bigger models anchor better).
-                    candidates = sorted(
-                        [u for u in army.units if id(u) in direct_reserves_ids],
-                        key=lambda u: (u.profile.oc or 0, u.profile.points_cost or 0.0),
-                        reverse=True,
-                    )
-                    promoted: set = set()
-                    running_oc = on_board_oc
-                    for u in candidates:
-                        if running_oc >= 0.5 * total_oc:
-                            break
-                        # Do not promote units that have passengers embarked in
-                        # them — the transport-passenger coupling must stay intact.
-                        if u.embarked_in is None:
-                            promoted.add(id(u))
-                            running_oc += u.profile.oc or 0
-                    direct_reserves_ids -= promoted
+                # Greedily fill R while BOTH caps hold.
+                promoted: set = set()   # ids of units moved OFF reserve → on board
+                reserve_count = 0
+                reserve_points = 0.0
+                for u in reservable_sorted:
+                    unit_pts = u.profile.points_cost or 0.0
+                    if (reserve_count + 1 <= units_cap
+                            and reserve_points + unit_pts <= points_cap):
+                        reserve_count += 1
+                        reserve_points += unit_pts
+                    else:
+                        # Adding this unit would breach a cap — promote to on-board.
+                        promoted.add(id(u))
+                direct_reserves_ids -= promoted
+                # When a transport is promoted to on-board, its embarked passengers
+                # must follow — remove their ids from direct_reserves_ids too so
+                # the passenger co-routing below doesn't route them back to reserves.
+                for u in army.units:
+                    if u.embarked_in is not None and id(u.embarked_in) in promoted:
+                        direct_reserves_ids.discard(id(u))
 
             standard, reserves = [], []
             for u in army.units:

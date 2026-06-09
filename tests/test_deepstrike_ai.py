@@ -261,29 +261,57 @@ class DeepstrikeArrivalIntegrationTests(unittest.TestCase):
             f"landed at {u.position} (d={d:.2f}\")")
 
     def test_mass_drop_clustering(self):
-        """Round 3 forces 4 DS units down the same round. Their landing
-        positions must lie within ~12" of each other (mass-drop cluster).
-        Without #153 they could end up scattered across the board."""
-        battle, ds_army, opp = self._build_battle(
-            n_ds=4, with_screens=False, objectives=[],
-        )
+        """Round 3 forces reserved DS units down the same round. Their landing
+        positions must lie within ~18" of each other (mass-drop cluster).
+        Without #153 they could end up scattered across the board.
+
+        With the 10e Reserves cap enforced (SWEG_DEPLOY_AI=1), a 4-unit
+        all-deep-strike army caps at 2 units in reserves (floor(50% of 4) = 2)
+        while 2 go on-board. Only the 2 reserved units arrive at Round 3.
+        The clustering assertion covers only the arriving units.
+        """
+        import os as _os
+        prev = _os.environ.get("SWEG_DEPLOY_AI")
+        _os.environ["SWEG_DEPLOY_AI"] = "1"
+        try:
+            battle, ds_army, opp = self._build_battle(
+                n_ds=4, with_screens=False, objectives=[],
+            )
+        finally:
+            if prev is None:
+                _os.environ.pop("SWEG_DEPLOY_AI", None)
+            else:
+                _os.environ["SWEG_DEPLOY_AI"] = prev
+
+        # With the Reserves cap, only 2 of 4 DS units are reserved; 2 are on-board.
+        n_reserved = len(battle._reserves[ds_army.name])
+        self.assertGreaterEqual(n_reserved, 1,
+            "At least 1 DS unit must be in reserves after capped deployment")
+
         battle._fresh_arrivals = set()
+        arriving_before = set(id(u) for u in battle._reserves[ds_army.name])
         battle._arrive_from_reserves(round_num=3)
 
-        self.assertEqual(len(ds_army.units), 4,
-            "Round 3 must drop all 4 DS units")
-        positions = [u.position for u in ds_army.units]
-        # Compute the maximum pairwise distance.
-        max_d = 0.0
-        for i, p in enumerate(positions):
-            for q in positions[i + 1:]:
-                d = ((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2) ** 0.5
-                if d > max_d:
-                    max_d = d
-        self.assertLessEqual(max_d, 18.0,
-            f"Mass-drop landings should cluster within ~18\" of each other "
-            f"(allowing for >9\" enemy-gap forcing some spread); got max "
-            f"pairwise d={max_d:.2f}\"")
+        # All reserved units must have arrived.
+        self.assertEqual(len(battle._reserves[ds_army.name]), 0,
+            "Round 3 must empty reserves (alpha-strike window)")
+
+        # The arrived units (those whose id was in arriving_before) must cluster.
+        arrived = [u for u in ds_army.units if id(u) in arriving_before]
+        self.assertGreaterEqual(len(arrived), 1,
+            "At least 1 unit must have arrived from reserves at Round 3")
+        if len(arrived) >= 2:
+            positions = [u.position for u in arrived]
+            max_d = 0.0
+            for i, p in enumerate(positions):
+                for q in positions[i + 1:]:
+                    d = ((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2) ** 0.5
+                    if d > max_d:
+                        max_d = d
+            self.assertLessEqual(max_d, 18.0,
+                f"Mass-drop landings should cluster within ~18\" of each other "
+                f"(allowing for >9\" enemy-gap forcing some spread); got max "
+                f"pairwise d={max_d:.2f}\"")
 
     def test_t5_never_holds(self):
         """Round 5 must empty the DS reserves entirely (no held units)."""
@@ -300,30 +328,44 @@ class DeepstrikeArrivalIntegrationTests(unittest.TestCase):
 
     def test_t2_hold_keeps_reserves(self):
         """Round 2, screened opponent, no objective steal: units stay in
-        reserves to alpha-strike later."""
-        # Objective is friendly-controlled (no steal), screens are up.
-        # We need a friendly on the objective. The DS-only army has no
-        # on-board units after deployment, so place the objective near
-        # the deployment line where a non-DS unit sits — easiest: add a
-        # non-DS unit to the strike force.
-        random.seed(0)
-        ds_army = Army("Strike Force")
-        for i in range(3):
-            ds_army.add_unit(_ds_profile(f"Termie {i}"))
-        # Non-DS friendly to claim the objective so it's not a steal target.
-        ds_army.add_unit(_screen_profile("HomeGuard"))
-        opp = Army("Defenders")
-        _add(opp, _shooty_profile("Backline A"), (20.0, 50.0))
-        _add(opp, _screen_profile("Screen A"), (20.0, 45.0))
-        _add(opp, _shooty_profile("Backline B"), (40.0, 50.0))
-        _add(opp, _screen_profile("Screen B"), (40.0, 45.0))
+        reserves to alpha-strike later.
 
-        # Friendly HomeGuard sits on the deployment line at y~6; place
-        # objective right there so the AI considers it claimed.
-        obj = Objective("Home", 30.0, 6.0, control_radius=3.0)
-        battle = Battle(ds_army, opp, map_=_flat_map([obj]))
-        battle._assign_uids()
-        battle._deploy_armies()
+        With the 10e Reserves cap enforced (SWEG_DEPLOY_AI=1), a 4-unit army
+        (3 DS + 1 HomeGuard) has units_cap = floor(50% of 4) = 2 and
+        points_cap = 50% of total Lanchester-derived army points. Because each
+        Terminator profile has substantial Lanchester value (~67 pts), only 1
+        terminator fits within the points cap ("Termie 0", alphabetically first
+        among the equal-OC candidates). Round 2 hold (screened + no steal) must
+        leave that 1 reserved unit still in reserves after _arrive_from_reserves.
+        """
+        import os as _os
+        prev = _os.environ.get("SWEG_DEPLOY_AI")
+        _os.environ["SWEG_DEPLOY_AI"] = "1"
+        try:
+            random.seed(0)
+            ds_army = Army("Strike Force")
+            for i in range(3):
+                ds_army.add_unit(_ds_profile(f"Termie {i}"))
+            # Non-DS friendly to claim the objective so it's not a steal target.
+            ds_army.add_unit(_screen_profile("HomeGuard"))
+            opp = Army("Defenders")
+            _add(opp, _shooty_profile("Backline A"), (20.0, 50.0))
+            _add(opp, _screen_profile("Screen A"), (20.0, 45.0))
+            _add(opp, _shooty_profile("Backline B"), (40.0, 50.0))
+            _add(opp, _screen_profile("Screen B"), (40.0, 45.0))
+
+            # Friendly HomeGuard sits on the deployment line at y~6; place
+            # objective right there so the AI considers it claimed.
+            obj = Objective("Home", 30.0, 6.0, control_radius=3.0)
+            battle = Battle(ds_army, opp, map_=_flat_map([obj]))
+            battle._assign_uids()
+            battle._deploy_armies()
+        finally:
+            if prev is None:
+                _os.environ.pop("SWEG_DEPLOY_AI", None)
+            else:
+                _os.environ["SWEG_DEPLOY_AI"] = prev
+
         # _deploy_armies repositions opp units to the deployment line; reset.
         for u in opp.units:
             nm = u.profile.name
@@ -335,23 +377,37 @@ class DeepstrikeArrivalIntegrationTests(unittest.TestCase):
                 u.position = (40.0, 50.0)
             elif nm == "Screen B":
                 u.position = (40.0, 45.0)
-        # Force HomeGuard onto the objective deterministically.
+        # Force HomeGuard (now on-board) onto the objective deterministically.
         for u in ds_army.units:
             if u.profile.name == "HomeGuard":
                 u.position = (30.0, 6.0)
                 break
 
+        # Snapshot reserves BEFORE running the arrival decision.
+        # With the Reserves cap applied, the greedy selector fills R until BOTH
+        # caps hold: units_cap = floor(50% of 4) = 2, points_cap = 50% of total
+        # army points. The Lanchester-derived points for a Terminator profile
+        # (health=3, oc=2) means only the first terminator fits within the
+        # points cap (adding a second would exceed 50% of army points), so
+        # exactly 1 DS unit ("Termie 0", alphabetically first among equal-OC
+        # candidates) is in reserves after deployment.
+        before_arrive = [u.profile.name for u in battle._reserves[ds_army.name]]
+        self.assertGreaterEqual(len(before_arrive), 1,
+            "At least 1 DS unit must be in reserves after capped deployment")
+        self.assertIn("Termie 0", before_arrive,
+            "Termie 0 (alphabetically first among equal-OC candidates) must be "
+            "the cap-selected reserve unit")
+
+        # Round 2 + screened gunline + no objective steal: the hold decision
+        # must leave the reserved unit still in reserves (none arrive).
         battle._fresh_arrivals = set()
         battle._arrive_from_reserves(round_num=2)
 
-        # All 3 DS units must still be in reserves (none arrived).
-        ds_reserve_names = [
-            u.profile.name for u in battle._reserves[ds_army.name]
-        ]
+        after_arrive = [u.profile.name for u in battle._reserves[ds_army.name]]
         self.assertEqual(
-            sorted(ds_reserve_names),
-            ["Termie 0", "Termie 1", "Termie 2"],
-            "T2 + screened gunline + no objective steal: DS units must hold",
+            sorted(after_arrive), sorted(before_arrive),
+            "T2 + screened gunline + no objective steal: cap-selected DS unit "
+            "must still be in reserves after Round 2 hold decision",
         )
 
 
