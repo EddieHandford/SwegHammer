@@ -335,7 +335,8 @@ def _write_game_log(path: str, n: int,
 def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
                max_workers: Optional[int] = None,
                price_overrides: Optional[Dict[str, float]] = None,
-               log_games_path: Optional[str] = None) -> Dict[str, float]:
+               log_games_path: Optional[str] = None,
+               seed_start: int = 0) -> Dict[str, float]:
     """Average win-rate per faction across all opponents in the FACTIONS list.
 
     Seeds the global random module per battle so the same code base produces
@@ -366,7 +367,11 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
         for b_fac in FACTIONS:
             if a_fac == b_fac:
                 continue
-            for s in range(n):
+            # seed_start enables sequential early-stop (speed lever #1): batches
+            # run DISJOINT seed windows (e.g. s=0..19, then s=20..39) whose game
+            # logs union into a larger paired sample without re-running the
+            # earlier seeds. Default 0 → range(n) → byte-identical to before.
+            for s in range(seed_start, seed_start + n):
                 ai, bi = fac_idx[a_fac], fac_idx[b_fac]
                 pair_seed = (ai * 1000 + bi) * 100 + s
                 jobs.append((a_fac, b_fac, s, pair_seed, rules, use_archetype, price_overrides))
@@ -634,7 +639,19 @@ def main() -> None:
              "that is decisive at low N. Purely additive — the win-rate frame "
              "is unchanged whether or not this flag is set.",
     )
+    p.add_argument(
+        "--seed-start",
+        type=int,
+        default=0,
+        help="First per-pairing seed index (default 0 → seeds 0..battles-1). "
+             "Set to run a DISJOINT seed window (e.g. --seed-start 20 --battles 20 "
+             "→ seeds 20..39) so sequential early-stop can extend a paired sample "
+             "without re-running earlier seeds. Keep seed-start+battles <= 100 "
+             "(the pair_seed schedule packs the seed into two digits).",
+    )
     args = p.parse_args()
+    if args.seed_start + args.battles > 100:
+        raise SystemExit("--seed-start + --battles must be <= 100 (pair_seed packing).")
     rules = RulesConfig.sweghammer() if args.sweghammer else None
     mode = "sweghammer" if args.sweghammer else "vanilla"
     list_mode = "tourney-archetype" if args.use_archetype else "random_fill"
@@ -671,7 +688,7 @@ def main() -> None:
           f"Lists: {list_mode} | N={args.battles} | workers={workers}\n")
     sim = run_matrix(args.battles, rules=rules, use_archetype=args.use_archetype,
                      max_workers=workers, price_overrides=price_overrides,
-                     log_games_path=args.log_games)
+                     log_games_path=args.log_games, seed_start=args.seed_start)
     if args.log_games:
         print(f"Per-game winners written to {args.log_games} "
               f"(join with scripts/paired_delta.py).")
