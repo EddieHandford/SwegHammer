@@ -7234,7 +7234,8 @@ class Battle:
         # follow their transport — first pass identifies direct routes,
         # second pass routes passengers whose transport is being routed.
         #
-        # RESERVES CAP ENFORCEMENT (env-gated SWEG_DEPLOY_AI, default OFF):
+        # RESERVES CAP ENFORCEMENT (env-gated SWEG_DEPLOY_AI, default ON since
+        # wave 224; SWEG_DEPLOY_AI=0 reverts to the pre-cap all-reserve path):
         # 10e core rule (Chapter Approved 2025-26, cited as simulator.reserves_cap):
         # "No more than half of the units in your army can start the battle in
         # Reserves, and the points total of those units cannot be more than half
@@ -7562,11 +7563,33 @@ class Battle:
     # ------------------------------------------------------------------
 
     def _run_scout_phase(self) -> None:
-        """Pre-Round 1 Normal Move for every unit with Scouts x"". Moves up
-        to `scout_distance` inches toward the nearest enemy. Units that
-        scouted are flagged in `_fresh_arrivals` so they skip the Round 1
-        movement sub-phase — they already moved.
+        """Pre-Round 1 Normal Move for every unit with Scouts x"". The unit
+        makes a Normal move up to `scout_distance` inches; the DESTINATION is
+        an AI tactical choice. Units that scouted are flagged in
+        `_fresh_arrivals` so they skip the Round 1 movement sub-phase — they
+        already moved.
+
+        Destination policy:
+          * default (legacy): move toward the NEAREST ENEMY. Simple, but for
+            fragile gunline-scouts (Astra Militarum / Adeptus Mechanicus /
+            Adepta Sororitas) this shoves them into turn-1 threat range and
+            off their own objectives — anti-competitive.
+          * SWEG_SCOUT_AI=1: move toward the nearest FORWARD-BUT-SAFE
+            contestable objective (a board-control destination), never ending
+            in a strictly worse position than the unit started; if no
+            forward-but-safe objective exists, HOLD (do not charge the enemy).
+            The Scouts move itself is the real 10e rule (cited
+            `simulator.scout`); choosing a board-control destination over a
+            blind enemy-ward charge is the AI decision, analogous to
+            `simulator.intelligent_deployment`. Gated/default-OFF so the OFF
+            path is byte-identical to the legacy behaviour.
         """
+        scout_ai = __import__("os").environ.get("SWEG_SCOUT_AI", "0") == "1"
+        center_y = self.map.height / 2.0
+        # Inches a scout may end PAST the midline: enough to contest a No
+        # Man's Land marker sitting on the centreline, not to charge deep into
+        # the enemy half.
+        safe_margin = 3.0
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
             for u in army.alive_units:
                 dist = u.profile.scout_distance
@@ -7574,19 +7597,63 @@ class Battle:
                     continue
                 if not opponent.alive_units:
                     break
-                nearest = min(
-                    opponent.alive_units,
-                    key=lambda e: _distance(u.position, e.position),
-                )
                 old_pos = u.position
-                new_pos = _move_toward(old_pos, nearest.position, float(dist), self.map,
+                if scout_ai:
+                    goal = self._scout_destination(u, center_y, safe_margin)
+                    if goal is None:
+                        # No forward-but-safe objective: hold rather than
+                        # charge the nearest enemy (the legacy mistake).
+                        continue
+                else:
+                    nearest = min(
+                        opponent.alive_units,
+                        key=lambda e: _distance(u.position, e.position),
+                    )
+                    goal = nearest.position
+                new_pos = _move_toward(old_pos, goal, float(dist), self.map,
                                        **self._collision_kwargs(u))
-                if new_pos != old_pos:
+                # Never end in a strictly worse position than the start: under
+                # the AI policy only commit a move that gets the unit closer to
+                # its chosen objective (a blocked/aborted move leaves it put).
+                if new_pos != old_pos and (
+                    not scout_ai
+                    or _distance(new_pos, goal) < _distance(old_pos, goal)
+                ):
                     u.position = new_pos
                     self._fresh_arrivals.add(u.uid)
                     self._emit(UnitScouted(
                         unit_uid=u.uid, from_pos=old_pos, to_pos=new_pos,
                     ))
+
+    def _scout_destination(self, u, center_y: float, safe_margin: float):
+        """AI scout-move destination: the nearest contestable objective that
+        is FORWARD of the unit (toward midboard) but NOT deep in enemy
+        territory (no further than `safe_margin` past the midline). Returns an
+        (x, y) goal, or None if no forward-but-safe objective exists.
+
+        `forward` is derived from the unit's own position relative to the
+        board centre (robust to which side each army deploys on): a scout in
+        its own deployment zone advances toward the centreline, never past it
+        by more than `safe_margin`. Markers behind the unit (its own home
+        objectives) and markers beyond the safe band (the enemy's home
+        objectives) are excluded.
+        """
+        uy = u.position[1]
+        forward_sign = 1.0 if uy < center_y else -1.0
+        cands = []
+        for obj in self.map.objectives:
+            oy = obj.y
+            if forward_sign > 0:
+                ahead = oy >= uy - 1e-6
+                safe = oy <= center_y + safe_margin
+            else:
+                ahead = oy <= uy + 1e-6
+                safe = oy >= center_y - safe_margin
+            if ahead and safe:
+                cands.append((obj.x, obj.y))
+        if not cands:
+            return None
+        return min(cands, key=lambda g: _distance(u.position, g))
 
     def _arrive_from_reserves(self, round_num: int) -> None:
         """Bring reserves onto the board.

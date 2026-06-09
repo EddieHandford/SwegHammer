@@ -197,7 +197,7 @@
     "rule_name": "Scouts X\"",
     "quoted_text": "Some models have 'Scouts X\"' listed in the abilities section of their datasheet. Before the first turn begins, if every model in a unit has this ability, that unit can make a Normal move of up to X\". A unit cannot end this move within 9\" horizontally of any enemy models.",
     "trigger": "unit profile has scout_distance > 0; pre-game (before Round 1)",
-    "effect": "(approximation) before the first round, the unit makes a Normal move up to scout_distance inches toward the nearest enemy. SwegHammer does not enforce the 'cannot end within 9\" of an enemy' clause precisely - it just clamps movement and trusts the deployment distance.",
+    "effect": "before the first round, the unit makes a Normal move up to scout_distance inches; the move is the rule, the destination is the AI's tactical choice. Default: toward the nearest enemy (legacy). With SWEG_SCOUT_AI=1: toward the nearest FORWARD-BUT-SAFE contestable objective (a board-control destination, no further than ~3 inches past the midline), never into a strictly worse position, else hold - this is an AI heuristic on a real move, like simulator.intelligent_deployment, not a rule change. SwegHammer does not enforce the 'cannot end within 9\" of an enemy' clause precisely - it just clamps movement and trusts the deployment distance.",
     "scope": "keyword-gated"
   },
   "simulator.infiltrators": {
