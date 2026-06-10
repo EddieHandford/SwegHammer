@@ -1,8 +1,10 @@
 # Displacement substrate — design plan (avenue 2 completion)
 
-**Status: DESIGN DRAFT, user-gated. No build until the user greenlights the avenue-2 investment.**
-This is prep #2 (the design) following the displacement quantification (prep #1). It exists so the
-user can assess *scope* before committing, and so the build is ready to launch on greenlight.
+**Status: GREENLIT 2026-06-10.** The user authorised the build contingent on a final-pass review
+against the core rules and available online strategy advice; both reviews completed 2026-06-10 and
+their amendments are folded in below (Stage 1 FLY correction, Stage 2 stacked-Objective-Control
+rail, Stage 3 cleared-position precision, Battle-shock and scoring-timing clarifications, ranked
+future candidates). Build order: Stage 0 first, then one stage per wave.
 
 ## 1. The problem this solves (the dominant remaining residual)
 
@@ -22,6 +24,11 @@ simulator instead resolves marker control by raw summed Objective Control, so a 
 The cheap faithful-*rule* levers are harvested (Chaos Space Marines datasheet abilities were the last clean one;
 the Astra Militarum over-fragility hypothesis was *refuted* — cover/spillover/bracket are all sim-correct;
 Sororitas Miracle Dice is faithfully modelled). The remaining bulk of the 5.99 is this single axis.
+
+*(Frame update 2026-06-10: after the wave-232/233 merges and canonical re-prices the standing frame is gated
+mean absolute error **5.74**, anchor `data/_anchor_wave233_n80_log.json`. The displacement poles persist —
+Imperial Knights +15.9 over; Astra Militarum −16.5, Chaos Space Marines −17.0, Adepta Sororitas −16.5 under —
+so the diagnosis above stands on the new frame.)*
 
 ## 2. Why a scoring proxy cannot do it (the prep-#1 finding)
 
@@ -68,24 +75,56 @@ A/B is faithful-and-not-cratering. Render per the standing visual diagnostic on 
   marker to contested, and denies no enemy score by standing); (2) **staying costs material for nothing** — it is
   likely to be destroyed or stays locked in engagement with its shooting forfeited while contributing nothing
   positionally; (3) **falling back buys something real** — the preserved unit has an actual use, net of the Fall
-  Back move's own cost (no shooting or charging that turn, barring FLY or an equivalent ability). A unit that can
-  still hold a marker, or whose presence prevents the marker being flipped, does NOT fall back even if it is
-  losing the fight — dying on the marker to deny a scoring tick is the faithful competitive behaviour (the
-  tarpit). Handles the under-pole (genuinely wasted defenders cede markers the durable winner then takes) without
+  Back move's own cost. That cost is universal: a unit that Falls Back cannot shoot or declare a charge that
+  turn, with **no FLY exemption** (corrected per the 2026-06-10 rules review — FLY exempts only the Desperate
+  Escape tests for moving over enemy models; the lockout is bypassed only by specific faction stratagems, which
+  this abstract cost model ignores). The cost model must also price Desperate Escape itself: falling back
+  through enemy models, or while Battle-shocked, rolls one six-sided die per affected model and destroys one
+  model per roll of 1–2 (TITANIC and FLY models exempt from the tests). Two clarifications from the review: a
+  Battle-shocked unit (Objective Control 0 until the start of its next Command phase) trivially passes condition
+  (1) — it can hold nothing and denies nothing by standing; and scoring checks happen at the end of each
+  player's own Command phase from battle round two, so "current or next scoring check" means both players'
+  Command-phase ticks. A unit that can still hold a marker, or whose presence prevents the marker being flipped,
+  does NOT fall back even if it is losing the fight — dying on the marker to deny a scoring tick is the faithful
+  competitive behaviour (the tarpit). Engaged models keep their full Objective Control (verified: Battle-shock
+  is the only mechanic that zeroes it), so an engaged contester on a marker is still contesting. Handles the under-pole (genuinely wasted defenders cede markers the durable winner then takes) without
   clearing contesting bodies off the Knight's marker — the over-pole fix belongs to Stage 2, not to Stage 1
   fall-backs. Gate `SWEG_DISPLACE_FALLBACK`. Extends `SWEG_KITE`.
 - **Stage 2 — Charge-to-contest the durable holder.** AI directs affordable bodies to charge a marker held by a
   concentrated durable unit (the Knight), putting models in engagement range to contest/tarpit its Objective
   Control. Faithful (real hordes swarm Knights). Reduces the Imperial Knights over-hold. Gate
-  `SWEG_DISPLACE_SWARM`. Rail: charge only when the swarm can actually contest (enough Objective Control in
-  range), not a suicidal feed.
+  `SWEG_DISPLACE_SWARM`. Rail (amended per the 2026-06-10 strategy review): charge only when the swarm can
+  actually contest — and evaluate the contest against the **full stacked Objective Control of every defending
+  model within marker range** (a Knight is routinely supported by Armigers; two Armigers add Objective Control
+  16 to the cluster), never the lone holder. Not a suicidal feed. Two rule interactions verified by the rules
+  review work in the swarm's favour: engaged models keep their full Objective Control, and once the bodies are
+  locked in combat the defending VEHICLE or MONSTER cannot use Fire Overwatch against them (the Rules Commentary
+  bars Locked-in-Combat units from out-of-phase shooting), so arrival is safer than raw threat arithmetic
+  suggests — the simulator's existing overwatch implementation already respects this.
 - **Stage 3 — Consolidate-onto-marker after winning.** A unit that wins a fight makes its faithful consolidation
   move onto the contested marker, cementing control. Reuses `_ring_slots` for the winning squad only. Gate
   `SWEG_DISPLACE_CONSOLIDATE`. Rail: winners only — this is the faithful slice of the parked make-way nerf, not
-  the general blocker-move.
+  the general blocker-move. Precision (per the 2026-06-10 rules review): the consolidation rule's
+  objective-marker fallback fires only when the unit CANNOT end within Engagement Range of any enemy — in
+  practice, when the fight cleared the position. If enemies survive, each model must instead end closer to the
+  nearest enemy model (which may still carry it onto the marker). The implementation must branch on cleared
+  versus partially-cleared positions, not consolidate-to-marker unconditionally.
 - **Stage 4 — (if needed) winner fan-onto-ring.** Promote the winning squad to fill the marker's control ring
   (the faithful `_make_way_target` slice), so a victorious squad holds the whole marker rather than single-filing.
   Gate `SWEG_DISPLACE_FAN`. Only if Stages 1–3 leave a measurable coherency-on-marker shortfall.
+
+### Future candidates (ranked by the 2026-06-10 strategy review; not yet staged, queue after Stage 4)
+
+1. **Proactive trade — contest the opponent's marker with cheap bodies.** Competitive play deliberately spends a
+   cheap unit to flip an enemy-held marker to contested at the scoring check, even when the unit dies for it.
+   Distinct from Stage 2 (which targets the durable-holder over-pole); this one helps the under-pole score.
+2. **Re-task to claim EMPTY markers.** New finding from the 2026-06-10 visual diagnostic: late-game markers sit
+   at Objective Control 0/0 — uncontested free victory points — and no unit is ever re-tasked to walk onto them.
+   The inverse of the Stage 1 wasted rule: a unit with nothing better to do should take free ground.
+3. **Deep-strike screening near markers** (denial placement; possibly cheaper to build than Stage 4).
+4. **Heroic Intervention to deny the winner's consolidation** (a Stage 3 extension).
+5. **Staging-then-committing** (hold units out of threat range, commit on the scoring turn — long-term AI work).
+6. **Wrap-to-lock** (surround a faller-back so it cannot legally leave — low priority).
 
 ## 6. Rails (hard constraints)
 
@@ -94,8 +133,9 @@ A/B is faithful-and-not-cratering. Render per the standing visual diagnostic on 
   the trap), NO metric-tuning. If a stage tempts a knob, STOP and flag.
 - **Instrument-first.** Stage 0 sizes the prize before any behavioural build.
 - **Per-increment A/B + keep-if-faithful.** Each stage runs both arms fresh (or reuses the anchor only when
-  byte-identical) at N=80 vs the 5.99 anchor; keep if faithful even if the metric is flat, but report direction.
-  Re-anchor every ~3–4 waves per the cadence rule.
+  byte-identical) at N=80 vs the standing anchor (currently `data/_anchor_wave233_n80_log.json`, gated mean
+  absolute error 5.74); keep if faithful even if the metric is flat, but report direction. Re-anchor every ~3–4
+  waves per the cadence rule.
 - **Bidirectional check.** Each behavioural stage reports both the under-pole (Astra Militarum / Sororitas) and
   the over-pole (Imperial Knights / Genestealer) movement — the mechanic should help both, not trade one for the
   other.
