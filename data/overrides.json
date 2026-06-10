@@ -369,8 +369,7 @@
     },
     "aeldari_craftworlds_wraithguard": {
       "invuln_save": 4,
-      "notes": "Wraithguard have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it (no Invulnerable-Save infoLink in the unit entry). Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithguard. | sweg_balance_mc up 218.68 -> 240.55 pts/model",
-      "points_override": 240.55
+      "notes": "Wraithguard have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it (no Invulnerable-Save infoLink in the unit entry). Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithguard. | points_override removed 2026-06-11 (wave 234 pricing audit) - was 240.55/model from sweg_balance_mc (Lanchester-tainted Stage 2 output; a 5-model squad cost 1202.75 vs the printed 160, so Wraithguard never appeared in any evaluation army); GW printed is 32 pts/model, let base catalogue price it."
     },
     "aeldari_craftworlds_wraithblades": {
       "invuln_save": 4,
@@ -402,20 +401,17 @@
       "notes": "Tetra Scout Speeders \u00c3\u00a2\u00e2\u0082\u00ac\u00e2\u0080\u009d twin Markerlight platform. Legends datasheet retains the MARKERLIGHT keyword. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Tetras and the army-rule https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights"
     },
     "aeldari_craftworlds_falcon": {
-      "points_override": 644.45,
-      "notes": "sweg_balance_mc up 585.86 -> 644.45 pts/model"
+      "notes": "points_override removed 2026-06-11 (wave 234 pricing audit) - was 644.45 from sweg_balance_mc (Lanchester-tainted Stage 2 output); GW printed is 130 pts/model, let base catalogue price it."
     },
     "necrons_lokhust_heavy_destroyers": {
       "points_listed": 55,
       "notes": "WAVE232-SYNC: re-enabled with canonical points (was disabled by the 38-unit no-canonical-points sweep, which broke the Necrons archetype seed). BSData encodes no cost for this datasheet (points_listed 0 fell through to Lanchester-fallback pricing - the pollution the sweep targeted), but the unit is a real pointed datasheet. Canonical cost from Wahapedia https://wahapedia.ru/wh40k10ed/factions/necrons/Lokhust-Heavy-Destroyers : '1 model 55 / 2 models 110 / 3 models 165'. points_listed carries the minimum-size (1-model) squad cost per the mapper convention; scaling is linear per model."
     },
     "necrons_lokhust_destroyers": {
-      "points_override": 138.42,
-      "notes": "sweg_balance_mc down 153.8 -> 138.42 pts/model"
+      "notes": "points_override removed 2026-06-11 (wave 234 pricing audit) - was 138.42 from sweg_balance_mc (Lanchester-tainted Stage 2 output); GW printed is 40 pts/model, let base catalogue price it."
     },
     "necrons_tomb_blades": {
-      "points_override": 40.5,
-      "notes": "sweg_balance_mc down 45.0 -> 40.5 pts/model"
+      "notes": "points_override removed 2026-06-11 (wave 234 pricing audit) - was 40.5 from sweg_balance_mc (Lanchester-tainted Stage 2 output); GW printed is 25 pts/model, let base catalogue price it."
     },
     "thousand_sons_rubric_marines": {
       "invuln_save": 5,
@@ -516,8 +512,7 @@
       "base_shape": "circle",
       "base_diameter_mm": 40,
       "deep_strike": false,
-      "notes": "Custodian Guard ship on 40mm rounds. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Guard (Base size). | sweg_balance_mc up 42.5 -> 46.75 pts/model | iter24 deep_strike audit: BSData v10.6.0 flags Deep Strike on every Custodes datasheet via blanket infoLink, but Wahapedia's published datasheet for Custodian Guard does NOT include Deep Strike (only Allarus / Aquilon / Venatari Custodians have the rule). Override clears the false-positive so the simulator no longer parks Custodian Guard in Strategic Reserves at deploy. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Guard",
-      "points_override": 46.75
+      "notes": "Custodian Guard ship on 40mm rounds. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Guard (Base size). | points_override removed 2026-06-11 (wave 234 pricing audit) - was 46.75/model from sweg_balance_mc (Lanchester-tainted Stage 2 output); GW printed is 40 pts/model, let base catalogue price it. | iter24 deep_strike audit: BSData v10.6.0 flags Deep Strike on every Custodes datasheet via blanket infoLink, but Wahapedia's published datasheet for Custodian Guard does NOT include Deep Strike (only Allarus / Aquilon / Venatari Custodians have the rule). Override clears the false-positive so the simulator no longer parks Custodian Guard in Strategic Reserves at deploy. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Guard"
     },
     "adeptus_custodes_custodian_wardens": {
       "melee_strength": 7,
@@ -689,9 +684,8 @@
       "notes": "Terminators ship on 40mm rounds. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Terminator-Squad (Base size)."
     },
     "space_marines_hellblaster_squad": {
-      "points_override": 25.3,
       "range_inches": 24,
-      "notes": "sweg_balance_mc up 23.0 -> 25.3 pts/model | Plasma incinerator range corrected to 24\" per Wahapedia datasheet (mapper weighted-basket-average underrated as 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Hellblaster-Squad"
+      "notes": "points_override removed 2026-06-11 (wave 234 pricing audit) - was 25.3 from sweg_balance_mc (Lanchester-tainted Stage 2 output); GW printed is 22 pts/model, let base catalogue price it. | Plasma incinerator range corrected to 24\" per Wahapedia datasheet (mapper weighted-basket-average underrated as 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Hellblaster-Squad"
     },
     "space_marines_eradicator_squad": {
       "range_inches": 18,
@@ -711,7 +705,6 @@
       "notes": "MARINES-AUDIT-V2: BSData mapper picked up Flamestorm Gauntlets (torrent, auto-hit, D6+1 shots avg 4.5, range 12\") as the primary ranged profile. Tournament-standard competitive loadout is Auto Boltstorm Gauntlets (18\", 3 attacks, BS 3+, S4, AP0, D1, Twin-linked) per Wahapedia datasheet. Flamestorm Gauntlets are an alternate option rarely used competitively. Torrent+auto-hit inflates per-model damage by eliminating miss losses entirely. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Aggressor-Squad"
     },
     "space_marines_repulsor": {
-      "points_override": 198.0,
       "extra_ranged_profiles": [
         {
           "weapon": "Twin heavy bolter",
@@ -758,7 +751,7 @@
           "pistol": false
         }
       ],
-      "notes": "sweg_balance_mc up 180.0 -> 198.0 pts/model | MUTEX-SWEEP: Repulsor hull weapon is Heavy Onslaught Gatling Cannon OR Twin lascannon per codex (BSData selectionEntryGroup Hull mounted weapon, max=1). Mapper packed both into extras alongside Twin heavy bolter. Dropped Twin lascannon from extras, kept Heavy Onslaught Gatling Cannon (popular default) and Twin heavy bolter (always carried). Primary Las-talon and secondary Repulsor Defensive Array left intact -- Las-talon is the turret and the defensive array aggregates always-carried bolter/missile/stubber wargear. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Repulsor ATK-BIAS-1: Repulsor mapper picks Las-talon (S10 AP-3 A2 D4.5) over Twin lascannon; real competitive anti-tank build uses Twin lascannon for greater range and Strength. Pinned to Twin lascannon (S12 AP-3 D D6+1 mean 4.5 A1 R48 Twin-Linked) per BSData extra_ranged_profiles on space_marines_repulsor in data/bsdata/parsed.json. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Repulsor",
+      "notes": "points_override removed 2026-06-11 (wave 234 pricing audit) - was 198.0 from sweg_balance_mc (Lanchester-tainted Stage 2 output); GW printed is 180 pts/model, let base catalogue price it. | MUTEX-SWEEP: Repulsor hull weapon is Heavy Onslaught Gatling Cannon OR Twin lascannon per codex (BSData selectionEntryGroup Hull mounted weapon, max=1). Mapper packed both into extras alongside Twin heavy bolter. Dropped Twin lascannon from extras, kept Heavy Onslaught Gatling Cannon (popular default) and Twin heavy bolter (always carried). Primary Las-talon and secondary Repulsor Defensive Array left intact -- Las-talon is the turret and the defensive array aggregates always-carried bolter/missile/stubber wargear. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Repulsor ATK-BIAS-1: Repulsor mapper picks Las-talon (S10 AP-3 A2 D4.5) over Twin lascannon; real competitive anti-tank build uses Twin lascannon for greater range and Strength. Pinned to Twin lascannon (S12 AP-3 D D6+1 mean 4.5 A1 R48 Twin-Linked) per BSData extra_ranged_profiles on space_marines_repulsor in data/bsdata/parsed.json. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Repulsor",
       "weapon": "Twin lascannon",
       "strength": 12,
       "ap": -3,
@@ -780,22 +773,19 @@
       "secondary_blast": false
     },
     "space_marines_bladeguard_veteran_squad": {
-      "points_override": 29.33,
-      "notes": "sweg_balance_mc up 26.67 -> 29.33 pts/model"
+      "notes": "points_override removed 2026-06-11 (wave 234 pricing audit) - was 29.33 from sweg_balance_mc (Lanchester-tainted Stage 2 output); GW printed is 26.67 pts/model (80 points per 3-model squad), let base catalogue price it."
     },
     "death_guard_plagueburst_crawler": {
       "lethal_hits": false,
       "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Plagueburst Crawler ranged with lethal_hits=true, but no Plagueburst Crawler weapon profile carries [LETHAL HITS] on its 10e datasheet. Plagueburst mortar: D6 S8 AP-1 D2 [INDIRECT FIRE, BLAST]. Heavy slugger: A3 S5 AP0 D1. Plaguespitters: D6 S6 AP0 D1 [TORRENT, IGNORES COVER]. Entropy cannon variant: 2 S9 AP-3 D3 [LETHAL HITS] \u00c3\u00a2\u00e2\u0082\u00ac\u00e2\u0080\u009d only the entropy cannon has Lethal Hits, but it is an alternate loadout, not the default which the mapper picks (mortar). Removing lethal_hits to match the mortar default profile. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plagueburst-Crawler"
     },
     "adeptus_custodes_caladius_grav_tank": {
-      "points_override": 236.5,
       "move": 12.0,
-      "notes": "sweg_balance_mc up 215.0 -> 236.5 pts/model | iter8 mobility audit: M=12\" per Wahapedia datasheet (BSData parser does not emit numeric M, defaulted to 6\"). VEHICLE+FLY (hover) already on the keyword list. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Caladius-Grav-tank"
+      "notes": "points_override removed 2026-06-11 (wave 234 pricing audit) - was 236.5 from sweg_balance_mc (Lanchester-tainted Stage 2 output); GW printed is 215 pts/model, let base catalogue price it. | iter8 mobility audit: M=12\" per Wahapedia datasheet (BSData parser does not emit numeric M, defaulted to 6\"). VEHICLE+FLY (hover) already on the keyword list. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Caladius-Grav-tank"
     },
     "adeptus_custodes_allarus_custodians": {
-      "points_override": 71.5,
       "move": 5.0,
-      "notes": "sweg_balance_mc up 65.0 -> 71.5 pts/model | iter8 mobility audit: M=5\" per Wahapedia datasheet (Terminator armour). Deep Strike already flagged True on the BSData entry. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Allarus-Custodian-Squad"
+      "notes": "points_override removed 2026-06-11 (wave 234 pricing audit) - was 71.5/model from sweg_balance_mc (Lanchester-tainted Stage 2 output); GW printed is 55 pts/model, let base catalogue price it. | iter8 mobility audit: M=5\" per Wahapedia datasheet (Terminator armour). Deep Strike already flagged True on the BSData entry. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Allarus-Custodian-Squad"
     },
     "adeptus_custodes_vertus_praetors": {
       "move": 14.0,
