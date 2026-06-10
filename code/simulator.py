@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Tuple
 
 from .army import Army
 from .detachments import effective_move
+from .displace_instr import DisplaceInstr, gate_on as _displace_gate_on
 from .pathfind import find_path
 from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, DeadlyDemiseExploded,
@@ -102,6 +103,9 @@ class BattleResult:
     a_points_remaining: float = 0.0   # sum of points_cost over alive units at end
     b_points_remaining: float = 0.0
     round_history: list = None  # list of (a_alive, b_alive) per round
+    # Displacement Stage-0 instrument summary (dict from DisplaceInstr.summary())
+    # when SWEG_DISPLACE_INSTR is on, else None. Observation-only, no behaviour change.
+    displace: Optional[dict] = None
 
     def __post_init__(self):
         if self.round_history is None:
@@ -787,6 +791,15 @@ class Battle:
         # _run_round; read by Unit.attack for round-gated faction rules
         # like the Orks WAAAGH! +1 to wound melee window.
         self._current_round: int = 0
+        # Displacement Stage-0 fight-outcome instrument (gate SWEG_DISPLACE_INSTR).
+        # Constructed ONLY when the gate is on; None otherwise so the OFF path never
+        # touches instrument code and stays byte-identical (including the random
+        # stream — the instrument consumes no randomness). Observation-only.
+        self._displace: Optional[DisplaceInstr] = None
+        if _displace_gate_on():
+            _fa = (self.a.units[0].profile.faction if self.a.units else "?") or "?"
+            _fb = (self.b.units[0].profile.faction if self.b.units else "?") or "?"
+            self._displace = DisplaceInstr(_fa, _fb)
         # Per-Command-phase primary scoring — now DEFAULT-ON (fidelity-revisit sweep
         # #3, wave 210). Primary VP is scored at each player's Command phase (turn
         # start) inside the vanilla IGOUGO round, instead of once at end of round —
@@ -1116,6 +1129,14 @@ class Battle:
 
         self._emit(BattleEnded(winner=winner, rounds=rounds_played))
 
+        # Displacement Stage-0 instrument (gate SWEG_DISPLACE_INSTR, observation-only):
+        # expose the per-game summary on the result and print it at battle end. None
+        # when the gate is off, so the OFF path's result + output is unchanged.
+        _displace_summary = None
+        if self._displace is not None:
+            _displace_summary = self._displace.summary()
+            print(self._displace.format_summary(self.a.name, self.b.name))
+
         return BattleResult(
             winner=winner,
             rounds=rounds_played,
@@ -1130,6 +1151,7 @@ class Battle:
             a_points_remaining=a_pts,
             b_points_remaining=b_pts,
             round_history=round_history,
+            displace=_displace_summary,
         )
 
     # ------------------------------------------------------------------
@@ -1188,6 +1210,44 @@ class Battle:
         if b_pts > a_pts * 1.10:
             return self.b.name
         return None  # genuinely close — call it a draw
+
+    def _displace_tap(self, attacker_army, defender, dmg: float) -> None:
+        """Displacement Stage-0 damage tap (gate SWEG_DISPLACE_INSTR). No-op when the
+        instrument is off (self._displace is None) — that path is byte-identical. When
+        on, credits `dmg` to the defender's local markers as dealt by `attacker_army`'s
+        side. Observation-only; consumes no randomness."""
+        if self._displace is None:
+            return
+        self._displace.record_damage(
+            attacker_is_a=(attacker_army is self.a),
+            defender=defender,
+            objectives=self.map.objectives,
+            dmg=dmg,
+        )
+
+    def _displace_squads_in_range(self, army, obj) -> int:
+        """Number of `army` squads with at least one non-battleshocked model within
+        `obj`'s control radius — reuses the same base-edge range test `_assign_army_oc`
+        uses (collision gate honoured) rather than re-implementing rule geometry.
+        Used by the displacement instrument's 'single controlling squad' check."""
+        oc_collide = __import__("os").environ.get("SWEG_COLLISION", "1") != "0"
+        r2b = obj.control_radius * obj.control_radius
+        count = 0
+        for members in army.squads().values():
+            for u in members:
+                if u.uid in self._battleshocked_this_round:
+                    continue
+                dx = u.position[0] - obj.x
+                dy = u.position[1] - obj.y
+                if oc_collide:
+                    reach = obj.control_radius + _bc_model_radius_in(u.profile)
+                    within = (dx * dx + dy * dy) <= reach * reach
+                else:
+                    within = (dx * dx + dy * dy) <= r2b
+                if within:
+                    count += 1
+                    break   # this squad qualifies; move to the next
+        return count
 
     def _score_objectives(self, only_for: Optional[str] = None) -> None:
         """End-of-round VP scoring: each objective awards its vp_per_round to
@@ -1505,6 +1565,29 @@ class Battle:
                     objective_name=obj.name, army_name=None,
                     vp_awarded=0, a_oc=a_oc, b_oc=b_oc,
                 ))
+
+            # Displacement Stage-0 classification (gate SWEG_DISPLACE_INSTR,
+            # observation-only). Classify this marker-tick into the under-pole /
+            # over-pole / faithful-tarpit buckets using the control + per-marker VP +
+            # this round's accumulated local damage. `scorer` is the controller (the
+            # only_for filter only gates which side's running VP is incremented, not who
+            # controls); the per-marker VP proxy is obj.vp_per_round when a side controls.
+            if self._displace is not None:
+                _disp_vp = obj.vp_per_round if scorer is not None else 0
+                self._displace.classify_tick(
+                    obj_idx=obj_idx, obj=obj, controller=scorer,
+                    a_name=self.a.name, b_name=self.b.name,
+                    a_oc=a_oc, b_oc=b_oc, vp=_disp_vp,
+                    army_a=self.a, army_b=self.b,
+                    battleshocked=self._battleshocked_this_round,
+                    effective_oc=self._effective_oc,
+                    squad_in_range_count=self._displace_squads_in_range,
+                )
+
+        # Displacement Stage-0: reset the per-round local-damage accumulator after the
+        # whole marker pass (observation-only, no-op when the gate is off).
+        if self._displace is not None:
+            self._displace.end_round()
 
         # Primary VP per-round cap (10e Leviathan Tournament Companion):
         # an army scores at most 15 Primary VP per battle round, regardless
@@ -8710,6 +8793,11 @@ class Battle:
         self._did_move_this_round = set()
         # Reset disembark tracking: nothing has disembarked yet this round.
         self._disembarked_this_round = set()
+        # Displacement Stage-0 (observation-only): start each round with a clean local-
+        # damage accumulator so a marker-tick's "out-fought" classification reflects only
+        # the preceding battle round's fighting. No-op when the gate is off.
+        if self._displace is not None:
+            self._displace.end_round()
 
         # SOROR-DIAG-4 / SOROR-ACTS-OF-FAITH-V1 — reset each Sororitas unit's
         # per-round Acts of Faith budget. Two-level reset:
@@ -11009,6 +11097,9 @@ class Battle:
             self._one_shot_fired.add(attacker.uid)
 
         target_alive_after = shoot_target.is_alive
+        # Displacement Stage-0 tap (observation-only): credit shooting damage to the
+        # defender's local markers as dealt by the attacker's side.
+        self._displace_tap(attacker_army, shoot_target, dmg)
         self._emit(UnitShot(
             attacker_uid=attacker.uid,
             target_uid=shoot_target.uid,
@@ -11421,6 +11512,9 @@ class Battle:
             army_name=defending_army.name, stratagem_name="Fire Overwatch",
             cp_cost=self._OVERWATCH_CP_COST,
         ))
+        # Displacement Stage-0 tap: overwatch is shooting by `defending_army` (the side
+        # firing it) against `target`. Observation-only.
+        self._displace_tap(defending_army, target, dmg)
         self._emit(UnitShot(
             attacker_uid=best_unit.uid,
             target_uid=target.uid,
@@ -11709,6 +11803,8 @@ class Battle:
             target, distance=1.0, mode="melee", is_charging=is_charging,
         )
         alive_after = target.is_alive
+        # Displacement Stage-0 tap: melee damage by `attacker_army` against `target`.
+        self._displace_tap(attacker_army, target, dmg)
         self._emit(UnitFought(
             attacker_uid=attacker.uid,
             target_uid=target.uid,
@@ -12871,6 +12967,9 @@ class Battle:
         # not whatever the retaliator's nearest happens to be.
         dmg = retaliator.attack(winner_unit, distance=1.0, mode="melee")
         alive_after = winner_unit.is_alive
+        # Displacement Stage-0 tap: counter-offensive melee by `loser_army` against the
+        # original attacker (`winner_unit`). Observation-only.
+        self._displace_tap(loser_army, winner_unit, dmg)
         self._emit(UnitFought(
             attacker_uid=retaliator.uid,
             target_uid=winner_unit.uid,
