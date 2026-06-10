@@ -624,6 +624,17 @@ class UnitProfile:
     secondary_assault: bool = False
     secondary_torrent: bool = False
     secondary_blast: bool = False
+    # SEC-KEYWORD-PARITY — four boolean weapon keywords missing from the
+    # secondary profile block. Without these, dataclasses.replace inherits the
+    # PRIMARY profile's value when the simulator hot-swaps the secondary in,
+    # so a unit whose secondary has one_shot=True but whose primary does not
+    # would fire the secondary weapon every activation (never gated once per
+    # battle), and a unit whose secondary is hazardous but primary is not would
+    # never self-harm. Defaults False (safe legacy behaviour pre-regen).
+    secondary_one_shot: bool = False
+    secondary_hazardous: bool = False
+    secondary_indirect_fire: bool = False
+    secondary_precision: bool = False
     # ---- MAP-1 — TERTIARY and beyond RANGED weapon profiles ------------------
     # Generalises the multi-profile picker from 2 to N. Knight Castellan fires
     # five ranged weapons (Volcano Lance + Plasma Decimator + Twin Meltagun +
@@ -1477,6 +1488,15 @@ class Unit:
                     "twin_linked": bool(_ed.get("twin_linked", False)),
                     "lance": bool(_ed.get("lance", False)),
                     "precision": bool(_ed.get("precision", False)),
+                    # EXTRA-MELEE-KEYWORD-PARITY — one_shot and hazardous were
+                    # absent from the runtime swap dict, so dataclasses.replace
+                    # silently inherited the PRIMARY melee profile's values.
+                    # A melee weapon that is one_shot must be gated once per
+                    # battle; if hazardous=True the fighter self-harms in the
+                    # Fight phase. Default False so pre-regen profiles (which
+                    # lack the key) behave identically to before the fix.
+                    "one_shot": bool(_ed.get("one_shot", False)),
+                    "hazardous": bool(_ed.get("hazardous", False)),
                     # anti_keywords on an extra weapon profile replaces the
                     # primary's anti_keywords during this extra's resolution
                     # pass. Wave-52 MAPPER-EXTRA-MELEE-V1 populated this as
@@ -1626,6 +1646,17 @@ class Unit:
                         "torrent": p.secondary_torrent,
                         "blast": p.secondary_blast,
                         "anti_keywords": tuple(p.secondary_anti_keywords or ()),
+                        # SEC-KEYWORD-PARITY — carry the four boolean fields so
+                        # dataclasses.replace does not silently inherit the
+                        # PRIMARY profile's values when the secondary is active.
+                        # A secondary profile that is one_shot must be gated
+                        # once per battle; if hazardous=True the shooter
+                        # self-harms; if indirect_fire=True LoS is waived;
+                        # if precision=True cover is bypassed vs CHARACTERs.
+                        "one_shot": bool(p.secondary_one_shot),
+                        "hazardous": bool(p.secondary_hazardous),
+                        "indirect_fire": bool(p.secondary_indirect_fire),
+                        "precision": bool(p.secondary_precision),
                     }
                     _candidates.append((
                         _strip_mode_suffix(p.secondary_weapon or ""),
@@ -4300,6 +4331,14 @@ _PERMODEL_SECONDARY_RANGED_RESET: Dict[str, Any] = {
     "secondary_torrent": False,
     "secondary_blast": False,
     "secondary_pistol": False,
+    # SEC-KEYWORD-PARITY — new fields; cleared to False on the per-model path
+    # (per-model units reset the secondary block entirely; the keywords default
+    # False which is safe for all four: no once-per-battle gating, no self-harm,
+    # no line-of-sight exemption, no precision bypass).
+    "secondary_one_shot": False,
+    "secondary_hazardous": False,
+    "secondary_indirect_fire": False,
+    "secondary_precision": False,
 }
 
 
@@ -4644,6 +4683,12 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             secondary_assault=entry.secondary_assault,
             secondary_torrent=entry.secondary_torrent,
             secondary_blast=entry.secondary_blast,
+            # SEC-KEYWORD-PARITY — new fields read from parsed.json; default
+            # False via getattr so pre-regen entries load cleanly.
+            secondary_one_shot=bool(getattr(entry, "secondary_one_shot", False)),
+            secondary_hazardous=bool(getattr(entry, "secondary_hazardous", False)),
+            secondary_indirect_fire=bool(getattr(entry, "secondary_indirect_fire", False)),
+            secondary_precision=bool(getattr(entry, "secondary_precision", False)),
             # MAP-1: TERTIARY and beyond ranged profiles (Knight Castellan
             # 5-weapon, etc.). Stored on the CatalogEntry as a list of dicts;
             # flatten into a tuple-of-(key, value) pairs so the UnitProfile

@@ -2114,6 +2114,15 @@ class MappedUnit:
     secondary_assault: bool = False
     secondary_torrent: bool = False
     secondary_blast: bool = False
+    # SEC-KEYWORD-PARITY — four boolean weapon keywords that were missing from
+    # the secondary profile serialization, causing the secondary profile to
+    # silently inherit the PRIMARY profile's value for each when the simulator
+    # hot-swaps via dataclasses.replace. Mirrors the fix applied to
+    # extra_ranged_profiles in dc4f63c (INDIRECT-PARITY-FIX). Defaults False.
+    secondary_one_shot: bool = False
+    secondary_hazardous: bool = False
+    secondary_indirect_fire: bool = False
+    secondary_precision: bool = False
     # ---- MAP-1: TERTIARY+ ranged weapon profiles ----------------------------
     # Generalises the multi-profile mapper from 2 to N. Knight Castellan fires
     # five ranged weapons in real 10e play (Volcano Lance, Plasma Decimator,
@@ -2670,6 +2679,13 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         secondary_assault=second_best.assault if second_best else False,
         secondary_torrent=second_best.torrent if second_best else False,
         secondary_blast=second_best.blast if second_best else False,
+        # SEC-KEYWORD-PARITY — carry the four boolean keyword fields added to
+        # MappedUnit above; secondary profile silently inherited primary values
+        # before this fix.
+        secondary_one_shot=second_best.one_shot if second_best else False,
+        secondary_hazardous=second_best.hazardous if second_best else False,
+        secondary_indirect_fire=second_best.indirect_fire if second_best else False,
+        secondary_precision=second_best.precision if second_best else False,
         # MAP-1: 3rd+ ranged profiles. Same fields as the secondary block,
         # one dict per profile, in expected-damage-descending order so the
         # picker sees them in priority order. Empty list = no extras.
@@ -2706,6 +2722,14 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
                 "devastating_wounds": w.devastating_wounds,
                 "lance": w.lance,
                 "precision": w.precision,
+                # EXTRA-MELEE-KEYWORD-PARITY — one_shot and hazardous were
+                # absent from this inline dict, so they were never written into
+                # extra_melee_profiles in parsed.json and the runtime swap block
+                # silently inherited the primary melee profile's values. The
+                # fix mirrors dc4f63c (INDIRECT-PARITY-FIX) for the melee path.
+                # indirect_fire is ranged-only and intentionally omitted here.
+                "one_shot": w.one_shot,
+                "hazardous": w.hazardous,
             }
             for w in extra_melee_weapons
         ],
