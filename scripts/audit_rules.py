@@ -97,15 +97,6 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # gates on this detachment flag) — see RUBRICAE_PHALANX.all_is_dust
     # in data/rule_citations.d/detachments.json.
     ("all_is_dust", False),
-    # Necrons Awakened Dynasty Command Protocol flags (AD-PR,
-    # claude/sim-calibration-4). Three rotation-gated round buffs that
-    # together cover Protocols of the Hungry Void (melee AP+1, even rounds),
-    # Vengeful Stars (ranged Sustained Hits, odd rounds), and Eternal
-    # Conquerors (+1 save, round 3 only). Citations live in
-    # data/rule_citations.d/detachments.json.
-    ("necrons_melee_ap_plus_one_army_wide", False),
-    ("necrons_ranged_sustained_hits_army_wide", False),
-    ("necrons_army_wide_plus_one_save_command_protocol", False),
     # Necrons Cursed Legion — Relentless Onslaught (Abilities #1,
     # claude/sim-calibration-6). Two clauses on one flag: +1 to Hit vs
     # objective-marker targets (Unit.attack) and [ASSAULT] on NECRONS VEHICLE /

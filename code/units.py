@@ -1938,41 +1938,6 @@ class Unit:
                         if _round_mk % 2 == 1:
                             ap = ap - 1
 
-            # ---- Necrons Awakened Dynasty — Protocol of the Hungry Void
-            # (army-wide melee AP+1). AD-PR (claude/sim-calibration-4): the
-            # detachment-rule rotation of Command Protocols is approximated
-            # by alternating Hungry Void (this flag) and Vengeful Stars by
-            # battle-round parity. Hungry Void fires on EVEN rounds (2, 4)
-            # so the parity matches the SHIELD_HOST AP+1 convention but
-            # inverted (Custodes AP+1 = ODD, Necrons AP+1 = EVEN; they don't
-            # collide because the faction gate keeps the two detachments
-            # apart). Gate: mode == "melee" AND attacker faction == "Necrons"
-            # AND detachment carries `necrons_melee_ap_plus_one_army_wide`
-            # (set by AWAKENED_DYNASTY) AND current battle round is even.
-            # Cited as `AWAKENED_DYNASTY.necrons_melee_ap_plus_one_army_wide`.
-            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
-            # #Command-Protocols.
-            if mode == "melee" and p.faction == "Necrons":
-                _own_army_hv = getattr(self, "army_ref", None)
-                if _own_army_hv is not None:
-                    try:
-                        _det_hv = _own_army_hv.resolve_detachment()
-                    except Exception:
-                        _det_hv = None
-                    if _det_hv is not None and getattr(
-                        _det_hv, "necrons_melee_ap_plus_one_army_wide", False,
-                    ):
-                        _battle_hv = getattr(_own_army_hv, "_battle_ref", None)
-                        _round_hv = (
-                            getattr(_battle_hv, "_current_round", 0)
-                            if _battle_hv is not None else 0
-                        )
-                        # Even round (2, 4) -> Hungry Void active. Round 0
-                        # (pre-battle / no battle ref) treated as inactive
-                        # so standalone tests without a battle round set
-                        # see no buff unless they configure the round.
-                        if _round_hv > 0 and _round_hv % 2 == 0:
-                            ap = ap - 1
 
             # ---- World Eaters Blessings of Khorne (10e army rule) —
             # Cleaving Blows grants army-wide melee AP+1 (more negative AP)
@@ -2547,11 +2512,17 @@ class Unit:
             #     uplift on ranged weapons skipped — Advance-and-shoot is not
             #     a feature the simulator models. The +1 AP for battleline-
             #     adjacent attacks is applied below in the AP block.)
-            # The rule's BATTLELINE-or-within-6"-of-BATTLELINE proximity gate is
-            # approximated as army-wide here: most AdMech infantry are Skitarii
-            # BATTLELINE and the simulator's abstracted positioning does not
-            # resolve 6" aura adjacency for non-battleline support units.
-            # Faction-gated on the attacker. Cited as
+            # The rule's BATTLELINE-or-within-6"-of-BATTLELINE proximity gate
+            # now uses the same `_doctrina_battleline_proximity_met` helper as
+            # the Conqueror armour-penetration leg (~line 1968) and the
+            # Protector defensive leg (~line 2565). Only 2 of 42 AdMech
+            # datasheets carry BATTLELINE (Skitarii Vanguard / Rangers), so
+            # applying the hit-modifier army-wide was granting the Ballistic
+            # Skill / Weapon Skill bonus to ~95% of AdMech units that the
+            # codex does not cover. The proximity helper mirrors the real-rule
+            # "if this unit has the BATTLELINE keyword and/or it is within 6"
+            # of one or more friendly ADEPTUS MECHANICUS BATTLELINE units"
+            # gate. Faction-gated on the attacker. Cited as
             # `simulator.doctrina_imperatives`.
             if p.faction == "Adeptus Mechanicus":
                 own_army = getattr(self, "army_ref", None)
@@ -2559,9 +2530,17 @@ class Unit:
                     getattr(own_army, "doctrina_imperative", None)
                     if own_army is not None else None
                 )
-                if imperative == "protector" and mode != "melee":
+                if (
+                    imperative == "protector"
+                    and mode != "melee"
+                    and _doctrina_battleline_proximity_met(self)
+                ):
                     hit_mod_delta += 1
-                elif imperative == "conqueror" and mode == "melee":
+                elif (
+                    imperative == "conqueror"
+                    and mode == "melee"
+                    and _doctrina_battleline_proximity_met(self)
+                ):
                     hit_mod_delta += 1
 
             # ---- T'au Empire Markerlights — base army-rule offensive buff.
@@ -2879,44 +2858,6 @@ class Unit:
             # target unit for the round.
             if target.transient_plus_one_save:
                 save_buff_sources += 1
-            # ---- Necrons Awakened Dynasty — Protocol of the Eternal Conquerors
-            # (army-wide +1 save, round-gated). NECRONS-CLOSE
-            # (claude/sim-calibration-6): wires the fourth Command Protocol as
-            # a single-round defensive uplift on round 3 only. Real codex text
-            # auto-passes the first failed armour save per NECRONS unit per
-            # phase; the closest clean simulator hook is +1 to the armour
-            # save, contributed into the same `save_buff_sources` counter so
-            # the existing ±1 save-modifier cap clamps it as a single net +1
-            # alongside any other +1-save source. Gate: defender faction ==
-            # "Necrons" AND defender's detachment carries
-            # `necrons_army_wide_plus_one_save_command_protocol` (set by
-            # AWAKENED_DYNASTY) AND current battle round == 3.
-            # Cited as
-            # `AWAKENED_DYNASTY.necrons_army_wide_plus_one_save_command_protocol`.
-            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
-            # #Command-Protocols.
-            if target.profile.faction == "Necrons":
-                _own_army_ec = getattr(target, "army_ref", None)
-                if _own_army_ec is not None:
-                    try:
-                        _det_ec = _own_army_ec.resolve_detachment()
-                    except Exception:
-                        _det_ec = None
-                    if _det_ec is not None and getattr(
-                        _det_ec,
-                        "necrons_army_wide_plus_one_save_command_protocol",
-                        False,
-                    ):
-                        _battle_ec = getattr(_own_army_ec, "_battle_ref", None)
-                        _round_ec = (
-                            getattr(_battle_ec, "_current_round", 0)
-                            if _battle_ec is not None else 0
-                        )
-                        # Round 3 only — single-round defensive uplift to
-                        # keep the Command Protocol rotation approximately
-                        # one-protocol-per-round on average.
-                        if _round_ec == 3:
-                            save_buff_sources += 1
             # All Is Dust (Rubricae Phalanx, see boolean computed in the
             # wound-modifier block above). +1 to the armour save when the
             # incoming attack is Damage 1 AND the defender carries the RUBRICAE
@@ -3462,42 +3403,6 @@ class Unit:
                     if _me_round is not None and _me_round == _cur_round_me:
                         effective_sustained_hits += 1
 
-            # ---- Necrons Awakened Dynasty — Protocol of the Vengeful Stars
-            # (army-wide ranged SUSTAINED HITS 1). AD-PR (claude/sim-cal-4):
-            # alternates with Hungry Void by battle-round parity. Vengeful
-            # Stars fires on ODD rounds (1, 3, 5) — opposite parity to
-            # Hungry Void (EVEN). Gate: mode != "melee" AND attacker faction
-            # == "Necrons" AND detachment carries `necrons_ranged_sustained
-            # _hits_army_wide` (set by AWAKENED_DYNASTY) AND current battle
-            # round is odd. Stacks additively with per-weapon
-            # `sustained_hits` already on the profile, matching the
-            # melee_sustained_hits_army_wide compositional behaviour above.
-            # Cited as
-            # `AWAKENED_DYNASTY.necrons_ranged_sustained_hits_army_wide`.
-            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
-            # #Command-Protocols.
-            if mode != "melee" and p.faction == "Necrons":
-                _own_army_vs = getattr(self, "army_ref", None)
-                if _own_army_vs is not None:
-                    try:
-                        _det_vs = _own_army_vs.resolve_detachment()
-                    except Exception:
-                        _det_vs = None
-                    if _det_vs is not None and getattr(
-                        _det_vs, "necrons_ranged_sustained_hits_army_wide", False,
-                    ):
-                        _battle_vs = getattr(_own_army_vs, "_battle_ref", None)
-                        _round_vs = (
-                            getattr(_battle_vs, "_current_round", 0)
-                            if _battle_vs is not None else 0
-                        )
-                        # Odd round (1, 3, 5) -> Vengeful Stars active.
-                        # Round 0 (pre-battle / no battle ref) treated as
-                        # inactive so standalone tests without a battle
-                        # round set see no buff unless they configure the
-                        # round explicitly.
-                        if _round_vs % 2 == 1 and _round_vs > 0:
-                            effective_sustained_hits += 1
 
             # T'au Markerlights base army rule — [SUSTAINED HITS 1] vs Guided
             # targets (the +1-to-Hit half is applied in the hit-modifier block

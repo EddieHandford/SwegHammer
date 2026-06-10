@@ -166,49 +166,6 @@ class Detachment:
     # which is not faithfully proxied by an army-wide SUSTAINED HITS 1 flag.
     melee_sustained_hits_army_wide: bool = False
 
-    # Necrons Awakened Dynasty Command Protocols rotation (AD-PR, branch
-    # claude/sim-calibration-4). The detachment's real rule rotates one of
-    # six Command Protocols per battle round (player picks at the start of
-    # each Command phase). Three protocols map onto clean simulator hooks
-    # and are alternated by round parity to approximate the rotation:
-    #   * `necrons_melee_ap_plus_one_army_wide` — Protocol of the Hungry
-    #     Void: "NECRONS melee weapons gain the [LETHAL HITS] ability and
-    #     improve their Armour Penetration by 1." We wire the AP+1 leg
-    #     only (the Lethal Hits leg is dropped to keep the buff bounded;
-    #     direction-correct). Fires on EVEN battle rounds (2, 4). Gate:
-    #     mode == "melee" AND attacker faction == "Necrons" AND the
-    #     detachment carries this flag AND current battle round is even.
-    #   * `necrons_ranged_sustained_hits_army_wide` — Protocol of the
-    #     Vengeful Stars: "NECRONS ranged weapons gain the [SUSTAINED HITS
-    #     1] ability." Fires on ODD battle rounds (1, 3, 5). Gate:
-    #     mode != "melee" AND attacker faction == "Necrons" AND the
-    #     detachment carries this flag AND current battle round is odd.
-    #   * `bonus_to_hit_when_led` (above) — Protocol of the Conquering
-    #     Tyrant: always-on representation of the +1-to-hit-when-led leg.
-    # Rounds 0/no battle ref treated as inactive so detachment-flag tests
-    # without a battle round set see no buff (matches the SHIELD_HOST
-    # alternation gate). Wahapedia:
-    # https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols
-    necrons_melee_ap_plus_one_army_wide: bool = False
-    necrons_ranged_sustained_hits_army_wide: bool = False
-
-    # NECRONS-CLOSE (claude/sim-calibration-6): Command Protocols third slot —
-    # Protocol of the Eternal Conquerors (defensive). Real Wahapedia text:
-    # "Until the start of your next Command phase, the first failed armour
-    # saving throw made for each NECRONS unit from your army in each phase
-    # is automatically passed." Closest clean simulator hook: army-wide +1
-    # to the armour save, gated by the save-modifier ±1 cap so it composes
-    # with no other defensive +1-save sources stacked. Round-gated to ROUND
-    # 3 ONLY — odd-round Vengeful Stars and even-round Hungry Void already
-    # cover rounds 1-2-4-5, so Eternal Conquerors adds a single round of
-    # additional defensive uplift (over-model bounded to one round). The
-    # save-cap clamp (see code/units.py save_buff_sources) means this
-    # composes with at most one other +1-save source as a single net +1
-    # rather than stacking to +2. Gate: defender faction == "Necrons" AND
-    # detachment carries `necrons_army_wide_plus_one_save_command_protocol`
-    # AND current battle round == 3. Wahapedia:
-    # https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols
-    necrons_army_wide_plus_one_save_command_protocol: bool = False
 
     # Necrons Cursed Legion — Relentless Onslaught detachment rule (Abilities #1,
     # claude/sim-calibration-6). BSData v10.6.0 (Necrons.cat.gz, rule id
@@ -450,42 +407,30 @@ AWAKENED_DYNASTY = Detachment(
     notes=(
         "Reanimation Protocols: dead models flip back to alive at end of "
         "round (simulator handles this directly via reanimate_per_round + "
-        "_apply_reanimation). PLUS Command Protocols (Wahapedia): '\"While "
-        "a NECRONS CHARACTER model is leading this unit, each time a model "
-        "in this unit makes an attack, add 1 to the Hit roll.\"' The whole "
-        "detachment's offensive teeth are gated on being character-led; "
-        "lone Warrior squads get nothing. Detachment stratagems (#194 "
-        "rebuild) are the six real 'Protocol of the …' entries from the "
-        "Necrons codex: Eternal Revenant, Undying Legions, Hungry Void, "
-        "Sudden Storm, Conquering Tyrant, Vengeful Stars. Two of those "
-        "(Eternal Revenant, Vengeful Stars) have no clean simulator hook "
-        "and are catalogued-but-no-op APPROXIMATIONs; the other four map "
-        "onto existing transient_* flags (plus a new "
-        "transient_undying_legions_pulse for the extra reanimation pulse). "
-        "AD-PR (claude/sim-calibration-4): the detachment-rule rotation "
-        "of Command Protocols is now modelled by alternating two new "
-        "always-on flags by battle-round parity — Hungry Void (melee "
-        "AP+1, `necrons_melee_ap_plus_one_army_wide`) on EVEN rounds and "
-        "Vengeful Stars (ranged SUSTAINED HITS 1, "
-        "`necrons_ranged_sustained_hits_army_wide`) on ODD rounds. The "
-        "always-on Conquering Tyrant +1-to-hit-when-led leg "
-        "(`bonus_to_hit_when_led`) is retained — strictly speaking the "
-        "real codex picks only ONE protocol per round, so this is an "
-        "APPROXIMATION (slight over-model) but the led-only gate keeps "
-        "the over-coverage bounded to character-led squads. "
-        "NECRONS-CLOSE (claude/sim-calibration-6): wires the fourth "
-        "Command Protocol — Protocol of the Eternal Conquerors (defensive, "
-        "first failed armour save auto-passed per phase) — as army-wide "
-        "+1 to the armour save (`necrons_army_wide_plus_one_save_command_protocol`) "
-        "gated to ROUND 3 ONLY. Single-round defensive uplift; clamped to "
-        "+1 by the existing save-modifier cap so it composes safely with "
-        "any other +1-save source as a single net +1 rather than stacking."
+        "_apply_reanimation). PLUS Command Protocols (Wahapedia, BSData "
+        "Necrons.cat.gz rule id 388f-814a-df25-c988): the sole detachment "
+        "rule is 'While a NECRONS CHARACTER model is leading this unit, "
+        "each time a model in this unit makes an attack, add 1 to the Hit "
+        "roll.' Implemented as `bonus_to_hit_when_led=True` — gated on the "
+        "attacker's unit being led by a character. Lone Warrior squads "
+        "without a character attachment receive no Hit bonus. "
+        "The six codex 'Protocol of the …' entries (Eternal Revenant, "
+        "Undying Legions, Hungry Void, Sudden Storm, Conquering Tyrant, "
+        "Vengeful Stars) are STRATAGEMS, not army-wide passives, and are "
+        "handled exclusively by the stratagem layer (code/stratagems.py, "
+        "code/simulator.py, code/strategy.py). "
+        "wave 234: the three former army-wide passive flags "
+        "(`necrons_melee_ap_plus_one_army_wide`, "
+        "`necrons_ranged_sustained_hits_army_wide`, "
+        "`necrons_army_wide_plus_one_save_command_protocol`) were removed "
+        "as uncited over-modelling — they double-counted effects that "
+        "belong to the stratagem layer (Hungry Void, Vengeful Stars) or "
+        "do not exist in 10e at all (Protocol of the Eternal Conquerors "
+        "is a real stratagem but was wrongly named; the passive save "
+        "auto-pass has no army-wide permanent expression in the codex)."
     ),
     reanimate_per_round=1,
     bonus_to_hit_when_led=True,
-    necrons_melee_ap_plus_one_army_wide=True,
-    necrons_ranged_sustained_hits_army_wide=True,
-    necrons_army_wide_plus_one_save_command_protocol=True,
     stratagems=AWAKENED_DYNASTY_STRATAGEMS,
     preferred_composition="balanced",
 )
