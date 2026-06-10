@@ -839,6 +839,12 @@ class Battle:
             ))
             for _sid, _cnt in counts.items():
                 self._squad_start_count[(_army.name, _sid)] = _cnt
+        # Gate SWEG_ROLLOFF_ONCE: once-per-battle first-turn determination.
+        # When the gate is ON, a single random.random() draw in round 1 decides
+        # which army goes first, and the result persists here for the rest of the
+        # battle. None means "not yet resolved" (or gate is OFF — per-round flip).
+        # Cited as `simulator.first_turn_rolloff`.
+        self._first_player: Optional["Army"] = None
 
     # ------------------------------------------------------------------
     # Public interface
@@ -8943,9 +8949,26 @@ class Battle:
             else:
                 army.army_plan = None
 
-        first, second = (
-            (self.a, self.b) if random.random() < 0.5 else (self.b, self.a)
-        )
+        # Determine which army acts first this round.
+        # Gate SWEG_ROLLOFF_ONCE (default-OFF): faithful once-per-battle roll-off.
+        # OFF path: per-round flip — one random.random() draw every round,
+        #   byte-identical to the code before this gate was added.
+        # ON path: in round 1 draw random.random() once to decide first/second,
+        #   store the result on self._first_player, and reuse it every subsequent
+        #   round WITHOUT a new draw. The real 10e rule is step 12 of the mission
+        #   sequence: "The players roll off. The winner declares whether they will
+        #   take the first or second turn." The same player then goes first in
+        #   every battle round. Cited as `simulator.first_turn_rolloff`.
+        if __import__("os").environ.get("SWEG_ROLLOFF_ONCE", "0") != "0":
+            if self._first_player is None:
+                # Round 1: consume one draw to set the persistent order.
+                self._first_player = self.a if random.random() < 0.5 else self.b
+            first = self._first_player
+            second = self.b if first is self.a else self.a
+        else:
+            first, second = (
+                (self.a, self.b) if random.random() < 0.5 else (self.b, self.a)
+            )
 
         # ---- T'au Empire Markerlights → Guided (10e army-wide). At the start
         # of each Shooting phase, MARKERLIGHT-keyword T'au units mark enemies
