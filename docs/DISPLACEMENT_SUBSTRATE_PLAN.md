@@ -62,11 +62,18 @@ A/B is faithful-and-not-cratering. Render per the standing visual diagnostic on 
   outcome). Sum the displacement-addressable victory points per game. This is the ceiling estimate the scoring
   proxy could not give — it reads real fights, not a shortcut. Gate `SWEG_DISPLACE_INSTR`. Deliverable: a
   per-faction "displacement-addressable VP" number to size the prize honestly.
-- **Stage 1 — Fall-Back-under-pressure AI.** A unit that was out-fought at a marker and is likely to be
-  destroyed next round makes a faithful 10e Fall Back move (ceding the marker), instead of standing to be
-  ground down. Handles the under-pole (the enemy falls back → the durable winner holds) and feeds the over-pole
-  (bodies the Knight out-fights fall back rather than dying on its marker). Gate `SWEG_DISPLACE_FALLBACK`.
-  Extends `SWEG_KITE`. Rail: only the genuinely out-fought unit falls back — never a healthy contesting swarm.
+- **Stage 1 — Fall-Back-only-when-wasted AI.** (Trigger re-specified per the user's 2026-06-10 steer.) A unit
+  falls back ONLY when it is being *wasted* — all three conditions must hold: (1) **no control consequence** —
+  its presence changes no marker's outcome at the current or next scoring check (it cannot hold, cannot flip the
+  marker to contested, and denies no enemy score by standing); (2) **staying costs material for nothing** — it is
+  likely to be destroyed or stays locked in engagement with its shooting forfeited while contributing nothing
+  positionally; (3) **falling back buys something real** — the preserved unit has an actual use, net of the Fall
+  Back move's own cost (no shooting or charging that turn, barring FLY or an equivalent ability). A unit that can
+  still hold a marker, or whose presence prevents the marker being flipped, does NOT fall back even if it is
+  losing the fight — dying on the marker to deny a scoring tick is the faithful competitive behaviour (the
+  tarpit). Handles the under-pole (genuinely wasted defenders cede markers the durable winner then takes) without
+  clearing contesting bodies off the Knight's marker — the over-pole fix belongs to Stage 2, not to Stage 1
+  fall-backs. Gate `SWEG_DISPLACE_FALLBACK`. Extends `SWEG_KITE`.
 - **Stage 2 — Charge-to-contest the durable holder.** AI directs affordable bodies to charge a marker held by a
   concentrated durable unit (the Knight), putting models in engagement range to contest/tarpit its Objective
   Control. Faithful (real hordes swarm Knights). Reduces the Imperial Knights over-hold. Gate
