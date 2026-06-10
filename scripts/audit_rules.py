@@ -567,6 +567,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # friendly HERETIC ASTARTES within 6\" re-roll Hit rolls. Army-wide broadcast
     # aura. Gated SWEG_CSM_ABILITIES. Cited in data/rule_citations.d/leaders.json.
     "simulator.abaddon_paragon_of_hatred",
+    # Sororitas wave — Triumph of Saint Katherine "Solemn Procession": the
+    # round-start Miracle die is fixed at 6 (instead of rolling D6) while the
+    # Triumph model is on the battlefield. Gated SWEG_SOROR_ABILITIES.
+    # Cited in data/rule_citations.d/adepta_sororitas.json.
+    "simulator.triumph_of_saint_katherine",
+    # Sororitas wave — Saint Celestine "Miraculous Intervention": once-per-battle
+    # self-revive on 2+ when Celestine is destroyed. Gated SWEG_SOROR_ABILITIES.
+    # Cited in data/rule_citations.d/adepta_sororitas.json.
+    "simulator.celestine_miraculous_intervention",
     # Wave 221 — Chaos Daemons Daemonic Incursion "Warp Rifts" (env-gated
     # SWEG_WARP_RIFTS). Reduces Deep Strike minimum gap from 9" to 6" for
     # Chaos Daemons units arriving under the Daemonic Incursion detachment.

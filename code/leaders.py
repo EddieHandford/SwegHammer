@@ -187,6 +187,16 @@ class LeaderAbility:
     # by this army costs 0 CP. Models Lord of Contagion's "Lord of the
     # Death Guard" Warlord trait when fielded as Warlord.
     first_stratagem_free_per_round: bool = False
+    # Adepta Sororitas — Miraculous Intervention (Saint Celestine). The FIRST
+    # time this CHARACTER model is destroyed during the battle, roll one D6 at
+    # the end of the phase; on a 2+, set the model back up with full wounds.
+    # Tracked via Army.self_revive_used_uids so the once-per-battle guard fires
+    # on the model's uid, not on the unit name.
+    # Gated SWEG_SOROR_ABILITIES (default-OFF).
+    # BSData v10.6.0 (Imperium - Adepta Sororitas.cat.gz, ability id
+    # eee9-b689-1a73-742b, typeName Abilities). Cited as
+    # `simulator.celestine_miraculous_intervention`.
+    self_revive_on_2plus: bool = False
     # Legal bodyguard hosts for the calibrator. Preference order; the
     # picker chooses the first key present in UNIT_CATALOG.
     host_keys: Tuple[str, ...] = ()
@@ -465,6 +475,41 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # mechanic is not modelled in the simulator; the Canoness ships with NO
     # offensive aura until a faithful implementation lands. Wahapedia:
     # https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Canoness
+    #
+    # SWEG_SOROR_ABILITIES-gated entries (default-OFF — gate is in
+    # effective_buffs via _soror_gate_on, same pattern as SWEG_CSM_ABILITIES).
+    #
+    # Saint Celestine — "Miraculous Intervention" (once-per-battle self-revive
+    # on 2+). BSData v10.6.0 Imperium - Adepta Sororitas.cat.gz, ability id
+    # eee9-b689-1a73-742b: "The first time this unit's Celestine model is
+    # destroyed, roll one D6 at the end of the phase. On a 2+, set that
+    # Celestine model back up on the battlefield, as close as possible to where
+    # it was destroyed and not within Engagement Range of any enemy units, with
+    # its full wounds remaining."
+    # The LeaderAbility.self_revive_on_2plus flag signals the simulator-side
+    # `_maybe_apply_celestine_revival` hook. Celestine attaches to Seraphim
+    # Squad or Zephyrim Squad per the BSData Leader profile (SWEG-checked via
+    # UNIT_CATALOG keys below). Gated SWEG_SOROR_ABILITIES. Cited as
+    # `simulator.celestine_miraculous_intervention` +
+    # `LeaderAbility.Miraculous Intervention`.
+    ("Saint Celestine",    LeaderAbility(name="Miraculous Intervention",     aura_range=6.0,
+                                          self_revive_on_2plus=True,
+                                          host_keys=("adepta_sororitas_seraphim_squad",
+                                                     "adepta_sororitas_zephyrim_squad",))),
+    # Morvenn Vahl — "Abbess Sanctorum". BSData v10.6.0 Imperium - Adepta
+    # Sororitas.cat.gz, ability id 5e86-cb68-9205-16c4: "While this model is
+    # leading a unit, each time a model in that unit makes an attack, you can
+    # re-roll the Hit roll and you can re-roll the Wound roll."
+    # APPROXIMATION: the codex grants full re-roll of any hit/wound failure;
+    # SwegHammer's reroll_hit_ones + reroll_wound_ones re-roll only natural 1s
+    # (the simulator has no full-reroll leader field distinct from reroll-1s).
+    # Direction-correct; strictly weaker than the codex. Attaches to Paragon
+    # Warsuits per BSData Leader profile. Gated SWEG_SOROR_ABILITIES. Cited as
+    # `LeaderAbility.Abbess Sanctorum`.
+    ("Morvenn Vahl",       LeaderAbility(name="Abbess Sanctorum",            aura_range=6.0,
+                                          reroll_hit_ones=True,
+                                          reroll_wound_ones=True,
+                                          host_keys=("adepta_sororitas_paragon_warsuits",))),
     # Necrons — named characters first so they win the substring match
     # before the generic "Overlord" entry below.
     ("Trazyn the Infinite", LeaderAbility(name="Surreptitious Acquisition", aura_range=6.0, plus_one_to_hit=True,
@@ -1571,6 +1616,18 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         if _abaddon_off:
             # Abaddon's aura is default-off; skip all fields for this leader.
             continue
+        # SWEG_SOROR_ABILITIES gate for Sororitas-specific leader abilities.
+        # Gate-OFF (default): Miraculous Intervention and Abbess Sanctorum auras
+        # are suppressed entirely — their leader entries are default-off, so if
+        # the gate is OFF we skip the whole leader. Gate-ON: aura fields merge
+        # normally (no proxy suppression needed, the fields are the faithful rule).
+        _soror_gate_on = __import__("os").environ.get("SWEG_SOROR_ABILITIES", "0") != "0"
+        _soror_off = (not _soror_gate_on) and (_ability_name in (
+            "Miraculous Intervention", "Abbess Sanctorum",
+        ))
+        if _soror_off:
+            # Sororitas abilities are default-off; skip all fields for this leader.
+            continue
         # Dark Apostle gate-ON: suppress the legacy reroll_hit_ones proxy because
         # plus_one_to_wound_melee_only (gated in units.py) fires in its place.
         if not _dark_apostle_on:
@@ -1800,3 +1857,61 @@ def apply_round_end_revival(army: "Army") -> None:
                 revived.current_health = revived.profile.health
                 revived.position = anchor_pos
                 revives_remaining -= 1
+
+
+def maybe_apply_celestine_revival(
+    army: "Army",
+    destroyed_unit: "Unit",
+    rng,
+) -> bool:
+    """Saint Celestine — Miraculous Intervention (gated SWEG_SOROR_ABILITIES).
+
+    Called from the simulator's destroy-unit hooks whenever a unit in `army`
+    is killed. If the destroyed unit IS the Celestine model AND the gate is ON
+    AND the once-per-battle guard has not fired yet, roll 1D6; on 2+ restore
+    the model to full wounds in place.
+
+    Returns True iff a revival occurred (so the caller can emit an event or
+    log if needed). Returns False in all other cases (gate off, wrong unit,
+    already used, roll failed).
+
+    BSData v10.6.0 Imperium - Adepta Sororitas.cat.gz, ability id
+    eee9-b689-1a73-742b (Miraculous Intervention):
+    "The first time this unit's Celestine model is destroyed, roll one D6 at
+    the end of the phase. On a 2+, set that Celestine model back up on the
+    battlefield, as close as possible to where it was destroyed and not within
+    Engagement Range of any enemy units, with its full wounds remaining."
+
+    Cited as `simulator.celestine_miraculous_intervention`.
+    """
+    # Gate OFF by default.
+    if __import__("os").environ.get("SWEG_SOROR_ABILITIES", "0") == "0":
+        return False
+
+    ability = lookup_ability(destroyed_unit.profile.name)
+    if ability is None or not ability.self_revive_on_2plus:
+        return False
+
+    uid = destroyed_unit.uid
+    used = getattr(army, "self_revive_used_uids", None)
+    if used is None:
+        # Army was created before this field existed (e.g. in isolated tests);
+        # initialise lazily — fail-loud discipline does not apply to optional
+        # runtime-created state that didn't exist in earlier builds.
+        army.self_revive_used_uids = set()
+        used = army.self_revive_used_uids
+
+    if uid in used:
+        # Already revived this unit once this battle; codex says "first time".
+        return False
+
+    used.add(uid)
+
+    # Roll D6: on 2+ revive at full wounds in current position (approximate —
+    # exact "as close as possible to where it was destroyed" maps to current
+    # position in the simulator's grid).
+    roll = rng.randint(1, 6)
+    if roll >= 2:
+        destroyed_unit.current_health = destroyed_unit.profile.health
+        return True
+    return False

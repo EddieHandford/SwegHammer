@@ -8660,7 +8660,30 @@ class Battle:
             # awarded a die every round-start even after the last Sororitas
             # model died. Cited as `simulator.acts_of_faith`.
             if any(u.profile.faction == "Adepta Sororitas" for u in army.alive_units):
-                army.gain_miracle_dice(1, random)
+                # SWEG_SOROR_ABILITIES — Triumph of Saint Katherine
+                # "Solemn Procession": when the Triumph model is on the
+                # battlefield, the round-start Miracle die is fixed at 6
+                # instead of being rolled. BSData v10.6.0 Imperium - Adepta
+                # Sororitas.cat.gz, ability id 3d31-2f99-c625-f047:
+                # "Each time you gain 1 Miracle dice at the start of the
+                # battle round, if this model is on the battlefield, do not
+                # roll one D6 to determine the value of that Miracle dice;
+                # it has a value of 6."
+                # Gated SWEG_SOROR_ABILITIES (default-OFF). Cited as
+                # `simulator.triumph_of_saint_katherine`.
+                _soror_abilities = __import__("os").environ.get(
+                    "SWEG_SOROR_ABILITIES", "0") != "0"
+                if _soror_abilities and any(
+                    u.is_alive and "Triumph of Saint Katherine" in u.profile.name
+                    for u in army.alive_units
+                ):
+                    # Triumph alive: bank a fixed 6 instead of rolling.
+                    army.miracle_dice.append(6)
+                    army.miracle_dice.sort(reverse=True)
+                    if len(army.miracle_dice) > army.MIRACLE_DICE_BANK_CAP:
+                        army.miracle_dice = army.miracle_dice[:army.MIRACLE_DICE_BANK_CAP]
+                else:
+                    army.gain_miracle_dice(1, random)
         # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
         # At the start of each battle round the AdMech player picks ONE of
         # two imperatives — "protector" (+1 BS on ranged attacks, defensive
@@ -10686,6 +10709,12 @@ class Battle:
             self._maybe_award_miracle_die(
                 victim=shoot_target, victim_army=defender_army,
             )
+            # SWEG_SOROR_ABILITIES — Saint Celestine Miraculous Intervention:
+            # once-per-battle self-revive on 2+ when Celestine is destroyed.
+            # Must be called AFTER `_maybe_award_miracle_die` (which checks
+            # alive_units; revival re-adds the unit before the phase ends).
+            from code.leaders import maybe_apply_celestine_revival
+            maybe_apply_celestine_revival(defender_army, shoot_target, random)
             # Deadly Demise (10e core): the destroyed unit may detonate.
             self._maybe_apply_deadly_demise(shoot_target)
 
@@ -11376,6 +11405,11 @@ class Battle:
             self._maybe_award_miracle_die(
                 victim=target, victim_army=defender_army,
             )
+            # SWEG_SOROR_ABILITIES — Saint Celestine Miraculous Intervention:
+            # once-per-battle self-revive on 2+ when Celestine is destroyed in
+            # melee. Mirrors the shooting-kill hook above.
+            from code.leaders import maybe_apply_celestine_revival
+            maybe_apply_celestine_revival(defender_army, target, random)
             self._maybe_apply_deadly_demise(target)
             # CSM-EYE-OF-GODS: Eye of the Gods (Pactbound Zealots, 1 CP).
             # End-of-Fight-phase reactive stratagem fired on the kill site.
@@ -12424,6 +12458,10 @@ class Battle:
             self._maybe_award_miracle_die(
                 victim=_m, victim_army=target_army,
             )
+            # SWEG_SOROR_ABILITIES — Celestine Miraculous Intervention: Tank
+            # Shock kill site.
+            from code.leaders import maybe_apply_celestine_revival
+            maybe_apply_celestine_revival(target_army, _m, random)
             self._maybe_apply_deadly_demise(_m)
 
     # CORE-RULES-AUDIT (2026-05-31): _do_heroic_intervention REMOVED. Heroic
@@ -12496,4 +12534,8 @@ class Battle:
             self._maybe_award_miracle_die(
                 victim=winner_unit, victim_army=winner_army,
             )
+            # SWEG_SOROR_ABILITIES — Celestine Miraculous Intervention:
+            # Counter-Offensive kill site.
+            from code.leaders import maybe_apply_celestine_revival
+            maybe_apply_celestine_revival(winner_army, winner_unit, random)
             self._maybe_apply_deadly_demise(winner_unit)

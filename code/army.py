@@ -327,6 +327,12 @@ class Army:
         self.cp_refund_remaining: int = 0
         self.first_stratagem_free_this_round: bool = False
         self._warlord_first_strat_free_enabled: bool = False
+        # Adepta Sororitas — Miraculous Intervention (Saint Celestine).
+        # Once-per-battle self-revive: tracks which unit uids have already
+        # used this ability so the "first time" constraint is enforced.
+        # Gated SWEG_SOROR_ABILITIES. Cited as
+        # `simulator.celestine_miraculous_intervention`.
+        self.self_revive_used_uids: set = set()
         # Universal per-Command-phase detachment-stratagem cap (faction-neutral
         # AI heuristic). 10e core rules don't impose a hard cap on stratagems
         # fired per Command phase, but real-player CP economy averages ~1
