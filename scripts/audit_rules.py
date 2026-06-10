@@ -216,6 +216,9 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # the substitution only when it flips a fail -> success.
     "simulator.strands_of_fate",
     "simulator.battleshock",
+    # Once-per-battle first-turn roll-off (10e mission sequence, gated
+    # SWEG_ROLLOFF_ONCE) — registered so the citation is enforced, not stale.
+    "simulator.first_turn_rolloff",
     "simulator.judgement_tokens",
     # Orks faction army rules (10e). mob_rule auto-passes Battle-shock for
     # Ork units when the army has 10+ Ork models on the battlefield;
