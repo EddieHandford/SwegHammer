@@ -119,6 +119,14 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # under this detachment (gated SWEG_WARP_RIFTS). Cited as
     # `simulator.warp_rifts` in data/rule_citations.d/chaos_daemons.json.
     ("warp_rifts", False),
+    # Adepta Sororitas Hallowed Martyrs — The Blood of Martyrs (wave 234).
+    # Damage-gated hit and wound bonus: +1 Hit when below Starting Strength,
+    # +1 Wound when below Half-strength (both ranged and melee). Squad
+    # substrate (squad_id / _squad_start_count) gates the multi-model path;
+    # wound-fraction fallback for single-model units. Cited as
+    # `HALLOWED_MARTYRS.soror_blood_of_martyrs` in
+    # data/rule_citations.d/detachments.json.
+    ("soror_blood_of_martyrs", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility

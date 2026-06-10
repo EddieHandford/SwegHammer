@@ -353,6 +353,33 @@ class Detachment:
     # detachments are unaffected. Cited as `simulator.warp_rifts`.
     warp_rifts: bool = False
 
+    # Adepta Sororitas Hallowed Martyrs — The Blood of Martyrs detachment
+    # rule (wave 234). BSData v10.6.0 (Imperium - Adepta Sororitas.cat.gz,
+    # rule id afa4-169c-3aaa-650) verbatim: "Each time an ADEPTA SORORITAS
+    # model from your army makes an attack, add 1 to the Hit roll if that
+    # model's unit is below its Starting Strength, and add 1 to the Wound
+    # roll, as well, if that model's unit is Below Half-strength."
+    #
+    # Gate in Unit.attack (both ranged and melee):
+    #   1. attacker faction == "Adepta Sororitas"
+    #   2. attacker's army detachment carries soror_blood_of_martyrs == True
+    #   3. Below Starting Strength: alive squad members < start_count
+    #      (single-model units: current_health < profile.health)
+    #      → hit_mod_delta += 1 (routes through the 10e ±1 hit-modifier clamp)
+    #   4. Below Half-strength (additionally): alive members < start_count / 2.0
+    #      (single-model units: current_health < profile.health / 2.0)
+    #      → wound_mod_delta += 1 (routes through the 10e ±1 wound-modifier clamp)
+    #
+    # History: SC5-4 (2026-05-21) removed the previous always-on
+    # `plus_one_to_wound=True` proxy (army-wide, no damage gate) that was
+    # driving Adepta Sororitas to +18.9pt overperformance. The justification
+    # at the time was "a damage-gated trigger the simulator does not track
+    # per-unit." That justification is now stale: the squad substrate
+    # (self._squad_start_count keyed by (army.name, squad_id)) landed in
+    # wave 65, enabling the faithful damage-gated implementation (wave 234).
+    # Cited as `HALLOWED_MARTYRS.soror_blood_of_martyrs`.
+    soror_blood_of_martyrs: bool = False
+
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
     enemy_ld_penalty: int = 0            # -N to enemy Ld (higher target)
@@ -601,15 +628,24 @@ HALLOWED_MARTYRS = Detachment(
     name="Hallowed Martyrs",
     faction="Adepta Sororitas",
     notes=(
-        "SC5-4 (2026-05-21): real 'Blood of Martyrs' rule grants +1 Hit only "
-        "when the attacking unit is Below Starting Strength and +1 Wound only "
-        "when Below Half-strength — a damage-gated trigger the simulator does "
-        "not track per-unit. The previous proxy `plus_one_to_wound=True` "
-        "(army-wide, always-on) was a strict over-buff driving Adepta "
-        "Sororitas to +18.9pt overperformance in the SC5-3 baseline, so it "
-        "was removed. The detachment is still registered and its infantry "
-        "composition preference is retained — list-build shape still applies."
+        "wave 234 (2026-06-10): 'The Blood of Martyrs' rule is now implemented "
+        "faithfully damage-gated on the squad substrate. BSData v10.6.0 "
+        "(Imperium - Adepta Sororitas.cat.gz, rule id afa4-169c-3aaa-650) "
+        "verbatim: 'Each time an ADEPTA SORORITAS model from your army makes "
+        "an attack, add 1 to the Hit roll if that model's unit is below its "
+        "Starting Strength, and add 1 to the Wound roll, as well, if that "
+        "model's unit is Below Half-strength.' Gated by "
+        "`soror_blood_of_martyrs=True`; Unit.attack checks squad alive count "
+        "vs _squad_start_count (multi-model) or current wounds vs max wounds "
+        "(single-model). Applies to both ranged and melee attacks. Cited as "
+        "`HALLOWED_MARTYRS.soror_blood_of_martyrs`. "
+        "History: SC5-4 (2026-05-21) removed the previous always-on "
+        "`plus_one_to_wound=True` proxy (army-wide, no damage gate) that was "
+        "driving Adepta Sororitas to +18.9pt overperformance; the justification "
+        "was 'a damage-gated trigger the simulator does not track per-unit' — "
+        "that is now stale since the squad substrate landed in wave 65."
     ),
+    soror_blood_of_martyrs=True,
     preferred_composition="infantry",
 )
 

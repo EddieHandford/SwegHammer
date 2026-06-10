@@ -97,6 +97,15 @@
     "trigger": "the defender carries the RUBRICAE unit-keyword AND the incoming attack's per_shot_dmg == 1.0 AND the defender's army resolves to a detachment with `all_is_dust=True` (Rubricae Phalanx)",
     "effect": "+1 to the defender's armour saving throw at the save-modifier layer, capped at 2+. iter15 makes this the canonical detachment for TSON (DEFAULT_BY_FACTION['Thousand Sons'] = 'rubricae_phalanx'); Grand Coven retained as opt-in for psyker-heavy lists. The simulator-side gate lives in `Unit.attack` and reads `target.army_ref.resolve_detachment().all_is_dust`. Companion citation `simulator.all_is_dust` covers the Unit.attack call-site. Verbatim 'unmodified Damage characteristic of 1' wording cross-checked against 40k.app + Goonhammer + Frontline Gaming Rubricae Phalanx breakdowns (WebFetch against wahapedia.ru returned ECONNREFUSED at edit time).",
     "scope": "keyword-gated"
+  },
+
+  "HALLOWED_MARTYRS.soror_blood_of_martyrs": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Hallowed-Martyrs",
+    "rule_name": "The Blood of Martyrs",
+    "quoted_text": "Each time an ADEPTA SORORITAS model from your army makes an attack, add 1 to the Hit roll if that model's unit is below its Starting Strength, and add 1 to the Wound roll, as well, if that model's unit is Below Half-strength.",
+    "trigger": "attacker faction is Adepta Sororitas AND the army's resolved detachment carries soror_blood_of_martyrs=True (Hallowed Martyrs detachment); below Starting Strength = alive squad members < starting count (single-model unit: current wounds < starting wounds); below Half-strength = alive members < starting count divided by 2 (single-model: current wounds < starting wounds divided by 2); applies to both ranged and melee attacks",
+    "effect": "+1 to the Hit roll when below Starting Strength (routes through the 10e plus-or-minus-1 hit-modifier clamp); additionally +1 to the Wound roll when below Half-strength (routes through the 10e plus-or-minus-1 wound-modifier clamp). Verbatim rule text taken from BSData v10.6.0 cache (Imperium - Adepta Sororitas.cat.gz, rule id afa4-169c-3aaa-650) per CLAUDE.md rule 6; Wahapedia URL recorded for human verification. Gate implemented in Unit.attack via squad alive count vs _battle_ref._squad_start_count[(army.name, squad_id)] for multi-model squads and wound fraction for single-model units (mirrors the Delirium / battleshock single-model convention in simulator.py). wave 234 (2026-06-10).",
+    "scope": "army-wide"
   }
 
 }

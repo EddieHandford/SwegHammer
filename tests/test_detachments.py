@@ -22,12 +22,11 @@ from code.units import UnitProfile
 # expected boolean / int field that should be set to a non-default value).
 _NEW_DETACHMENTS = (
     # (key, faction, attribute, expected value)
-    # SC5-4 (2026-05-21): Hallowed Martyrs' real 'Blood of Martyrs' rule is
-    # gated on attacker unit being Below Starting Strength / Half-strength —
-    # not modellable as a passive flag. The previous `plus_one_to_wound=True`
-    # proxy was a strict over-buff and has been removed. Only the infantry
-    # composition preference is retained.
-    ("hallowed_martyrs",       "Adepta Sororitas",       "preferred_composition", "infantry"),
+    # wave 234 (2026-06-10): 'The Blood of Martyrs' rule is now implemented
+    # faithfully damage-gated on the squad substrate. soror_blood_of_martyrs=True
+    # enables the +1 Hit (below Starting Strength) and +1 Wound (below Half-
+    # strength) gates in Unit.attack. Verify the flag is active.
+    ("hallowed_martyrs",       "Adepta Sororitas",       "soror_blood_of_martyrs", True),
     # iter-8 fix: Shield Host swapped the defensive `plus_one_save`
     # approximation for the real Rendax Ka'tah / Martial Mastery melee AP+1
     # buff (`melee_ap_plus_one`). CUSTODES-KATAH-V1: the fabricated

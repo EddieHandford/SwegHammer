@@ -2294,6 +2294,75 @@ class Unit:
                     ):
                         hit_mod_delta += 1
 
+            # ---- Adepta Sororitas Hallowed Martyrs — The Blood of Martyrs
+            # (wave 234, detachment rule). BSData v10.6.0 verbatim (rule id
+            # afa4-169c-3aaa-650): "Each time an ADEPTA SORORITAS model from
+            # your army makes an attack, add 1 to the Hit roll if that model's
+            # unit is below its Starting Strength, and add 1 to the Wound
+            # roll, as well, if that model's unit is Below Half-strength."
+            # Two-tier gate (both ranged and melee — the rule says "makes an
+            # attack" with no mode restriction):
+            #   Tier 1 — below Starting Strength: alive members < start_count
+            #     (single-model units: current_health < profile.health)
+            #     → hit_mod_delta += 1; routes through the 10e ±1 hit-modifier
+            #     clamp at line ~2755 (hit_mod_clamped = max(-1, min(1, ...))).
+            #   Tier 2 — below Half-strength (additionally): alive members <
+            #     start_count / 2.0 (single-model: current_health < health/2.0)
+            #     → wound_mod_delta += 1; same ±1 wound-modifier clamp.
+            # Reach the squad substrate via the army back-reference and
+            # _battle_ref._squad_start_count[(army.name, squad_id)] — same
+            # access pattern as the Cursed Legion block immediately above.
+            # If no army ref or no battle ref the buffs do not fire (pre-battle
+            # standalone tests see no buff); no silent default for data that
+            # should exist.
+            # Cited as `HALLOWED_MARTYRS.soror_blood_of_martyrs`.
+            if p.faction == "Adepta Sororitas":
+                _own_army_bom = getattr(self, "army_ref", None)
+                if _own_army_bom is not None:
+                    try:
+                        _det_bom = _own_army_bom.resolve_detachment()
+                    except Exception:
+                        _det_bom = None
+                    if _det_bom is not None and getattr(
+                        _det_bom, "soror_blood_of_martyrs", False
+                    ):
+                        _battle_bom = getattr(_own_army_bom, "_battle_ref", None)
+                        _sid_bom = getattr(self, "squad_id", -1)
+                        if _sid_bom >= 0 and _battle_bom is not None:
+                            # Multi-model squad: use alive member count vs
+                            # recorded starting count (10e core: "below
+                            # [Starting] Strength" = fewer models than the
+                            # unit's Starting Strength).
+                            _start_bom = _battle_bom._squad_start_count.get(
+                                (_own_army_bom.name, _sid_bom), 1
+                            )
+                            _alive_bom = sum(
+                                1 for _u in _own_army_bom.alive_units
+                                if getattr(_u, "squad_id", -1) == _sid_bom
+                            )
+                            if _start_bom > 1:
+                                _below_start_bom = _alive_bom < _start_bom
+                                _below_half_bom = _alive_bom < _start_bom / 2.0
+                            else:
+                                # Single-model unit: use wound-fraction gate
+                                # (10e convention: vehicles / characters are
+                                # never "below Starting Strength" per model
+                                # count; wounds fraction is the canonical
+                                # proxy, mirroring the Delirium / battleshock
+                                # single-model path in simulator.py).
+                                _hp_bom = float(p.health) or 1.0
+                                _below_start_bom = self.current_health < _hp_bom
+                                _below_half_bom = self.current_health < _hp_bom / 2.0
+                        else:
+                            # No battle ref or lone model without a squad —
+                            # buffs do not fire (pre-battle tests, edge cases).
+                            _below_start_bom = False
+                            _below_half_bom = False
+                        if _below_start_bom:
+                            hit_mod_delta += 1
+                        if _below_half_bom:
+                            wound_mod_delta += 1
+
             # NOTE: Adeptus Astartes Combat Doctrines (Gladius Task Force,
             # 10e) live in the SIMULATOR'S movement gates, not here. Iter-9
             # audit (May 2026) found that the previous +1-to-wound-per-round
