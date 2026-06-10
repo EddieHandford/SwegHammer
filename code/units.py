@@ -1684,6 +1684,20 @@ class Unit:
                         if isinstance(ed_fields.get("anti_keywords"), dict)
                         else (ed_fields.get("anti_keywords") or ())
                     ),
+                    # INDIRECT-PARITY-FIX — carry the five boolean weapon keywords
+                    # that _weapon_to_dict now serializes but ex_swap previously
+                    # omitted. Without these entries, dataclasses.replace inherits
+                    # the PRIMARY profile's value for each field, which produces
+                    # silent bugs: a Wyvern whose primary has indirect_fire=False
+                    # fires its mortar stormshard with the wrong flag; a unit whose
+                    # extra has hazardous=True but primary does not will never
+                    # self-harm. Default-False so legacy profiles (pre-regen)
+                    # that lack the key behave identically to before the fix.
+                    "indirect_fire": bool(ed_fields.get("indirect_fire", False)),
+                    "one_shot": bool(ed_fields.get("one_shot", False)),
+                    "hazardous": bool(ed_fields.get("hazardous", False)),
+                    "precision": bool(ed_fields.get("precision", False)),
+                    "lance": bool(ed_fields.get("lance", False)),
                 }
                 _candidates.append((
                     _strip_mode_suffix(str(ed_fields.get("weapon", "")) or ""),

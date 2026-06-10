@@ -1924,6 +1924,26 @@ def _weapon_to_dict(w: WeaponStats, include_dice: bool = False) -> Dict:
         # MAP-MULTIFIRE-VALIDATE — Pistol exclusivity per profile (10e core
         # rule). The picker partitions extras into pistol/non-pistol groups.
         "pistol": w.pistol,
+        # INDIRECT-PARITY-FIX — boolean weapon keywords that were previously
+        # dropped when a weapon profile was serialized into extra_ranged_profiles.
+        # When a multi-profile unit hot-swaps one of these extras in via
+        # dataclasses.replace, fields absent from the swap dict are silently
+        # inherited from the primary profile — so a Wyvern whose primary has
+        # indirect_fire=False would fire its mortar stormshard profile without
+        # the Indirect Fire keyword, causing the profile to be wall-blocked.
+        # All five fields are consumed by units.py / code/simulator.py:
+        #   indirect_fire  — LoS exemption + -1 to-hit vs non-visible targets
+        #   one_shot       — once-per-battle gate in simulator
+        #   hazardous      — d6 self-harm on activation in units.py
+        #   precision      — bypasses cover vs CHARACTER targets (ranged)
+        #   lance          — +1 to wound on melee if charged (melee path only,
+        #                    but carried here so extras that ARE melee-mode-
+        #                    swapped do not silently lose the keyword)
+        "indirect_fire": w.indirect_fire,
+        "one_shot": w.one_shot,
+        "hazardous": w.hazardous,
+        "precision": w.precision,
+        "lance": w.lance,
     }
     if include_dice:
         d["attacks_dice"] = w.attacks_dice
