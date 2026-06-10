@@ -30,6 +30,8 @@ first.
 - Fall-Back mis-pilot fix — wave 61 (gated MAE −1.35 across many factions). See [[project-ai-piloting-top-lever]].
 - Daemonic Manifestation (friendly Shadow of Chaos) — wave 88. Built + cited but METRIC-NEUTRAL; kept as fidelity, does NOT explain the Daemons residual. See [[project-daemons-manifestation-missing]].
 - Paired / Common-Random-Numbers eval mode (core) — wave 218 (`adf9140`, `--log-games` + `scripts/paired_delta.py`). Watchdog-verified correct (McNemar estimator, additive). See [[feedback-paired-crn-low-n-ab]].
+- Weapon-keyword parity for non-primary profiles — wave 232 (`dc4f63c`, UNGATED mapper fix): `indirect_fire` / `one_shot` / `hazardous` / `precision` now carried onto secondary + extra-melee profiles (21/55/29/5 profiles across 523 multi-profile units). Invalidates pre-232 anchors as pairing bases.
+- Five verified gates flipped default-ON — wave 232 (`f35346c`): `SWEG_TANKSHOCK_DICE`, `SWEG_ROLLOFF_ONCE`, `SWEG_SITW_TEST`, `SWEG_HARBINGERS` (Chaos Knights +7.42 decisive), `SWEG_SOROR_ABILITIES`. New standing frame gated 5.79, anchor `data/_anchor_wave232_n80_log.json`.
 
 ## REVERTED / REJECTED (tried, made it worse or proven wrong — do NOT re-attempt)
 - Dark Pacts coverage experiment — wave 209, REVERTED. The Chaos Space Marines under-output is NOT Dark-Pacts-coverage.
