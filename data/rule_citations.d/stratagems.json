@@ -19,11 +19,10 @@
   "Stratagem.Tank Shock": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
     "rule_name": "Tank Shock",
-    "quoted_text": "USE THIS STRATAGEM IN THE CHARGE PHASE, WHEN A VEHICLE UNIT FROM YOUR ARMY ENDS A CHARGE MOVE. SELECT ONE ENEMY UNIT THAT IS WITHIN ENGAGEMENT RANGE OF THAT VEHICLE UNIT AND ROLL ONE D6, ADDING THE TOUGHNESS CHARACTERISTIC OF ONE MODEL FROM THAT VEHICLE UNIT TO THE RESULT: ON A 7+, THE ENEMY UNIT TAKES D3 MORTAL WOUNDS (TO A MAXIMUM OF 6 MORTAL WOUNDS).",
+    "quoted_text": "WHEN: Your Charge phase, just after a VEHICLE unit from your army ends a Charge move. TARGET: That VEHICLE unit. EFFECT: Select one enemy unit within Engagement Range of your unit, and select one VEHICLE model in your unit that is within Engagement Range of that enemy unit. Roll a number of D6 equal to the Toughness characteristic of the selected VEHICLE model. For each 5+, that enemy unit suffers 1 mortal wound (to a maximum of 6 mortal wounds).",
     "trigger": "charge phase, when a friendly VEHICLE unit ends a charge move",
-    "effect": "the target enemy unit takes D3 mortal wounds (approximation: simulator skips the d6+T 7+ gate and applies median D3 = 2 mortal wounds deterministically; matches our other 'median D3' uses such as Reanimation Protocols)",
-    "scope": "phase-gated",
-    "approximation": true
+    "effect": "ON path (SWEG_TANKSHOCK_DICE=1, wave 232): roll a number of D6 equal to the charging VEHICLE model's Toughness; each 5+ deals 1 mortal wound, capped at 6 total. OFF path (default): flat 2 mortal wounds (the incumbent deterministic approximation, byte-identical to prior behaviour). Full dice procedure cited separately as simulator.tank_shock_dice in data/rule_citations.json.",
+    "scope": "phase-gated"
   },
   "Stratagem.Disgustingly Resilient": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",

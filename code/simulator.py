@@ -12753,21 +12753,54 @@ class Battle:
 
     def _try_tank_shock(self, charger: "Unit", target: "Unit", charger_army: Army) -> None:
         """After a VEHICLE charge resolves, optionally spend 1 CP for Tank
-        Shock — D3 mortal wounds to the charge target. Median D3 = 2
-        deterministically (matches the simulator's other 'median D3' uses
-        like Reanimation Protocols revival).
+        Shock.
+
+        OFF path (SWEG_TANKSHOCK_DICE not set, default): flat 2 mortal
+        wounds — the incumbent deterministic approximation, byte-identical
+        to prior behaviour (no extra random draws).
+
+        ON path (SWEG_TANKSHOCK_DICE=1): faithful 10e procedure — roll a
+        number of D6 equal to the Toughness characteristic of the selected
+        VEHICLE model; for each 5+, the enemy unit suffers 1 mortal wound,
+        to a maximum of 6 mortal wounds. Verified verbatim against
+        Wahapedia (Core Stratagems, Tank Shock). Cited as
+        simulator.tank_shock_dice in rule_citations.json; the stratagem
+        itself is cited as "Stratagem.Tank Shock" in
+        data/rule_citations.d/stratagems.json. The gate is read at call
+        time so test tearDown can flip it off between tests.
         """
         ctx = {"charger": charger, "succeeded": True}
         if not should_fire_stratagem(charger_army, TANK_SHOCK, ctx):
             return
         if not self._fire_stratagem(charger_army, TANK_SHOCK):
             return
+
+        # Determine how many mortal wounds to apply.
+        if os.environ.get("SWEG_TANKSHOCK_DICE", "0") != "0":
+            # Faithful 10e procedure: roll Toughness-many D6; each 5+ deals
+            # 1 mortal wound, capped at 6. The rule says to "select one
+            # VEHICLE model in your unit that is within Engagement Range" —
+            # charger.profile.toughness is exactly that model's Toughness
+            # (every Unit is one model in SwegHammer's representation).
+            tank_toughness = int(charger.profile.toughness)
+            mortal_count = sum(
+                1 for _ in range(tank_toughness)
+                if random.randint(1, 6) >= 5
+            )
+            mortal_count = min(mortal_count, 6)  # "to a maximum of 6 mortal wounds"
+        else:
+            # OFF path — flat 2. No extra random draws; byte-identical.
+            mortal_count = 2
+
+        if mortal_count <= 0:
+            return
+
         # Mortal wounds bypass armour/invuln; honour FNP via receive_damage and
         # spill across the target unit's models (10e core, _apply_mortal_wounds).
         # Each model the spill finishes triggers the kill-award fan-out. Cited as
         # simulator.mortal_wound_spillover.
         target_army = self.b if charger_army is self.a else self.a
-        for _m in self._apply_mortal_wounds(target, 2):
+        for _m in self._apply_mortal_wounds(target, mortal_count):
             self._emit(UnitKilled(unit_uid=_m.uid))
             # Tank Shock that finishes a Votann model still triggers the
             # Judgement Token award — the killer's army is the charger's army.

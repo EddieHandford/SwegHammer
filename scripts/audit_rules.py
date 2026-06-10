@@ -591,6 +591,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Chaos Daemons units arriving under the Daemonic Incursion detachment.
     # Cited in data/rule_citations.d/chaos_daemons.json.
     "simulator.warp_rifts",
+    # Wave 232 — Tank Shock dice-faithful ON path (env-gated SWEG_TANKSHOCK_DICE).
+    # ON: roll D6 + charger Toughness; on 7+ target takes D3 mortal wounds capped 6.
+    # OFF (default): flat 2 mortal wounds (median D3, byte-identical).
+    # Verbatim rule text from data/rule_citations.d/stratagems.json
+    # "Stratagem.Tank Shock". Cited in data/rule_citations.json.
+    "simulator.tank_shock_dice",
     # Wave 223 — 10e core Reserves cap (env-gated SWEG_DEPLOY_AI). Dual cap:
     # no more than half of an army's units AND no more than half of its total
     # points may start in Reserves. Deep Strike and Cult Ambush (a type of

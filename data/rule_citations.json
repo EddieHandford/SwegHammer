@@ -183,5 +183,13 @@
     "trigger": "Once per battle, during mission sequence step 12 (Determine First Turn), before the first battle round begins",
     "effect": "The player who wins the roll-off chooses whether to take the first or second turn; that turn order then persists for the entire battle — the same player always takes the first turn in every subsequent battle round",
     "scope": "army-wide"
+  },
+  "simulator.tank_shock_dice": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/quick-start-guide/",
+    "rule_name": "Tank Shock (dice-faithful ON path, gate SWEG_TANKSHOCK_DICE)",
+    "quoted_text": "WHEN: Your Charge phase, just after a VEHICLE unit from your army ends a Charge move. TARGET: That VEHICLE unit. EFFECT: Select one enemy unit within Engagement Range of your unit, and select one VEHICLE model in your unit that is within Engagement Range of that enemy unit. Roll a number of D6 equal to the Toughness characteristic of the selected VEHICLE model. For each 5+, that enemy unit suffers 1 mortal wound (to a maximum of 6 mortal wounds).",
+    "trigger": "ON path (SWEG_TANKSHOCK_DICE=1) only; charge phase, after a friendly VEHICLE unit ends a successful charge move and the stratagem fires; same trigger as Stratagem.Tank Shock",
+    "effect": "Roll a number of D6 equal to the charging VEHICLE model's Toughness characteristic (charger.profile.toughness); each die of 5 or 6 adds 1 mortal wound, capped at 6 total, applied via _apply_mortal_wounds. OFF path (default): flat 2 mortal wounds (the incumbent deterministic approximation, byte-identical to prior behaviour, no additional random draws).",
+    "scope": "phase-gated"
   }
 }
