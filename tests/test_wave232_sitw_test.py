@@ -9,7 +9,8 @@
   your army, subtract 1 from that test."
 
 This file pins:
-  1.  Gate OFF (byte-identical): with SWEG_SITW_TEST unset, no forced tests
+  1.  Gate OFF (byte-identical): with SWEG_SITW_TEST=0 (explicit OFF —
+      default-ON since wave 232), no forced tests
       fire on declaration — only the existing below-half tests run, same as
       before wave 232.
   2.  Gate ON, declaration fires: every enemy squad receives a forced test
@@ -135,8 +136,9 @@ class SitWForcedTestBaseCase(unittest.TestCase):
 
 
 class SitWGateOffTests(SitWForcedTestBaseCase):
-    """With SWEG_SITW_TEST absent, full-strength enemy units are NOT forced
-    to test even when Shadow in the Warp is declared."""
+    """With SWEG_SITW_TEST=0 (explicit OFF; default-ON since wave 232),
+    full-strength enemy units are NOT forced to test even when Shadow in
+    the Warp is declared."""
 
     def test_gate_off_full_strength_no_forced_test(self):
         """Full-strength enemy must not be Battle-shocked when gate is off.
@@ -145,7 +147,7 @@ class SitWGateOffTests(SitWForcedTestBaseCase):
         with Leadership >= 3 would fail if a forced test fired. With the
         gate off, no forced tests happen and the set stays empty.
         """
-        os.environ.pop(self._GATE, None)
+        os.environ[self._GATE] = "0"
         battle = _make_battle(
             tyranid_pos=(30.0, 20.0),
             enemy_positions=[(32.0, 20.0)],   # within 6\" of SYNAPSE source
@@ -170,7 +172,7 @@ class SitWGateOffTests(SitWForcedTestBaseCase):
         This confirms the refactoring did not break the standard once-per-round
         below-half-strength path.
         """
-        os.environ.pop(self._GATE, None)
+        os.environ[self._GATE] = "0"
         battle = _make_battle(
             enemy_positions=[(40.0, 30.0)],
             enemy_leadership=8,
@@ -441,11 +443,12 @@ class SitWRoundWiringTests(SitWForcedTestBaseCase):
         )
 
     def test_gate_off_no_forced_tests_at_declaration_time(self):
-        """With SWEG_SITW_TEST absent, the command-phase declaration block must
-        NOT call forced tests — verifying the os.environ gate is read at
-        declaration time (not at import time).
+        """With SWEG_SITW_TEST=0 (explicit OFF; default-ON since wave 232),
+        the command-phase declaration block must NOT call forced tests —
+        verifying the os.environ gate is read at declaration time (not at
+        import time).
         """
-        os.environ.pop(self._GATE, None)
+        os.environ[self._GATE] = "0"
         battle = _make_battle(
             tyranid_pos=(30.0, 20.0),
             enemy_positions=[(55.0, 55.0)],
@@ -477,7 +480,7 @@ class SitWRoundWiringTests(SitWForcedTestBaseCase):
 
 
 class SitWByteIdenticalTests(SitWForcedTestBaseCase):
-    """With SWEG_SITW_TEST absent (OFF), the declaration path must draw zero
+    """With SWEG_SITW_TEST=0 (explicit OFF), the declaration path must draw zero
     extra dice — the random sequence must be identical to a battle with no
     Tyranids at all (no extra randint calls on the OFF path)."""
 
@@ -485,14 +488,14 @@ class SitWByteIdenticalTests(SitWForcedTestBaseCase):
         """Zero extra dice draws on the OFF path.
 
         We count randint calls for a battle where:
-          (a) SWEG_SITW_TEST is absent
+          (a) SWEG_SITW_TEST=0 (explicit OFF; default-ON since wave 232)
           (b) A Tyranid SYNAPSE army reaches round 2 and declares Shadow
 
         vs a control battle with no Tyranids where Shadow is never declared.
         The declaration bookkeeping (setting shadow_in_the_warp_used_round)
         must not add any dice draws.
         """
-        os.environ.pop(self._GATE, None)
+        os.environ[self._GATE] = "0"
 
         call_counts = {}
 

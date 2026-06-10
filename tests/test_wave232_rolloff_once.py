@@ -1,4 +1,4 @@
-"""Once-per-battle first-turn roll-off — wave 232, gate SWEG_ROLLOFF_ONCE (default-OFF).
+"""Once-per-battle first-turn roll-off — wave 232, gate SWEG_ROLLOFF_ONCE (default-ON since wave 232).
 
 Real Warhammer 40k 10e (mission sequence step 12): 'The players roll off. The
 winner declares whether they will take the first or second turn.' That order
@@ -171,7 +171,9 @@ class RolloffOnceGateOnTests(unittest.TestCase):
 
 
 class RolloffOnceGateOffTests(unittest.TestCase):
-    """Gate SWEG_ROLLOFF_ONCE=0 (or unset): per-round flip, no state change."""
+    """Gate SWEG_ROLLOFF_ONCE=0 (explicit OFF): per-round flip, no state
+    change. Since wave 232 the gate is default-ON, so UNSET is the ON path —
+    the unset tests below assert ON behaviour."""
 
     def setUp(self):
         os.environ.pop("SWEG_ROLLOFF_ONCE", None)
@@ -188,44 +190,45 @@ class RolloffOnceGateOffTests(unittest.TestCase):
             "_first_player must remain None on the gate-OFF path"
         )
 
-    def test_gate_unset_first_player_stays_none(self):
-        """With gate completely unset (no env var), _first_player also stays
-        None — the baseline is also the OFF path."""
+    def test_gate_unset_first_player_is_set(self):
+        """With gate completely unset (no env var), _first_player must be SET —
+        default-ON since wave 232 means unset is the once-per-battle path."""
         battle, _, _result = _build_battle(seed=17, gate_value=None)
-        self.assertIsNone(
+        self.assertIsNotNone(
             battle._first_player,
-            "_first_player must remain None when gate env var is not set"
+            "_first_player must be set when gate env var is not set "
+            "(default-ON since wave 232)"
         )
 
-    def test_gate_off_byte_identical_to_unset(self):
-        """BattleResult produced with SWEG_ROLLOFF_ONCE=0 (explicit OFF) must
-        be identical to the result produced with the gate variable completely
-        unset — both are the per-round-flip path and must use the same random
-        draws in the same order."""
-        # Run gate-OFF (explicit "0") and unset back-to-back on the same seed.
-        _battle_off, _, result_off = _build_battle(seed=55, gate_value="0")
+    def test_gate_unset_byte_identical_to_explicit_on(self):
+        """BattleResult produced with the gate variable completely unset must
+        be identical to the result produced with SWEG_ROLLOFF_ONCE=1 — since
+        wave 232 both are the once-per-battle path and must use the same
+        random draws in the same order."""
+        # Run gate-ON (explicit "1") and unset back-to-back on the same seed.
+        _battle_on, _, result_on = _build_battle(seed=55, gate_value="1")
         # Re-seed identically for the unset run.
         _battle_unset, _, result_unset = _build_battle(seed=55, gate_value=None)
 
         self.assertEqual(
-            result_off.winner,
+            result_on.winner,
             result_unset.winner,
-            "gate-OFF winner must match gate-unset winner (byte-identical paths)"
+            "gate-ON winner must match gate-unset winner (byte-identical paths)"
         )
         self.assertEqual(
-            result_off.rounds,
+            result_on.rounds,
             result_unset.rounds,
-            "gate-OFF rounds must match gate-unset"
+            "gate-ON rounds must match gate-unset"
         )
         self.assertEqual(
-            result_off.a_vp,
+            result_on.a_vp,
             result_unset.a_vp,
-            "gate-OFF a_vp must match gate-unset a_vp"
+            "gate-ON a_vp must match gate-unset a_vp"
         )
         self.assertEqual(
-            result_off.b_vp,
+            result_on.b_vp,
             result_unset.b_vp,
-            "gate-OFF b_vp must match gate-unset b_vp"
+            "gate-ON b_vp must match gate-unset b_vp"
         )
 
     def test_gate_off_can_mix_first_army_across_rounds(self):

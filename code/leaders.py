@@ -192,7 +192,7 @@ class LeaderAbility:
     # the end of the phase; on a 2+, set the model back up with full wounds.
     # Tracked via Army.self_revive_used_uids so the once-per-battle guard fires
     # on the model's uid, not on the unit name.
-    # Gated SWEG_SOROR_ABILITIES (default-OFF).
+    # Gated SWEG_SOROR_ABILITIES (default-ON since wave 232).
     # BSData v10.6.0 (Imperium - Adepta Sororitas.cat.gz, ability id
     # eee9-b689-1a73-742b, typeName Abilities). Cited as
     # `simulator.celestine_miraculous_intervention`.
@@ -476,7 +476,7 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # offensive aura until a faithful implementation lands. Wahapedia:
     # https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Canoness
     #
-    # SWEG_SOROR_ABILITIES-gated entries (default-OFF — gate is in
+    # SWEG_SOROR_ABILITIES-gated entries (default-ON since wave 232 — gate is in
     # effective_buffs via _soror_gate_on, same pattern as SWEG_CSM_ABILITIES).
     #
     # Saint Celestine — "Miraculous Intervention" (once-per-battle self-revive
@@ -1621,12 +1621,13 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         # are suppressed entirely — their leader entries are default-off, so if
         # the gate is OFF we skip the whole leader. Gate-ON: aura fields merge
         # normally (no proxy suppression needed, the fields are the faithful rule).
-        _soror_gate_on = __import__("os").environ.get("SWEG_SOROR_ABILITIES", "0") != "0"
+        _soror_gate_on = __import__("os").environ.get("SWEG_SOROR_ABILITIES", "1") != "0"
         _soror_off = (not _soror_gate_on) and (_ability_name in (
             "Miraculous Intervention", "Abbess Sanctorum",
         ))
         if _soror_off:
-            # Sororitas abilities are default-off; skip all fields for this leader.
+            # Sororitas gate explicitly disabled (default-ON since wave 232);
+            # skip all fields for this leader.
             continue
         # Dark Apostle gate-ON: suppress the legacy reroll_hit_ones proxy because
         # plus_one_to_wound_melee_only (gated in units.py) fires in its place.
@@ -1885,7 +1886,7 @@ def maybe_apply_celestine_revival(
     Cited as `simulator.celestine_miraculous_intervention`.
     """
     # Gate OFF by default.
-    if __import__("os").environ.get("SWEG_SOROR_ABILITIES", "0") == "0":
+    if __import__("os").environ.get("SWEG_SOROR_ABILITIES", "1") == "0":
         return False
 
     ability = lookup_ability(destroyed_unit.profile.name)

@@ -10,9 +10,9 @@ verified against Wahapedia Core Stratagems):
   For each 5+, that enemy unit suffers 1 mortal wound (to a maximum of 6
   mortal wounds)."
 
-Gate: SWEG_TANKSHOCK_DICE (default-OFF).
-  OFF path: flat 2 mortal wounds (byte-identical to prior behaviour, no random draws).
-  ON path: roll Toughness-many D6; each 5+ deals 1 mortal wound, capped at 6.
+Gate: SWEG_TANKSHOCK_DICE (default-ON since wave 232).
+  OFF path (=0): flat 2 mortal wounds (byte-identical to prior behaviour, no random draws).
+  ON path (default): roll Toughness-many D6; each 5+ deals 1 mortal wound, capped at 6.
 """
 from __future__ import annotations
 
@@ -83,10 +83,11 @@ def _infantry_profile():
 # ---------------------------------------------------------------------------
 
 class TestTankShockDiceOff(unittest.TestCase):
-    """OFF path: flat 2 mortal wounds, byte-identical to prior behaviour."""
+    """OFF path (explicit =0; default-ON since wave 232): flat 2 mortal
+    wounds, byte-identical to prior behaviour."""
 
     def setUp(self):
-        os.environ.pop("SWEG_TANKSHOCK_DICE", None)
+        os.environ["SWEG_TANKSHOCK_DICE"] = "0"
 
     def tearDown(self):
         os.environ.pop("SWEG_TANKSHOCK_DICE", None)
@@ -233,14 +234,16 @@ class TestTankShockGateHermeticity(unittest.TestCase):
     def tearDown(self):
         os.environ.pop("SWEG_TANKSHOCK_DICE", None)
 
-    def test_gate_absent_evaluates_to_off(self):
+    def test_gate_absent_evaluates_to_on(self):
+        """Default-ON since wave 232: a missing env-var is the ON path."""
         self.assertNotIn("SWEG_TANKSHOCK_DICE", os.environ)
-        is_on = os.environ.get("SWEG_TANKSHOCK_DICE", "0") != "0"
-        self.assertFalse(is_on, "Missing env-var must evaluate to OFF")
+        is_on = os.environ.get("SWEG_TANKSHOCK_DICE", "1") != "0"
+        self.assertTrue(is_on, "Missing env-var must evaluate to ON "
+                               "(default-ON since wave 232)")
 
     def test_gate_set_to_1_evaluates_to_on(self):
         os.environ["SWEG_TANKSHOCK_DICE"] = "1"
-        is_on = os.environ.get("SWEG_TANKSHOCK_DICE", "0") != "0"
+        is_on = os.environ.get("SWEG_TANKSHOCK_DICE", "1") != "0"
         self.assertTrue(is_on, "SWEG_TANKSHOCK_DICE=1 must evaluate to ON")
 
     def test_gate_cleared_after_teardown(self):

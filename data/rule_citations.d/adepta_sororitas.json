@@ -5,7 +5,7 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Triumph-of-Saint-Katherine",
     "rule_name": "Solemn Procession",
     "quoted_text": "Each time you gain 1 Miracle dice at the start of the battle round, if this model is on the battlefield, do not roll one D6 to determine the value of that Miracle dice; it has a value of 6.",
-    "trigger": "Adepta Sororitas army gains its round-start Miracle die (simulator.acts_of_faith trigger site in Battle._run_round); the Triumph of Saint Katherine model is alive on the battlefield (army.alive_units check). Gated SWEG_SOROR_ABILITIES (default-OFF).",
+    "trigger": "Adepta Sororitas army gains its round-start Miracle die (simulator.acts_of_faith trigger site in Battle._run_round); the Triumph of Saint Katherine model is alive on the battlefield (army.alive_units check). Gated SWEG_SOROR_ABILITIES (default-ON since wave 232).",
     "effect": "The round-start Miracle die is forced to value 6 (appended directly to miracle_dice pool) instead of being rolled as D6 via gain_miracle_dice(1, rng). When gate is OFF, the existing gain_miracle_dice(1, rng) path fires unchanged (byte-identical). BSData v10.6.0 ability id 3d31-2f99-c625-f047.",
     "scope": "army-wide"
   },
@@ -14,7 +14,7 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Saint-Celestine",
     "rule_name": "Miraculous Intervention",
     "quoted_text": "The first time this unit's Celestine model is destroyed, roll one D6 at the end of the phase. On a 2+, set that Celestine model back up on the battlefield, as close as possible to where it was destroyed and not within Engagement Range of any enemy units, with its full wounds remaining.",
-    "trigger": "Saint Celestine model is destroyed (any kill site: shooting, melee, Tank Shock, Counter-Offensive); only the first destruction in the battle triggers the roll. Gated SWEG_SOROR_ABILITIES (default-OFF).",
+    "trigger": "Saint Celestine model is destroyed (any kill site: shooting, melee, Tank Shock, Counter-Offensive); only the first destruction in the battle triggers the roll. Gated SWEG_SOROR_ABILITIES (default-ON since wave 232).",
     "effect": "Roll 1D6; on 2+ restore Celestine to full wounds at her current position (position approximation: 'as close as possible to where destroyed' maps to current grid position; Engagement Range check is omitted — minor over-buff in edge cases). The once-per-battle guard is Army.self_revive_used_uids (tracks uid of models that already used self_revive_on_2plus). Implemented via leaders.maybe_apply_celestine_revival called from all four kill-site hooks in simulator.py. BSData v10.6.0 ability id eee9-b689-1a73-742b.",
     "scope": "character-only",
     "approximation": "true"
@@ -25,7 +25,7 @@
     "rule_name": "Miraculous Intervention",
     "quoted_text": "The first time this unit's Celestine model is destroyed, roll one D6 at the end of the phase. On a 2+, set that Celestine model back up on the battlefield, as close as possible to where it was destroyed and not within Engagement Range of any enemy units, with its full wounds remaining.",
     "trigger": "Saint Celestine model is destroyed; once per battle",
-    "effect": "self_revive_on_2plus=True signals the simulator-side maybe_apply_celestine_revival hook. host_keys restrict Celestine to Seraphim Squad and Zephyrim Squad per BSData Leader profile (id b4dd-3e1f-41cb-218f). Gated SWEG_SOROR_ABILITIES (default-OFF; the LeaderAbility entry is suppressed in effective_buffs when gate is OFF via _soror_off check). BSData v10.6.0 ability id eee9-b689-1a73-742b.",
+    "effect": "self_revive_on_2plus=True signals the simulator-side maybe_apply_celestine_revival hook. host_keys restrict Celestine to Seraphim Squad and Zephyrim Squad per BSData Leader profile (id b4dd-3e1f-41cb-218f). Gated SWEG_SOROR_ABILITIES (default-ON since wave 232; the LeaderAbility entry is suppressed in effective_buffs when gate is OFF via _soror_off check). BSData v10.6.0 ability id eee9-b689-1a73-742b.",
     "scope": "character-only"
   },
 
@@ -33,7 +33,7 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Morvenn-Vahl",
     "rule_name": "Abbess Sanctorum",
     "quoted_text": "While this model is leading a unit, each time a model in that unit makes an attack, you can re-roll the Hit roll and you can re-roll the Wound roll.",
-    "trigger": "Morvenn Vahl is leading a Paragon Warsuits unit (host_keys gated to adepta_sororitas_paragon_warsuits per BSData Leader profile id b4dd-3e1f-41cb-218f: 'This model can be attached to the following unit: Paragon Warsuits'); the led unit makes an attack. Gated SWEG_SOROR_ABILITIES (default-OFF; suppressed in effective_buffs via _soror_off when gate is OFF).",
+    "trigger": "Morvenn Vahl is leading a Paragon Warsuits unit (host_keys gated to adepta_sororitas_paragon_warsuits per BSData Leader profile id b4dd-3e1f-41cb-218f: 'This model can be attached to the following unit: Paragon Warsuits'); the led unit makes an attack. Gated SWEG_SOROR_ABILITIES (default-ON since wave 232; suppressed in effective_buffs via _soror_off when gate is OFF).",
     "effect": "(approximation) reroll_hit_ones=True + reroll_wound_ones=True — re-rolls natural 1s on both Hit and Wound rolls. The codex grants full re-roll of any failure (not just 1s); SwegHammer's LeaderAbility schema has no full-reroll-distinct-from-reroll-1s field. Direction-correct; strictly weaker than the codex. BSData v10.6.0 ability id 5e86-cb68-9205-16c4.",
     "scope": "unit-led",
     "approximation": "true"

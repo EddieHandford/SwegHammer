@@ -1,5 +1,5 @@
 """Tests for wave 232: Harbingers of Dread additional Dread abilities
-(gated SWEG_HARBINGERS, default-OFF).
+(gated SWEG_HARBINGERS, default-ON since wave 232).
 
 Abilities tested:
   Despair   — stacking Ld -1 aura (cumulative with Deathly Terror), wired in
@@ -207,10 +207,11 @@ class DespairTests(unittest.TestCase):
             "Roll 8 vs target 9 should FAIL: Despair raises target to 9.",
         )
 
-    def test_despair_off_by_default(self) -> None:
-        """With SWEG_HARBINGERS unset (OFF), only Deathly Terror (-1)
-        should fire, so target = 7 + 1 = 8; a roll of 8 should PASS."""
-        os.environ.pop("SWEG_HARBINGERS", None)
+    def test_despair_off_when_gate_disabled(self) -> None:
+        """With SWEG_HARBINGERS=0 (explicit OFF; default-ON since wave 232),
+        only Deathly Terror (-1) should fire, so target = 7 + 1 = 8; a roll
+        of 8 should PASS."""
+        os.environ["SWEG_HARBINGERS"] = "0"
 
         enemy_profile = _generic_profile(leadership=7, health=10.0)
         ck_profile = _chaos_knights_profile()
@@ -372,11 +373,11 @@ class DarknessTests(unittest.TestCase):
             msg="Darkness must not apply to non-Chaos-Knights targets.",
         )
 
-    def test_darkness_off_by_default(self) -> None:
-        """With SWEG_HARBINGERS unset, a Battle-shocked attacker at 24\"
-        must deal the same expected damage as a normal attacker vs a Chaos
-        Knights target (Darkness gate is OFF)."""
-        os.environ.pop("SWEG_HARBINGERS", None)
+    def test_darkness_off_when_gate_disabled(self) -> None:
+        """With SWEG_HARBINGERS=0 (explicit OFF; default-ON since wave 232),
+        a Battle-shocked attacker at 24\" must deal the same expected damage
+        as a normal attacker vs a Chaos Knights target (Darkness gate OFF)."""
+        os.environ["SWEG_HARBINGERS"] = "0"
         attacker = _generic_profile(
             name="Generic Attacker",
             faction="Generic",
@@ -511,10 +512,11 @@ class DismayTests(unittest.TestCase):
             "Dismay must NOT force a test on a squad outside the 9\" aura.",
         )
 
-    def test_dismay_off_by_default(self) -> None:
-        """With SWEG_HARBINGERS unset, a below-Starting-Strength squad must
-        NOT be forced to test (only the below-Half-Strength path fires)."""
-        os.environ.pop("SWEG_HARBINGERS", None)
+    def test_dismay_off_when_gate_disabled(self) -> None:
+        """With SWEG_HARBINGERS=0 (explicit OFF; default-ON since wave 232),
+        a below-Starting-Strength squad must NOT be forced to test (only the
+        below-Half-Strength path fires)."""
+        os.environ["SWEG_HARBINGERS"] = "0"
         bsr = self._run_with_forced_roll(
             alive_count=4,
             start_count=6,
@@ -673,11 +675,11 @@ class DeliriumTests(unittest.TestCase):
             "Chaos Knights aura.",
         )
 
-    def test_delirium_off_by_default(self) -> None:
-        """With SWEG_HARBINGERS unset (OFF), a Below Half-Strength unit
-        within 9\" that fails its Battle-shock test must NOT receive any
-        extra mortal wounds from Delirium."""
-        os.environ.pop("SWEG_HARBINGERS", None)
+    def test_delirium_off_when_gate_disabled(self) -> None:
+        """With SWEG_HARBINGERS=0 (explicit OFF; default-ON since wave 232),
+        a Below Half-Strength unit within 9\" that fails its Battle-shock
+        test must NOT receive any extra mortal wounds from Delirium."""
+        os.environ["SWEG_HARBINGERS"] = "0"
 
         enemy_profile = _generic_profile(
             name="Off-Fragile",
@@ -777,9 +779,10 @@ class DoomSuppressionTests(unittest.TestCase):
         return total / n
 
     def test_doom_fires_with_gate_off(self) -> None:
-        """Gate OFF (default): a Chaos Knights attacker must deal MORE
-        damage into a Battle-shocked target (Doom +1 to Wound, 4+ → 3+)."""
-        os.environ.pop("SWEG_HARBINGERS", None)
+        """Gate explicitly OFF (default-ON since wave 232): a Chaos Knights
+        attacker must deal MORE damage into a Battle-shocked target (Doom +1
+        to Wound, 4+ → 3+)."""
+        os.environ["SWEG_HARBINGERS"] = "0"
         dmg_shocked = self._avg_ck_damage_vs_target(target_shocked=True)
         dmg_normal = self._avg_ck_damage_vs_target(target_shocked=False)
         self.assertGreater(

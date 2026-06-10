@@ -22,7 +22,7 @@
     "rule_name": "Shadow in the Warp — forced Battle-shock test on unleash",
     "quoted_text": "If your Army Faction is TYRANIDS, once per battle, in either player's Command phase, if one or more units from your army with this ability are on the battlefield, you can unleash the Shadow in the Warp. When you do, each enemy unit on the battlefield must take a Battle-shock test. Each time an enemy unit takes such a Battle-shock test, if it is within 6\" of one or more SYNAPSE units from your army, subtract 1 from that test.",
     "trigger": "the Tyranid player unleashes Shadow in the Warp in the Command phase; every enemy unit on the battlefield must immediately take a Battle-shock test regardless of whether it is below half-strength",
-    "effect": "each enemy unit takes a Battle-shock test (2D6 vs Leadership); if the unit is within 6\" of a friendly Tyranid SYNAPSE model, subtract 1 from the test. Failure marks the unit as Battle-shocked (objective control drops to 0, cannot be the subject of Stratagems). Gated SWEG_SITW_TEST (default-OFF); implemented in _apply_shadow_in_the_warp_forced_tests via the shared _battleshock_test_squad helper.",
+    "effect": "each enemy unit takes a Battle-shock test (2D6 vs Leadership); if the unit is within 6\" of a friendly Tyranid SYNAPSE model, subtract 1 from the test. Failure marks the unit as Battle-shocked (objective control drops to 0, cannot be the subject of Stratagems). Gated SWEG_SITW_TEST (default-ON since wave 232); implemented in _apply_shadow_in_the_warp_forced_tests via the shared _battleshock_test_squad helper.",
     "scope": "army-wide",
     "approximation": false
   },

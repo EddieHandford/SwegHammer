@@ -8117,7 +8117,7 @@ class Battle:
         harbinger_sources:
             Chaos Knights sources for the Harbingers of Dread -1 penalty
             (Deathly Terror, always-on). Under the SWEG_HARBINGERS gate
-            (default-OFF) the same sources also drive Despair (a second,
+            (default-ON since wave 232) the same sources also drive Despair (a second,
             cumulative -1) and Delirium (D3 mortal wounds when a Below
             Half-strength unit fails its test within 9").
         """
@@ -8189,7 +8189,7 @@ class Battle:
         if _harbinger_in_range:
             harbinger_penalty = 1
 
-        # Harbingers of Dread — Despair (SWEG_HARBINGERS, default-OFF).
+        # Harbingers of Dread — Despair (SWEG_HARBINGERS, default-ON since wave 232).
         # Modelled as the Dread ability selected at the start of Round 1
         # (players virtually always pick Despair R1 for the stacking
         # pressure). BSData verbatim:
@@ -8201,7 +8201,7 @@ class Battle:
         # penalty within 9" to −2.
         # Cited as `simulator.harbingers_of_dread_despair`.
         _harbingers_on = (
-            __import__("os").environ.get("SWEG_HARBINGERS", "0") != "0"
+            __import__("os").environ.get("SWEG_HARBINGERS", "1") != "0"
         )
         despair_penalty = 0
         if _harbingers_on and _harbinger_in_range:
@@ -8362,7 +8362,7 @@ class Battle:
         self, sitw_army, round_num: int
     ) -> None:
         """Force a Battle-shock test on every enemy unit when Shadow in the
-        Warp is unleashed (SWEG_SITW_TEST gate, default-OFF).
+        Warp is unleashed (SWEG_SITW_TEST gate, default-ON since wave 232).
 
         10e Codex Tyranids army rule verbatim: "When you do, each enemy
         unit on the battlefield must take a Battle-shock test. Each time
@@ -8491,7 +8491,7 @@ class Battle:
             the battlefield on the unleashing round" half of the codex rule
             is modelled separately in
             `_apply_shadow_in_the_warp_forced_tests` (gated SWEG_SITW_TEST,
-            default-off); this phase only applies the -1 to the existing
+            default-ON since wave 232); this phase only applies the -1 to the existing
             below-half tests within 6". Cited as
             `simulator.shadow_in_the_warp` and
             `simulator.shadow_in_the_warp_forced_test`.
@@ -8586,7 +8586,7 @@ class Battle:
                 s for s in opponent.alive_units
                 if (s.profile.faction or "") == "Chaos Knights"
             ]
-            # SWEG_HARBINGERS gate (default-OFF): enables the four additional
+            # SWEG_HARBINGERS gate (default-ON since wave 232): enables the four additional
             # Dread abilities beyond Deathly Terror + Doom.
             # Despair:  +1 cumulative Ld -1 aura (rolls 1 Dread = Despair at R1)
             # Dismay:   force Battle-shock tests on below-Starting-Strength
@@ -8598,7 +8598,7 @@ class Battle:
             #           without threading a dynamic aura-range parameter through
             #           all four aura checks — not implemented this wave)
             _harbingers_on = (
-                __import__("os").environ.get("SWEG_HARBINGERS", "0") != "0"
+                __import__("os").environ.get("SWEG_HARBINGERS", "1") != "0"
             )
 
             # --- PER-SQUAD battleshock loop (task #27) ---
@@ -8667,10 +8667,10 @@ class Battle:
                 # behaviour is identical to the inlined code it replaced —
                 # same dice order, same modifier conventions, same
                 # Battle-shock consequences. The Shadow in the Warp forced
-                # test path (SWEG_SITW_TEST, default-OFF) calls the same
+                # test path (SWEG_SITW_TEST, default-ON since wave 232) calls the same
                 # helper without the below-half gate. The Harbingers of
                 # Dread additional abilities Despair and Delirium
-                # (SWEG_HARBINGERS, default-OFF) also live in the helper,
+                # (SWEG_HARBINGERS, default-ON since wave 232) also live in the helper,
                 # so they apply to forced tests too.
                 self._battleshock_test_squad(
                     army,
@@ -8844,7 +8844,7 @@ class Battle:
         # but most enemy units may still be in their deployment zone and
         # outside 6"). The "force a test on EVERY enemy unit" half of the
         # rule fires from `_apply_shadow_in_the_warp_forced_tests` right
-        # after the declaration below (gated SWEG_SITW_TEST, default-off);
+        # after the declaration below (gated SWEG_SITW_TEST, default-ON since wave 232);
         # with the gate off only the -1 to already-occurring below-half
         # tests within 6" applies. Cited as `simulator.shadow_in_the_warp`
         # and `simulator.shadow_in_the_warp_forced_test`.
@@ -8870,7 +8870,7 @@ class Battle:
             # so the rule auto-declares as a use-it-or-lose-it fallback.
             if round_num >= 2:
                 army.shadow_in_the_warp_used_round = round_num
-                # SWEG_SITW_TEST (default-OFF): force a Battle-shock test on
+                # SWEG_SITW_TEST (default-ON since wave 232): force a Battle-shock test on
                 # every enemy unit on the battlefield. This is the main half
                 # of the codex rule — "each enemy unit on the battlefield must
                 # take a Battle-shock test" — that was previously unmodelled.
@@ -8881,7 +8881,7 @@ class Battle:
                 # same dice convention and Battle-shock consequences as the
                 # normal once-per-round below-half test.
                 # Cited as `simulator.shadow_in_the_warp_forced_test`.
-                if os.environ.get("SWEG_SITW_TEST", "0") != "0":
+                if os.environ.get("SWEG_SITW_TEST", "1") != "0":
                     self._apply_shadow_in_the_warp_forced_tests(
                         army, round_num
                     )
@@ -8976,10 +8976,10 @@ class Battle:
                 # battle round, if this model is on the battlefield, do not
                 # roll one D6 to determine the value of that Miracle dice;
                 # it has a value of 6."
-                # Gated SWEG_SOROR_ABILITIES (default-OFF). Cited as
+                # Gated SWEG_SOROR_ABILITIES (default-ON since wave 232). Cited as
                 # `simulator.triumph_of_saint_katherine`.
                 _soror_abilities = __import__("os").environ.get(
-                    "SWEG_SOROR_ABILITIES", "0") != "0"
+                    "SWEG_SOROR_ABILITIES", "1") != "0"
                 if _soror_abilities and any(
                     u.is_alive and "Triumph of Saint Katherine" in u.profile.name
                     for u in army.alive_units
@@ -9251,7 +9251,7 @@ class Battle:
                 army.army_plan = None
 
         # Determine which army acts first this round.
-        # Gate SWEG_ROLLOFF_ONCE (default-OFF): faithful once-per-battle roll-off.
+        # Gate SWEG_ROLLOFF_ONCE (default-ON since wave 232): faithful once-per-battle roll-off.
         # OFF path: per-round flip — one random.random() draw every round,
         #   byte-identical to the code before this gate was added.
         # ON path: in round 1 draw random.random() once to decide first/second,
@@ -9260,7 +9260,7 @@ class Battle:
         #   sequence: "The players roll off. The winner declares whether they will
         #   take the first or second turn." The same player then goes first in
         #   every battle round. Cited as `simulator.first_turn_rolloff`.
-        if __import__("os").environ.get("SWEG_ROLLOFF_ONCE", "0") != "0":
+        if __import__("os").environ.get("SWEG_ROLLOFF_ONCE", "1") != "0":
             if self._first_player is None:
                 # Round 1: consume one draw to set the persistent order.
                 self._first_player = self.a if random.random() < 0.5 else self.b
@@ -12755,11 +12755,11 @@ class Battle:
         """After a VEHICLE charge resolves, optionally spend 1 CP for Tank
         Shock.
 
-        OFF path (SWEG_TANKSHOCK_DICE not set, default): flat 2 mortal
+        OFF path (SWEG_TANKSHOCK_DICE=0): flat 2 mortal
         wounds — the incumbent deterministic approximation, byte-identical
         to prior behaviour (no extra random draws).
 
-        ON path (SWEG_TANKSHOCK_DICE=1): faithful 10e procedure — roll a
+        ON path (default-ON since wave 232): faithful 10e procedure — roll a
         number of D6 equal to the Toughness characteristic of the selected
         VEHICLE model; for each 5+, the enemy unit suffers 1 mortal wound,
         to a maximum of 6 mortal wounds. Verified verbatim against
@@ -12776,7 +12776,7 @@ class Battle:
             return
 
         # Determine how many mortal wounds to apply.
-        if os.environ.get("SWEG_TANKSHOCK_DICE", "0") != "0":
+        if os.environ.get("SWEG_TANKSHOCK_DICE", "1") != "0":
             # Faithful 10e procedure: roll Toughness-many D6; each 5+ deals
             # 1 mortal wound, capped at 6. The rule says to "select one
             # VEHICLE model in your unit that is within Engagement Range" —

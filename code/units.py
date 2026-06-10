@@ -2152,7 +2152,7 @@ class Unit:
             if (
                 mode in ("melee", "ranged")
                 and (p.faction or "") == "Chaos Knights"
-                and __import__("os").environ.get("SWEG_HARBINGERS", "0") == "0"
+                and __import__("os").environ.get("SWEG_HARBINGERS", "1") == "0"
                 and target.is_currently_battle_shocked(
                     getattr(
                         getattr(getattr(self, "army_ref", None), "_battle_ref", None),
@@ -2704,7 +2704,7 @@ class Unit:
             ):
                 hit_mod_delta -= 1
 
-            # ---- Harbingers of Dread — Darkness (SWEG_HARBINGERS, default-OFF).
+            # ---- Harbingers of Dread — Darkness (SWEG_HARBINGERS, default-ON since wave 232).
             # The TARGET model must be a Chaos Knights model; if the attacking
             # unit is Battle-shocked OR more than 18" away from the target, the
             # attacker suffers -1 to its Hit roll. Melee is included (the rule
@@ -2720,7 +2720,7 @@ class Unit:
             # subtract 1 from the Hit roll."
             # Cited as `simulator.harbingers_of_dread_darkness`.
             if (
-                __import__("os").environ.get("SWEG_HARBINGERS", "0") != "0"
+                __import__("os").environ.get("SWEG_HARBINGERS", "1") != "0"
                 and (target.profile.faction or "") == "Chaos Knights"
             ):
                 _atk_army_dk = getattr(self, "army_ref", None)
