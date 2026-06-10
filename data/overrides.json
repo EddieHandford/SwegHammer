@@ -406,7 +406,8 @@
       "notes": "sweg_balance_mc up 585.86 -> 644.45 pts/model"
     },
     "necrons_lokhust_heavy_destroyers": {
-      "enabled": false
+      "points_listed": 55,
+      "notes": "WAVE232-SYNC: re-enabled with canonical points (was disabled by the 38-unit no-canonical-points sweep, which broke the Necrons archetype seed). BSData encodes no cost for this datasheet (points_listed 0 fell through to Lanchester-fallback pricing - the pollution the sweep targeted), but the unit is a real pointed datasheet. Canonical cost from Wahapedia https://wahapedia.ru/wh40k10ed/factions/necrons/Lokhust-Heavy-Destroyers : '1 model 55 / 2 models 110 / 3 models 165'. points_listed carries the minimum-size (1-model) squad cost per the mapper convention; scaling is linear per model."
     },
     "necrons_lokhust_destroyers": {
       "points_override": 138.42,
@@ -1222,7 +1223,8 @@
       "notes": "DAEMONS-DIAG-2: Plague Drones carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Plague-Drones. GLOAM-ROT: BSData XML confirms Gloam Rot on Plague Drones. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_beasts_of_nurgle": {
-      "enabled": false
+      "points_listed": 65,
+      "notes": "WAVE232-SYNC: re-enabled with canonical points (was disabled by the 38-unit no-canonical-points sweep, which broke the Chaos Daemons archetype seed). BSData encodes no cost for this datasheet. Canonical cost from Wahapedia https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Beasts-Of-Nurgle : '1 model 65 / 2 models 130'. points_listed carries the minimum-size (1-model) squad cost per the mapper convention; scaling is linear per model."
     },
     "chaos_daemons_library_furies_legends": {
       "invuln_save": 5,
@@ -3389,10 +3391,12 @@
       "enabled": false
     },
     "adeptus_mechanicus_ironstrider_ballistarii": {
-      "enabled": false
+      "points_listed": 85,
+      "notes": "WAVE232-SYNC: re-enabled with canonical points (was disabled by the 38-unit no-canonical-points sweep, which broke the Adeptus Mechanicus archetype seed). BSData encodes no cost for this datasheet. Canonical cost from Wahapedia https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/Ironstrider-Ballistarii : '1 model 85 / 2 models 170 / 3 models 255'. points_listed carries the minimum-size (1-model) squad cost per the mapper convention; scaling is linear per model."
     },
     "adeptus_mechanicus_sydonian_dragoons_with_taser_lances": {
-      "enabled": false
+      "points_listed": 65,
+      "notes": "WAVE232-SYNC: re-enabled with canonical points (was disabled by the 38-unit no-canonical-points sweep, which broke the Adeptus Mechanicus archetype seed). BSData encodes no cost for this datasheet. Canonical cost from Wahapedia https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/Sydonian-Dragoons-With-Taser-Lances : '1 model 65 / 2 models 130 / 3 models 195'. points_listed carries the minimum-size (1-model) squad cost per the mapper convention; scaling is linear per model."
     },
     "aeldari_craftworlds_starfangs": {
       "enabled": false
@@ -3419,7 +3423,8 @@
       "enabled": false
     },
     "astra_militarum_scout_sentinels": {
-      "enabled": false
+      "points_listed": 55,
+      "notes": "WAVE232-SYNC: re-enabled with canonical points (was disabled by the 38-unit no-canonical-points sweep, which broke the Astra Militarum archetype seed). BSData encodes no cost for this datasheet. Canonical cost from Wahapedia https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Scout-Sentinels : '1 model 55 / 2 models 110'. points_listed carries the minimum-size (1-model) squad cost per the mapper convention; scaling is linear per model."
     },
     "astra_militarum_tarantula_battery_legends": {
       "enabled": false
@@ -3479,7 +3484,8 @@
       "enabled": false
     },
     "tyranids_carnifexes": {
-      "enabled": false
+      "points_listed": 90,
+      "notes": "WAVE232-SYNC: re-enabled with canonical points (was disabled by the 38-unit no-canonical-points sweep, which broke the Tyranids archetype seed). BSData encodes no cost for this datasheet. Canonical cost from Wahapedia https://wahapedia.ru/wh40k10ed/factions/tyranids/Carnifexes : '1 model 90 / 2 models 180'. points_listed carries the minimum-size (1-model) squad cost per the mapper convention; scaling is linear per model."
     },
     "tyranids_ripper_swarms_parasite_of_mortrex": {
       "enabled": false
