@@ -777,6 +777,10 @@ class Battle:
         self._stratagems_fired_this_battle: Dict[str, set] = {
             self.a.name: set(), self.b.name: set(),
         }
+        # CSM Possessed "Unholy Bloodshed" (gated SWEG_CSM_ABILITIES): once-per-
+        # battle guard. Stores the set of unit UIDs that have already consumed
+        # their Unholy Bloodshed grant. Cleared on Battle reset, not per-round.
+        self._csm_unholy_bloodshed_used: set = set()
         self.a._battle_ref = self
         self.b._battle_ref = self
         # Current battle round (1..MAX_ROUNDS). Updated at the top of each
@@ -3358,6 +3362,11 @@ class Battle:
             u.transient_sustained_hits = 0
             u.transient_reroll_wounds = False
             u.transient_reroll_wounds_ones = False
+            # CSM datasheet abilities (gated SWEG_CSM_ABILITIES).
+            # transient_reroll_all_hits: Despoilers (Chaos Terminator Squad).
+            # transient_devastating_wounds: Unholy Bloodshed (Possessed).
+            u.transient_reroll_all_hits = False
+            u.transient_devastating_wounds = False
             # DRK-SKYSPLINTER-DISEMBARK: Rain of Cruelty disembark-turn
             # keyword grants. Set on disembark by `_disembark` when the
             # unit is DRUKHARI and the army's detachment is Skysplinter
@@ -6603,6 +6612,42 @@ class Battle:
             # the Ld test passes; the test gates only the MW penalty).
             self._set_transient_squad(attacker, "transient_plus_one_to_hit_shooting")
             self._set_transient_squad(attacker, "transient_plus_one_to_wound_melee")
+
+            # CSM datasheet abilities granted when a unit makes a Dark Pact.
+            # Both gated SWEG_CSM_ABILITIES (default-off). When ON, the base
+            # dark pacts uplift above still fires (backward-compat: OFF config
+            # byte-identical to current behaviour).
+            _csm_gate = __import__("os").environ.get("SWEG_CSM_ABILITIES") == "1"
+            if _csm_gate:
+                # Chaos Terminator Squad "Despoilers": re-roll the Hit roll
+                # (full re-roll, any phase, any attack). BSData v10.6.0 verbatim:
+                # "Each time this unit makes a Dark Pact, until the end of the
+                # phase, each time a model in this unit makes an attack, you can
+                # re-roll the Hit roll." Cited as `simulator.csm_despoilers`.
+                if getattr(attacker.profile, "csm_despoilers", False):
+                    self._set_transient_squad(attacker, "transient_reroll_all_hits")
+                    if self.verbose:
+                        print(
+                            f"  DESPOILERS: {attacker.profile.name} granted "
+                            "full hit re-roll via Dark Pact"
+                        )
+                # Possessed "Unholy Bloodshed": once per battle, weapons gain
+                # [DEVASTATING WOUNDS] for the phase. BSData v10.6.0 verbatim:
+                # "Once per battle, when this unit makes a Dark Pact, until the
+                # end of the phase, weapons equipped by models in this unit have
+                # the [DEVASTATING WOUNDS] ability."
+                # Cited as `simulator.csm_unholy_bloodshed`.
+                if (
+                    getattr(attacker.profile, "csm_unholy_bloodshed", False)
+                    and attacker.uid not in self._csm_unholy_bloodshed_used
+                ):
+                    self._set_transient_squad(attacker, "transient_devastating_wounds")
+                    self._csm_unholy_bloodshed_used.add(attacker.uid)
+                    if self.verbose:
+                        print(
+                            f"  UNHOLY BLOODSHED: {attacker.profile.name} granted "
+                            "[DEVASTATING WOUNDS] via Dark Pact (once-per-battle)"
+                        )
 
             if not passed:
                 # D3 mortal wounds on the pact bearer. Mortals bypass

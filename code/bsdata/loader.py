@@ -74,6 +74,10 @@ class CatalogEntry:
     # CSM Legionaries datasheet ability "Veterans of the Long War" (override-only,
     # not a mapper output). Set via overrides.json; read at the melee wound step.
     veterans_of_the_long_war: bool = False
+    # CSM Chaos Terminator Squad "Despoilers" (override-only). Set via overrides.json.
+    csm_despoilers: bool = False
+    # CSM Possessed "Unholy Bloodshed" (override-only). Set via overrides.json.
+    csm_unholy_bloodshed: bool = False
     rapid_fire: int = 0
     melta: int = 0
     ignores_cover: bool = False
@@ -278,6 +282,8 @@ class CatalogEntry:
             invuln_save_melee=int(d.get("invuln_save_melee", d.get("invuln_save", 7))),
             invuln_save_ranged=int(d.get("invuln_save_ranged", d.get("invuln_save", 7))),
             veterans_of_the_long_war=bool(d.get("veterans_of_the_long_war", False)),
+            csm_despoilers=bool(d.get("csm_despoilers", False)),
+            csm_unholy_bloodshed=bool(d.get("csm_unholy_bloodshed", False)),
             rapid_fire=int(d.get("rapid_fire", 0)),
             melta=int(d.get("melta", 0)),
             ignores_cover=bool(d.get("ignores_cover", False)),
@@ -512,6 +518,8 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "invuln_save_melee": override.get("invuln_save_melee", override.get("invuln_save", base.invuln_save_melee)),
         "invuln_save_ranged": override.get("invuln_save_ranged", override.get("invuln_save", base.invuln_save_ranged)),
         "veterans_of_the_long_war": override.get("veterans_of_the_long_war", base.veterans_of_the_long_war),
+        "csm_despoilers": override.get("csm_despoilers", base.csm_despoilers),
+        "csm_unholy_bloodshed": override.get("csm_unholy_bloodshed", base.csm_unholy_bloodshed),
         "rapid_fire": override.get("rapid_fire", base.rapid_fire),
         "melta": override.get("melta", base.melta),
         "ignores_cover": override.get("ignores_cover", base.ignores_cover),

@@ -108,6 +108,7 @@ class LeaderAbility:
     plus_one_to_hit: bool = False
     plus_one_to_hit_melee_only: bool = False  # +1 to hit in melee attacks only (e.g. Warboss "Might is Right")
     plus_one_to_wound: bool = False
+    plus_one_to_wound_melee_only: bool = False  # +1 to wound in melee attacks only (e.g. Dark Apostle "Dark Zealotry")
     plus_one_attack: int = 0                # +N extra attacks per weapon (Cadre Fireblade etc.)
     # Greater Daemon locus auras (LEADERABILITY-SCHEMA, claude/sim-calibration-6).
     # Each maps to a per-stat uplift on the led / in-aura attacker's attack
@@ -717,10 +718,41 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # use the closest battleline that is, otherwise let the heuristic decide.)
     ("Sorcerer",           LeaderAbility(name="Prescience",                 aura_range=6.0, fnp=5,
                                           host_keys=_CSM_SORCERER_HOSTS)),
-    ("Dark Apostle",       LeaderAbility(name="Profane Litanies",           aura_range=6.0, reroll_hit_ones=True,
+    # Dark Apostle: the real 10e ability is "Dark Zealotry" — "+1 to the Wound
+    # roll" on melee attacks while a Dark Apostle model is leading the unit.
+    # BSData v10.6.0 (Chaos - Chaos Space Marines.cat.gz, ability id
+    # da55-1d58-dee4-d42): "While this unit is leading a unit and contains a
+    # DARK APOSTLE model, each time a model in that unit makes a melee attack,
+    # add 1 to the Wound roll."
+    # Both the proxy (reroll_hit_ones) and the faithful field
+    # (plus_one_to_wound_melee_only) are always present. The gate
+    # SWEG_CSM_ABILITIES controls which fires at the consumption sites:
+    #   OFF (default): reroll_hit_ones fires in effective_buffs (the prior proxy);
+    #     plus_one_to_wound_melee_only is suppressed in units.py (already gated).
+    #   ON: plus_one_to_wound_melee_only fires in units.py; reroll_hit_ones is
+    #     suppressed in effective_buffs via the _csm_gate_suppress block below.
+    # Cited as `simulator.dark_apostle_dark_zealotry`.
+    ("Dark Apostle",       LeaderAbility(name="Dark Zealotry",              aura_range=6.0,
+                                          reroll_hit_ones=True,
+                                          plus_one_to_wound_melee_only=True,
                                           host_keys=_CSM_APOSTLE_HOSTS)),
     ("Chaos Lord",         LeaderAbility(name="Lord of Hosts",              aura_range=6.0, plus_one_to_wound=True,
                                           host_keys=("chaos_space_marines_traitor_guardsmen_squad",))),
+    # Abaddon the Despoiler: the Warmaster ability "Paragon of Hatred" (Aura)
+    # is the competitively dominant pick. BSData v10.6.0 (Chaos - Chaos Space
+    # Marines.cat.gz, ability id 8b8a-6967-9f60-3de0, typeName "Warmaster"):
+    # "While a friendly HERETIC ASTARTES unit (excluding DAMNED units) is within
+    # 6\" of this model, each time a model in that unit makes an attack, you can
+    # re-roll the Hit roll."
+    # This is an army-wide broadcast aura (host_keys=() = no attachment gate):
+    # the codex text reads "While a friendly ... unit is within 6\"", NOT "While
+    # this model is leading a unit". Effect is GATED in effective_buffs via
+    # _csm_gate_suppress: fires only when SWEG_CSM_ABILITIES=1.
+    # Cited as `simulator.abaddon_paragon_of_hatred`.
+    ("Abaddon the Despoiler",
+                           LeaderAbility(name="Paragon of Hatred",          aura_range=6.0,
+                                          reroll_hit_ones=True,
+                                          host_keys=())),
     # Chaos Daemons heralds (MR-CHAOS-DAEMONS-LOCUS, claude/sim-calibration-6).
     # The four single-god Heralds were previously absent from this registry,
     # which meant every Bloodletters / Plaguebearers / Pink Horrors / Daemonettes
@@ -1175,6 +1207,7 @@ _NEUTRAL_BUFFS: Dict[str, object] = {
     "plus_one_to_hit": False,
     "plus_one_to_hit_melee_only": False,
     "plus_one_to_wound": False,
+    "plus_one_to_wound_melee_only": False,
     "plus_one_attack": 0,
     "plus_one_save": False,
     "extra_invuln": 7,
@@ -1524,7 +1557,24 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         if ability.host_keys:
             if not any(k in ability.host_keys for k in attacker_keys_for_host_gate):
                 continue
-        _merge_bool(buffs, ability, "reroll_hit_ones")
+        # SWEG_CSM_ABILITIES gate for CSM-specific leader abilities.
+        # Checked once per leader in the loop; avoids repeated os.environ lookups
+        # by reading from a local already established before the loop is entered.
+        # (For performance, this is cheap — the env is rarely changed mid-run.)
+        _csm_gate_on = __import__("os").environ.get("SWEG_CSM_ABILITIES") == "1"
+        # Dark Apostle: gate-ON suppresses the old reroll_hit_ones proxy (because
+        # plus_one_to_wound_melee_only fires in its place); gate-OFF keeps the proxy.
+        # Abaddon: the Paragon of Hatred aura is default-off; gate-ON enables it.
+        _ability_name = getattr(ability, "name", "")
+        _dark_apostle_on = _csm_gate_on and _ability_name == "Dark Zealotry"
+        _abaddon_off = not _csm_gate_on and _ability_name == "Paragon of Hatred"
+        if _abaddon_off:
+            # Abaddon's aura is default-off; skip all fields for this leader.
+            continue
+        # Dark Apostle gate-ON: suppress the legacy reroll_hit_ones proxy because
+        # plus_one_to_wound_melee_only (gated in units.py) fires in its place.
+        if not _dark_apostle_on:
+            _merge_bool(buffs, ability, "reroll_hit_ones")
         # TSON-AURA-V2: shooting-only re-roll 1s grant. See LeaderAbility
         # dataclass comment and units.py consumption site for gate detail.
         _merge_bool(buffs, ability, "reroll_hit_ones_shooting_only")
@@ -1532,6 +1582,7 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         _merge_bool(buffs, ability, "plus_one_to_hit")
         _merge_bool(buffs, ability, "plus_one_to_hit_melee_only")
         _merge_bool(buffs, ability, "plus_one_to_wound")
+        _merge_bool(buffs, ability, "plus_one_to_wound_melee_only")
         _merge_add(buffs, ability, "plus_one_attack")
         _merge_min(buffs, ability, "extra_invuln")
         _merge_min(buffs, ability, "fnp")

@@ -551,6 +551,22 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # (melee Wound-roll re-rolls, upgraded to full re-roll near objectives).
     # Gated SWEG_VETERANS.
     "simulator.veterans_of_the_long_war",
+    # CSM wave — Chaos Terminator Squad "Despoilers": when making a Dark Pact,
+    # re-roll the Hit roll until the end of the phase. Gated SWEG_CSM_ABILITIES.
+    # Cited in data/rule_citations.d/keywords_and_mechanics.json.
+    "simulator.csm_despoilers",
+    # CSM wave — Possessed "Unholy Bloodshed": once per battle, when making a
+    # Dark Pact, weapons gain [DEVASTATING WOUNDS] until the end of the phase.
+    # Gated SWEG_CSM_ABILITIES. Cited in data/rule_citations.d/keywords_and_mechanics.json.
+    "simulator.csm_unholy_bloodshed",
+    # CSM wave — Dark Apostle "Dark Zealotry": +1 to Wound roll on melee attacks
+    # while the unit is led by a Dark Apostle. Gated SWEG_CSM_ABILITIES.
+    # Cited in data/rule_citations.d/leaders.json.
+    "simulator.dark_apostle_dark_zealotry",
+    # CSM wave — Abaddon the Despoiler "Paragon of Hatred" (Warmaster ability):
+    # friendly HERETIC ASTARTES within 6\" re-roll Hit rolls. Army-wide broadcast
+    # aura. Gated SWEG_CSM_ABILITIES. Cited in data/rule_citations.d/leaders.json.
+    "simulator.abaddon_paragon_of_hatred",
     # Wave 221 — Chaos Daemons Daemonic Incursion "Warp Rifts" (env-gated
     # SWEG_WARP_RIFTS). Reduces Deep Strike minimum gap from 9" to 6" for
     # Chaos Daemons units arriving under the Daemonic Incursion detachment.
