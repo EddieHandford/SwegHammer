@@ -8060,6 +8060,337 @@ class Battle:
                     return True
         return False
 
+    def _battleshock_test_squad(
+        self,
+        army,
+        members,
+        round_num: int,
+        *,
+        ld_penalty: int,
+        ld_bonus: int,
+        own_synapse,
+        shadow_sources,
+        contagion_sources,
+        shadow_of_chaos_active: bool,
+        cx: float,
+        cy: float,
+        harbinger_sources,
+    ) -> None:
+        """Run one Battle-shock roll for a squad of models.
+
+        Shared between the normal once-per-round below-half-strength loop
+        (called from `_run_battleshock_phase`) and the Shadow in the Warp
+        forced test (called from `_apply_shadow_in_the_warp_forced_tests`
+        when the gate SWEG_SITW_TEST is ON).
+
+        The below-half-strength gate is NOT applied here — callers are
+        responsible for applying it (or skipping it for forced tests).
+
+        Parameters
+        ----------
+        army:
+            The army whose squad is taking the test (the testing army).
+        members:
+            Alive models in the squad (first element is the representative).
+        round_num:
+            Current game round, used to stamp battleshocked_until_round.
+        ld_penalty:
+            Extra Leadership penalty from the opposing army's detachment
+            (enemy_ld_penalty field); adds to the test target.
+        ld_bonus:
+            Leadership bonus from this army's own detachment (ld_bonus
+            field); subtracts from the test target.
+        own_synapse:
+            Alive SYNAPSE-keyword units from this army (for Synapse
+            Imperative 3D6 check and Shadow in the Warp self-penalty
+            immunity).
+        shadow_sources:
+            Tyranid SYNAPSE sources that may apply the Shadow in the Warp
+            -1 penalty (list, pre-filtered by the caller for the round).
+        contagion_sources:
+            Death Guard sources for the Contagions of Nurgle -1 penalty.
+        shadow_of_chaos_active:
+            True if the opposing army has alive Chaos Daemons units.
+        cx, cy:
+            Board-centre coordinates used by the Shadow of Chaos proximity
+            check; only meaningful when shadow_of_chaos_active is True.
+        harbinger_sources:
+            Chaos Knights sources for the Harbingers of Dread -1 penalty.
+        """
+        rep = members[0]
+
+        # --- Mob Rule (10e, re-keyed on squad_id) ---
+        # Wahapedia: "Each time a Battle-shock test is taken for an
+        # ORKS unit from your army, if that unit has 10 or more
+        # models in it, that test is automatically passed."
+        # Re-keyed from profile.name to squad_id (task #27): alive
+        # members in THIS squad must number >= 10.  Two separate
+        # 5-model Boyz squads do NOT pool.
+        if (
+            rep.profile.faction == "Orks"
+            and len(members) >= 10
+        ):
+            return   # Mob Rule auto-pass
+
+        # --- TYRANIDS-SYNAPSE-3D6 (wave-44) ---
+        # Use representative model's position for the Synapse
+        # radius check; a squad is either inside or outside the
+        # aura as a unit.
+        synapse_3d6 = (
+            rep.profile.faction == "Tyranids"
+            and own_synapse
+            and any(
+                _distance(rep.position, s.position) <= 6.0
+                for s in own_synapse
+                if s.uid != rep.uid
+            )
+        )
+
+        # --- Environmental penalties (use representative position) ---
+        shadow_penalty = 0
+        # TYRANIDS-DIAG-5: codex radius is 6".
+        if shadow_sources and any(
+            _distance(rep.position, s.position) <= 6.0
+            for s in shadow_sources
+        ):
+            shadow_penalty = 1
+        contagion_penalty = 0
+        if (
+            contagion_sources
+            and rep.profile.faction != "Death Guard"
+            and any(
+                _distance(rep.position, s.position) <= 3.0
+                for s in contagion_sources
+            )
+        ):
+            contagion_penalty = 1
+        # Shadow of Chaos: -1 to Battle-shock (modelled as +1 to
+        # test target — same convention as Shadow in the Warp).
+        shadow_of_chaos_penalty = 0
+        shadow_of_chaos_hit = False
+        if (
+            shadow_of_chaos_active
+            and rep.profile.faction != "Chaos Daemons"
+            and _distance(rep.position, (cx, cy)) <= 18.0
+        ):
+            shadow_of_chaos_penalty = 1
+            shadow_of_chaos_hit = True
+        # Harbingers of Dread — Deathly Terror Ld -1 aura within
+        # 9" of any alive enemy Chaos Knights model.
+        harbinger_penalty = 0
+        if harbinger_sources and any(
+            _distance(rep.position, s.position) <= 9.0
+            for s in harbinger_sources
+        ):
+            harbinger_penalty = 1
+
+        # --- Daemonic Manifestation (Chaos Daemons, the friendly half
+        # of The Shadow of Chaos — wave 88, BSData rule a312-a2f1-e1c0-30ed).
+        # While a LEGIONES DAEMONICA unit is within its army's Shadow of
+        # Chaos it adds 1 to its Battle-shock test AND, on a PASS, returns
+        # up to D3 destroyed models (BATTLELINE) or D3 lost wounds
+        # (otherwise). The Shadow is the Daemons' own deployment zone
+        # (ALWAYS) plus contested No Man's Land; proxied here as own-DZ OR
+        # within 18" of board centre (parity with the Daemonic Terror
+        # proxy above; objective-count not tracked). The model/wound
+        # return reuses the existing reanimation pulse
+        # (transient_undying_legions_pulse — the same plumbing as Foetid
+        # Resurgence / Mob Up; consumed end-of-round by
+        # _apply_undying_legions_pulse, which heals wounds then returns
+        # destroyed models). Cited `simulator.daemonic_manifestation`.
+        # Env-gated SWEG_DAEMONIC (default ON; =0 re-gates for an A/B).
+        daemonic_manifest = False
+        if (
+            rep.profile.faction == "Chaos Daemons"
+            and __import__("os").environ.get("SWEG_DAEMONIC", "1") != "0"
+        ):
+            _dz = self.map.deployment_width
+            _own_a = army is self.a
+            _in_own_dz = (
+                rep.position[1] <= _dz if _own_a
+                else rep.position[1] >= self.map.height - _dz
+            )
+            if _in_own_dz or _distance(
+                rep.position,
+                (self.map.width / 2.0, self.map.height / 2.0),
+            ) <= 18.0:
+                daemonic_manifest = True
+
+        # --- One roll per squad ---
+        if synapse_3d6:
+            # Tyranid Synapse — 3D6 sum, codex-correct.
+            roll = (random.randint(1, 6) + random.randint(1, 6)
+                    + random.randint(1, 6))
+        else:
+            roll = random.randint(1, 6) + random.randint(1, 6)
+        target = (
+            rep.profile.leadership
+            + ld_penalty
+            - ld_bonus
+            + shadow_penalty
+            + contagion_penalty
+            + shadow_of_chaos_penalty
+            + harbinger_penalty
+            - (1 if daemonic_manifest else 0)   # Daemonic Manifestation: +1 to the test
+        )
+        # Insane Bravery (1 CP, universal Epic Deed — 10e core): just
+        # before a FAILED Battle-shock test, the army may spend 1 CP to
+        # auto-pass it, once per battle. A real player burns it to keep a
+        # unit that is CONTESTING an objective (Battle-shock would zero
+        # the unit's Objective Control there). Even-handed — every army
+        # has it; the objective-gate makes the benefit accrue to whoever
+        # is holding markers, not to any faction. Modelled by forcing the
+        # roll to meet the target, so the existing fail / pass (incl. the
+        # Daemonic Manifestation pass) branches below resolve it as a
+        # pass. Gated SWEG_INSANE (default ON; =0 for the isolation A/B).
+        # Cited `simulator.insane_bravery`.
+        if (
+            roll < target
+            and __import__("os").environ.get("SWEG_INSANE", "1") != "0"
+            and id(army) not in self._insane_bravery_used
+            and army.command_points >= 1
+            and self._squad_on_objective(members)
+        ):
+            army.command_points -= 1
+            self._insane_bravery_used.add(id(army))
+            roll = target   # auto-passed — resolves as a pass below
+        if roll < target:
+            # Mark ALL models in the squad as Battle-shocked.
+            for u in members:
+                self._battleshocked_this_round.add(u.uid)
+                # BS-1: persistent per-unit state. Mark the unit as
+                # battle-shocked through the end of this round; the
+                # next round's Battle-shock phase will overwrite or
+                # leave the field stale (consumers read via
+                # `is_currently_battle_shocked(round_num)`, which
+                # checks exact-round equality, so stale values do
+                # not bleed forward). Downstream rules that need
+                # the persistent state (Synapse Imperative auto-pass
+                # gating, Harbingers of Dread mortal-wound aura,
+                # Repentia explosive death, DG plague-fear
+                # stratagems) consume the marker rather than the
+                # transient `_battleshocked_this_round` set.
+                u.battleshocked_until_round = round_num
+            # Emit one BattleshockFailed event keyed to the
+            # representative model (callers that display events see
+            # the squad rep rather than an avalanche of per-model
+            # events for large squads).
+            self._emit(BattleshockFailed(
+                unit_uid=rep.uid, roll=roll, target=target,
+            ))
+            # Shadow of Chaos: failed test inside the Shadow also
+            # inflicts D3 mortal wounds on ONE model in the squad
+            # (per the rule's wording "that unit suffers D3 mortal
+            # wounds", applied to the squad rep as the closest model
+            # to the Chaos centre). Cited as
+            # `simulator.shadow_of_chaos`.
+            if shadow_of_chaos_hit:
+                mw = random.randint(1, 3)
+                rep.current_health = max(0, rep.current_health - mw)
+        elif daemonic_manifest:
+            # PASS inside the Shadow — Daemonic Manifestation returns up
+            # to D3 destroyed models (BATTLELINE) / D3 lost wounds via the
+            # reanimation pulse, applied end-of-round by
+            # _apply_undying_legions_pulse (heals wounds, then returns
+            # destroyed models — matching the rule's BATTLELINE-vs-other
+            # split). Set on the squad representative; the pulse consumer
+            # groups by squad_id and revives that squad's dead peers.
+            rep.transient_undying_legions_pulse = max(
+                rep.transient_undying_legions_pulse, random.randint(1, 3)
+            )
+
+    def _apply_shadow_in_the_warp_forced_tests(
+        self, sitw_army, round_num: int
+    ) -> None:
+        """Force a Battle-shock test on every enemy unit when Shadow in the
+        Warp is unleashed (SWEG_SITW_TEST gate, default-OFF).
+
+        10e Codex Tyranids army rule verbatim: "When you do, each enemy
+        unit on the battlefield must take a Battle-shock test. Each time
+        an enemy unit takes such a Battle-shock test, if it is within 6\"
+        of one or more SYNAPSE units from your army, subtract 1 from that
+        test." The test is forced regardless of whether the enemy unit is
+        below half-strength.
+
+        This method is called immediately after Shadow is declared in
+        `_run_round` (the Command-phase block). It computes the same
+        context as `_run_battleshock_phase` — detachment modifiers,
+        shadow sources, contagion sources, Harbingers of Dread, Shadow of
+        Chaos — but from the perspective of the enemy army taking the
+        tests, and iterates every enemy squad without the below-half gate.
+        The shared helper `_battleshock_test_squad` handles the roll,
+        modifier composition, and Battle-shock consequences so this path
+        reuses exactly the same dice convention and modifier logic.
+
+        Cited as `simulator.shadow_in_the_warp_forced_test`.
+        """
+        # Identify the enemy army (the one whose units must take the test).
+        enemy = self.b if sitw_army is self.a else self.a
+
+        # Build the same context that _run_battleshock_phase computes for
+        # the (enemy, sitw_army) iteration: the enemy army is taking tests,
+        # the Tyranid army is the opponent providing penalty sources.
+        opponent_det = sitw_army.resolve_detachment()
+        own_det = enemy.resolve_detachment()
+        # ld_penalty: sitw_army's detachment penalises enemy tests.
+        ld_penalty = opponent_det.enemy_ld_penalty if opponent_det else 0
+        # ld_bonus: enemy's own detachment bonus reduces their test target.
+        ld_bonus = own_det.ld_bonus if own_det else 0
+        # own_synapse: enemy's own SYNAPSE units (for Synapse Imperative).
+        own_synapse = [
+            s for s in enemy.alive_units
+            if "SYNAPSE" in (s.profile.unit_keywords or ())
+        ]
+        # shadow_sources: Tyranid SYNAPSE sources for the -1 SitW penalty.
+        # The declaration has already been recorded
+        # (sitw_army.shadow_in_the_warp_used_round == round_num), so the
+        # same gate that _run_battleshock_phase uses is satisfied.
+        shadow_sources = [
+            s for s in sitw_army.alive_units
+            if "SYNAPSE" in (s.profile.unit_keywords or ())
+            and s.profile.faction == "Tyranids"
+        ]
+        # contagion_sources: Death Guard in the Tyranid army — unusual but
+        # consistent with the general-case logic.
+        contagion_sources = (
+            [
+                s for s in sitw_army.alive_units
+                if s.profile.faction == "Death Guard"
+            ]
+            if round_num == 2 else []
+        )
+        # Shadow of Chaos: Chaos Daemons in the Tyranid army (edge case).
+        shadow_of_chaos_active = any(
+            s.profile.faction == "Chaos Daemons"
+            for s in sitw_army.alive_units
+        )
+        cx = self.map.width / 2.0
+        cy = self.map.height / 2.0
+        # Harbingers of Dread: Chaos Knights in the Tyranid army (edge
+        # case — these will be zero for a pure Tyranid list, but compute
+        # consistently for correctness).
+        harbinger_sources = [
+            s for s in sitw_army.alive_units
+            if (s.profile.faction or "") == "Chaos Knights"
+        ]
+
+        # Iterate every squad in the enemy army — no below-half gate.
+        for squad_key, members in enemy.squads().items():
+            self._battleshock_test_squad(
+                enemy,
+                members,
+                round_num,
+                ld_penalty=ld_penalty,
+                ld_bonus=ld_bonus,
+                own_synapse=own_synapse,
+                shadow_sources=shadow_sources,
+                contagion_sources=contagion_sources,
+                shadow_of_chaos_active=shadow_of_chaos_active,
+                cx=cx,
+                cy=cy,
+                harbinger_sources=harbinger_sources,
+            )
+
     def _run_battleshock_phase(self, round_num: int) -> None:
         """10e Battle-shock step (every Command phase, from Round 1
         onward — Wahapedia /the-rules/core-rules/#Command-Phase). For
@@ -8099,10 +8430,12 @@ class Battle:
             from the Command-phase loop with the AI heuristic firing at
             Round 2. The "forces a Battle-shock test on every enemy unit on
             the battlefield on the unleashing round" half of the codex rule
-            is NOT modelled here — most at-strength enemy units (Ld 7-9)
-            pass 2D6-1 reliably, so the dominant impact comes from -1
-            applied to the existing below-half tests within 6". Cited as
-            `simulator.shadow_in_the_warp`.
+            is modelled separately in
+            `_apply_shadow_in_the_warp_forced_tests` (gated SWEG_SITW_TEST,
+            default-off); this phase only applies the -1 to the existing
+            below-half tests within 6". Cited as
+            `simulator.shadow_in_the_warp` and
+            `simulator.shadow_in_the_warp_forced_test`.
           - Contagions of Nurgle Round 2 Maladictive Pall (Death Guard, 10e):
             enemy units within 3" of any DG model take -1 Ld. Cited as
             `simulator.contagions_of_nurgle`. (Radius gated to 3" per the
@@ -8170,9 +8503,13 @@ class Battle:
                 s.profile.faction == "Chaos Daemons"
                 for s in opponent.alive_units
             )
-            if shadow_of_chaos_active:
-                cx = self.map.width / 2.0
-                cy = self.map.height / 2.0
+            # cx / cy are passed to _battleshock_test_squad regardless of
+            # whether shadow_of_chaos_active is True; assign unconditionally
+            # so the helper call below never sees an unbound variable.
+            # The helper only uses them when shadow_of_chaos_active is True,
+            # so the value is irrelevant when Chaos Daemons are not present.
+            cx = self.map.width / 2.0
+            cy = self.map.height / 2.0
             # Harbingers of Dread (Chaos Knights army rule, 10e). Wahapedia
             # verbatim Deathly Terror (always-on Dread, active from R1):
             # "While an enemy unit is within 9\" of this model, worsen the
@@ -8218,189 +8555,28 @@ class Battle:
                     if u0.current_health >= u0.profile.health / 2.0:
                         continue   # not below half-strength — no test
 
-                # Representative model for position/faction/leadership checks.
-                # Use the first alive member (squads() only contains alive units).
-                rep = members[0]
-
-                # --- Mob Rule (10e, re-keyed on squad_id) ---
-                # Wahapedia: "Each time a Battle-shock test is taken for an
-                # ORKS unit from your army, if that unit has 10 or more
-                # models in it, that test is automatically passed."
-                # Re-keyed from profile.name to squad_id (task #27): alive
-                # members in THIS squad must number >= 10.  Two separate
-                # 5-model Boyz squads do NOT pool.
-                if (
-                    rep.profile.faction == "Orks"
-                    and len(members) >= 10
-                ):
-                    continue   # Mob Rule auto-pass
-
-                # --- TYRANIDS-SYNAPSE-3D6 (wave-44) ---
-                # Use representative model's position for the Synapse
-                # radius check; a squad is either inside or outside the
-                # aura as a unit.
-                synapse_3d6 = (
-                    rep.profile.faction == "Tyranids"
-                    and own_synapse
-                    and any(
-                        _distance(rep.position, s.position) <= 6.0
-                        for s in own_synapse
-                        if s.uid != rep.uid
-                    )
+                # Delegate the roll, modifier composition, and consequences
+                # to the shared helper. This call is the single live code
+                # path for below-half-strength squads; the helper's
+                # behaviour is identical to the inlined code it replaced —
+                # same dice order, same modifier conventions, same
+                # Battle-shock consequences. The Shadow in the Warp forced
+                # test path (SWEG_SITW_TEST, default-OFF) calls the same
+                # helper without the below-half gate.
+                self._battleshock_test_squad(
+                    army,
+                    members,
+                    round_num,
+                    ld_penalty=ld_penalty,
+                    ld_bonus=ld_bonus,
+                    own_synapse=own_synapse,
+                    shadow_sources=shadow_sources,
+                    contagion_sources=contagion_sources,
+                    shadow_of_chaos_active=shadow_of_chaos_active,
+                    cx=cx,
+                    cy=cy,
+                    harbinger_sources=harbinger_sources,
                 )
-
-                # --- Environmental penalties (use representative position) ---
-                shadow_penalty = 0
-                # TYRANIDS-DIAG-5: codex radius is 6".
-                if shadow_sources and any(
-                    _distance(rep.position, s.position) <= 6.0
-                    for s in shadow_sources
-                ):
-                    shadow_penalty = 1
-                contagion_penalty = 0
-                if (
-                    contagion_sources
-                    and rep.profile.faction != "Death Guard"
-                    and any(
-                        _distance(rep.position, s.position) <= 3.0
-                        for s in contagion_sources
-                    )
-                ):
-                    contagion_penalty = 1
-                # Shadow of Chaos: -1 to Battle-shock (modelled as +1 to
-                # test target — same convention as Shadow in the Warp).
-                shadow_of_chaos_penalty = 0
-                shadow_of_chaos_hit = False
-                if (
-                    shadow_of_chaos_active
-                    and rep.profile.faction != "Chaos Daemons"
-                    and _distance(rep.position, (cx, cy)) <= 18.0
-                ):
-                    shadow_of_chaos_penalty = 1
-                    shadow_of_chaos_hit = True
-                # Harbingers of Dread — Deathly Terror Ld -1 aura within
-                # 9" of any alive enemy Chaos Knights model.
-                harbinger_penalty = 0
-                if harbinger_sources and any(
-                    _distance(rep.position, s.position) <= 9.0
-                    for s in harbinger_sources
-                ):
-                    harbinger_penalty = 1
-
-                # --- Daemonic Manifestation (Chaos Daemons, the friendly half
-                # of The Shadow of Chaos — wave 88, BSData rule a312-a2f1-e1c0-30ed).
-                # While a LEGIONES DAEMONICA unit is within its army's Shadow of
-                # Chaos it adds 1 to its Battle-shock test AND, on a PASS, returns
-                # up to D3 destroyed models (BATTLELINE) or D3 lost wounds
-                # (otherwise). The Shadow is the Daemons' own deployment zone
-                # (ALWAYS) plus contested No Man's Land; proxied here as own-DZ OR
-                # within 18" of board centre (parity with the Daemonic Terror
-                # proxy above; objective-count not tracked). The model/wound
-                # return reuses the existing reanimation pulse
-                # (transient_undying_legions_pulse — the same plumbing as Foetid
-                # Resurgence / Mob Up; consumed end-of-round by
-                # _apply_undying_legions_pulse, which heals wounds then returns
-                # destroyed models). Cited `simulator.daemonic_manifestation`.
-                # Env-gated SWEG_DAEMONIC (default ON; =0 re-gates for an A/B).
-                daemonic_manifest = False
-                if (
-                    rep.profile.faction == "Chaos Daemons"
-                    and __import__("os").environ.get("SWEG_DAEMONIC", "1") != "0"
-                ):
-                    _dz = self.map.deployment_width
-                    _own_a = army is self.a
-                    _in_own_dz = (
-                        rep.position[1] <= _dz if _own_a
-                        else rep.position[1] >= self.map.height - _dz
-                    )
-                    if _in_own_dz or _distance(
-                        rep.position,
-                        (self.map.width / 2.0, self.map.height / 2.0),
-                    ) <= 18.0:
-                        daemonic_manifest = True
-
-                # --- One roll per squad ---
-                if synapse_3d6:
-                    # Tyranid Synapse — 3D6 sum, codex-correct.
-                    roll = (random.randint(1, 6) + random.randint(1, 6)
-                            + random.randint(1, 6))
-                else:
-                    roll = random.randint(1, 6) + random.randint(1, 6)
-                target = (
-                    rep.profile.leadership
-                    + ld_penalty
-                    - ld_bonus
-                    + shadow_penalty
-                    + contagion_penalty
-                    + shadow_of_chaos_penalty
-                    + harbinger_penalty
-                    - (1 if daemonic_manifest else 0)   # Daemonic Manifestation: +1 to the test
-                )
-                # Insane Bravery (1 CP, universal Epic Deed — 10e core): just
-                # before a FAILED Battle-shock test, the army may spend 1 CP to
-                # auto-pass it, once per battle. A real player burns it to keep a
-                # unit that is CONTESTING an objective (Battle-shock would zero
-                # the unit's Objective Control there). Even-handed — every army
-                # has it; the objective-gate makes the benefit accrue to whoever
-                # is holding markers, not to any faction. Modelled by forcing the
-                # roll to meet the target, so the existing fail / pass (incl. the
-                # Daemonic Manifestation pass) branches below resolve it as a
-                # pass. Gated SWEG_INSANE (default ON; =0 for the isolation A/B).
-                # Cited `simulator.insane_bravery`.
-                if (
-                    roll < target
-                    and __import__("os").environ.get("SWEG_INSANE", "1") != "0"
-                    and id(army) not in self._insane_bravery_used
-                    and army.command_points >= 1
-                    and self._squad_on_objective(members)
-                ):
-                    army.command_points -= 1
-                    self._insane_bravery_used.add(id(army))
-                    roll = target   # auto-passed — resolves as a pass below
-                if roll < target:
-                    # Mark ALL models in the squad as Battle-shocked.
-                    for u in members:
-                        self._battleshocked_this_round.add(u.uid)
-                        # BS-1: persistent per-unit state. Mark the unit as
-                        # battle-shocked through the end of this round; the
-                        # next round's Battle-shock phase will overwrite or
-                        # leave the field stale (consumers read via
-                        # `is_currently_battle_shocked(round_num)`, which
-                        # checks exact-round equality, so stale values do
-                        # not bleed forward). Downstream rules that need
-                        # the persistent state (Synapse Imperative auto-pass
-                        # gating, Harbingers of Dread mortal-wound aura,
-                        # Repentia explosive death, DG plague-fear
-                        # stratagems) consume the marker rather than the
-                        # transient `_battleshocked_this_round` set.
-                        u.battleshocked_until_round = round_num
-                    # Emit one BattleshockFailed event keyed to the
-                    # representative model (callers that display events see
-                    # the squad rep rather than an avalanche of per-model
-                    # events for large squads).
-                    self._emit(BattleshockFailed(
-                        unit_uid=rep.uid, roll=roll, target=target,
-                    ))
-                    # Shadow of Chaos: failed test inside the Shadow also
-                    # inflicts D3 mortal wounds on ONE model in the squad
-                    # (per the rule's wording "that unit suffers D3 mortal
-                    # wounds", applied to the squad rep as the closest model
-                    # to the Chaos centre). Cited as
-                    # `simulator.shadow_of_chaos`.
-                    if shadow_of_chaos_hit:
-                        mw = random.randint(1, 3)
-                        rep.current_health = max(0, rep.current_health - mw)
-                elif daemonic_manifest:
-                    # PASS inside the Shadow — Daemonic Manifestation returns up
-                    # to D3 destroyed models (BATTLELINE) / D3 lost wounds via the
-                    # reanimation pulse, applied end-of-round by
-                    # _apply_undying_legions_pulse (heals wounds, then returns
-                    # destroyed models — matching the rule's BATTLELINE-vs-other
-                    # split). Set on the squad representative; the pulse consumer
-                    # groups by squad_id and revives that squad's dead peers.
-                    rep.transient_undying_legions_pulse = max(
-                        rep.transient_undying_legions_pulse, random.randint(1, 3)
-                    )
 
     def _run_round(self, round_num: int) -> None:
         if self.verbose:
@@ -8558,10 +8734,11 @@ class Battle:
         # taken meaningful casualties (Round 1 is opportunity-cost-cheaper
         # but most enemy units may still be in their deployment zone and
         # outside 6"). The "force a test on EVERY enemy unit" half of the
-        # rule is NOT modelled here — at-strength enemy units (Ld 7-9) pass
-        # 2D6-1 most of the time, so the dominant impact is the -1 to
-        # already-occurring below-half tests within 6". Cited as
-        # `simulator.shadow_in_the_warp`.
+        # rule fires from `_apply_shadow_in_the_warp_forced_tests` right
+        # after the declaration below (gated SWEG_SITW_TEST, default-off);
+        # with the gate off only the -1 to already-occurring below-half
+        # tests within 6" applies. Cited as `simulator.shadow_in_the_warp`
+        # and `simulator.shadow_in_the_warp_forced_test`.
         for army in (self.a, self.b):
             if army.shadow_in_the_warp_used_round is not None:
                 continue  # already fired this battle
@@ -8584,6 +8761,21 @@ class Battle:
             # so the rule auto-declares as a use-it-or-lose-it fallback.
             if round_num >= 2:
                 army.shadow_in_the_warp_used_round = round_num
+                # SWEG_SITW_TEST (default-OFF): force a Battle-shock test on
+                # every enemy unit on the battlefield. This is the main half
+                # of the codex rule — "each enemy unit on the battlefield must
+                # take a Battle-shock test" — that was previously unmodelled.
+                # The test is forced regardless of whether the enemy unit is
+                # below half-strength. The -1 modifier for units within 6" of
+                # a friendly SYNAPSE source is applied inside the shared
+                # helper via the shadow_sources list; the helper reuses the
+                # same dice convention and Battle-shock consequences as the
+                # normal once-per-round below-half test.
+                # Cited as `simulator.shadow_in_the_warp_forced_test`.
+                if os.environ.get("SWEG_SITW_TEST", "0") != "0":
+                    self._apply_shadow_in_the_warp_forced_tests(
+                        army, round_num
+                    )
         # ---- Drukhari Power From Pain (10e army rule). At the start of
         # each Command phase, every Drukhari unit Below Starting Strength
         # gains 1 Pain Token (cap of 1 per unit). While > 0, the unit's

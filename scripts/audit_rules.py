@@ -232,6 +232,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # 12" of a Tyranid SYNAPSE model.
     "simulator.synapse_imperative",
     "simulator.shadow_in_the_warp",
+    # Tyranids army rule (10e) — Shadow in the Warp forced Battle-shock test
+    # (env-gated SWEG_SITW_TEST, default-OFF). The main half of the codex rule:
+    # "each enemy unit on the battlefield must take a Battle-shock test" when
+    # Shadow is unleashed. Forced regardless of below-half-strength. Implemented
+    # in _apply_shadow_in_the_warp_forced_tests via the shared _battleshock_test_squad
+    # helper. See data/rule_citations.d/tyranids.json.
+    "simulator.shadow_in_the_warp_forced_test",
     # Drukhari army rule (10e). Command-phase token award + while-held
     # buffs (Lethal Hits, FNP 6+). Faction-gated on attacker/defender.
     "simulator.power_from_pain",
