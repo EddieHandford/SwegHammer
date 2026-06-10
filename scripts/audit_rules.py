@@ -712,6 +712,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.fights_first_chargers",
     "simulator.fights_first_keyword",
     "simulator.harbingers_of_dread",
+    # Wave 232 — Chaos Knights Harbingers of Dread additional Dread abilities
+    # (env-gated SWEG_HARBINGERS, default-OFF). Despair and Darkness wired in
+    # code/units.py Unit.attack; Dismay and Delirium wired in
+    # code/simulator.py _run_battleshock_phase.
+    "simulator.harbingers_of_dread_despair",
+    "simulator.harbingers_of_dread_darkness",
+    "simulator.harbingers_of_dread_dismay",
+    "simulator.harbingers_of_dread_delirium",
     "simulator.multi_profile_weapon_selection",
     # PER-MODEL-LOADOUTS (Stage 3, env-gated SWEG_PERMODEL). One Unit per model,
     # each firing its OWN BSData loadout, so a special-weapon model loses its

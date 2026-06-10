@@ -8115,7 +8115,11 @@ class Battle:
             Board-centre coordinates used by the Shadow of Chaos proximity
             check; only meaningful when shadow_of_chaos_active is True.
         harbinger_sources:
-            Chaos Knights sources for the Harbingers of Dread -1 penalty.
+            Chaos Knights sources for the Harbingers of Dread -1 penalty
+            (Deathly Terror, always-on). Under the SWEG_HARBINGERS gate
+            (default-OFF) the same sources also drive Despair (a second,
+            cumulative -1) and Delirium (D3 mortal wounds when a Below
+            Half-strength unit fails its test within 9").
         """
         rep = members[0]
 
@@ -8178,11 +8182,30 @@ class Battle:
         # Harbingers of Dread — Deathly Terror Ld -1 aura within
         # 9" of any alive enemy Chaos Knights model.
         harbinger_penalty = 0
-        if harbinger_sources and any(
+        _harbinger_in_range = harbinger_sources and any(
             _distance(rep.position, s.position) <= 9.0
             for s in harbinger_sources
-        ):
+        )
+        if _harbinger_in_range:
             harbinger_penalty = 1
+
+        # Harbingers of Dread — Despair (SWEG_HARBINGERS, default-OFF).
+        # Modelled as the Dread ability selected at the start of Round 1
+        # (players virtually always pick Despair R1 for the stacking
+        # pressure). BSData verbatim:
+        # "1 - Despair (Aura): While an enemy unit is within 9\" of
+        # this model, worsen the Leadership characteristic of models
+        # in that unit by 1. This is cumulative with the Deathly
+        # Terror ability (see above)."
+        # Combined with Deathly Terror this brings the total Ld
+        # penalty within 9" to −2.
+        # Cited as `simulator.harbingers_of_dread_despair`.
+        _harbingers_on = (
+            __import__("os").environ.get("SWEG_HARBINGERS", "0") != "0"
+        )
+        despair_penalty = 0
+        if _harbingers_on and _harbinger_in_range:
+            despair_penalty = 1
 
         # --- Daemonic Manifestation (Chaos Daemons, the friendly half
         # of The Shadow of Chaos — wave 88, BSData rule a312-a2f1-e1c0-30ed).
@@ -8231,6 +8254,7 @@ class Battle:
             + contagion_penalty
             + shadow_of_chaos_penalty
             + harbinger_penalty
+            + despair_penalty   # Despair: additional Ld -1 (SWEG_HARBINGERS)
             - (1 if daemonic_manifest else 0)   # Daemonic Manifestation: +1 to the test
         )
         # Insane Bravery (1 CP, universal Epic Deed — 10e core): just
@@ -8287,6 +8311,41 @@ class Battle:
             if shadow_of_chaos_hit:
                 mw = random.randint(1, 3)
                 rep.current_health = max(0, rep.current_health - mw)
+            # Harbingers of Dread — Delirium (SWEG_HARBINGERS). When a
+            # Below Half-strength enemy unit FAILS a Battle-shock test
+            # while within 9" of a Chaos Knights model, it suffers D3
+            # mortal wounds. Applied to the squad representative (same
+            # convention as Shadow of Chaos above). Modelled as the
+            # Dread ability selected at the start of Round 5 (or Round 3
+            # if no other ability was picked); the rule is active for
+            # the entire game under this gate to avoid round-tracking
+            # complexity that the sim does not currently need.
+            # BSData verbatim:
+            # "5 - Delirium (Aura): While an enemy unit that is Below
+            # Half-strength is within 9\" of this model, each time that
+            # model fails a Battle-shock test, it suffers D3 mortal
+            # wounds."
+            # Below Half-strength check: for single-model units use the
+            # wound-based gate; for multi-model squads use the
+            # start_count-based gate (recomputed here rather than taken
+            # from the caller, because the Shadow in the Warp forced
+            # test path skips the below-half eligibility gate entirely).
+            # Cited as `simulator.harbingers_of_dread_delirium`.
+            if _harbingers_on and _harbinger_in_range:
+                start_count = self._squad_start_count.get(
+                    (army.name, rep.squad_id), 1
+                )
+                if start_count > 1:
+                    _deli_below_half = len(members) < start_count / 2.0
+                else:
+                    _deli_below_half = (
+                        rep.current_health < rep.profile.health / 2.0
+                    )
+                if _deli_below_half:
+                    _deli_mw = random.randint(1, 3)
+                    rep.current_health = max(
+                        0, rep.current_health - _deli_mw
+                    )
         elif daemonic_manifest:
             # PASS inside the Shadow — Daemonic Manifestation returns up
             # to D3 destroyed models (BATTLELINE) / D3 lost wounds via the
@@ -8527,6 +8586,20 @@ class Battle:
                 s for s in opponent.alive_units
                 if (s.profile.faction or "") == "Chaos Knights"
             ]
+            # SWEG_HARBINGERS gate (default-OFF): enables the four additional
+            # Dread abilities beyond Deathly Terror + Doom.
+            # Despair:  +1 cumulative Ld -1 aura (rolls 1 Dread = Despair at R1)
+            # Dismay:   force Battle-shock tests on below-Starting-Strength
+            #           enemy squads within 9"
+            # Delirium: D3 mortal wounds on Below Half-strength squads that
+            #           fail a Battle-shock test within 9"
+            # Darkness: -1 to the attacker's Hit roll (wired in units.py)
+            # Dominion: +3" to all aura ranges (requires substrate; unbuildable
+            #           without threading a dynamic aura-range parameter through
+            #           all four aura checks — not implemented this wave)
+            _harbingers_on = (
+                __import__("os").environ.get("SWEG_HARBINGERS", "0") != "0"
+            )
 
             # --- PER-SQUAD battleshock loop (task #27) ---
             # 10e core: "a unit is Below Half-strength if the number of
@@ -8542,15 +8615,48 @@ class Battle:
                     (army.name, sid), 1
                 )
 
-                # --- Below-half-strength gate ---
+                # --- Below-half-strength gate (+ Dismay expansion) ---
+                # Normal path: test fires if below Half-Strength.
+                # Dismay (SWEG_HARBINGERS): additionally force a test on any
+                # multi-model squad that is below its STARTING Strength (i.e.
+                # has lost even one model) and is within 9" of a Chaos Knights
+                # model.  Single-model units are never "below Starting Strength"
+                # per 10e core, so Dismay does not apply to them.
+                # BSData verbatim:
+                # "In the Battle-shock step of your opponent's Command phase,
+                # for each enemy unit that is below its Starting Strength and
+                # within 9\" of this model, that enemy unit must take a
+                # Battle-shock test."
+                # Cited as `simulator.harbingers_of_dread_dismay`.
                 if start_count > 1:
                     # Multi-model squad: gate on surviving model count.
                     alive_count = len(members)
-                    if alive_count >= start_count / 2.0:
-                        continue   # not below half-strength — no test
+                    _below_half = alive_count < start_count / 2.0
+                    _below_starting = alive_count < start_count
+                    # Dismay forces the test when below Starting Strength even
+                    # if not yet below Half-Strength.  Positioning check uses
+                    # the first alive member (same proxy as all other auras in
+                    # this phase). Only evaluated when SWEG_HARBINGERS is on
+                    # and there are alive CK models on the opposing side.
+                    _dismay_forced = False
+                    if (
+                        _harbingers_on
+                        and _below_starting
+                        and not _below_half   # below-half already enters normally
+                        and harbinger_sources
+                    ):
+                        _rep_pos = members[0].position
+                        _dismay_forced = any(
+                            _distance(_rep_pos, s.position) <= 9.0
+                            for s in harbinger_sources
+                        )
+                    if not _below_half and not _dismay_forced:
+                        continue   # not eligible for a Battle-shock test
                 else:
                     # Single-model unit (vehicle, character, lone model):
-                    # retain the wound-based below-half test.
+                    # retain the wound-based below-half test. Dismay does NOT
+                    # apply — single-model units are never "below Starting
+                    # Strength" per 10e core regardless of wound count.
                     u0 = members[0]
                     if u0.current_health >= u0.profile.health / 2.0:
                         continue   # not below half-strength — no test
@@ -8562,7 +8668,10 @@ class Battle:
                 # same dice order, same modifier conventions, same
                 # Battle-shock consequences. The Shadow in the Warp forced
                 # test path (SWEG_SITW_TEST, default-OFF) calls the same
-                # helper without the below-half gate.
+                # helper without the below-half gate. The Harbingers of
+                # Dread additional abilities Despair and Delirium
+                # (SWEG_HARBINGERS, default-OFF) also live in the helper,
+                # so they apply to forced tests too.
                 self._battleshock_test_squad(
                     army,
                     members,

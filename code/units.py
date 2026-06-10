@@ -2120,21 +2120,25 @@ class Unit:
             # ---- Chaos Knights — Harbingers of Dread (army rule, 10e). Verbatim
             # Wahapedia (https://wahapedia.ru/wh40k10ed/factions/chaos-knights/):
             # "The Deathly Terror ability is active for your army from the start
-            # of the battle." Plus one additional Dread ability is selected at
-            # battle start; SwegHammer always picks Doom — the offensive Dread
+            # of the battle." Additional Dread abilities are selected at the
+            # start of battle rounds 1, 3 and 5. With SWEG_HARBINGERS OFF
+            # (default), SwegHammer always picks Doom — the offensive Dread
             # ("Each time this model makes an attack, if the target of that attack
             # is Battle-shocked, add 1 to the Wound roll.") because Doom is the
             # only Dread the attack pipeline can directly express; the auras
             # (Despair / Deathly Terror, Ld debuffs within 9") are wired into the
-            # Battle-shock phase in code/simulator.py. The R1/R3/R5 bonus
-            # additional-Dread pick is NOT modelled here (the wound bonus already
-            # represents the "selected additional ability" slot, and the two
-            # always-on Ld auras saturate the battleshock side). Faction-gated to
-            # Chaos Knights so Imperial Knights' Code Chivalric handling is
-            # untouched. Cited as `simulator.harbingers_of_dread`.
+            # Battle-shock phase in code/simulator.py. With SWEG_HARBINGERS ON,
+            # Despair replaces Doom as the round-1 pick (and Dismay / Darkness /
+            # Delirium fill the remaining picks — see code/simulator.py and the
+            # Darkness block below), so Doom is SUPPRESSED here — leaving it on
+            # would give the army more selected Dread abilities than the rule's
+            # three picks grant. Faction-gated to Chaos Knights so Imperial
+            # Knights' Code Chivalric handling is untouched. Cited as
+            # `simulator.harbingers_of_dread`.
             if (
                 mode in ("melee", "ranged")
                 and (p.faction or "") == "Chaos Knights"
+                and __import__("os").environ.get("SWEG_HARBINGERS", "0") == "0"
                 and target.is_currently_battle_shocked(
                     getattr(
                         getattr(getattr(self, "army_ref", None), "_battle_ref", None),
@@ -2685,6 +2689,38 @@ class Unit:
                 and _is_near_enemy_dg_model(self, radius=3.0)
             ):
                 hit_mod_delta -= 1
+
+            # ---- Harbingers of Dread — Darkness (SWEG_HARBINGERS, default-OFF).
+            # The TARGET model must be a Chaos Knights model; if the attacking
+            # unit is Battle-shocked OR more than 18" away from the target, the
+            # attacker suffers -1 to its Hit roll. Melee is included (the rule
+            # text says "each time an attack is made against this model" with no
+            # ranged-only restriction). The 18" range check uses the `distance`
+            # parameter passed to Unit.attack (0.0 for melee calls means the
+            # attacker is in engagement, which is always ≤ 18", so the
+            # distance-gate never fires in melee — consistent with competitive
+            # play where Darkness only matters at range for non-engaged targets).
+            # BSData verbatim:
+            # "3 - Darkness: Each time an attack is made against this model, if
+            # the attacking model's unit is Battle-shocked or more than 18\" away,
+            # subtract 1 from the Hit roll."
+            # Cited as `simulator.harbingers_of_dread_darkness`.
+            if (
+                __import__("os").environ.get("SWEG_HARBINGERS", "0") != "0"
+                and (target.profile.faction or "") == "Chaos Knights"
+            ):
+                _atk_army_dk = getattr(self, "army_ref", None)
+                _battle_dk = (
+                    getattr(_atk_army_dk, "_battle_ref", None)
+                    if _atk_army_dk is not None else None
+                )
+                _cur_round_dk = (
+                    getattr(_battle_dk, "_current_round", 0)
+                    if _battle_dk is not None else 0
+                )
+                _atk_bs_dk = self.is_currently_battle_shocked(_cur_round_dk)
+                if _atk_bs_dk or distance > 18.0:
+                    hit_mod_delta -= 1
 
             # ---- Apply the ±1 modifier cap (Wahapedia core rules: "Hit roll
             # modifiers are cumulative, but the Hit roll for an attack can
