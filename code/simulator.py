@@ -6617,7 +6617,7 @@ class Battle:
             # Both gated SWEG_CSM_ABILITIES (default-off). When ON, the base
             # dark pacts uplift above still fires (backward-compat: OFF config
             # byte-identical to current behaviour).
-            _csm_gate = __import__("os").environ.get("SWEG_CSM_ABILITIES") == "1"
+            _csm_gate = __import__("os").environ.get("SWEG_CSM_ABILITIES", "1") != "0"
             if _csm_gate:
                 # Chaos Terminator Squad "Despoilers": re-roll the Hit roll
                 # (full re-roll, any phase, any attack). BSData v10.6.0 verbatim:

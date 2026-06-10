@@ -104,7 +104,7 @@ class DespoilersTests(unittest.TestCase):
         if gate_on:
             os.environ["SWEG_CSM_ABILITIES"] = "1"
         else:
-            os.environ.pop("SWEG_CSM_ABILITIES", None)
+            os.environ["SWEG_CSM_ABILITIES"] = "0"
         random.seed(42)
         total = 0.0
         for _ in range(n):
@@ -135,7 +135,7 @@ class DespoilersTests(unittest.TestCase):
 
     def test_despoilers_gate_off_no_transient_flag(self):
         """With SWEG_CSM_ABILITIES=0, transient_reroll_all_hits must NOT be set."""
-        os.environ.pop("SWEG_CSM_ABILITIES", None)
+        os.environ["SWEG_CSM_ABILITIES"] = "0"
         a = Army("CSM")
         a.add_unit(_terminator(despoilers=True))
         b = Army("Def")
@@ -204,7 +204,7 @@ class UnholyBloodshedTests(unittest.TestCase):
 
     def test_unholy_bloodshed_gate_off_no_transient_flag(self):
         """With SWEG_CSM_ABILITIES=0, transient_devastating_wounds must NOT be set."""
-        os.environ.pop("SWEG_CSM_ABILITIES", None)
+        os.environ["SWEG_CSM_ABILITIES"] = "0"
         a = Army("CSM")
         a.add_unit(_possessed(unholy=True))
         b = Army("Def")
@@ -336,7 +336,7 @@ class DarkApostleDarkZealotryTests(unittest.TestCase):
         must carry reroll_hit_ones=True (the prior proxy that fires when gate is
         OFF). The plus_one_to_wound_melee_only field is also present but is gated
         off in units.py when SWEG_CSM_ABILITIES != '1'."""
-        os.environ.pop("SWEG_CSM_ABILITIES", None)
+        os.environ["SWEG_CSM_ABILITIES"] = "0"
         from code.leaders import lookup_ability
         ability = lookup_ability("Dark Apostle")
         self.assertIsNotNone(ability)
@@ -393,7 +393,7 @@ class AbaddonParagonOfHatredTests(unittest.TestCase):
         carries the correct army-wide aura range, confirming the gate is purely
         at the effective_buffs consumption site, not a missing registry entry.
         """
-        os.environ.pop("SWEG_CSM_ABILITIES", None)
+        os.environ["SWEG_CSM_ABILITIES"] = "0"
         from code.leaders import lookup_ability
         ability = lookup_ability("Abaddon the Despoiler")
         # The registry entry must exist (fail-loud per CLAUDE.md §13).

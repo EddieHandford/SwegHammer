@@ -2114,7 +2114,7 @@ class Unit:
             # the prior reroll_hit_ones proxy unchanged). Cited as
             # `simulator.dark_apostle_dark_zealotry`.
             if (att_buffs.get("plus_one_to_wound_melee_only") and mode == "melee"
-                    and __import__("os").environ.get("SWEG_CSM_ABILITIES") == "1"):
+                    and __import__("os").environ.get("SWEG_CSM_ABILITIES", "1") != "0"):
                 wound_mod_delta += 1
 
             # ---- Chaos Knights — Harbingers of Dread (army rule, 10e). Verbatim

@@ -1561,7 +1561,7 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         # Checked once per leader in the loop; avoids repeated os.environ lookups
         # by reading from a local already established before the loop is entered.
         # (For performance, this is cheap — the env is rarely changed mid-run.)
-        _csm_gate_on = __import__("os").environ.get("SWEG_CSM_ABILITIES") == "1"
+        _csm_gate_on = __import__("os").environ.get("SWEG_CSM_ABILITIES", "1") != "0"
         # Dark Apostle: gate-ON suppresses the old reroll_hit_ones proxy (because
         # plus_one_to_wound_melee_only fires in its place); gate-OFF keeps the proxy.
         # Abaddon: the Paragon of Hatred aura is default-off; gate-ON enables it.
