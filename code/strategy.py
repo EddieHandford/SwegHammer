@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import functools
 import math
+import os
 from typing import Dict, Optional, Tuple
 
 from .detachments import effective_move
@@ -372,12 +373,35 @@ def _effective_oc_on_objective(units, obj, exclude_uid: str = "") -> int:
     return total
 
 
-@functools.lru_cache(maxsize=4096)
-def _unsaved_fraction(save: int, invuln_save: int, attacker_ap: int) -> float:
-    """Cached save+AP portion of _durability. Only ~200 distinct inputs possible."""
+# Speed lever #2 (PART A) — per-profile durability memoisation gate.
+# `SWEG_DURCACHE` (default "1" = ON) controls the pure-core caches in the
+# `_durability` hot path. When set to "0" the helpers fall through to the exact
+# pre-existing uncached arithmetic, so a validation A/B can confirm the caches
+# are byte-identical (they MUST be — these are memoisations of pure functions of
+# immutable scalar inputs, not behaviour changes). Read once at import; an A/B
+# run sets the variable in the environment before the process starts.
+_DURCACHE_ON: bool = os.environ.get("SWEG_DURCACHE", "1") != "0"
+
+
+def _unsaved_fraction_uncached(save: int, invuln_save: int, attacker_ap: int) -> float:
+    """Exact pre-existing save+AP portion of _durability (uncached OFF path)."""
     save_pass = save_probability(save, attacker_ap)
     invuln_pass = save_probability(invuln_save) if invuln_save <= 6 else 0.0
     return max(0.05, 1.0 - max(save_pass, invuln_pass))
+
+
+_unsaved_fraction_cached = functools.lru_cache(maxsize=4096)(_unsaved_fraction_uncached)
+
+
+def _unsaved_fraction(save: int, invuln_save: int, attacker_ap: int) -> float:
+    """Cached save+AP portion of _durability. Only ~200 distinct inputs possible.
+
+    Pure function of three small ints, so memoisation is byte-identical. Gated by
+    `SWEG_DURCACHE` (default ON); the OFF path is the byte-identical uncached
+    arithmetic above."""
+    if _DURCACHE_ON:
+        return _unsaved_fraction_cached(save, invuln_save, attacker_ap)
+    return _unsaved_fraction_uncached(save, invuln_save, attacker_ap)
 
 
 def _fnp_resolved(profile, defender_unit) -> int:
@@ -413,10 +437,8 @@ def _fnp_resolved(profile, defender_unit) -> int:
     return min(base_fnp, aura_fnp)
 
 
-def _fnp_pass_fraction(fnp: int) -> float:
-    """Probability a single unsaved wound is ignored by FNP. fnp=7 -> 0.0
-    (no FNP), fnp=5 -> 2/6, fnp=4 -> 3/6. Mirrors the (7 - fnp) / 6 math
-    from the core rule (roll equals or exceeds fnp on a D6)."""
+def _fnp_pass_fraction_uncached(fnp: int) -> float:
+    """Exact pre-existing FNP-pass arithmetic (uncached OFF path)."""
     if fnp >= 7:
         return 0.0
     if fnp <= 2:
@@ -424,6 +446,22 @@ def _fnp_pass_fraction(fnp: int) -> float:
         # but keep the formula consistent.
         return 5.0 / 6.0
     return (7 - fnp) / 6.0
+
+
+_fnp_pass_fraction_cached = functools.lru_cache(maxsize=16)(_fnp_pass_fraction_uncached)
+
+
+def _fnp_pass_fraction(fnp: int) -> float:
+    """Probability a single unsaved wound is ignored by FNP. fnp=7 -> 0.0
+    (no FNP), fnp=5 -> 2/6, fnp=4 -> 3/6. Mirrors the (7 - fnp) / 6 math
+    from the core rule (roll equals or exceeds fnp on a D6).
+
+    Pure function of one small int (fnp in 2..7), so memoisation is
+    byte-identical. Gated by `SWEG_DURCACHE` (default ON); the OFF path is the
+    byte-identical uncached arithmetic above."""
+    if _DURCACHE_ON:
+        return _fnp_pass_fraction_cached(fnp)
+    return _fnp_pass_fraction_uncached(fnp)
 
 
 # Iter 31-S1R — squad-size durability factor. AI heuristic, NOT a 10e rule.
@@ -496,6 +534,14 @@ def _durability(profile, current_health: float, attacker_ap: int,
     diverting fire from FNP-bearing defenders to no-FNP horde armies.
     Cited as `simulator.squad_size_durability_factor`.
     """
+    # Perf note (speed lever #2 / PART A): `_durability` and `_fnp_resolved` are
+    # NOT memoised whole — they depend on MUTABLE per-unit runtime state
+    # (`current_health` and `defender_unit`'s live army context: detachment,
+    # in-range leader auras, sibling count). lru_cache-ing them keyed on those
+    # would return stale durability after a unit takes wounds or a leader dies.
+    # The PURE sub-cores are factored out and cached instead: `_unsaved_fraction`
+    # (save+AP, pure ints) and `_fnp_pass_fraction` (pure int), both gated by
+    # SWEG_DURCACHE; `effective_buffs` carries its own per-activation `_buffs_cache`.
     # Toughness adds the wound-roll difficulty (already in attacker's DPA via
     # hit*wound math). Keep T as a multiplier rather than additive so a T8
     # Knight reads multiplicatively harder than a T4 Marine of equal HP.

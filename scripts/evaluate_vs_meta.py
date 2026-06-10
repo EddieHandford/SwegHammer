@@ -316,9 +316,39 @@ def _run_battle_job(
     return (a_fac, b_fac, s, r.winner)
 
 
+def _job_in_scope(a_fac: str, b_fac: str, scope: Optional[set]) -> bool:
+    """Whether an (a_fac, b_fac) battle runs under matchup-scoping.
+
+    No scope -> every pairing runs (full matrix). With a scope, a pairing runs
+    iff it TOUCHES a scoped faction (a_fac or b_fac in scope) — the scoped
+    faction's full row AND column (42 of 462 cells per faction). Scoping to the
+    whole FACTIONS set reproduces the full matrix (identity).
+    """
+    return not scope or a_fac in scope or b_fac in scope
+
+
+def _write_game_log(path: str, n: int,
+                    games: List[Tuple[str, str, int, Optional[str]]]) -> None:
+    """Persist every per-game winner for a paired / Common-Random-Numbers join.
+
+    Format: a JSON object ``{"n": N, "games": [[a_fac, b_fac, seed, winner], …]}``
+    where ``winner`` is ``"A"`` (a_fac won), ``"B"`` (b_fac won), or ``null``
+    (draw). The deterministic ``pair_seed`` schedule means the A/B's other arm
+    produces the SAME ``(a_fac, b_fac, seed)`` keys, so ``scripts/paired_delta.py``
+    can join the two logs game-for-game and read the low-variance paired delta.
+    Written once at the end of ``run_matrix`` so the hot loop stays light.
+    """
+    import json as _json
+    with open(path, "w", encoding="utf-8") as fh:
+        _json.dump({"n": n, "games": games}, fh)
+
+
 def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
                max_workers: Optional[int] = None,
-               price_overrides: Optional[Dict[str, float]] = None) -> Dict[str, float]:
+               price_overrides: Optional[Dict[str, float]] = None,
+               log_games_path: Optional[str] = None,
+               seed_start: int = 0,
+               scope_factions: Optional[set] = None) -> Dict[str, float]:
     """Average win-rate per faction across all opponents in the FACTIONS list.
 
     Seeds the global random module per battle so the same code base produces
@@ -349,7 +379,20 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
         for b_fac in FACTIONS:
             if a_fac == b_fac:
                 continue
-            for s in range(n):
+            # Matchup-scoping (speed lever): when scope_factions is set, run ONLY
+            # jobs that touch a scoped faction (its full row AND column = 42 of
+            # 462 cells for one faction). A localized single-faction change leaves
+            # every other cell byte-identical to a saved full anchor, so those
+            # cells are filled from the anchor at merge time (paired_delta
+            # --anchor) instead of re-run. Default None = all cells = unchanged.
+            # Only valid when the change is genuinely localized to these factions.
+            if not _job_in_scope(a_fac, b_fac, scope_factions):
+                continue
+            # seed_start enables sequential early-stop (speed lever #1): batches
+            # run DISJOINT seed windows (e.g. s=0..19, then s=20..39) whose game
+            # logs union into a larger paired sample without re-running the
+            # earlier seeds. Default 0 → range(n) → byte-identical to before.
+            for s in range(seed_start, seed_start + n):
                 ai, bi = fac_idx[a_fac], fac_idx[b_fac]
                 pair_seed = (ai * 1000 + bi) * 100 + s
                 jobs.append((a_fac, b_fac, s, pair_seed, rules, use_archetype, price_overrides))
@@ -357,6 +400,18 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
     # Aggregate winners per (a_fac, b_fac) pair. Job-completion order does
     # not affect the per-pair Counter because each pair_seed is unique.
     pair_winners: Dict[Tuple[str, str], Counter] = {}
+    # Paired / Common-Random-Numbers support (speed lever #1): when
+    # `log_games_path` is set, record every per-game winner keyed by
+    # (a_fac, b_fac, seed) so a sibling run (the A/B's other arm, on the same
+    # deterministic pair_seed schedule) can be JOINED game-for-game by
+    # scripts/paired_delta.py. The paired per-game delta has far lower variance
+    # than the difference of two aggregate win-rates, making keep/reject
+    # decisive at low N. This is purely additive — when `log_games_path` is
+    # None the loop below is byte-identical to the original aggregation, so the
+    # default eval frame is unchanged.
+    game_log: Optional[List[Tuple[str, str, int, Optional[str]]]] = (
+        [] if log_games_path else None
+    )
     if max_workers is None:
         # Reserve ~30% of cores for the user's other work — use ~70%.
         max_workers = max(1, int((os.cpu_count() or 2) * 0.7))
@@ -370,7 +425,10 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
         # chunksize tuned to keep IPC overhead small relative to per-battle
         # cost (~0.5-3s each). For ~9000 jobs / 8 workers, ~50 keeps
         # workers busy without front-loading the queue.
-        results_iter = executor.map(_run_battle_job, jobs, chunksize=8)
+        # chunksize 64 (was 8): jobs are independent and order-deterministic, so
+        # a larger chunk cuts inter-process dispatch overhead ~5-10% with zero
+        # risk. Speed lever (bundle).
+        results_iter = executor.map(_run_battle_job, jobs, chunksize=64)
 
     try:
         for a_fac, b_fac, _s, winner in results_iter:
@@ -379,9 +437,14 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
                 pair_winners[key] = Counter()
             if winner is not None:
                 pair_winners[key][winner] += 1
+            if game_log is not None:
+                game_log.append((a_fac, b_fac, _s, winner))
     finally:
         if max_workers > 1:
             executor.shutdown(wait=True)
+
+    if log_games_path:
+        _write_game_log(log_games_path, n, game_log)
 
     sim_wr: Dict[Tuple[str, str], float] = {}
     for a_fac in FACTIONS:
@@ -589,12 +652,61 @@ def main() -> None:
              "`python3 scripts/bake_swegpoints_v1.py`). Convenience "
              "wrapper over --equation-prices for the canonical v1 release.",
     )
+    p.add_argument(
+        "--log-games",
+        type=str,
+        default=None,
+        help="If given, write every per-game winner to this JSON path for a "
+             "paired / Common-Random-Numbers A/B. Run both arms with the same "
+             "--battles to identical --log-games paths, then join them with "
+             "scripts/paired_delta.py for a low-variance keep/reject verdict "
+             "that is decisive at low N. Purely additive — the win-rate frame "
+             "is unchanged whether or not this flag is set.",
+    )
+    p.add_argument(
+        "--seed-start",
+        type=int,
+        default=0,
+        help="First per-pairing seed index (default 0 → seeds 0..battles-1). "
+             "Set to run a DISJOINT seed window (e.g. --seed-start 20 --battles 20 "
+             "→ seeds 20..39) so sequential early-stop can extend a paired sample "
+             "without re-running earlier seeds. Keep seed-start+battles <= 100 "
+             "(the pair_seed schedule packs the seed into two digits).",
+    )
+    p.add_argument(
+        "--factions",
+        type=str,
+        default=None,
+        help="Comma-separated faction names to SCOPE the matrix to (matchup-"
+             "scoping). Runs only jobs touching a named faction (its full row "
+             "AND column = 42 of 462 cells per faction). For a localized single-"
+             "faction change, merge the scoped --log-games into a saved full "
+             "anchor with `scripts/paired_delta.py --anchor` (unchanged cells "
+             "come from the anchor). Default unset = full matrix. ONLY valid when "
+             "the change is genuinely localized to these factions (army-wide / "
+             "core-rule / re-base changes need the full matrix).",
+    )
     args = p.parse_args()
+    if args.seed_start + args.battles > 100:
+        raise SystemExit("--seed-start + --battles must be <= 100 (pair_seed packing).")
+    scope_factions = None
+    if args.factions:
+        scope_factions = {f.strip() for f in args.factions.split(",") if f.strip()}
+        unknown = scope_factions - set(FACTIONS)
+        if unknown:
+            raise SystemExit(f"--factions: unknown faction(s) {sorted(unknown)}; "
+                             f"valid: {', '.join(FACTIONS)}")
     rules = RulesConfig.sweghammer() if args.sweghammer else None
     mode = "sweghammer" if args.sweghammer else "vanilla"
     list_mode = "tourney-archetype" if args.use_archetype else "random_fill"
-    # Default reserves ~30% of cores for the user's other work; override with --workers.
-    workers = args.workers if args.workers is not None else max(1, int((os.cpu_count() or 2) * 0.7))
+    # Default reserves ~30% of cores for the user's other work; override with
+    # --workers or SWEG_WORKERS (allow 100% on an idle box). Default stays 0.7.
+    if args.workers is not None:
+        workers = args.workers
+    elif os.environ.get("SWEG_WORKERS"):
+        workers = max(1, int(os.environ["SWEG_WORKERS"]))
+    else:
+        workers = max(1, int((os.cpu_count() or 2) * 0.7))
 
     price_overrides: Optional[Dict[str, float]] = None
     if args.swegpoints and args.equation_prices:
@@ -625,7 +737,12 @@ def main() -> None:
     print(f"Mode: {'SwegHammer' if args.sweghammer else 'vanilla WH40k 10e'} | "
           f"Lists: {list_mode} | N={args.battles} | workers={workers}\n")
     sim = run_matrix(args.battles, rules=rules, use_archetype=args.use_archetype,
-                     max_workers=workers, price_overrides=price_overrides)
+                     max_workers=workers, price_overrides=price_overrides,
+                     log_games_path=args.log_games, seed_start=args.seed_start,
+                     scope_factions=scope_factions)
+    if args.log_games:
+        print(f"Per-game winners written to {args.log_games} "
+              f"(join with scripts/paired_delta.py).")
     mae_raw, mae_gated, mae_sweg = report(sim)
     if args.out:
         trusted = eq_data.get("trusted_factions") if args.equation_prices else None

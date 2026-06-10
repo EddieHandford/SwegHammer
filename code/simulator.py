@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import random
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
@@ -21,7 +22,7 @@ from .factions import is_marine_faction
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
 from .strategy import (
-    _melee_target_score, _oc_on_objective,
+    _is_melee_class, _melee_target_score, _oc_on_objective,
     decide_deepstrike_drops, pick_army_plan, pick_doctrina_imperative,
     pick_mass_arrival_anchor, pick_move_intent, should_declare_waaagh,
     should_fire_stratagem,
@@ -776,6 +777,10 @@ class Battle:
         self._stratagems_fired_this_battle: Dict[str, set] = {
             self.a.name: set(), self.b.name: set(),
         }
+        # CSM Possessed "Unholy Bloodshed" (gated SWEG_CSM_ABILITIES): once-per-
+        # battle guard. Stores the set of unit UIDs that have already consumed
+        # their Unholy Bloodshed grant. Cleared on Battle reset, not per-round.
+        self._csm_unholy_bloodshed_used: set = set()
         self.a._battle_ref = self
         self.b._battle_ref = self
         # Current battle round (1..MAX_ROUNDS). Updated at the top of each
@@ -3357,6 +3362,11 @@ class Battle:
             u.transient_sustained_hits = 0
             u.transient_reroll_wounds = False
             u.transient_reroll_wounds_ones = False
+            # CSM datasheet abilities (gated SWEG_CSM_ABILITIES).
+            # transient_reroll_all_hits: Despoilers (Chaos Terminator Squad).
+            # transient_devastating_wounds: Unholy Bloodshed (Possessed).
+            u.transient_reroll_all_hits = False
+            u.transient_devastating_wounds = False
             # DRK-SKYSPLINTER-DISEMBARK: Rain of Cruelty disembark-turn
             # keyword grants. Set on disembark by `_disembark` when the
             # unit is DRUKHARI and the army's detachment is Skysplinter
@@ -6603,6 +6613,42 @@ class Battle:
             self._set_transient_squad(attacker, "transient_plus_one_to_hit_shooting")
             self._set_transient_squad(attacker, "transient_plus_one_to_wound_melee")
 
+            # CSM datasheet abilities granted when a unit makes a Dark Pact.
+            # Both gated SWEG_CSM_ABILITIES (default-off). When ON, the base
+            # dark pacts uplift above still fires (backward-compat: OFF config
+            # byte-identical to current behaviour).
+            _csm_gate = __import__("os").environ.get("SWEG_CSM_ABILITIES", "1") != "0"
+            if _csm_gate:
+                # Chaos Terminator Squad "Despoilers": re-roll the Hit roll
+                # (full re-roll, any phase, any attack). BSData v10.6.0 verbatim:
+                # "Each time this unit makes a Dark Pact, until the end of the
+                # phase, each time a model in this unit makes an attack, you can
+                # re-roll the Hit roll." Cited as `simulator.csm_despoilers`.
+                if getattr(attacker.profile, "csm_despoilers", False):
+                    self._set_transient_squad(attacker, "transient_reroll_all_hits")
+                    if self.verbose:
+                        print(
+                            f"  DESPOILERS: {attacker.profile.name} granted "
+                            "full hit re-roll via Dark Pact"
+                        )
+                # Possessed "Unholy Bloodshed": once per battle, weapons gain
+                # [DEVASTATING WOUNDS] for the phase. BSData v10.6.0 verbatim:
+                # "Once per battle, when this unit makes a Dark Pact, until the
+                # end of the phase, weapons equipped by models in this unit have
+                # the [DEVASTATING WOUNDS] ability."
+                # Cited as `simulator.csm_unholy_bloodshed`.
+                if (
+                    getattr(attacker.profile, "csm_unholy_bloodshed", False)
+                    and attacker.uid not in self._csm_unholy_bloodshed_used
+                ):
+                    self._set_transient_squad(attacker, "transient_devastating_wounds")
+                    self._csm_unholy_bloodshed_used.add(attacker.uid)
+                    if self.verbose:
+                        print(
+                            f"  UNHOLY BLOODSHED: {attacker.profile.name} granted "
+                            "[DEVASTATING WOUNDS] via Dark Pact (once-per-battle)"
+                        )
+
             if not passed:
                 # D3 mortal wounds on the pact bearer. Mortals bypass
                 # armour/invuln but FNP applies via receive_damage, and spill
@@ -7232,6 +7278,45 @@ class Battle:
         # each army into reserves. Two-pass routing so embarked passengers
         # follow their transport — first pass identifies direct routes,
         # second pass routes passengers whose transport is being routed.
+        #
+        # RESERVES CAP ENFORCEMENT (env-gated SWEG_DEPLOY_AI, default ON since
+        # wave 224; SWEG_DEPLOY_AI=0 reverts to the pre-cap all-reserve path):
+        # 10e core rule (Chapter Approved 2025-26, cited as simulator.reserves_cap):
+        # "No more than half of the units in your army can start the battle in
+        # Reserves, and the points total of those units cannot be more than half
+        # of the points total of your army."
+        # This is a DUAL CAP: reserves <= floor(50% of units) AND reserves
+        # <= 50% of total points. Deep Strike and Cult Ambush (a type of Strategic
+        # Reserves) BOTH count toward it — no exemptions.
+        #
+        # With the gate OFF (default), this cap is NOT enforced; the old behaviour
+        # reserves every deep_strike / GSC unit regardless of legality (ILLEGAL for
+        # most armies). Gate OFF must be byte-identical to the prior anchor so A/B
+        # evals remain valid.
+        #
+        # With the gate ON (SWEG_DEPLOY_AI=1), the cap IS enforced as the cited
+        # game rule, and the CHOICE of which units to reserve is an AI tactical
+        # decision: reserve the alpha-strike units preferentially (they benefit
+        # most from Deep Strike). Sort reservable candidates by ascending OC
+        # (low-OC hitters reserved first; high-OC bodies stay on board to hold
+        # objectives), tie-break ascending OC then by name for determinism. Greedily
+        # add to R while BOTH caps hold; stop before any unit that would breach
+        # either cap. Everything not in R deploys on board at game start.
+        #
+        # The split algorithm (gate ON):
+        #   1. Identify all units flagged for reserve (deep_strike=True or GSC
+        #      faction), EXCLUDING transport passengers (embarked_in is not None
+        #      — they are coupled to their transport and move together).
+        #   2. Compute total_units and total_points for the whole army.
+        #   3. Sort reservable candidates: ascending OC, then ascending name
+        #      (deterministic tiebreak). Lower OC = better alpha-striker,
+        #      higher OC = better objective holder.
+        #   4. Greedily add to reserve set R while BOTH caps hold:
+        #        len(R_next) <= floor(0.5 * total_units)
+        #        points(R_next) <= 0.5 * total_points
+        #   5. Units not selected for R are promoted to on-board.
+        _deploy_ai_on = __import__("os").environ.get("SWEG_DEPLOY_AI", "1") == "1"
+
         for army in (self.a, self.b):
             direct_reserves_ids: set = set()
             for u in army.units:
@@ -7240,6 +7325,54 @@ class Battle:
                     u.cult_ambush_pending = True
                 if u.profile.deep_strike or is_gsc:
                     direct_reserves_ids.add(id(u))
+
+            # SWEG_DEPLOY_AI: enforce the 10e Reserves cap (dual cap: units AND
+            # points). The CHOICE of which units to reserve is the AI tactical
+            # decision — reserve alpha-strike units first (low OC), keep high-OC
+            # bodies on board to contest objectives.
+            if _deploy_ai_on and len(direct_reserves_ids) >= 2:
+                import math as _math
+                # Exclude transport passengers from cap calculations — they are
+                # coupled to their transport and are not counted as independent
+                # deployment entities for the Reserves cap purposes.
+                non_passenger_units = [u for u in army.units if u.embarked_in is None]
+                total_units = len(non_passenger_units)
+                total_points = sum(u.profile.points_cost or 0.0 for u in non_passenger_units)
+                units_cap = _math.floor(0.5 * total_units)   # 10e rule: floor
+                points_cap = 0.5 * total_points              # 10e rule: 50%
+
+                # Candidates = units flagged for reserve that are NOT transport
+                # passengers (leave passengers coupled to their transport).
+                reservable = [
+                    u for u in army.units
+                    if id(u) in direct_reserves_ids and u.embarked_in is None
+                ]
+                # Sort: lowest OC first (best alpha-strikers go to reserves first),
+                # then by name for deterministic tiebreak.
+                reservable_sorted = sorted(
+                    reservable,
+                    key=lambda u: (u.profile.oc or 0, u.profile.name),
+                )
+                # Greedily fill R while BOTH caps hold.
+                promoted: set = set()   # ids of units moved OFF reserve → on board
+                reserve_count = 0
+                reserve_points = 0.0
+                for u in reservable_sorted:
+                    unit_pts = u.profile.points_cost or 0.0
+                    if (reserve_count + 1 <= units_cap
+                            and reserve_points + unit_pts <= points_cap):
+                        reserve_count += 1
+                        reserve_points += unit_pts
+                    else:
+                        # Adding this unit would breach a cap — promote to on-board.
+                        promoted.add(id(u))
+                direct_reserves_ids -= promoted
+                # When a transport is promoted to on-board, its embarked passengers
+                # must follow — remove their ids from direct_reserves_ids too so
+                # the passenger co-routing below doesn't route them back to reserves.
+                for u in army.units:
+                    if u.embarked_in is not None and id(u.embarked_in) in promoted:
+                        direct_reserves_ids.discard(id(u))
 
             standard, reserves = [], []
             for u in army.units:
@@ -7475,11 +7608,47 @@ class Battle:
     # ------------------------------------------------------------------
 
     def _run_scout_phase(self) -> None:
-        """Pre-Round 1 Normal Move for every unit with Scouts x"". Moves up
-        to `scout_distance` inches toward the nearest enemy. Units that
-        scouted are flagged in `_fresh_arrivals` so they skip the Round 1
-        movement sub-phase — they already moved.
+        """Pre-Round 1 Normal Move for every unit with Scouts x"". The unit
+        makes a Normal move up to `scout_distance` inches; the DESTINATION is
+        an AI tactical choice. Units that scouted are flagged in
+        `_fresh_arrivals` so they skip the Round 1 movement sub-phase — they
+        already moved.
+
+        Destination policy:
+          * default (legacy): move toward the NEAREST ENEMY. Simple, but for
+            fragile gunline-scouts (Astra Militarum / Adeptus Mechanicus /
+            Adepta Sororitas) this shoves them into turn-1 threat range and
+            off their own objectives — anti-competitive.
+          * SWEG_SCOUT_AI=1: classify the scout by ROLE and pick the
+            destination that real competitive play would (v2 — the v1
+            "send every scout to an objective" was flat-to-worse because it
+            pulled aggressive melee scouts off their pressure and stranded
+            long-range gunline scouts on open markers):
+              (a) MELEE-oriented (primary profile is melee, per
+                  `_is_melee_class`) -> pressure FORWARD toward the nearest
+                  enemy (a War Dog / Serberys / assault scout wants to close).
+              (b) LONG-range shooty (range >= 24") -> HOLD: a long gun already
+                  threatens the midboard from its own zone; advancing it onto
+                  an open marker only exposes it.
+              (c) SHORT-range / fragile shooty -> move toward the nearest
+                  FORWARD-BUT-SAFE contestable objective (board control), never
+                  ending in a strictly worse position; if none exists, HOLD.
+            The Scouts move itself is the real 10e rule (cited
+            `simulator.scout`); choosing the destination by role is the AI
+            decision, analogous to `simulator.intelligent_deployment`.
+            Gated/default-OFF so the OFF path is byte-identical to the legacy
+            behaviour.
         """
+        scout_ai = __import__("os").environ.get("SWEG_SCOUT_AI", "0") == "1"
+        center_y = self.map.height / 2.0
+        # Inches a scout may end PAST the midline: enough to contest a No
+        # Man's Land marker sitting on the centreline, not to charge deep into
+        # the enemy half.
+        safe_margin = 3.0
+        # A gun reaching this far already threatens the midboard from its own
+        # deployment zone, so a long-range shooty scout holds rather than
+        # advancing onto an exposed marker.
+        long_range_inches = 24.0
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
             for u in army.alive_units:
                 dist = u.profile.scout_distance
@@ -7487,19 +7656,81 @@ class Battle:
                     continue
                 if not opponent.alive_units:
                     break
-                nearest = min(
-                    opponent.alive_units,
-                    key=lambda e: _distance(u.position, e.position),
-                )
                 old_pos = u.position
-                new_pos = _move_toward(old_pos, nearest.position, float(dist), self.map,
+                if scout_ai:
+                    if _is_melee_class(u.profile):
+                        # (a) aggressive melee scout -> pressure forward.
+                        nearest = min(
+                            opponent.alive_units,
+                            key=lambda e: _distance(u.position, e.position),
+                        )
+                        goal = nearest.position
+                    elif (u.profile.range_inches or 0) >= long_range_inches:
+                        # (b) long-range gunline scout -> hold its firing
+                        # position (already threatens the midboard).
+                        continue
+                    else:
+                        # (c) short-range / fragile shooty -> grab a
+                        # forward-but-safe objective for board control.
+                        goal = self._scout_destination(u, center_y, safe_margin)
+                        if goal is None:
+                            continue
+                else:
+                    nearest = min(
+                        opponent.alive_units,
+                        key=lambda e: _distance(u.position, e.position),
+                    )
+                    goal = nearest.position
+                # Under the AI policy, the "never worse position" guard applies
+                # only to the objective-seeking case (c); melee pressure (a)
+                # deliberately advances toward the enemy like the legacy move.
+                guarded = scout_ai and not _is_melee_class(u.profile)
+                new_pos = _move_toward(old_pos, goal, float(dist), self.map,
                                        **self._collision_kwargs(u))
-                if new_pos != old_pos:
+                # Never end in a strictly worse position than the start: under
+                # the objective-seeking case only commit a move that gets the
+                # unit closer to its chosen objective (a blocked/aborted move
+                # leaves it put). Legacy and melee-pressure moves advance
+                # toward the enemy and are committed whenever they change.
+                if new_pos != old_pos and (
+                    not guarded
+                    or _distance(new_pos, goal) < _distance(old_pos, goal)
+                ):
                     u.position = new_pos
                     self._fresh_arrivals.add(u.uid)
                     self._emit(UnitScouted(
                         unit_uid=u.uid, from_pos=old_pos, to_pos=new_pos,
                     ))
+
+    def _scout_destination(self, u, center_y: float, safe_margin: float):
+        """AI scout-move destination: the nearest contestable objective that
+        is FORWARD of the unit (toward midboard) but NOT deep in enemy
+        territory (no further than `safe_margin` past the midline). Returns an
+        (x, y) goal, or None if no forward-but-safe objective exists.
+
+        `forward` is derived from the unit's own position relative to the
+        board centre (robust to which side each army deploys on): a scout in
+        its own deployment zone advances toward the centreline, never past it
+        by more than `safe_margin`. Markers behind the unit (its own home
+        objectives) and markers beyond the safe band (the enemy's home
+        objectives) are excluded.
+        """
+        uy = u.position[1]
+        forward_sign = 1.0 if uy < center_y else -1.0
+        cands = []
+        for obj in self.map.objectives:
+            oy = obj.y
+            if forward_sign > 0:
+                ahead = oy >= uy - 1e-6
+                safe = oy <= center_y + safe_margin
+            else:
+                ahead = oy <= uy + 1e-6
+                safe = oy >= center_y - safe_margin
+            if ahead and safe:
+                cands.append((obj.x, obj.y))
+        if not cands:
+            return None
+        return min(cands, key=lambda g: _distance(u.position, g))
 
     def _arrive_from_reserves(self, round_num: int) -> None:
         """Bring reserves onto the board.
@@ -7668,6 +7899,24 @@ class Battle:
 
         # Identify uncontested objectives (no friendly within control radius).
         friendly = self.a if opponent is self.b else self.b
+
+        # Warp Rifts (Chaos Daemons Daemonic Incursion detachment rule, 10e).
+        # Wahapedia: "Each time a LEGIONES DAEMONICA unit from your army is set
+        # up on the battlefield using the Deep Strike ability, if it is set up
+        # wholly within your army's Shadow of Chaos … it can be set up anywhere
+        # that is more than 6\" horizontally away from all enemy models, instead
+        # of more than 9\"."
+        # SwegHammer simplification: applied uniformly to all Chaos Daemons
+        # deep-strikers under Daemonic Incursion. Gated SWEG_WARP_RIFTS.
+        # Cited as `simulator.warp_rifts`.
+        if (
+            os.environ.get("SWEG_WARP_RIFTS", "0") != "0"
+            and arriving_unit is not None
+            and (arriving_unit.profile.faction or "") == "Chaos Daemons"
+            and getattr(getattr(friendly, "detachment", None), "warp_rifts", False)
+        ):
+            min_gap = 6.0
+
         targetable_objs = []
         for obj in self.map.objectives:
             controlled_by_us = any(
@@ -8411,7 +8660,30 @@ class Battle:
             # awarded a die every round-start even after the last Sororitas
             # model died. Cited as `simulator.acts_of_faith`.
             if any(u.profile.faction == "Adepta Sororitas" for u in army.alive_units):
-                army.gain_miracle_dice(1, random)
+                # SWEG_SOROR_ABILITIES — Triumph of Saint Katherine
+                # "Solemn Procession": when the Triumph model is on the
+                # battlefield, the round-start Miracle die is fixed at 6
+                # instead of being rolled. BSData v10.6.0 Imperium - Adepta
+                # Sororitas.cat.gz, ability id 3d31-2f99-c625-f047:
+                # "Each time you gain 1 Miracle dice at the start of the
+                # battle round, if this model is on the battlefield, do not
+                # roll one D6 to determine the value of that Miracle dice;
+                # it has a value of 6."
+                # Gated SWEG_SOROR_ABILITIES (default-OFF). Cited as
+                # `simulator.triumph_of_saint_katherine`.
+                _soror_abilities = __import__("os").environ.get(
+                    "SWEG_SOROR_ABILITIES", "0") != "0"
+                if _soror_abilities and any(
+                    u.is_alive and "Triumph of Saint Katherine" in u.profile.name
+                    for u in army.alive_units
+                ):
+                    # Triumph alive: bank a fixed 6 instead of rolling.
+                    army.miracle_dice.append(6)
+                    army.miracle_dice.sort(reverse=True)
+                    if len(army.miracle_dice) > army.MIRACLE_DICE_BANK_CAP:
+                        army.miracle_dice = army.miracle_dice[:army.MIRACLE_DICE_BANK_CAP]
+                else:
+                    army.gain_miracle_dice(1, random)
         # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
         # At the start of each battle round the AdMech player picks ONE of
         # two imperatives — "protector" (+1 BS on ranged attacks, defensive
@@ -10437,6 +10709,12 @@ class Battle:
             self._maybe_award_miracle_die(
                 victim=shoot_target, victim_army=defender_army,
             )
+            # SWEG_SOROR_ABILITIES — Saint Celestine Miraculous Intervention:
+            # once-per-battle self-revive on 2+ when Celestine is destroyed.
+            # Must be called AFTER `_maybe_award_miracle_die` (which checks
+            # alive_units; revival re-adds the unit before the phase ends).
+            from code.leaders import maybe_apply_celestine_revival
+            maybe_apply_celestine_revival(defender_army, shoot_target, random)
             # Deadly Demise (10e core): the destroyed unit may detonate.
             self._maybe_apply_deadly_demise(shoot_target)
 
@@ -11127,6 +11405,11 @@ class Battle:
             self._maybe_award_miracle_die(
                 victim=target, victim_army=defender_army,
             )
+            # SWEG_SOROR_ABILITIES — Saint Celestine Miraculous Intervention:
+            # once-per-battle self-revive on 2+ when Celestine is destroyed in
+            # melee. Mirrors the shooting-kill hook above.
+            from code.leaders import maybe_apply_celestine_revival
+            maybe_apply_celestine_revival(defender_army, target, random)
             self._maybe_apply_deadly_demise(target)
             # CSM-EYE-OF-GODS: Eye of the Gods (Pactbound Zealots, 1 CP).
             # End-of-Fight-phase reactive stratagem fired on the kill site.
@@ -12175,6 +12458,10 @@ class Battle:
             self._maybe_award_miracle_die(
                 victim=_m, victim_army=target_army,
             )
+            # SWEG_SOROR_ABILITIES — Celestine Miraculous Intervention: Tank
+            # Shock kill site.
+            from code.leaders import maybe_apply_celestine_revival
+            maybe_apply_celestine_revival(target_army, _m, random)
             self._maybe_apply_deadly_demise(_m)
 
     # CORE-RULES-AUDIT (2026-05-31): _do_heroic_intervention REMOVED. Heroic
@@ -12247,4 +12534,8 @@ class Battle:
             self._maybe_award_miracle_die(
                 victim=winner_unit, victim_army=winner_army,
             )
+            # SWEG_SOROR_ABILITIES — Celestine Miraculous Intervention:
+            # Counter-Offensive kill site.
+            from code.leaders import maybe_apply_celestine_revival
+            maybe_apply_celestine_revival(winner_army, winner_unit, random)
             self._maybe_apply_deadly_demise(winner_unit)

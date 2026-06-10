@@ -197,7 +197,7 @@
     "rule_name": "Scouts X\"",
     "quoted_text": "Some models have 'Scouts X\"' listed in the abilities section of their datasheet. Before the first turn begins, if every model in a unit has this ability, that unit can make a Normal move of up to X\". A unit cannot end this move within 9\" horizontally of any enemy models.",
     "trigger": "unit profile has scout_distance > 0; pre-game (before Round 1)",
-    "effect": "(approximation) before the first round, the unit makes a Normal move up to scout_distance inches toward the nearest enemy. SwegHammer does not enforce the 'cannot end within 9\" of an enemy' clause precisely - it just clamps movement and trusts the deployment distance.",
+    "effect": "before the first round, the unit makes a Normal move up to scout_distance inches; the move is the rule, the destination is the AI's tactical choice. Default: toward the nearest enemy (legacy). With SWEG_SCOUT_AI=1 the destination is classified by ROLE (v2): (a) melee-oriented scouts pressure forward toward the nearest enemy; (b) long-range shooty scouts (range >= 24 inches) hold their firing position; (c) short-range / fragile shooty scouts move toward the nearest forward-but-safe contestable objective (no further than ~3 inches past the midline), never into a strictly worse position, else hold. This is an AI heuristic on a real move, like simulator.intelligent_deployment, not a rule change. SwegHammer does not enforce the 'cannot end within 9\" of an enemy' clause precisely - it just clamps movement and trusts the deployment distance.",
     "scope": "keyword-gated"
   },
   "simulator.infiltrators": {
@@ -328,6 +328,22 @@
     "quoted_text": "Each time a model in this unit targets an enemy unit with a melee attack, re-roll a Wound roll of 1. If that enemy unit is within range of an objective marker, you can re-roll the Wound roll instead.",
     "trigger": "A model in a Chaos Space Marines Legionaries unit makes a melee attack. The objective clause upgrades the re-roll when the target unit is within range of an objective marker.",
     "effect": "In the Fight phase the Legionaries re-roll Wound rolls of 1 (att_reroll_wound_ones); if the target is within range of any objective marker (target.on_objective), they re-roll the full failed Wound roll instead (att_reroll_all_wounds). Ranged attacks are unaffected. Applied via the override-only UnitProfile.veterans_of_the_long_war flag on chaos_space_marines_legionaries. Gated SWEG_VETERANS (default-on). Cross-checked verbatim against BSData v10.6.0 Chaos Space Marines.cat.gz ability a5ea-d708-db75-226c.",
+    "scope": "phase-gated"
+  },
+  "simulator.csm_despoilers": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Chaos-Terminator-Squad",
+    "rule_name": "Despoilers",
+    "quoted_text": "Each time this unit makes a Dark Pact, until the end of the phase, each time a model in this unit makes an attack, you can re-roll the Hit roll.",
+    "trigger": "Chaos Terminator Squad makes a Dark Pact (at the start of the Command phase via simulator._apply_dark_pacts); fires for the remainder of that round.",
+    "effect": "Unit is granted transient_reroll_all_hits for the round — every failed Hit roll may be re-rolled (att_reroll_all_hits = True in Unit.attack). Composes via OR with other att_reroll_all_hits sources. Applied via the override-only UnitProfile.csm_despoilers flag on chaos_space_marines_chaos_terminator_squad; gated SWEG_CSM_ABILITIES (default-off). Verbatim text cross-checked against BSData v10.6.0 Chaos Space Marines.cat.gz, ability id 13a2-57cd-83ff-2127.",
+    "scope": "phase-gated"
+  },
+  "simulator.csm_unholy_bloodshed": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Possessed",
+    "rule_name": "Unholy Bloodshed",
+    "quoted_text": "Once per battle, when this unit makes a Dark Pact, until the end of the phase, weapons equipped by models in this unit have the [DEVASTATING WOUNDS] ability.",
+    "trigger": "Possessed makes a Dark Pact (at the start of the Command phase via simulator._apply_dark_pacts); fires for the remainder of that round, once per battle per unit.",
+    "effect": "Unit is granted transient_devastating_wounds for the round — on a critical wound (wound roll of 6+), the attack bypasses the target's saving throws and deals mortal wounds equal to the weapon's Damage. Applied via the override-only UnitProfile.csm_unholy_bloodshed flag on chaos_space_marines_possessed; gated SWEG_CSM_ABILITIES (default-off). Once-per-battle guard tracked in Battle._csm_unholy_bloodshed_used (set of unit UIDs). Verbatim text cross-checked against BSData v10.6.0 Chaos Space Marines.cat.gz, ability id 3de3-728d-6264-1eb3.",
     "scope": "phase-gated"
   }
 }

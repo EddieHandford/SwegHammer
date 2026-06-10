@@ -123,6 +123,11 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # rule. Dread Tyrants Aura grants reroll-hit-ones + reroll-wound-ones to
     # War Dogs within 9" of a friendly TITANIC CK unit.
     ("dread_tyrants_aura", False),
+    # Chaos Daemons Daemonic Incursion — Warp Rifts (wave 221). Reduces the
+    # Deep Strike minimum gap from 9" to 6" for Chaos Daemons units arriving
+    # under this detachment (gated SWEG_WARP_RIFTS). Cited as
+    # `simulator.warp_rifts` in data/rule_citations.d/chaos_daemons.json.
+    ("warp_rifts", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
@@ -546,6 +551,45 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # (melee Wound-roll re-rolls, upgraded to full re-roll near objectives).
     # Gated SWEG_VETERANS.
     "simulator.veterans_of_the_long_war",
+    # CSM wave — Chaos Terminator Squad "Despoilers": when making a Dark Pact,
+    # re-roll the Hit roll until the end of the phase. Gated SWEG_CSM_ABILITIES.
+    # Cited in data/rule_citations.d/keywords_and_mechanics.json.
+    "simulator.csm_despoilers",
+    # CSM wave — Possessed "Unholy Bloodshed": once per battle, when making a
+    # Dark Pact, weapons gain [DEVASTATING WOUNDS] until the end of the phase.
+    # Gated SWEG_CSM_ABILITIES. Cited in data/rule_citations.d/keywords_and_mechanics.json.
+    "simulator.csm_unholy_bloodshed",
+    # CSM wave — Dark Apostle "Dark Zealotry": +1 to Wound roll on melee attacks
+    # while the unit is led by a Dark Apostle. Gated SWEG_CSM_ABILITIES.
+    # Cited in data/rule_citations.d/leaders.json.
+    "simulator.dark_apostle_dark_zealotry",
+    # CSM wave — Abaddon the Despoiler "Paragon of Hatred" (Warmaster ability):
+    # friendly HERETIC ASTARTES within 6\" re-roll Hit rolls. Army-wide broadcast
+    # aura. Gated SWEG_CSM_ABILITIES. Cited in data/rule_citations.d/leaders.json.
+    "simulator.abaddon_paragon_of_hatred",
+    # Sororitas wave — Triumph of Saint Katherine "Solemn Procession": the
+    # round-start Miracle die is fixed at 6 (instead of rolling D6) while the
+    # Triumph model is on the battlefield. Gated SWEG_SOROR_ABILITIES.
+    # Cited in data/rule_citations.d/adepta_sororitas.json.
+    "simulator.triumph_of_saint_katherine",
+    # Sororitas wave — Saint Celestine "Miraculous Intervention": once-per-battle
+    # self-revive on 2+ when Celestine is destroyed. Gated SWEG_SOROR_ABILITIES.
+    # Cited in data/rule_citations.d/adepta_sororitas.json.
+    "simulator.celestine_miraculous_intervention",
+    # Wave 221 — Chaos Daemons Daemonic Incursion "Warp Rifts" (env-gated
+    # SWEG_WARP_RIFTS). Reduces Deep Strike minimum gap from 9" to 6" for
+    # Chaos Daemons units arriving under the Daemonic Incursion detachment.
+    # Cited in data/rule_citations.d/chaos_daemons.json.
+    "simulator.warp_rifts",
+    # Wave 223 — 10e core Reserves cap (env-gated SWEG_DEPLOY_AI). Dual cap:
+    # no more than half of an army's units AND no more than half of its total
+    # points may start in Reserves. Deep Strike and Cult Ambush (a type of
+    # Strategic Reserves) both count toward the cap. Enforced in
+    # Battle._deploy_armies; the AI choice of WHICH units to reserve is the
+    # tactical decision (low-OC alpha-strikers reserved first). Gate OFF
+    # leaves the cap unenforced to preserve byte-identical A/B anchor
+    # comparability. Cited in data/rule_citations.d/core_reserves.json.
+    "simulator.reserves_cap",
     # SC4-A — 10e Pariah Nexus Fixed Secondary Missions. Bring it Down
     # (5 VP per enemy MONSTER/VEHICLE destroyed this round, capped 15)
     # and No Prisoners (5 VP per enemy unit destroyed this round, capped

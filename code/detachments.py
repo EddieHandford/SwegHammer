@@ -382,6 +382,20 @@ class Detachment:
     # `ICONOCLAST_FIEFDOM.dread_tyrants_aura`.
     dread_tyrants_aura: bool = False
 
+    # Chaos Daemons Daemonic Incursion — Warp Rifts. Wahapedia verbatim:
+    # "Each time a LEGIONES DAEMONICA unit from your army is set up on the
+    # battlefield using the Deep Strike ability, if it is set up wholly within
+    # your army's Shadow of Chaos [or within 6\" of a matching Greater Daemon],
+    # it can be set up anywhere that is more than 6\" horizontally away from
+    # all enemy models, instead of more than 9\"."
+    # SwegHammer SIMPLIFICATION: applied uniformly to all Chaos Daemons units
+    # arriving via deep strike when the army uses the Daemonic Incursion
+    # detachment. The "wholly within Shadow of Chaos" condition is the common
+    # case for Daemon deep-strikers (they arrive Round 2 when the Shadow is
+    # typically active). Gated SWEG_WARP_RIFTS; default False so all other
+    # detachments are unaffected. Cited as `simulator.warp_rifts`.
+    warp_rifts: bool = False
+
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
     enemy_ld_penalty: int = 0            # -N to enemy Ld (higher target)
@@ -1265,11 +1279,14 @@ DAEMONIC_INCURSION = Detachment(
         "`plus_one_to_hit=True` (army-wide, always-on) was a fabrication "
         "biasing Chaos Daemons sim WR upward. Removed. The detachment is "
         "still registered and its composition preference is retained — "
-        "list-build shape still applies. A faithful Warp Rifts "
-        "implementation needs reserve-deployment distance tracking that "
-        "the simulator does not yet model; follow-up wiring lands "
-        "separately."
+        "list-build shape still applies. Wave 221: Warp Rifts is now "
+        "wired (gated SWEG_WARP_RIFTS) — `_pick_arrival_point` reduces "
+        "the Deep Strike minimum gap from 9\" to 6\" for Chaos Daemons "
+        "units arriving under this detachment, letting them land on "
+        "contested mid-board objectives that sit ~8\" from the enemy "
+        "deployment edge. Cited as `simulator.warp_rifts`."
     ),
+    warp_rifts=True,
     stratagems=DAEMONIC_INCURSION_STRATAGEMS,
     preferred_composition="balanced",
 )

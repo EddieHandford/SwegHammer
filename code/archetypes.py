@@ -1659,8 +1659,21 @@ def _random_fill(
         if not affordable:
             break
         chosen, size, cost = rng.choice(affordable)
-        for _ in range(size):
-            army.add_unit(chosen)
+        # RANDOM-FILL RE-BASE (gated SWEG_FILL_SQUADS). The template seed path
+        # already fields proper squads via add_squad; this aligns the random
+        # topup, which historically added `size` independent 1-model Units (the
+        # one-Unit-per-model representation amplification: codex "once per unit
+        # per phase" economies, squad-activation, coherency, leader-attach,
+        # OC-blobs and Blast all mis-fire on size separate units). add_squad
+        # builds the SAME `size` model-Units but sharing one squad_id, so the
+        # army's total Units / models / points are identical — only the squad
+        # GROUPING changes (representation-only). Default 0 reverts to the
+        # byte-identical per-model loop. See [[project-one-unit-per-model-amplification]].
+        if os.environ.get("SWEG_FILL_SQUADS", "1") != "0":
+            army.add_squad(chosen, size)
+        else:
+            for _ in range(size):
+                army.add_unit(chosen)
         spent_by_name[chosen.name] = spent_by_name.get(chosen.name, 0.0) + cost
         fill_squads_by_name[chosen.name] = fill_squads_by_name.get(chosen.name, 0) + 1
         remaining_budget -= cost

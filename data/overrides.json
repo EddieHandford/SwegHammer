@@ -1773,6 +1773,14 @@
       "veterans_of_the_long_war": true,
       "notes": "Wave 217: Legionaries datasheet ability 'Veterans of the Long War' — in melee, re-roll Wound rolls of 1; if the target is within range of an objective marker, re-roll the full Wound roll instead. Read at the melee wound step gated SWEG_VETERANS. Cross-checked verbatim: BSData v10.6.0 Chaos Space Marines.cat.gz ability a5ea-d708-db75-226c + Wahapedia https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Legionaries. Cited simulator.veterans_of_the_long_war."
     },
+    "chaos_space_marines_chaos_terminator_squad": {
+      "csm_despoilers": true,
+      "notes": "CSM wave: Chaos Terminator Squad datasheet ability 'Despoilers' — when this unit makes a Dark Pact, until the end of the phase, each model may re-roll the Hit roll. BSData v10.6.0 Chaos Space Marines.cat.gz, ability id 13a2-57cd-83ff-2127. Applied via csm_despoilers flag; gated SWEG_CSM_ABILITIES. Cited simulator.csm_despoilers."
+    },
+    "chaos_space_marines_possessed": {
+      "csm_unholy_bloodshed": true,
+      "notes": "CSM wave: Possessed datasheet ability 'Unholy Bloodshed' — once per battle, when this unit makes a Dark Pact, until the end of the phase, weapons equipped by models in this unit have the [DEVASTATING WOUNDS] ability. BSData v10.6.0 Chaos Space Marines.cat.gz, ability id 3de3-728d-6264-1eb3. Applied via csm_unholy_bloodshed flag; gated SWEG_CSM_ABILITIES. Cited simulator.csm_unholy_bloodshed."
+    },
     "chaos_space_marines_heldrake": {
       "devastating_wounds": true,
       "notes": "AK-1: Heldrake claws carry [DEVASTATING WOUNDS] per BSData v10.6.0 Chaos Space Marines.cat.gz (Range=Melee, Keywords=\"Anti-FLY 2+, Devastating Wounds\"). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Heldrake."

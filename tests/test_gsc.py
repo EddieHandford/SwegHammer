@@ -24,6 +24,7 @@ Cited as `simulator.cult_ambush`.
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
 
@@ -78,12 +79,34 @@ def _guard_profile(name: str = "Guardsman", **overrides) -> UnitProfile:
 # ---------------------------------------------------------------------------
 
 class CultAmbushDeploymentTests(unittest.TestCase):
-    """Verify GSC units are pulled out of the deployment-line path and held
-    in reserves, flagged ambush_pending, before Round 1 begins."""
+    """Verify GSC units route into the Cult Ambush reserves path and arrive in
+    Round 1 — under the 10e Reserves cap.
 
-    def test_gsc_units_start_off_table(self):
-        """Every GSC unit should be in reserves with cult_ambush_pending=True
-        after deployment, NOT on the deployment line."""
+    These tests pin SWEG_DEPLOY_AI=1 (the production default): the Reserves cap
+    is ENFORCED, so no more than half the GSC units may start in reserves and
+    the remainder deploy on the board. GSC Cult Ambush units count toward the
+    cap (Chapter Approved 2025-26 — no exemption), so an all-GSC army cannot
+    reserve everything. Each test asserts the mechanic on the RESERVED subset
+    (those units are ambush-flagged, arrive Round 1, land > 9" from enemies,
+    emit the event); the cap-split arithmetic itself is covered in
+    tests/test_deploy_ai.py.
+    """
+
+    def setUp(self):
+        self._prev_deploy_ai = os.environ.get("SWEG_DEPLOY_AI")
+        os.environ["SWEG_DEPLOY_AI"] = "1"
+
+    def tearDown(self):
+        if self._prev_deploy_ai is None:
+            os.environ.pop("SWEG_DEPLOY_AI", None)
+        else:
+            os.environ["SWEG_DEPLOY_AI"] = self._prev_deploy_ai
+
+    def test_gsc_units_reserve_up_to_cap_and_are_ambush_flagged(self):
+        """Under the 10e Reserves cap, the GSC army reserves only up to half
+        its units; those held in reserves are flagged cult_ambush_pending=True,
+        and the remainder deploy on the board (the cap forbids reserving all)."""
+        import math
         random.seed(0)
         cult = Army("Cult")
         cult.add_unit(_gsc_profile(name="Magus"))
@@ -91,17 +114,21 @@ class CultAmbushDeploymentTests(unittest.TestCase):
         cult.add_unit(_gsc_profile(name="Neophyte Hybrid"))
         guard = Army("Guard")
         guard.add_unit(_guard_profile(name="Sgt"))
+        n_gsc = 3
 
         battle = Battle(cult, guard)
         battle._assign_uids()
         battle._deploy_armies()
 
-        # Cult side has nothing on-board — everything is in reserves.
-        self.assertEqual(len(cult.units), 0,
-            f"GSC army should deploy nothing at the line; got "
-            f"{[u.profile.name for u in cult.units]}")
         reserves = battle._reserves[cult.name]
-        self.assertEqual(len(reserves), 3)
+        units_cap = math.floor(0.5 * n_gsc)
+        self.assertEqual(len(reserves), units_cap,
+            "GSC units reserve only up to the Reserves cap (half the army)")
+        self.assertEqual(len(cult.units), n_gsc - units_cap,
+            f"GSC units over the cap deploy on the board; got reserves="
+            f"{[u.profile.name for u in reserves]}, "
+            f"on-board={[u.profile.name for u in cult.units]}")
+        # Every GSC unit that DID reserve is flagged for the Round-1 ambush.
         for u in reserves:
             self.assertTrue(u.cult_ambush_pending,
                 f"{u.profile.name} should be flagged cult_ambush_pending=True "
@@ -127,9 +154,9 @@ class CultAmbushDeploymentTests(unittest.TestCase):
         for u in guard.units:
             self.assertFalse(u.cult_ambush_pending)
 
-    def test_gsc_units_arrive_round_1(self):
-        """After one round of play, every GSC unit must be on the table and
-        positioned > 9\" from every enemy model."""
+    def test_gsc_reserved_units_arrive_round_1(self):
+        """The GSC units held in reserves (up to the cap) ambush in on Round 1,
+        landing > 9\" from every enemy model, and clear their ambush flag."""
         random.seed(0)
         cult = Army("Cult")
         # Enough variety that arrival has multiple candidates to score.
@@ -144,21 +171,24 @@ class CultAmbushDeploymentTests(unittest.TestCase):
         battle = Battle(cult, guard)
         battle._assign_uids()
         battle._deploy_armies()
+        # Capture which GSC units the Reserves cap left in reserves — only
+        # these ambush in (the rest deployed on the board at the line).
+        reserved_uids = {u.uid for u in battle._reserves[cult.name]}
+        self.assertTrue(reserved_uids, "expected some GSC units in reserves")
         # Drive just the ambush arrival, not a full round (avoids attrition
         # and stratagem side effects polluting the assertion).
         battle._fresh_arrivals = set()
         battle._arrive_from_reserves(round_num=1)
 
-        # All four GSC units are now on the board.
-        gsc_names = {u.profile.name for u in cult.units}
-        self.assertEqual(
-            gsc_names,
-            {"Magus", "Acolyte Hybrid", "Neophyte Hybrid", "Aberrant"},
-        )
+        # Every reserved GSC unit is now on the board; reserves emptied.
         self.assertEqual(len(battle._reserves[cult.name]), 0)
+        ambushed = [u for u in cult.units if u.uid in reserved_uids]
+        self.assertEqual(len(ambushed), len(reserved_uids))
 
-        # Each landing site is > 9" from every Guard model.
-        for u in cult.units:
+        # Each ambush landing site is > 9" from every Guard model, and the
+        # ambush flag is cleared once the unit lands.
+        for u in ambushed:
+            self.assertFalse(u.cult_ambush_pending)
             for enemy in guard.units:
                 dx = u.position[0] - enemy.position[0]
                 dy = u.position[1] - enemy.position[1]
@@ -167,13 +197,10 @@ class CultAmbushDeploymentTests(unittest.TestCase):
                     f"{u.profile.name} ambushed at {u.position} but is only "
                     f"{d:.2f}\" from {enemy.profile.name} at {enemy.position}")
 
-        # The ambush flag must be cleared once the unit lands.
-        for u in cult.units:
-            self.assertFalse(u.cult_ambush_pending)
-
     def test_cult_ambush_event_emitted(self):
-        """Each GSC unit emits a UnitDeepStrike event during its Round 1
-        ambush placement (we reuse the existing event type)."""
+        """Each GSC unit that ambushes in (from reserves) emits a
+        UnitDeepStrike event during its Round 1 placement (we reuse the
+        existing event type). Under the cap, only the reserved subset ambushes."""
         random.seed(0)
         cult = Army("Cult")
         cult.add_unit(_gsc_profile(name="Magus"))
@@ -185,13 +212,15 @@ class CultAmbushDeploymentTests(unittest.TestCase):
         battle = Battle(cult, guard, subscribers=[log])
         battle._assign_uids()
         battle._deploy_armies()
+        reserved_uids = {u.uid for u in battle._reserves[cult.name]}
+        self.assertTrue(reserved_uids, "expected some GSC units in reserves")
         battle._fresh_arrivals = set()
         battle._arrive_from_reserves(round_num=1)
 
         ds_events = [e for e in log.events if isinstance(e, UnitDeepStrike)]
-        self.assertEqual(len(ds_events), 2)
+        self.assertEqual(len(ds_events), len(reserved_uids))
         uids = {e.unit_uid for e in ds_events}
-        self.assertEqual(uids, {u.uid for u in cult.units})
+        self.assertEqual(uids, reserved_uids)
 
     def test_deep_striker_in_non_gsc_army_still_waits_for_round_2(self):
         """Regression: the Round 1 arrival path must NOT scoop up regular

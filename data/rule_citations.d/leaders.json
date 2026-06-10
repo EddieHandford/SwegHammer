@@ -482,5 +482,43 @@
     "trigger": "attacker's unit is led by a Leagues of Votann Kâhl in aura range",
     "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Kindred Hero grants LETHAL HITS to all weapons in the led unit — Critical Hits auto-wound. The simulator does not model the LETHAL HITS keyword. VOTANN-JUDGEMENT-TOKENS-V1 (2026-05-28) downgraded the earlier +1-to-hit proxy to re-roll Hit 1s: on a BS4+ shooter LETHAL HITS yields ~+17% wounds, the +1-to-hit proxy yielded ~+33% wounds — a roughly 2× over-buff. Re-roll Hit 1s matches LETHAL HITS magnitude on BS4+ and is strictly weaker on melee against high-T targets, erring on the under-buff side)",
     "scope": "unit-led"
+  },
+
+  "simulator.dark_apostle_dark_zealotry": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Dark-Apostle",
+    "rule_name": "Dark Zealotry",
+    "quoted_text": "While this unit is leading a unit and contains a DARK APOSTLE model, each time a model in that unit makes a melee attack, add 1 to the Wound roll.",
+    "trigger": "attacker's unit is led by a Chaos Space Marines Dark Apostle (bodyguard-gated via host_keys to Legionaries / Chosen / Cultist Mob) and makes a melee attack",
+    "effect": "+1 to the Wound roll on melee attacks (wound_mod_delta += 1 when mode == 'melee' and SWEG_CSM_ABILITIES=1). Applied via the new LeaderAbility.plus_one_to_wound_melee_only field, consumed in Unit.attack. When SWEG_CSM_ABILITIES=0 (default-off), the legacy reroll_hit_ones=True proxy fires unchanged. Verbatim text cross-checked against BSData v10.6.0 Chaos Space Marines.cat.gz, ability id da55-1d58-dee4-d42, typeName Abilities.",
+    "scope": "unit-led"
+  },
+
+  "simulator.abaddon_paragon_of_hatred": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Abaddon-the-Despoiler",
+    "rule_name": "Paragon of Hatred (Aura)",
+    "quoted_text": "While a friendly HERETIC ASTARTES unit (excluding DAMNED units) is within 6\" of this model, each time a model in that unit makes an attack, you can re-roll the Hit roll.",
+    "trigger": "Abaddon the Despoiler selects the Paragon of Hatred Warmaster ability in the Command phase (SwegHammer: always assumed in competitive games); a friendly HERETIC ASTARTES unit within 6\" makes an attack",
+    "effect": "re-roll Hit rolls (reroll_hit_ones=True) for friendly HERETIC ASTARTES units within 6\" of Abaddon. Modelled as an army-wide broadcast aura (host_keys=() so the range check fires against all friendly units, not just the attached bodyguard). APPROXIMATION: the codex grants a full re-roll of ANY hit roll; SwegHammer maps this to reroll_hit_ones (re-roll natural 1s), which is the weaker proxy direction. The real Warmaster mechanic requires selecting the ability at the start of the Command phase — SwegHammer always picks Paragon of Hatred as the dominant offensive choice. Gated SWEG_CSM_ABILITIES (default-off). Verbatim text cross-checked against BSData v10.6.0 Chaos Space Marines.cat.gz, ability id 8b8a-6967-9f60-3de0, typeName Warmaster.",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
+  "LeaderAbility.Dark Zealotry": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Dark-Apostle",
+    "rule_name": "Dark Zealotry",
+    "quoted_text": "While this unit is leading a unit and contains a DARK APOSTLE model, each time a model in that unit makes a melee attack, add 1 to the Wound roll.",
+    "trigger": "attacker's unit is led by a Chaos Space Marines Dark Apostle (bodyguard-gated via host_keys to Legionaries / Chosen / Cultist Mob) and makes a melee attack",
+    "effect": "+1 to the Wound roll on melee attacks (wound_mod_delta += 1 when mode == 'melee' and SWEG_CSM_ABILITIES=1). Applied via LeaderAbility.plus_one_to_wound_melee_only, consumed in Unit.attack. When SWEG_CSM_ABILITIES=0 (default-off), the legacy reroll_hit_ones=True proxy fires instead (suppressed in effective_buffs when gate is ON). Verbatim text cross-checked against BSData v10.6.0 Chaos Space Marines.cat.gz, ability id da55-1d58-dee4-d42.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Paragon of Hatred": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Abaddon-the-Despoiler",
+    "rule_name": "Paragon of Hatred (Aura)",
+    "quoted_text": "While a friendly HERETIC ASTARTES unit (excluding DAMNED units) is within 6\" of this model, each time a model in that unit makes an attack, you can re-roll the Hit roll.",
+    "trigger": "Abaddon the Despoiler is alive; a friendly HERETIC ASTARTES unit within 6\" makes an attack",
+    "effect": "re-roll Hit rolls (reroll_hit_ones=True) for friendly HERETIC ASTARTES units within 6\" of Abaddon. Army-wide broadcast aura (host_keys=()). APPROXIMATION: the codex grants full re-roll of any hit roll; SwegHammer maps this to reroll_hit_ones (re-roll natural 1s only). Gated SWEG_CSM_ABILITIES (default-off; suppressed in effective_buffs when gate is OFF). Verbatim text cross-checked against BSData v10.6.0 Chaos Space Marines.cat.gz, ability id 8b8a-6967-9f60-3de0.",
+    "scope": "army-wide",
+    "approximation": true
   }
 }

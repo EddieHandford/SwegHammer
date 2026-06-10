@@ -152,6 +152,33 @@ class VanillaSmokeTests(unittest.TestCase):
     sits in a plausible band (35-65%). A degenerate gate would push
     win-rate to 0 / 100 / hang."""
 
+    def setUp(self) -> None:
+        # HERMETIC GUARD (see [[project-classify-cache-flakiness]]): these
+        # win-rate-balance smokes re-seed RNG per battle but are still
+        # sensitive to PROCESS-GLOBAL state that other tests accumulate —
+        # notably the module-level lru_caches (`lookup_ability`, the combat
+        # fraction caches) and the `effective_buffs` cache, which gated
+        # faction-ability tests (e.g. Sororitas / Chaos Space Marines) flood
+        # with extra entries when they run a battle with their gate ON. Reset
+        # that shared state + any leaked faction gate so this smoke is
+        # order-independent.
+        import functools  # noqa: F401  (kept for clarity)
+        from code import leaders, strategy, units
+        for _g in ("SWEG_SOROR_ABILITIES", "SWEG_CSM_ABILITIES"):
+            os.environ.pop(_g, None)
+        for _fn in (
+            getattr(leaders, "lookup_ability", None),
+            getattr(units, "wound_probability", None),
+            getattr(strategy, "_unsaved_fraction_cached", None),
+            getattr(strategy, "_fnp_pass_fraction_cached", None),
+        ):
+            _cc = getattr(_fn, "cache_clear", None)
+            if _cc is not None:
+                _cc()
+        _bump = getattr(leaders, "bump_buffs_generation", None)
+        if _bump is not None:
+            _bump()
+
     def test_marines_vs_necrons_winrate_sane(self) -> None:
         wins = 0
         n = 30

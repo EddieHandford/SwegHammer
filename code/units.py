@@ -462,6 +462,19 @@ class UnitProfile:
     # re-roll the full Wound roll instead. Override-only flag; read at the melee
     # wound step gated SWEG_VETERANS. Cited simulator.veterans_of_the_long_war.
     veterans_of_the_long_war: bool = False
+    # CSM Chaos Terminator Squad datasheet ability "Despoilers" (10e): when this
+    # unit makes a Dark Pact, until the end of the phase, each model may re-roll
+    # the Hit roll. Override-only flag; applied in simulator._apply_dark_pacts
+    # as a transient_reroll_all_hits grant, gated SWEG_CSM_ABILITIES.
+    # Cited simulator.csm_despoilers.
+    csm_despoilers: bool = False
+    # CSM Possessed datasheet ability "Unholy Bloodshed" (10e): once per battle,
+    # when this unit makes a Dark Pact, until the end of the phase, weapons
+    # equipped by models in this unit have the [DEVASTATING WOUNDS] ability.
+    # Override-only flag; applied in simulator._apply_dark_pacts as a
+    # transient_devastating_wounds grant (once-per-battle guarded), gated
+    # SWEG_CSM_ABILITIES. Cited simulator.csm_unholy_bloodshed.
+    csm_unholy_bloodshed: bool = False
     leadership: int = 7                        # Ld target for Battleshock tests (10e: 2D6 >= Ld passes)
     oc: int = 1                                # Objective Control characteristic (10e)
     # Phase A2 + A3 weapon keywords (carried from the unit's chosen ranged weapon)
@@ -903,10 +916,18 @@ class Unit:
         # transient_reroll_wounds: full failed-wound re-roll for the round.
         # transient_reroll_wounds_ones: 1s-only wound re-roll for the round
         # (lossy but correctly weaker proxy for "reroll 1s" stratagems).
+        # transient_reroll_all_hits: full re-roll of any failed Hit roll for
+        # the round/phase (granted by Despoilers when making a Dark Pact,
+        # gated SWEG_CSM_ABILITIES). Composes via OR with att_reroll_all_hits.
+        # transient_devastating_wounds: unit's weapons gain [DEVASTATING WOUNDS]
+        # for the round/phase (granted by Unholy Bloodshed when making a Dark
+        # Pact, gated SWEG_CSM_ABILITIES). Composed into effective_dw.
         "transient_lethal_hits",
         "transient_sustained_hits",
         "transient_reroll_wounds",
         "transient_reroll_wounds_ones",
+        "transient_reroll_all_hits",
+        "transient_devastating_wounds",
         # Go To Ground (10e core Battle Tactic Stratagem, 1CP, env-gated
         # SWEG_GTG). Defender buff: a targeted INFANTRY unit gains a 6+
         # invulnerable save AND the Benefit of Cover until the end of the
@@ -1099,6 +1120,12 @@ class Unit:
         self.transient_sustained_hits: int = 0
         self.transient_reroll_wounds: bool = False
         self.transient_reroll_wounds_ones: bool = False
+        # CSM datasheet abilities: Despoilers (full hit re-roll during dark pact
+        # phase) and Unholy Bloodshed (devastating wounds during dark pact phase,
+        # once per battle). Both gated SWEG_CSM_ABILITIES; defaults off.
+        # See simulator._apply_dark_pacts for the grant site.
+        self.transient_reroll_all_hits: bool = False
+        self.transient_devastating_wounds: bool = False
         # Go To Ground (10e core stratagem). 6++ invuln + Benefit of Cover on a
         # targeted INFANTRY unit until end of the opponent's Shooting phase.
         self.go_to_ground_active: bool = False
@@ -2080,6 +2107,15 @@ class Unit:
                 hit_mod_delta += 1
             if att_buffs["plus_one_to_wound"]:
                 wound_mod_delta += 1
+            # `plus_one_to_wound_melee_only` fires only in the Fight phase (melee).
+            # Used for leader auras whose codex text reads "each time a model in
+            # that unit makes a melee attack, add 1 to the Wound roll" (e.g. CSM
+            # Dark Apostle "Dark Zealotry"). Gated SWEG_CSM_ABILITIES (OFF keeps
+            # the prior reroll_hit_ones proxy unchanged). Cited as
+            # `simulator.dark_apostle_dark_zealotry`.
+            if (att_buffs.get("plus_one_to_wound_melee_only") and mode == "melee"
+                    and __import__("os").environ.get("SWEG_CSM_ABILITIES", "1") != "0"):
+                wound_mod_delta += 1
 
             # ---- Chaos Knights — Harbingers of Dread (army rule, 10e). Verbatim
             # Wahapedia (https://wahapedia.ru/wh40k10ed/factions/chaos-knights/):
@@ -3002,6 +3038,19 @@ class Unit:
             if att_reroll_hits_shooting_ones:
                 att_reroll_hit_ones = True
 
+            # CSM Chaos Terminator Squad "Despoilers" (10e datasheet ability):
+            # when this unit makes a Dark Pact, until the end of the phase, each
+            # model may re-roll the Hit roll. Verbatim BSData v10.6.0 (Chaos -
+            # Chaos Space Marines.cat.gz, ability id 13a2-57cd-83ff-2127):
+            # "Each time this unit makes a Dark Pact, until the end of the
+            # phase, each time a model in this unit makes an attack, you can
+            # re-roll the Hit roll." Applied via transient_reroll_all_hits set in
+            # simulator._apply_dark_pacts; gated SWEG_CSM_ABILITIES. Composes
+            # via OR with att_reroll_all_hits (Oath of Moment, etc.).
+            # Cited as `simulator.csm_despoilers`.
+            if getattr(self, "transient_reroll_all_hits", False):
+                att_reroll_all_hits = True
+
             # ---- Fire Overwatch (10e core stratagem): the shot only hits on an
             # unmodified 6, so Hit-roll re-rolls (Oath of Moment, Twin-Linked,
             # detachment / Code Chivalric / Fire and Fade) do not change the
@@ -3859,9 +3908,16 @@ class Unit:
                         mode == "melee"
                         and bool(att_buffs.get("grants_devastating_wounds_melee", False))
                     )
-                    effective_dw = p.devastating_wounds or _leader_dw_melee
+                    # CSM Possessed "Unholy Bloodshed" (10e datasheet ability): once
+                    # per battle, when this unit makes a Dark Pact, until the end of
+                    # the phase, weapons equipped by models in this unit have the
+                    # [DEVASTATING WOUNDS] ability. Applied as transient_devastating_wounds
+                    # in simulator._apply_dark_pacts; gated SWEG_CSM_ABILITIES.
+                    # Cited as `simulator.csm_unholy_bloodshed`.
+                    _transient_dw = getattr(self, "transient_devastating_wounds", False)
+                    effective_dw = p.devastating_wounds or _leader_dw_melee or _transient_dw
                     _dw_fraction = (
-                        1.0 if _leader_dw_melee and not p.devastating_wounds
+                        1.0 if (_leader_dw_melee or _transient_dw) and not p.devastating_wounds
                         else float(
                             getattr(p, "devastating_wounds_basket_fraction", 1.0) or 1.0
                         )
@@ -4476,6 +4532,8 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             invuln_save_ranged=entry.invuln_save_ranged,
             invuln_save_melee=(7 if entry.invuln_ranged_only else entry.invuln_save_melee),
             veterans_of_the_long_war=entry.veterans_of_the_long_war,
+            csm_despoilers=entry.csm_despoilers,
+            csm_unholy_bloodshed=entry.csm_unholy_bloodshed,
             rapid_fire=entry.rapid_fire,
             melta=entry.melta,
             ignores_cover=entry.ignores_cover,

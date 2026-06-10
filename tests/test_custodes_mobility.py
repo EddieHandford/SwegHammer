@@ -57,15 +57,24 @@ class CustodesCatalogueMobilityTests(unittest.TestCase):
 
 
 class CustodesDeepStrikeInBattleTests(unittest.TestCase):
-    """Allarus Custodians actually deep-strike when fielded in a real battle.
+    """Allarus Custodians deep-strike when fielded — but only up to the 10e
+    Reserves cap.
 
-    The simulator's `_deploy_armies` routes any unit with `deep_strike=True`
-    into the per-army reserves bucket. We verify that holds for the live
-    Allarus profile coming out of the catalogue, not just a synthetic test
-    fixture.
+    The simulator's `_deploy_armies` routes units with `deep_strike=True` into
+    the per-army reserves bucket, subject to the Chapter Approved 2025-26
+    Reserves cap: "No more than half of the units in your army can start the
+    battle in Reserves, and the points total of those units cannot be more than
+    half of the points total of your army." So a degenerate all-Allarus army
+    (every unit a deep-striker) cannot reserve everything — at most half may go
+    into Reserves; the rest must deploy on the board to contest objectives.
+
+    Source (Reserves cap, `simulator.reserves_cap`):
+    https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Reinforcements
     """
 
-    def test_allarus_enters_reserves_at_battle_start(self):
+    def test_allarus_reserves_respect_the_reserves_cap(self):
+        import math
+
         allarus = UNIT_CATALOG["adeptus_custodes_allarus_custodians"]
         # Pair the Allarus squad against a vanilla Custodian Guard so the
         # opposing army is non-empty (the simulator won't run with zero
@@ -73,7 +82,8 @@ class CustodesDeepStrikeInBattleTests(unittest.TestCase):
         guard = UNIT_CATALOG["adeptus_custodes_custodian_guard"]
 
         army_a = Army("AllarusForce")
-        for _ in range(max(1, allarus.min_models)):
+        n_allarus = max(1, allarus.min_models)
+        for _ in range(n_allarus):
             army_a.add_unit(allarus)
 
         army_b = Army("GuardForce")
@@ -85,19 +95,28 @@ class CustodesDeepStrikeInBattleTests(unittest.TestCase):
         battle._deploy_armies()
 
         reserves = battle._reserves.get(army_a.name, [])
-        self.assertGreater(
-            len(reserves), 0,
-            "Allarus must be placed into reserves at deployment (DEEP STRIKE)",
+        reserved_allarus = [u for u in reserves if u.profile.name == allarus.name]
+        onboard_allarus = [u for u in army_a.units if u.profile.name == allarus.name]
+
+        # 10e units-half of the Reserves cap: no more than floor(half) may
+        # start in Reserves. Every unit here is a deep-striker, so the cap is
+        # the binding constraint.
+        units_cap = math.floor(0.5 * n_allarus)
+        self.assertLessEqual(
+            len(reserved_allarus), units_cap,
+            "Reserves cap: at most half the army's units may start in reserves",
         )
-        # The Allarus models should be the ones in reserves, not on the
-        # board, pre-Round 2.
-        reserved_names = {u.profile.name for u in reserves}
-        self.assertIn(allarus.name, reserved_names)
-        for u in army_a.units:
-            self.assertNotEqual(
-                u.profile.name, allarus.name,
-                "Allarus should be in reserves, not on the board, pre-Round 2",
-            )
+        # Deep-strikers still use reserves up to the cap (this is not the old
+        # "reserve nothing" behaviour either).
+        self.assertEqual(
+            len(reserved_allarus), units_cap,
+            "Deep-strikers should fill the reserves allowance up to the cap",
+        )
+        # The remainder must be on the board (kept there to contest objectives).
+        self.assertEqual(
+            len(onboard_allarus), n_allarus - units_cap,
+            "Units over the Reserves cap must deploy on the board, not reserve",
+        )
 
 
 class CustodesFlyOverTerrainTests(unittest.TestCase):
