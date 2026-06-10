@@ -102,7 +102,11 @@ the *targeted unit* (by `squad_id`), not every same-name model in the army.
 
 Each battle round proceeds as follows:
 
-1. **First-player determination**: Randomised at the start of each round (50/50).
+1. **First-player determination**: Randomised once at the start of the battle (50/50) and
+   the same player goes first every round thereafter, matching the real mission sequence
+   ("The players roll off. The winner declares whether they will take the first or second
+   turn."). Default since wave 232; setting `SWEG_ROLLOFF_ONCE=0` restores the legacy
+   per-round re-roll.
 2. **Activation queue**: Both armies sort their alive units by Lanchester score (highest first),
    creating an ordered activation queue for the round.
 3. **Alternating activations**: The first player activates their highest-priority unactivated
