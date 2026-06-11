@@ -207,6 +207,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # SWEG_COLLISION friendly-pass-through / enemy-path-cap in `_move_toward`
     # (`_enemy_path_cap_t`), fixing the friend-blind self-jam.
     "simulator.collision_friendly_passthrough",
+    # 10e core "Charge Move" + "Measuring Distances" — a charge move must end
+    # within Engagement Range of every target, and Engagement Range (like all
+    # distances) is measured between the CLOSEST POINTS OF THE BASES. Gated
+    # SWEG_CHARGE_BASEEDGE base-edge charge-end placement in `_charge_baseedge_end`
+    # / `_do_charge` (fixes the deep base interpenetration of big-based charge
+    # targets the legacy centre-to-centre placement caused).
+    "simulator.charge_end_base_to_base",
     "simulator.battle_focus",
     # Aeldari army rule (10e). Strands of Fate — 6D6 rolled at start of
     # battle into Army.fate_dice; each die later substituted for one d6

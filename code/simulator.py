@@ -11652,6 +11652,87 @@ class Battle:
             )
             self._maybe_apply_deadly_demise(target)
 
+    def _charge_baseedge_end(self, attacker, target, dist: float):
+        """Base-edge charge-end placement (env-gate SWEG_CHARGE_BASEEDGE, wave 240
+        lever 1). Return the end POSITION for a charger whose 2D6 has already
+        succeeded, so its BASE EDGE finishes within 1.0" of the target's base edge
+        rather than its CENTRE within 1.0" of the target's centre.
+
+        Real 10e: a charge move must end within Engagement Range of every target,
+        and Engagement Range — like all distances — is measured between the CLOSEST
+        POINTS OF THE BASES (cited `simulator.charge_end_base_to_base`). The legacy
+        centre-to-centre placement drives the charger 2-3" INTO a big-based target
+        (the proven base-overlap root cause in scripts/diag_overlap_audit.py).
+
+        Geometry: the contact (touching-bases) centre distance is
+        attacker_radius + target_radius; ending within 1.0" of base edge means a
+        centre distance of (1.0 + attacker_radius + target_radius). We aim for that
+        edge-contact-plus-1" distance along the same attacker->target line the
+        legacy path uses. The candidate is validated against the no-overlap
+        collision predicate (`_collision_pos_legal`, with allow_engagement=True so a
+        charge legitimately ending in Engagement Range is permitted) so the charger
+        never ends on top of another model. If the straight spot is illegal, search
+        deterministically around the target centre at the SAME base-edge distance
+        (fixed +/-10 deg steps out to +/-90 deg, nearest-first by rotation
+        magnitude). If NO legal spot exists at that distance, FALL BACK to the
+        legacy centre-1" placement — a successful charge must never be cancelled by
+        a placement failure (10e has no "charge fails because there's no room"
+        clause once the roll is made; the charger pushes to base contact). Pure +
+        deterministic geometry: NO RNG is consumed, so the gate-on arm draws no
+        extra random numbers and reruns are byte-identical."""
+        import math as _m
+        ax, ay = attacker.position
+        tx, ty = target.position
+        a_rad = _bc_model_radius_in(attacker.profile)
+        t_rad = _bc_model_radius_in(target.profile)
+        # Target centre distance whose base-edge gap is exactly 1.0".
+        target_center_dist = 1.0 + a_rad + t_rad
+        # Legacy placement (used as the never-cancel fallback below).
+        scale = max(0.0, (dist - 1.0)) / dist
+        legacy_pos = (ax + (tx - ax) * scale, ay + (ty - ay) * scale)
+
+        # Direction from target toward attacker (the approach bearing). If the
+        # charger sits exactly on the target centre (degenerate), keep the legacy
+        # placement — there is no defined approach line to rotate around.
+        dx = ax - tx
+        dy = ay - ty
+        d = (dx * dx + dy * dy) ** 0.5
+        if d == 0.0:
+            return legacy_pos
+        ux, uy = dx / d, dy / d   # unit vector target -> attacker
+        base_ang = _m.atan2(uy, ux)
+
+        kw = self._collision_kwargs(attacker, allow_engagement=True)
+        # _collision_kwargs returns {} when SWEG_COLLISION is off or the mover is
+        # not in either army — in that case there is no occupant data to validate
+        # against, so accept the direct base-edge spot (still strictly better than
+        # the deep-interpenetration legacy placement).
+        if not kw:
+            cand = (tx + ux * target_center_dist, ty + uy * target_center_dist)
+            return cand if not self.map.is_blocked(cand) else legacy_pos
+        mover_radius = kw["mover_radius"]
+        occupants = kw["occupants"]
+        mover_fly = kw["mover_fly"]
+
+        # Deterministic nearest-first angular search at the SAME base-edge
+        # distance: 0 deg (straight approach), then +/-10..+/-90 in fixed steps.
+        offsets = [0.0]
+        for deg in range(10, 91, 10):
+            offsets.append(float(deg))
+            offsets.append(float(-deg))
+        for off in offsets:
+            ang = base_ang + _m.radians(off)
+            cx = tx + _m.cos(ang) * target_center_dist
+            cy = ty + _m.sin(ang) * target_center_dist
+            cand = (cx, cy)
+            if self.map.is_blocked(cand):
+                continue
+            if _collision_pos_legal(cand, mover_radius, occupants, mover_fly):
+                return cand
+        # No legal base-edge spot anywhere around the target (fully surrounded):
+        # never cancel a successful charge — fall back to the legacy placement.
+        return legacy_pos
+
     def _do_charge(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         """2D6 charge vs the best target ≤12". On success, move into 1" engagement.
 
@@ -11760,16 +11841,39 @@ class Battle:
             ))
             return
 
-        # Move to within 1" of target — engagement range
-        dx = target.position[0] - attacker.position[0]
-        dy = target.position[1] - attacker.position[1]
-        scale = max(0.0, (dist - 1.0)) / dist
-        new_pos = (
-            attacker.position[0] + dx * scale,
-            attacker.position[1] + dy * scale,
-        )
-        if not self.map.is_blocked(new_pos):
-            attacker.position = new_pos
+        # Move to within 1" of target — engagement range.
+        #
+        # Base-edge charge-end placement (env-gate SWEG_CHARGE_BASEEDGE, default
+        # OFF — wave 240 lever 1). Real 10e: a charge move ends within Engagement
+        # Range of every target, where Engagement Range and all distances are
+        # measured between the CLOSEST POINTS OF THE BASES, not between model
+        # centres. The legacy placement (the gate-OFF path below) parks the
+        # charger 1.0" from the target CENTRE, which drives the charger's base
+        # 2-3" INTO a big-based target (tank/monster) — the proven root cause of
+        # the real base overlap in scripts/diag_overlap_audit.py. The gated path
+        # instead stops the charger so its BASE EDGE is within 1.0" of the
+        # target's base edge, and validates the spot against the no-overlap
+        # collision predicate so the charger never ends on top of another model.
+        # Cited as `simulator.charge_end_base_to_base`.
+        #
+        # Read the gate ONCE here, exactly as SWEG_COLLISION is read at the top
+        # of `_collision_kwargs`. NO RNG is consumed on either path (the gated
+        # search is fixed-step deterministic geometry), so the gate-OFF arm stays
+        # byte-identical and even the gate-ON arm draws no extra random numbers.
+        if os.environ.get("SWEG_CHARGE_BASEEDGE", "0") == "1":
+            new_pos = self._charge_baseedge_end(attacker, target, dist)
+            if not self.map.is_blocked(new_pos):
+                attacker.position = new_pos
+        else:
+            dx = target.position[0] - attacker.position[0]
+            dy = target.position[1] - attacker.position[1]
+            scale = max(0.0, (dist - 1.0)) / dist
+            new_pos = (
+                attacker.position[0] + dx * scale,
+                attacker.position[1] + dy * scale,
+            )
+            if not self.map.is_blocked(new_pos):
+                attacker.position = new_pos
         self._charging_this_round.add(attacker.uid)
         self._emit(UnitCharged(
             unit_uid=attacker.uid, target_uid=target.uid,
