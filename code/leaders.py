@@ -864,6 +864,82 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           reroll_hit_ones=True,
                                           plus_one_to_wound_melee_only=True,
                                           host_keys=_CSM_APOSTLE_HOSTS)),
+    # Master of Possession — PSYKER CHARACTER, leads CHOSEN / LEGIONARIES /
+    # POSSESSED (BSData v10.6.0, Chaos - Chaos Space Marines.cat.gz, profile id
+    # 287f-7d48-59cf-dc1e, Leader ability id 638e-667a-a1c5-1135).
+    # Datasheet abilities:
+    #   "Daemonkin (Psychic)": "While this model is leading a unit, add 1 to
+    #   Advance and Charge rolls made for that unit." — a Movement-phase roll
+    #   modifier. The simulator has no Advance/Charge roll leader-aura hook;
+    #   parking-lot until a charge-roll modifier is added to LeaderAbility.
+    #   "Sacrificial Dagger": "Once per phase, when this model is selected to
+    #   shoot or fight, it can use this ability. If it does, this model's unit
+    #   suffers 1 mortal wound and, until the end of the phase, each time this
+    #   model makes a Psychic Attack, add 1 to the Hit roll and add 1 to the
+    #   Wound roll." — a self-activation once-per-phase mortal-wound trade
+    #   (affects only the Master of Possession's own Psychic Attacks, not the
+    #   whole led unit). The simulator has no once-per-phase self-activation
+    #   leader hook; parking-lot.
+    # No currently-expressible led-unit aura flags. Entry exists so
+    # lookup_ability("Master of Possession") returns non-None per CLAUDE.md §13.
+    # Cited as LeaderAbility.Daemonkin (Psychic).
+    # BSData sole source per project memory (wahapedia.ru DNS may fail in agents).
+    ("Master of Possession", LeaderAbility(name="Daemonkin (Psychic)",          aura_range=6.0,
+                                          host_keys=("chaos_space_marines_chosen",
+                                                     "chaos_space_marines_legionaries",
+                                                     "chaos_space_marines_possessed"))),
+    # Warpsmith — INFANTRY CHARACTER, leads CHOSEN / HAVOCS / LEGIONARIES
+    # (BSData v10.6.0, Chaos - Chaos Space Marines.cat.gz, profile id
+    # 440-a22a-eac1-b107, Leader ability id b5da-4ab-cfb5-4e4c).
+    # Datasheet abilities:
+    #   "Warpsmith" (Lone Operative): "While this model is within 3\" of one or
+    #   more friendly HERETIC ASTARTES VEHICLE units, this model has the Lone
+    #   Operative ability." — a self-defence ability on the Warpsmith; does not
+    #   affect the led unit.
+    #   "Master of Mechanisms": "In your Command phase, select one friendly
+    #   HERETIC ASTARTES VEHICLE model within 3\" of this model. That VEHICLE
+    #   model regains up to D3 lost wounds and, until the start of your next
+    #   Command phase, each time that VEHICLE makes an attack, add 1 to the Hit
+    #   roll." — a Command-phase heal + Hit buff on a VEHICLE model, not a
+    #   led-unit aura. The simulator has no per-leader Command-phase vehicle
+    #   repair hook; parking-lot.
+    #   "Enrage Machine Spirits": "At the end of your Movement phase, select one
+    #   enemy VEHICLE unit within 12\" of this model. That unit must take a
+    #   Battle-shock test." — an enemy debuff applied in the Movement phase.
+    #   The simulator does not model per-leader Battle-shock triggers; parking-lot.
+    # No currently-expressible led-unit aura flags. Entry exists so
+    # lookup_ability("Warpsmith") returns non-None per CLAUDE.md §13.
+    # Cited as LeaderAbility.Master of Mechanisms.
+    # BSData sole source per project memory (wahapedia.ru DNS may fail in agents).
+    ("Warpsmith",            LeaderAbility(name="Master of Mechanisms",          aura_range=6.0,
+                                          host_keys=("chaos_space_marines_chosen",
+                                                     "chaos_space_marines_havocs",
+                                                     "chaos_space_marines_legionaries"))),
+    # Dark Commune — INFANTRY CHARACTER UNIT (contains a Cult Demagogue model),
+    # leads ACCURSED CULTISTS / CULTIST MOB (BSData v10.6.0, Chaos - Chaos Space
+    # Marines.cat.gz, profile id 1780-25b8-ce0b-898d, Leader ability id
+    # 98b1-c4d2-400d-f8c7).
+    # Datasheet abilities:
+    #   "Faithful Flock": "While this unit is leading a unit and contains a CULT
+    #   DEMAGOGUE model, models in that unit have a 5+ invulnerable save."
+    #   The Dark Commune always contains a Cult Demagogue (the Cult Demagogue
+    #   is one of its constituent models per the unit datasheet), so the
+    #   condition "contains a CULT DEMAGOGUE model" is always true while the
+    #   Dark Commune is intact. Modelled as extra_invuln=5.
+    #   "Dark Ritual": "Once per battle, in your Command phase, if this unit
+    #   contains a CULT DEMAGOGUE model, it can use this ability. If it does,
+    #   until the end of the turn, this unit can declare a charge in a turn in
+    #   which it Advanced and each time a model in this unit makes an attack,
+    #   add 1 to the Hit roll and add 1 to the Wound roll." — a once-per-battle
+    #   self-activation on the Dark Commune's own attacks, not a persistent led-
+    #   unit aura. Parking-lot until a once-per-battle Command-phase trigger hook
+    #   lands in the leader layer.
+    # Cited as LeaderAbility.Faithful Flock.
+    # BSData sole source per project memory (wahapedia.ru DNS may fail in agents).
+    ("Dark Commune",         LeaderAbility(name="Faithful Flock",                aura_range=6.0,
+                                          extra_invuln=5,
+                                          host_keys=("chaos_space_marines_accursed_cultists",
+                                                     "chaos_space_marines_cultist_mob"))),
     # Chaos Lord — Lord of Chaos is a once-per-battle-round Stratagem
     # command-point-discount ability (Wahapedia:
     # https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Chaos-Lord;
