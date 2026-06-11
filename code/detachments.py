@@ -394,7 +394,8 @@ class Detachment:
     # AND the attacker Advanced this round, `_do_shoot` skips the Advance-
     # lockout — mirroring the [ASSAULT] keyword grant on all Sororitas ranged
     # weapons. No round gate, no token spend (the rule is unconditional).
-    # Gated SWEG_BOF_ASSAULT (default OFF); the unset path is byte-identical.
+    # Gated SWEG_BOF_ASSAULT (default ON since wave 240; =0 restores the
+    # legacy no-[ASSAULT] path).
     # Cited as `BRINGERS_OF_FLAME.army_wide_assault`.
     army_wide_assault: bool = False
 
@@ -682,7 +683,7 @@ BRINGERS_OF_FLAME = Detachment(
         "rule has TWO legs: (1) an army-wide unconditional [ASSAULT] grant "
         "on all Adepta Sororitas ranged weapons — wired as `army_wide_assault` "
         "(Detachment flag, read by simulator._do_shoot, gated SWEG_BOF_ASSAULT "
-        "default-OFF); and (2) a range-gated S+1 within 6\" buff — requires "
+        "default-ON since wave 240); and (2) a range-gated S+1 within 6\" buff — requires "
         "per-target range geometry in Unit.attack and is NOT YET modelled "
         "(held follow-up). Wahapedia: "
         "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Bringers-of-Flame. "
@@ -1888,8 +1889,8 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     # DET-VARIETY-1 (2026-05-22): add Bringers of Flame as a Sororitas
     # variant pick. Hallowed Martyrs ships soror_blood_of_martyrs (wave 234).
     # Bringers of Flame ships army_wide_assault (the [ASSAULT] leg of Fervent
-    # Purgation, gated SWEG_BOF_ASSAULT default-OFF); the Strength+1 leg is
-    # a held follow-up. The picker randomly rolls between them — 50/50.
+    # Purgation, gated SWEG_BOF_ASSAULT default-ON since wave 240); the
+    # Strength+1 leg is a held follow-up. The picker rolls 50/50 between them.
     "Adepta Sororitas":         ("hallowed_martyrs", "bringers_of_flame"),
     "Adeptus Custodes":         ("shield_host", "auric_champions"),
     # DET-VARIETY-1 (2026-05-22): add Cohort Cybernetica as an AdMech

@@ -12,11 +12,13 @@ leg is a held follow-up. The [ASSAULT] leg lets Sororitas units shoot after
 Advancing — mirroring the Mont'ka Killing Blow pattern but without a round gate
 and without any token spend.
 
-Gate: SWEG_BOF_ASSAULT (default OFF). OFF path is byte-identical to today.
+Gate: SWEG_BOF_ASSAULT (default ON since wave 240, adopted on a decisive
+Sororitas-scoped N=80 paired measurement; =0 restores the legacy path).
 
 Test coverage:
     * BRINGERS_OF_FLAME.army_wide_assault is True (flag wired on the detachment).
-    * Gate OFF (default) — a Sororitas unit that Advanced cannot shoot.
+    * Gate OFF (SWEG_BOF_ASSAULT=0, legacy) — a Sororitas unit that Advanced
+      cannot shoot.
     * Gate ON (SWEG_BOF_ASSAULT=1) + BRINGERS_OF_FLAME detachment drawn —
       a Sororitas unit that Advanced CAN shoot after Advancing in any round
       (no round gate).
@@ -156,12 +158,12 @@ class BringsOfFlameDetachmentFlagTests(unittest.TestCase):
 
 
 class BofAssaultGateOffTests(unittest.TestCase):
-    """When SWEG_BOF_ASSAULT is unset (default OFF), a Sororitas unit that
-    Advanced must not be able to shoot — behaviour is identical to today."""
+    """When SWEG_BOF_ASSAULT=0 (legacy opt-out; the default is ON since
+    wave 240), a Sororitas unit that Advanced must not be able to shoot."""
 
     def setUp(self):
-        # Ensure gate is OFF for every test in this class.
-        os.environ.pop("SWEG_BOF_ASSAULT", None)
+        # Explicitly opt out — the gate defaults ON since wave 240.
+        os.environ["SWEG_BOF_ASSAULT"] = "0"
 
     def tearDown(self):
         os.environ.pop("SWEG_BOF_ASSAULT", None)

@@ -10979,10 +10979,14 @@ class Battle:
             # SORORITAS models from your army have the [ASSAULT] ability."
             # No round gate; no token spend; applies to every Sororitas ranged
             # weapon unconditionally when the army is Bringers of Flame.
-            # Gated SWEG_BOF_ASSAULT (default OFF) — OFF path is byte-identical.
+            # Gated SWEG_BOF_ASSAULT (default ON since wave 240 — the
+            # Sororitas-scoped N=80 paired A/B measured +16.19 toward the
+            # real target, moving the faction from third-deepest under-pole
+            # to inside the noise band; the rule is verbatim-cited).
+            # SWEG_BOF_ASSAULT=0 restores the legacy no-[ASSAULT] path.
             # Cited as `BRINGERS_OF_FLAME.army_wide_assault`.
             bof_assault_window = (
-                os.environ.get("SWEG_BOF_ASSAULT", "0") != "0"
+                os.environ.get("SWEG_BOF_ASSAULT", "1") != "0"
                 and det is not None
                 and getattr(det, "army_wide_assault", False)
                 and (attacker.profile.faction or "") == "Adepta Sororitas"
