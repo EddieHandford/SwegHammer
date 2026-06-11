@@ -818,49 +818,94 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
     # remaining seed budget is filled by `_random_fill` with same-faction
     # picks. Detachment names match the registry where one exists.
     "Chaos Space Marines": {
-        # Pactbound Zealots is the vanilla Chaos Space Marines Dark Pacts
-        # detachment — Legionaries-backbone with character support, elite
-        # melee, Obliterator firepower and a daemon-engine/vehicle core.
-        # Rebuilt after the wave-145 faction-misassignment fix: the generic
-        # Heretic Astartes datasheets (Legionaries, Chosen, Havocs, Chaos
-        # Lord, Chaos Terminators, Possessed, Dark Apostle, Master of
-        # Possession, etc.) were being mis-filed under faction "Chaos
-        # Daemons" because BSData's Chaos Daemons catalogue imports them as
-        # allies and the mapper credited the first importer. They are now
-        # correctly homed to the CSM codex, so the old workaround (a
-        # cult-marine soup of Khorne Berzerkers + Plague + Rubric + Noise
-        # Marines, which in 10e actually belong to the standalone World
-        # Eaters / Death Guard / Thousand Sons / Emperor's Children codices)
-        # is replaced with a faithful Legionaries-based list.
+        # wave 239 — FX-ALL stub (21 unit types, all count=1 except Legionaries)
+        # retired and replaced with the real May 2026 competitive Pactbound
+        # Zealots backbone. The stub's 0.3-seed walk placed ~2 units then
+        # random-filled from 18 leftovers, building a different incoherent army
+        # every game — the signature of an army-construction problem, not a
+        # missing mechanic (wave 238 re-diagnosis, FACTION_RESIDUAL_ANALYSIS.md).
+        # The Chaos Daemons conversion from the same stub class to tight mono-god
+        # templates moved that faction from -9.7 to -0.4; the same approach is
+        # applied here.
+        #
+        # SOURCES (cross-checked against two independent sources per standing
+        # rule — verified 2026-06-11):
+        #
+        # Source 1 — Spikey Bits, "Undefeated Warhammer Open UK Games Expo Army
+        #   Lists: Chaos Space Marines Take 1st + 2nd"
+        #   https://spikeybits.com/undefeated-warhammer-open-uk-games-expo-army-lists/
+        #   Mani Cheema 1st place (8-0): Abaddon + Huron Blackheart + Vashtorr
+        #   the Arkifane + 2x Cultist Mob (Nurgle) + 1x Legionaries (Slaanesh)
+        #   + Chaos Rhino + Chaos Bikers + 1x Chosen + 3x Defilers (Nurgle) +
+        #   Masters of the Maelstrom + Red Corsairs Raiders.
+        #   Innes Wilson 2nd place: same Defiler triple core, Abaddon + Vashtorr,
+        #   Traitor Enforcers instead of Legionaries (not in catalogue — omitted).
+        #
+        # Source 2 — Grimhammer Tactics, "40K Faction Focus: Competitive Chaos
+        #   Space Marine Lists in 2025"
+        #   https://grimhammertactics.com/40k-faction-focus-competitive-chaos-space-marine-lists-in-2025/
+        #   Confirms: Vashtorr (daemon-engine strength aura), Forgefiend (Nurgle
+        #   marked with ectoplasma cannons, "powerhouse damage dealers"), Chaos
+        #   Predator Destructor, Possessed, Lord Discordant on Helstalker. Defiler
+        #   is described as the new Pactbound engine since the datasheet refresh.
+        #
+        # REAL-META SHAPE: Abaddon + Vashtorr + Huron triple-character anchor,
+        # three Defilers as the damage spine (Mark of Nurgle, ectoplasma /
+        # lascannon config), two Cultist Mob screens for marker presence,
+        # one Legionaries squad for the BATTLELINE Dark Pacts conduit, Chosen
+        # for close-range firepower, Chaos Bikers for fast objective pressure,
+        # Chaos Rhino transport, and a Forgefiend for sustained ranged firepower.
+        # 10 unit types (down from 21), concentrated count-anchors on Defiler=3
+        # and Cultist Mob=2 to drive seeding coherence.
+        #
+        # SEED WALK at 1000pt (SEED_FRACTION=0.3 = 300pt slice):
+        # Sort order (-template_count, -squad_cost):
+        #   Defiler=3   (250pt) -> 250pt — 1 Defiler seeds
+        #   Cultist Mob=2 (50pt) -> 300pt — Cultist Mob seeds
+        #   All count=1 entries overflow the 300pt budget after Defiler
+        # CHARACTER guarantee: cheapest CHARACTER in template is Dark Apostle
+        # (65pt) — lands within the 1.5x seed-budget overflow (450pt cap).
+        # Random fill at remaining ~700pt then adds Abaddon (270pt, EPIC HERO
+        # cap: 1 per army), Vashtorr (175pt, EPIC HERO MONSTER cap: 1 per
+        # army), Huron (120pt, EPIC HERO cap), Legionaries (BATTLELINE fill),
+        # Chosen, Chaos Bikers, Forgefiend, and a second Defiler (fill cap =
+        # template_count=3 so up to 3 Defilers total at 2000pt budgets — the
+        # real triple-Defiler shape emerges naturally at full-sized eval).
         "Pactbound Zealots": {
-            # BATTLELINE backbone — Legionaries are the Dark Pacts engine
-            # (multiple squads), screened by a cheap Cultist Mob.
-            "chaos_space_marines_legionaries": 3,
-            "chaos_space_marines_cultist_mob": 1,
-            # CHARACTERS — Abaddon warlord + Chaos Lord (leads Legionaries)
-            # + Dark Apostle (Dark Pacts re-rolls) + Master of Possession.
+            # Daemon-engine spine — Defiler is the real-meta damage chassis;
+            # count=3 ensures it wins the (-count, -cost) seed sort and one
+            # Defiler always seeds at 1000pt. Random fill adds up to 2 more
+            # (fill cap = template_count) so the triple-Defiler shape emerges
+            # at 2000pt budgets.
+            "chaos_space_marines_defiler": 3,
+            # BATTLELINE screens — two Cultist Mob squads for marker presence
+            # and objective control; count=2 places them second in the seed sort
+            # after the Defiler. Legionaries=1 retains the Dark Pacts BATTLELINE
+            # conduit (single squad — the real-meta carries 1 not 3).
+            "chaos_space_marines_cultist_mob": 2,
+            "chaos_space_marines_legionaries": 1,
+            # EPIC HERO characters — Abaddon warlord (hit-roll re-roll aura
+            # within 6" + 4++ Chosen), Vashtorr (daemon-vehicle strength aura,
+            # MONSTER), Huron Blackheart (all-comers character support). All
+            # three confirmed in the Mani Cheema 8-0 1st-place list. EPIC HERO
+            # 1-per-army cap in _random_fill is respected for each.
             "chaos_space_marines_abaddon_the_despoiler": 1,
-            "chaos_space_marines_chaos_lord": 1,
+            "chaos_space_marines_vashtorr_the_arkifane": 1,
+            "chaos_space_marines_huron_blackheart": 1,
+            # Support CHARACTER — Dark Apostle seeds via the CHARACTER guarantee
+            # even when over the seed-budget slice (cheapest CHARACTER at 65pt).
+            # Provides Dark Pacts re-roll support.
             "chaos_space_marines_dark_apostle": 1,
-            "chaos_space_marines_master_of_possession": 1,
-            # Elite / melee.
+            # Elite and fast attack — Chosen (close-range firepower, Abaddon
+            # pairing), Chaos Bikers (fast objective pressure per Cheema's list).
             "chaos_space_marines_chosen": 1,
-            "chaos_space_marines_chaos_terminator_squad": 1,
-            "chaos_space_marines_possessed": 1,
-            "chaos_space_marines_raptors": 1,
-            # Firepower.
-            "chaos_space_marines_obliterators": 1,
-            "chaos_space_marines_havocs": 1,
-            # Daemon engines / vehicles.
-            "chaos_space_marines_forgefiend": 1,
-            "chaos_space_marines_maulerfiend": 1,
-            "chaos_space_marines_helbrute": 1,
-            "chaos_space_marines_chaos_predator_destructor": 1,
-            "chaos_space_marines_venomcrawler": 1,
-            "chaos_space_marines_lord_discordant_on_helstalker": 1,
+            "chaos_space_marines_chaos_bikers": 1,
+            # Transport and shooty vehicle — Chaos Rhino in Cheema's 1st-place
+            # list; Forgefiend (source 2: Nurgle-marked ectoplasma cannons,
+            # "powerhouse damage dealer", the known under-valued durable shooty
+            # vehicle class per FACTION_RESIDUAL_ANALYSIS.md list-realism note).
             "chaos_space_marines_chaos_rhino": 1,
-            "chaos_space_marines_heretic_astartes_daemon_prince_with_wings": 1,
-            "chaos_space_marines_chaos_spawn": 1,
+            "chaos_space_marines_forgefiend": 1,
         },
     },
     "World Eaters": {
