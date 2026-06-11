@@ -3421,8 +3421,14 @@ _INVULN_BARE_RE = re.compile(r"^\s*(\d)\+\s*$")
 # `extract_invuln` value is kept unchanged for back-compat; the per-attack
 # values are extracted in parallel from the same Shape-2/3 descriptions.
 _INVULN_PER_ATTACK_RE = re.compile(
-    r"(\d)\+\s*[Ii]nvulnerable\s+[Ss]ave"
-    r"(?:\s+against\s+(melee|ranged)\s+attacks)?",
+    # Two canonical BSData phrasings for a per-attack invulnerable save clause.
+    # Group names:
+    #   pre  — digit-first form:  "4+ invulnerable save"
+    #   post — post-of form:      "invulnerable save of 4+"
+    #   qual — optional qualifier: "against (melee|ranged) attacks"
+    r"(?:(?P<pre>\d)\+\s*[Ii]nvulnerable\s+[Ss]ave"
+    r"|[Ii]nvulnerable\s+[Ss]ave\s+of\s+(?P<post>\d)\+)"
+    r"(?:\s+against\s+(?P<qual>melee|ranged)\s+attacks)?",
     re.IGNORECASE,
 )
 
@@ -3441,13 +3447,24 @@ def _parse_invuln_per_attack(desc: str) -> Tuple[int, int]:
     melee: List[int] = []
     ranged: List[int] = []
     for m in _INVULN_PER_ATTACK_RE.finditer(desc):
-        v = int(m.group(1))
-        q = (m.group(2) or "").lower()
+        v = int(m.group("pre") or m.group("post"))
+        q = (m.group("qual") or "").lower()
         if q == "melee":
             melee.append(v)
         elif q == "ranged":
             ranged.append(v)
         else:
+            uncond.append(v)
+    # Bare-digit fallback: a linked profile whose Description is just "4+" (no
+    # prose) is always an unconditional invulnerable save — the profile name
+    # "Invulnerable Save" already supplies the context.  This covers the Shape-2
+    # and Shape-3 groups (Black Templars Terminators, Adeptus Mechanicus vehicles,
+    # Dark Angels characters, and ~90 other datasheets) where BSData stores only
+    # the bare save value in the Description field.
+    if not uncond and not melee and not ranged:
+        mb = _INVULN_BARE_RE.match(desc.strip())
+        if mb:
+            v = int(mb.group(1))
             uncond.append(v)
     base = min(uncond) if uncond else None
     pool_m = ([base] if base is not None else []) + melee
