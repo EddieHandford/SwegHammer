@@ -346,5 +346,13 @@
     "trigger": "Possessed makes a Dark Pact (at the start of the Command phase via simulator._apply_dark_pacts); fires for the remainder of that round, once per battle per unit.",
     "effect": "Unit is granted transient_devastating_wounds for the round — on a critical wound (wound roll of 6+), the attack bypasses the target's saving throws and deals mortal wounds equal to the weapon's Damage. Applied via the override-only UnitProfile.csm_unholy_bloodshed flag on chaos_space_marines_possessed; gated SWEG_CSM_ABILITIES (default-off). Once-per-battle guard tracked in Battle._csm_unholy_bloodshed_used (set of unit UIDs). Verbatim text cross-checked against BSData v10.6.0 Chaos Space Marines.cat.gz, ability id 3de3-728d-6264-1eb3.",
     "scope": "phase-gated"
+  },
+  "simulator.csm_daemonic_ordnance": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Forgefiend",
+    "rule_name": "Daemonic Ordnance",
+    "quoted_text": "Each time this model is selected to shoot, it can use this ability. If it does, until the end of the phase, its ranged weapons have the [DEVASTATING WOUNDS] and [HAZARDOUS] abilities.",
+    "trigger": "Forgefiend (chaos_space_marines_forgefiend) is selected to shoot; fires once per shooting activation via simulator._apply_daemonic_ordnance, called from Battle._do_shoot after target selection and before attacker.attack(). Opt-in: only elected when the expected [DEVASTATING WOUNDS] offensive uplift against the chosen target exceeds the expected [HAZARDOUS] self-damage cost (0.5 expected wounds; 1.0 when below half health).",
+    "effect": "When elected: unit is granted transient_devastating_wounds (ranged weapons gain [DEVASTATING WOUNDS] — on a critical wound, bypass saves, deal mortal wounds equal to Damage) and transient_hazardous (after the ranged attack sequence, roll d6; on a 1 the unit takes 3 mortal wounds to self). Both flags are cleared per round by _clear_transient_stratagem_flags. Applied via the override-only UnitProfile.csm_daemonic_ordnance flag on chaos_space_marines_forgefiend. Verbatim text cross-checked against BSData v10.6.0 Chaos Space Marines.cat.gz, ability profile id 49a0-fe58-5293-bdc2, selectionEntry id 45b-19f6-38d2-703f. Wahapedia was unreachable from this worktree during build (DNS failure); BSData verbatim is the primary cited source per project memory policy.",
+    "scope": "phase-gated"
   }
 }

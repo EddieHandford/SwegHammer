@@ -568,6 +568,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Dark Pact, weapons gain [DEVASTATING WOUNDS] until the end of the phase.
     # Gated SWEG_CSM_ABILITIES. Cited in data/rule_citations.d/keywords_and_mechanics.json.
     "simulator.csm_unholy_bloodshed",
+    # Wave 236 — Forgefiend "Daemonic Ordnance": per-activation opt-in; ranged
+    # weapons gain [DEVASTATING WOUNDS] and [HAZARDOUS] until end of phase.
+    # Grants transient_devastating_wounds + transient_hazardous; Hazardous
+    # d6 self-check fires in Unit.attack (ranged mode). Not env-gated (datasheet
+    # ability, narrow flag, not a sweep across all CSM). Cited in
+    # data/rule_citations.d/keywords_and_mechanics.json.
+    "simulator.csm_daemonic_ordnance",
     # CSM wave — Dark Apostle "Dark Zealotry": +1 to Wound roll on melee attacks
     # while the unit is led by a Dark Apostle. Gated SWEG_CSM_ABILITIES.
     # Cited in data/rule_citations.d/leaders.json.

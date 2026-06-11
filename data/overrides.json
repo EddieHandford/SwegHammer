@@ -1769,6 +1769,10 @@
       "csm_unholy_bloodshed": true,
       "notes": "CSM wave: Possessed datasheet ability 'Unholy Bloodshed' — once per battle, when this unit makes a Dark Pact, until the end of the phase, weapons equipped by models in this unit have the [DEVASTATING WOUNDS] ability. BSData v10.6.0 Chaos Space Marines.cat.gz, ability id 3de3-728d-6264-1eb3. Applied via csm_unholy_bloodshed flag; gated SWEG_CSM_ABILITIES. Cited simulator.csm_unholy_bloodshed."
     },
+    "chaos_space_marines_forgefiend": {
+      "csm_daemonic_ordnance": true,
+      "notes": "Wave 236: Forgefiend datasheet ability 'Daemonic Ordnance' — each time this model is selected to shoot, it can use this ability; if it does, until the end of the phase, its ranged weapons have the [DEVASTATING WOUNDS] and [HAZARDOUS] abilities. BSData v10.6.0 Chaos Space Marines.cat.gz, ability profile id 49a0-fe58-5293-bdc2, selectionEntry id 45b-19f6-38d2-703f. Applied via csm_daemonic_ordnance flag in simulator._apply_daemonic_ordnance (per-activation opt-in). Cited simulator.csm_daemonic_ordnance."
+    },
     "chaos_space_marines_heldrake": {
       "devastating_wounds": true,
       "notes": "AK-1: Heldrake claws carry [DEVASTATING WOUNDS] per BSData v10.6.0 Chaos Space Marines.cat.gz (Range=Melee, Keywords=\"Anti-FLY 2+, Devastating Wounds\"). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Heldrake."

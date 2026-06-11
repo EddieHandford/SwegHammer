@@ -3443,8 +3443,11 @@ class Battle:
             # CSM datasheet abilities (gated SWEG_CSM_ABILITIES).
             # transient_reroll_all_hits: Despoilers (Chaos Terminator Squad).
             # transient_devastating_wounds: Unholy Bloodshed (Possessed).
+            # transient_hazardous: Daemonic Ordnance (Forgefiend) per-activation
+            # grant; cleared here so it is single-round-scoped.
             u.transient_reroll_all_hits = False
             u.transient_devastating_wounds = False
+            u.transient_hazardous = False
             # DRK-SKYSPLINTER-DISEMBARK: Rain of Cruelty disembark-turn
             # keyword grants. Set on disembark by `_disembark` when the
             # unit is DRUKHARI and the army's detachment is Skysplinter
@@ -6715,6 +6718,130 @@ class Battle:
             # expose. Slot used; effect dropped. TODO: per-target AP buff
             # plumbing.
             return
+
+    def _apply_daemonic_ordnance(self, attacker, target) -> None:
+        """Chaos Space Marines Forgefiend datasheet ability 'Daemonic Ordnance' (10e).
+
+        Verbatim BSData (Chaos - Chaos Space Marines.cat.gz, ability profile id
+        49a0-fe58-5293-bdc2, selectionEntry id 45b-19f6-38d2-703f): "Each time
+        this model is selected to shoot, it can use this ability. If it does,
+        until the end of the phase, its ranged weapons have the [DEVASTATING
+        WOUNDS] and [HAZARDOUS] abilities."
+
+        Note: Wahapedia was not reachable from this worktree during build (DNS
+        failure); BSData verbatim is the sole cited source per project memory
+        (data/bsdata/cache/Chaos - Chaos Space Marines.cat.gz). Cited as
+        `simulator.csm_daemonic_ordnance`.
+
+        Opt-in heuristic: elect to surge when the expected [DEVASTATING WOUNDS]
+        offensive uplift against the chosen target exceeds the expected
+        [HAZARDOUS] self-damage cost.
+
+        [DEVASTATING WOUNDS] uplift: on a critical wound (wound roll of 6+),
+        attacks bypass saves and deal mortal wounds equal to Damage. The
+        marginal uplift relative to a normal wound is the fraction of attacks
+        that become critical wounds (1/6) multiplied by the target's effective
+        armour save probability (the saves that devastating wounds bypass) times
+        the weapon's Damage. We approximate with the Forgefiend's primary ranged
+        profile (attacks * hit_probability * wound_probability_vs_T10 * 1/6
+        * target_save_probability * damage).
+
+        [HAZARDOUS] cost: d6 after firing; on a 1 (probability 1/6), the unit
+        takes 3 mortal wounds. The expected cost is 3 * (1/6) = 0.5 wounds.
+
+        When the unit is below half health, the hazardous risk of losing the
+        model entirely weighs more heavily — in this case we multiply the
+        expected cost by a factor of 2 to represent the compounded value loss.
+
+        No env-gate for this ability: it is a per-datasheet property of the
+        Forgefiend (not a sweep across all CSM units like Dark Pacts), and it
+        only fires when `csm_daemonic_ordnance` is set on the attacker's profile
+        via overrides.json.
+        """
+        if not getattr(attacker.profile, "csm_daemonic_ordnance", False):
+            return
+        if target is None:
+            return
+
+        p = attacker.profile
+
+        # ---- Expected [DEVASTATING WOUNDS] uplift ----
+        # Critical wounds bypass saves; the uplift is the expected saving-throw
+        # damage that bypasses, per crit. We approximate with the profile's
+        # primary ranged weapon stats.
+        #
+        # wound_probability: simplified to 1/2 (S8 vs T10 → wounds on 5+, so
+        # 2/6 ≈ 0.33; but the primary weapon Hades autocannon is S8 vs most
+        # targets at T8-10). We use the real wound probability approximated from
+        # S vs T (S >= T → 3+, S >= T/2 → 5+, else 6+).
+        target_t = target.profile.toughness
+        s = p.strength
+        if s >= target_t * 2:
+            wound_prob = 5.0 / 6.0   # 2+
+        elif s >= target_t:
+            wound_prob = 4.0 / 6.0   # 3+
+        elif s >= target_t / 2:
+            wound_prob = 2.0 / 6.0   # 5+
+        else:
+            wound_prob = 1.0 / 6.0   # 6+
+
+        # The fraction of wounds that become crits under Devastating Wounds.
+        crit_fraction = 1.0 / 6.0   # wound roll of 6+
+
+        # The save probability the crit bypasses: use the target's effective
+        # armour save (post-AP). This is the probability that a non-crit wound
+        # would be SAVED, which Devastating Wounds turns into damage.
+        target_save = target.profile.save
+        ap = p.ap
+        effective_save_threshold = max(target_save - ap, 2)   # cap at 2+
+        # Invuln overrides if better.
+        inv = getattr(target.profile, "invuln_save_ranged", None) or getattr(target.profile, "invuln_save", 7)
+        effective_save_threshold = min(effective_save_threshold, inv)
+        save_prob = max(0.0, (7 - effective_save_threshold) / 6.0)
+
+        # Expected uplift = attacks hitting * wounding * becoming crits * saves
+        # bypassed * damage per attack.
+        dmg_per_shot = p.per_shot_damage or p.weapon_damage_per_shot or 0.0
+        expected_uplift = (
+            p.attacks
+            * p.hit_probability
+            * wound_prob
+            * crit_fraction
+            * save_prob
+            * dmg_per_shot
+        )
+
+        # ---- Expected [HAZARDOUS] cost ----
+        # d6 after firing; on a 1, 3 mortal wounds to self.
+        hazardous_base_cost = 3.0 / 6.0   # = 0.5 expected wounds
+        # Weight the cost more heavily when below half health (killing the
+        # model early loses more value than the expected damage output would
+        # justify).
+        if attacker.current_health < (p.health * 0.5):
+            hazardous_cost = hazardous_base_cost * 2.0
+        else:
+            hazardous_cost = hazardous_base_cost
+
+        # Elect to surge when uplift > cost.
+        if expected_uplift <= hazardous_cost:
+            if self.verbose:
+                print(
+                    f"  DAEMONIC ORDNANCE: {p.name} opts OUT "
+                    f"(uplift {expected_uplift:.3f} <= cost {hazardous_cost:.3f})"
+                )
+            return
+
+        # Grant transient_devastating_wounds and transient_hazardous for this
+        # shooting activation. Both are cleared at the next round start by
+        # _clear_transient_stratagem_flags.
+        self._set_transient_squad(attacker, "transient_devastating_wounds")
+        self._set_transient_squad(attacker, "transient_hazardous")
+        if self.verbose:
+            print(
+                f"  DAEMONIC ORDNANCE: {p.name} ELECTED "
+                f"(uplift {expected_uplift:.3f} > cost {hazardous_cost:.3f}) — "
+                "ranged weapons gain [DEVASTATING WOUNDS] and [HAZARDOUS]"
+            )
 
     def _apply_dark_pacts(self, round_num: int) -> None:
         """Chaos Space Marines Dark Pacts army rule (10e).
@@ -11279,6 +11406,13 @@ class Battle:
             attacker_keywords=attacker.profile.unit_keywords or (),
             target_keywords=shoot_target.profile.unit_keywords or (),
         )
+        # Daemonic Ordnance (Forgefiend datasheet ability): opt-in per-activation
+        # shooting buff. Called after target selection so the heuristic can
+        # evaluate the uplift vs this specific target's toughness / save profile.
+        # Grants transient_devastating_wounds + transient_hazardous when elected.
+        # No-op for all units that do not carry the csm_daemonic_ordnance flag.
+        # Cited as `simulator.csm_daemonic_ordnance`.
+        self._apply_daemonic_ordnance(attacker, shoot_target)
         # MR-WE-3 Blood Surge — snapshot pre-shot health so we can detect a
         # model destruction event on the defender (Khorne Berzerkers only).
         # See `simulator.blood_surge` in rule_citations.json.

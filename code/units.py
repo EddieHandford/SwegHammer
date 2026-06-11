@@ -475,6 +475,15 @@ class UnitProfile:
     # transient_devastating_wounds grant (once-per-battle guarded), gated
     # SWEG_CSM_ABILITIES. Cited simulator.csm_unholy_bloodshed.
     csm_unholy_bloodshed: bool = False
+    # CSM Forgefiend datasheet ability "Daemonic Ordnance" (10e): each time
+    # this model is selected to shoot, it can use this ability. If it does,
+    # until the end of the phase, its ranged weapons have the [DEVASTATING
+    # WOUNDS] and [HAZARDOUS] abilities. Override-only flag; applied in
+    # simulator._apply_daemonic_ordnance as transient_devastating_wounds +
+    # transient_hazardous grants. Opt-in per activation: elected when the
+    # expected [DEVASTATING WOUNDS] uplift on the chosen target exceeds the
+    # expected [HAZARDOUS] self-damage cost. Cited simulator.csm_daemonic_ordnance.
+    csm_daemonic_ordnance: bool = False
     leadership: int = 7                        # Ld target for Battleshock tests (10e: 2D6 >= Ld passes)
     oc: int = 1                                # Objective Control characteristic (10e)
     # Phase A2 + A3 weapon keywords (carried from the unit's chosen ranged weapon)
@@ -948,12 +957,19 @@ class Unit:
         # transient_devastating_wounds: unit's weapons gain [DEVASTATING WOUNDS]
         # for the round/phase (granted by Unholy Bloodshed when making a Dark
         # Pact, gated SWEG_CSM_ABILITIES). Composed into effective_dw.
+        # transient_hazardous: unit's ranged weapons gain [HAZARDOUS] for this
+        # shooting activation (granted by Daemonic Ordnance opt-in, together
+        # with transient_devastating_wounds). d6 self-check fires in Unit.attack
+        # after the ranged attack sequence, on a roll of 1 the unit takes 3
+        # mortal wounds. Cleared per-round by _clear_transient_stratagem_flags.
+        # Cited simulator.csm_daemonic_ordnance.
         "transient_lethal_hits",
         "transient_sustained_hits",
         "transient_reroll_wounds",
         "transient_reroll_wounds_ones",
         "transient_reroll_all_hits",
         "transient_devastating_wounds",
+        "transient_hazardous",
         # Go To Ground (10e core Battle Tactic Stratagem, 1CP, env-gated
         # SWEG_GTG). Defender buff: a targeted INFANTRY unit gains a 6+
         # invulnerable save AND the Benefit of Cover until the end of the
@@ -1156,6 +1172,11 @@ class Unit:
         # See simulator._apply_dark_pacts for the grant site.
         self.transient_reroll_all_hits: bool = False
         self.transient_devastating_wounds: bool = False
+        # Daemonic Ordnance (Forgefiend datasheet ability): ranged weapons gain
+        # [HAZARDOUS] for this shooting activation when the ability is elected.
+        # Cleared per-round by _clear_transient_stratagem_flags. See
+        # simulator._apply_daemonic_ordnance for the grant site.
+        self.transient_hazardous: bool = False
         # Go To Ground (10e core stratagem). 6++ invuln + Benefit of Cover on a
         # targeted INFANTRY unit until end of the opponent's Shooting phase.
         self.go_to_ground_active: bool = False
@@ -4152,7 +4173,11 @@ class Unit:
                         total_damage += _alloc_dmg
 
         # ---- Hazardous: d6 after firing; on a 1, take 3 mortal wounds ----
-        if p.hazardous:
+        # Fires when the weapon's static hazardous flag is set, OR when the
+        # transient_hazardous flag is active (granted by Daemonic Ordnance for
+        # the current shooting activation, ranged mode only).
+        _hazardous_ranged = getattr(self, "transient_hazardous", False) and mode != "melee"
+        if p.hazardous or _hazardous_ranged:
             if random.randint(1, 6) == 1:
                 self.receive_damage(3.0)
 
