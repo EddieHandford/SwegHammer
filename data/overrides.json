@@ -1777,6 +1777,11 @@
       "devastating_wounds": true,
       "notes": "AK-1: Heldrake claws carry [DEVASTATING WOUNDS] per BSData v10.6.0 Chaos Space Marines.cat.gz (Range=Melee, Keywords=\"Anti-FLY 2+, Devastating Wounds\"). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Heldrake."
     },
+    "chaos_space_marines_legionaries": {
+      "melee_attacks": 4,
+      "melee_ap": -1,
+      "notes": "Wave 236 melee-basket correction: parsed.json names the Astartes chainsword as the unit's melee weapon but carries the close combat weapon's statistics (attacks 3, armour penetration 0) — a flattening mismatch. The Legionaries datasheet Astartes chainsword is A4 WS3+ S4 AP-1 D1 verbatim from BSData v10.6.0 Chaos - Chaos Space Marines.cat.gz (shared melee profile resolved from the unit's model entries; the Aspiring Champion resolves the same profile). Chainsword-dominant loadout: attacks 4, armour penetration -1; melee strength 4 and damage 1 already correct in the parsed entry."
+    },
     "emperor_s_children_heldrake": {
       "devastating_wounds": true,
       "notes": "AK-1: Heldrake claws [DEVASTATING WOUNDS] per BSData v10.6.0 Emperor's Children.cat.gz. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/emperors-children/#Heldrake."
