@@ -1730,6 +1730,16 @@ def pick_charge_target(attacker, enemy):
         # decisions are aligned. Ranged Knights (Castellan, Valiant, Crusader,
         # Tyrant) are automatically excluded because they lack extra_melee_profiles.
         knight_melee_bonus = _knight_melee_commitment_bonus(attacker)
+        # Displacement Stage 2 (SWEG_DISPLACE_SWARM) — charge-to-contest the
+        # durable marker-holder (the Knight pattern). The contest value is added
+        # (not multiplied) below, like the existing tarpit pin, because the swarm
+        # cannot crack the holder so its kill-based score is ~0. Fires only when
+        # charging at least TIES the full stacked Objective Control of every
+        # defending model on the marker (the no-suicide rail). OFF path = exact
+        # 0.0. See the helper block above and
+        # docs/DISPLACEMENT_SUBSTRATE_PLAN.md §5 Stage 2.
+        displace_contest_value = _displace_swarm_contest_value(
+            attacker, e, tp, enemy, charge_p)
         score = (((kill_potential + 0.5 * ranged_value)
                   / (1.0 + threat_against))
                  * charge_p * gunline_bonus * support_bonus
@@ -1755,8 +1765,18 @@ def pick_charge_target(attacker, enemy):
                 # has little ranged_value, so it yields a small pin value and is
                 # not tarpitted. Even-handed; AI heuristic on the cited pin rule.
                 score += _TARPIT_PIN_WEIGHT * ranged_value * charge_p
-            else:
+            elif displace_contest_value <= 0.0:
+                # No Stage 2 contest charge available (gate OFF, target not a
+                # winnable durable marker-holder): apply the legacy won't-crack
+                # suppression unchanged. OFF path is byte-identical here.
                 score *= _WONT_CRACK_PENALTY
+            # else: Stage 2 fires — skip the won't-crack suppression; the contest
+            # value is ADDED below (the contest, not the kill, is the value).
+        # Displacement Stage 2 (SWEG_DISPLACE_SWARM): add the contest value when
+        # the no-suicide rail passed. 0.0 (the exact float identity) on the OFF
+        # path and for every non-qualifying candidate, so the OFF path is
+        # byte-identical.
+        score += displace_contest_value
         candidates.append((score, d, e))
 
     if not candidates:
@@ -2014,6 +2034,206 @@ def _displace_fall_back_buys_something(unit, enemies, engaged_enemies, map_) -> 
             # only next round's shooting is net-negative → stay and stay useful.
             return False
     return True
+
+
+# ---------------------------------------------------------------------------
+# Displacement substrate Stage 2 — Charge-to-contest the durable holder (SWEG_DISPLACE_SWARM)
+# ---------------------------------------------------------------------------
+# Avenue-2 displacement plan, Stage 2 (docs/DISPLACEMENT_SUBSTRATE_PLAN.md §5).
+# This is the OVER-pole half of the displacement substrate: the Imperial Knight
+# parks concentrated Objective Control on a marker and the body army never plays
+# the contest game back (Stage 0 measured an Imperial Knights signature of 24.25
+# uncontested-hold victory points against only 0.75 tarpit). Stage 2 directs
+# affordable bodies to CHARGE that marker — putting models into Engagement Range
+# to contest/tarpit the holder's Objective Control — exactly as real hordes swarm
+# a Knight.
+#
+# The default charge picker SUPPRESSES this charge: a chaff body cannot crack a
+# T12 W22 Knight, so the #C2 "won't-crack" penalty downweights it and the AI
+# closes on something it can kill instead. Stage 2 lifts that suppression for the
+# specific, faithful case where the charge WINS THE CONTEST even though it cannot
+# win the fight — by biasing the durable-holder candidate's charge score upward.
+#
+# HARD RAILS (docs/DISPLACEMENT_SUBSTRATE_PLAN.md §5 Stage 2, §6):
+#   1. No suicidal feed. The contest is evaluated against the FULL STACKED
+#      Objective Control of EVERY defending model within the marker's control
+#      radius (a Knight is routinely supported by Armigers — two add Objective
+#      Control 16 to the cluster), never the lone holder. The charge only fires
+#      when the friendly Objective Control that WOULD sit on the marker once this
+#      body lands at least TIES that summed cluster. A tie is enough because the
+#      10e scorer awards a marker only on STRICTLY-greater Objective Control, so
+#      a tie flips the Knight's hold to contested and denies its scoring tick.
+#   2. Engaged models keep their full Objective Control (verified in the
+#      simulator; not re-implemented here) and a Locked-in-Combat VEHICLE /
+#      MONSTER cannot Fire Overwatch the bodies once they arrive (the existing
+#      overwatch implementation already respects this) — so arrival is safer than
+#      raw threat arithmetic suggests. Stage 2 relies on those existing mechanics
+#      and does not touch them.
+#   3. Default OFF: SWEG_DISPLACE_SWARM unset or "0" leaves every charge decision
+#      byte-identical. The contest value is the exact float identity 0.0 on the
+#      OFF path (added to the legacy score, which is `score + 0.0 == score`), and
+#      the legacy won't-crack suppression branch runs unchanged.
+#
+# This is an AI-piloting heuristic, NOT a 10e rule (same class as the Ork /
+# tarpit / kite biases), so it carries no rule citation of its own. It uses only
+# already-cited mechanics: the charge, the Engagement-Range Objective-Control
+# contest, and the strictly-greater scorer. It adds no durability / output /
+# Objective-Control knob and no horde-nerf.
+#
+# Mechanism note: the bonus is ADDITIVE, not multiplicative — exactly like the
+# existing tarpit pin (`_TARPIT_PIN_WEIGHT`). The swarm body cannot crack the
+# Knight, so its kill-based charge score is ~0; a multiplicative bonus on ~0 is
+# still ~0 and never overtakes a crackable alternative. The contest IS the value
+# (it flips the hold to contested and denies a scoring tick), so when the rail
+# passes Stage 2 (a) exempts the candidate from the won't-crack suppression and
+# (b) adds a flat contest value, weighted by the holder's per-round primary
+# victory-point denial, so the displacement charge reliably wins the pick.
+_DISPLACE_SWARM_CONTEST_WEIGHT: float = 1.0
+
+
+def _displace_swarm_enabled() -> bool:
+    return __import__("os").environ.get("SWEG_DISPLACE_SWARM", "0") == "1"
+
+
+def _is_concentrated_durable_holder(target_unit, target_profile) -> bool:
+    """A target worth swarming onto its marker: a DURABLE brick (the Knight
+    pattern) carrying meaningful Objective Control.
+
+    Durable reuses the same universal thresholds the general tarpit valuation
+    uses (`_TARPIT_MIN_TOUGHNESS` / `_TARPIT_MIN_HP`) — a Knight (T12 W22),
+    Armiger (T10 W12), big vehicle or monster. It must also carry Objective
+    Control >= 2 (a holder, not a stripped-OC support model); a brick with no
+    Objective Control is not holding the marker and swarming it gains nothing.
+    Even-handed: universal toughness / wound-pool / Objective-Control stats, no
+    faction branch.
+    """
+    tp = target_profile
+    durable = (tp.toughness or 0) >= _TARPIT_MIN_TOUGHNESS or \
+        (target_unit.current_health or 0.0) >= _TARPIT_MIN_HP
+    return durable and (tp.oc or 0) >= 2
+
+
+def _displace_marker_for_holder(target_unit, objectives) -> Optional[object]:
+    """Return the objective marker the durable holder is contesting, or None.
+
+    A holder "holds" a marker iff it sits within that marker's control radius.
+    If the holder is within range of several markers (overlapping control
+    radii are not standard but the data does not forbid them), the nearest is
+    returned — that is the marker the swarm should contest. None when the
+    holder is on no marker (then there is nothing to contest by charging it).
+    """
+    best = None
+    best_d = float("inf")
+    for obj in objectives:
+        d = _dist(target_unit.position, (obj.x, obj.y))
+        if d <= obj.control_radius and d < best_d:
+            best_d = d
+            best = obj
+    return best
+
+
+def _displace_swarm_contest_winnable(
+    attacker, target_unit, obj, friendly_alive, enemy_alive, cur_round,
+) -> bool:
+    """No-suicide rail — would charging put enough Objective Control on the
+    marker to AT LEAST TIE the full defending cluster?
+
+    Rail 1 (full-cluster accounting): the defending Objective Control is the sum
+    over EVERY enemy model within the marker's control radius (the Knight plus
+    its Armiger escort), bracket-aware and Battle-shock-aware via
+    `_displace_unit_effective_oc` — never just the lone holder's Objective
+    Control.
+
+    The friendly Objective Control that would sit on the marker once this body
+    lands is: every friendly model ALREADY within the control radius, PLUS this
+    attacker's own effective Objective Control if it is not already counted
+    (a successful charge ends within 1" of the target, which — because the
+    target is on the marker — lands the charger inside the marker's control
+    radius too). Engaged models keep their full Objective Control (verified in
+    the simulator), so the bodies count at full value once locked in.
+
+    Returns True iff that friendly total >= the defending cluster total. A TIE
+    suffices: the 10e scorer awards the marker only on strictly-greater
+    Objective Control, so tying flips the holder's hold to contested and denies
+    its scoring tick — the faithful displacement outcome.
+    """
+    ox, oy = obj.x, obj.y
+    r = obj.control_radius
+    their = 0
+    for e in enemy_alive:
+        if _dist(e.position, (ox, oy)) <= r:
+            their += _displace_unit_effective_oc(e, cur_round)
+    if their <= 0:
+        # The cluster is not actually controlling the marker (all Battle-shocked
+        # / Objective Control 0): there is nothing to contest by charging.
+        return False
+    ours = 0
+    attacker_counted = False
+    for f in friendly_alive:
+        if _dist(f.position, (ox, oy)) <= r:
+            ours += _displace_unit_effective_oc(f, cur_round)
+            if f.uid == attacker.uid:
+                attacker_counted = True
+    if not attacker_counted:
+        # The charge lands this body inside the control radius (the target is on
+        # the marker, the charger ends within 1" of the target).
+        ours += _displace_unit_effective_oc(attacker, cur_round)
+    return ours >= their
+
+
+def _displace_swarm_contest_value(attacker, target_unit, target_profile, enemy, charge_p):
+    """Stage 2 ADDITIVE contest value for the durable-holder candidate.
+
+    Returns a positive contest value only when ALL hold:
+      * the gate is ON (`SWEG_DISPLACE_SWARM=1`) — else exactly 0.0 so the OFF
+        path is byte-identical;
+      * the target is a concentrated durable marker-holder (the Knight pattern);
+      * the target is actually contesting an objective marker; and
+      * the no-suicide rail passes — charging at least TIES the full defending
+        cluster's stacked Objective Control on that marker.
+
+    When all hold, the value is the marker's per-round primary victory points
+    that the contest DENIES, scaled by the charge success probability and the
+    contest weight: `vp_per_round * charge_p * _DISPLACE_SWARM_CONTEST_WEIGHT`.
+    The caller adds this to the candidate's charge score (and skips the
+    won't-crack suppression), so the displacement charge reliably wins the pick.
+
+    Reaches the live board (objectives, both armies' alive units, the current
+    round) through the attacker's army back-reference. When that context is
+    absent (synthetic profiles with no battle wiring), the rail cannot be
+    evaluated and the value is 0.0 — Stage 2 only ever fires inside a real
+    battle with objectives.
+    """
+    if not _displace_swarm_enabled():
+        return 0.0
+    if not _is_concentrated_durable_holder(target_unit, target_profile):
+        return 0.0
+    army = getattr(attacker, "army_ref", None)
+    if army is None:
+        return 0.0
+    battle = getattr(army, "_battle_ref", None)
+    if battle is None:
+        return 0.0
+    map_ = getattr(battle, "map", None)
+    if map_ is None:
+        return 0.0
+    objectives = getattr(map_, "objectives", ()) or ()
+    if not objectives:
+        return 0.0
+    cur_round = int(getattr(battle, "_current_round", 0) or 0)
+    if cur_round < 1:
+        cur_round = 1
+    obj = _displace_marker_for_holder(target_unit, objectives)
+    if obj is None:
+        return 0.0
+    friendly_alive = army.alive_units
+    enemy_alive = enemy.alive_units
+    if not _displace_swarm_contest_winnable(
+        attacker, target_unit, obj, friendly_alive, enemy_alive, cur_round
+    ):
+        return 0.0   # cannot even tie the cluster → no suicidal feed
+    vp = float(getattr(obj, "vp_per_round", 5) or 5)
+    return vp * charge_p * _DISPLACE_SWARM_CONTEST_WEIGHT
 
 
 _PLAN_LEFT = "LEFT_FLANK"
