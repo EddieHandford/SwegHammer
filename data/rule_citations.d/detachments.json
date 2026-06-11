@@ -21,14 +21,14 @@
     "approximation": true
   },
 
-  "ANNIHILATION_LEGION.reroll_wound_ones": {
+  "_ANNIHILATION_LEGION.annihilation_protocol_unmodelled": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Annihilation-Legion",
-    "rule_name": "Hardened Killers",
-    "quoted_text": "Each time a NECRONS unit from your army makes a ranged attack, you can re-roll a Wound roll of 1.",
-    "trigger": "Necrons attacker in an army with the Annihilation Legion detachment, making a ranged attack",
-    "effect": "re-roll Wound rolls of 1 on ranged attacks. APPROXIMATION: schema flag `reroll_wound_ones` applies to all attacks (ranged + melee); real detachment limits to RANGED only. Necrons is a ranged-leaning faction so the over-broad melee leakage is small in practice. The detachment exists as the LC-1 stronger-offensive alternative to Awakened Dynasty (whose +1-to-hit only fires on character-led squads) for Necrons -8.8 outlier compensation.",
-    "scope": "army-wide",
-    "approximation": true
+    "rule_name": "Annihilation Protocol",
+    "quoted_text": "Each time a DESTROYER CULT or FLAYED ONES unit from your army declares a charge, you can re-roll the Charge roll. If one or more targets of that charge are Below Half-strength, add 1 to the Charge roll as well. Each time a DESTROYER CULT unit from your army makes a ranged attack that targets the closest eligible target, add 1 to the Armour Penetration characteristic of that attack.",
+    "trigger": "DESTROYER CULT or FLAYED ONES unit declaring a charge (charge re-roll leg); DESTROYER CULT unit making a ranged attack targeting the closest eligible target (+1 Armour Penetration leg)",
+    "effect": "UNMODELLED — both legs require new simulator machinery not yet present. Charge re-roll leg: the Detachment dataclass has no charge-reroll field and _do_charge has no detachment-supplied re-roll hook. Plus-one Armour Penetration leg: Unit.attack has no 'is closest eligible target' predicate. The fabricated 'Hardened Killers' rule and its reroll_wound_ones=True flag were removed in wave 235 as they corresponded to no real codex rule. The detachment remains registered as a no-buff variety pick.",
+    "scope": "keyword-gated",
+    "unmodelled": true
   },
 
   "INQUISITION_TASK_FORCE.reroll_hit_ones": {
