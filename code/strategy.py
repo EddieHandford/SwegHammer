@@ -1880,14 +1880,20 @@ def _displace_no_control_consequence(
     """Condition 1 — the unit's presence changes NO marker outcome.
 
     For every objective the unit currently sits on (within control_radius), the
-    unit "matters" iff its Objective Control is the swing that keeps the enemy
-    from controlling the marker: with the unit on it our side is at-least-tied
-    (we hold, or we flip the marker to contested, or we deny the enemy's score
-    by standing), but WITHOUT the unit the enemy strictly controls. The 10e
-    scorer awards a marker only to STRICTLY greater Objective Control, so a tie
-    denies the enemy (`simulator.objective_control_strictly_greater`); that is
-    why "our_with >= their AND our_without < their" captures hold, flip-to-
-    contested, and deny-by-standing in one test.
+    unit "matters" iff removing it changes WHO the marker outcome favours. The
+    10e scorer awards a marker only to STRICTLY greater Objective Control
+    (`simulator.objective_control_strictly_greater`), so with our_without <=
+    our_with there are exactly two swing shapes:
+
+      * hold lost — WITH the unit we strictly control (our_with > their) but
+        WITHOUT it we no longer do (our_without <= their): leaving costs our
+        own scoring tick, whether the marker falls to contested or to the
+        enemy;
+      * denial lost — WITH the unit the marker is contested (our_with ==
+        their) but WITHOUT it the enemy strictly controls (our_without <
+        their): leaving hands the enemy a scoring tick.
+
+    Either swing means the unit's presence changes the marker outcome.
 
     Returns True iff the unit matters at NO marker (safe to fall back on
     condition 1). A Battle-shocked unit has effective Objective Control 0, so
@@ -1910,11 +1916,14 @@ def _displace_no_control_consequence(
             if _dist(e.position, (ox, oy)) <= obj.control_radius:
                 their += _displace_unit_effective_oc(e, cur_round)
         our_without = our_with - own_oc
-        # The unit is the swing keeping the enemy off the marker: with it we are
-        # at least tied, without it the enemy controls outright. That single
-        # test covers hold (our_with > their), flip-to-contested (our_with ==
-        # their), and deny-by-standing (the enemy would otherwise control).
-        if our_with >= their and our_without < their:
+        # Two swing shapes (see docstring): hold lost (we strictly control
+        # with the unit, not without it) or denial lost (contested with the
+        # unit, enemy strictly controls without it). The hold-lost arm must
+        # use our_without <= their, not <, or a unit whose departure drops the
+        # marker from held to tied would wrongly read as inconsequential —
+        # losing our own scoring tick is a marker outcome change too.
+        if (our_with > their and our_without <= their) or (
+                our_with == their and our_without < their):
             return False  # presence changes the marker outcome → NOT wasted
     return True
 

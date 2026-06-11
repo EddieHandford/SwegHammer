@@ -209,6 +209,31 @@ class Condition1ControlConsequenceTests(unittest.TestCase):
             "A unit flipping a marker to contested must STAY, not Fall Back.",
         )
 
+    def test_unit_whose_departure_drops_hold_to_tie_does_not_fall_back(self):
+        # Hold-lost swing shape: the pinned unit (OC 2) plus an unengaged
+        # friendly helper (OC 1) hold the marker 3 vs 1 against the enemy.
+        # WITHOUT the pinned unit: 1 vs 1 — a tie, the strictly-greater scorer
+        # no longer awards us the marker. The enemy still does not score, but
+        # losing OUR OWN scoring tick is a marker outcome change, so condition
+        # 1 must fail and the unit must STAY. (Regression: the original swing
+        # test used our_without < their and missed this hold-to-tie case.)
+        friendly = _make_army("Friend", _shooty_profile(oc=2), [(30.0, 30.0)])
+        friendly.add_unit(_shooty_profile(oc=1))
+        helper = friendly.units[-1]
+        helper.uid = "Fh"
+        helper.position = (29.2, 30.0)  # on the marker, NOT in engagement range
+        enemy = _make_army("Foe", _weak_melee_profile(oc=1), [(30.8, 30.0)])
+        map_ = _open_map()
+        _set_round(friendly, enemy)
+
+        with mock.patch.dict(os.environ, {"SWEG_DISPLACE_FALLBACK": "1"}):
+            _, intent = pick_move_intent(friendly.units[0], friendly, enemy, map_)
+        self.assertNotEqual(
+            intent, "FALL_BACK",
+            "A unit whose departure drops the marker from held to tied must "
+            "STAY — ceding our own scoring tick is a control consequence.",
+        )
+
     def test_battle_shocked_unit_trivially_passes_condition_1(self):
         # Same swing geometry as test 1 (OC 2 vs 1 on the marker), BUT the unit
         # is Battle-shocked this round -> effective Objective Control 0. It now
