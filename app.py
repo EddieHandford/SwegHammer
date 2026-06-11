@@ -1660,11 +1660,11 @@ def _render_army_overview(
         unit_pts = p.points_cost * models
         unit_hp = p.health * models
         sv_str = f"{p.save}+" if p.save <= 6 else "—"
+        # One composition column in the natural reading order:
+        # "2 × 10 = 20" means 2 squads of 10 models = 20 models total.
         rows.append({
             "Unit":   p.name,
-            "Squads": count,
-            "Size":   size,
-            "Models": models,
+            "Models": f"{count} × {size} = {models}",
             "W":      f"{p.health:g}",
             "T":      p.toughness,
             "Sv":     sv_str,
