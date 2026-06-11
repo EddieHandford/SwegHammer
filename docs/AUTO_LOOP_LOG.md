@@ -48,10 +48,18 @@ right), Death Guard −0.22 decisive but tiny, every other faction flat. Gated m
 the scoped run's; self-checked by re-pairing old-versus-merged WITHOUT the scoped fill path, which
 reproduces the scoped report exactly.
 
-**4. Gate screens (serial).** `SWEG_CHARGE_BASEEDGE=1` full-matrix N=40 paired screen IN FLIGHT
-versus the new anchor (paired join handles the N=40-versus-N=80 seed subset). Then
-`SWEG_DEPLOY_COLLISION=1` N=40, then `SWEG_BOF_ASSAULT=1` Sororitas-scoped. N=80 confirm before
-any default flip.
+**4. Gate screens (serial).** **`SWEG_CHARGE_BASEEDGE=1` N=40 screen DONE: headline REGRESSION
++0.65 (matched-subset gated 5.95 → 6.59) but the mechanic HITS its physical target.** Five
+decisive movers — melee factions down (World Eaters −6.62, Chaos Daemons −6.23, Death Guard
+−3.94), shooty factions up (Drukhari +7.31, T'au +6.37); Daemons/Death Guard/Drukhari were
+in-band so the headline cost is real. Non-win-rate corroboration via `diag_overlap_audit`
+(screenshot matchup, seed 5): live overlap incidents 217 → 100, cross-army (the charge-placement
+signature) 49 → 7 — the fix does exactly what it was built to do. Per the fidelity-first
+authorization (headline rising is expected and authorised for faithful mechanics; this fixes the
+user-flagged collision bug), the gate is NOT discarded on the screen verdict: the adoption call
+moves to an N=80 confirm of the actual adoption configuration (both collision gates together)
+after the remaining screens. `SWEG_DEPLOY_COLLISION=1` N=40 full-matrix screen NOW IN FLIGHT;
+then `SWEG_BOF_ASSAULT=1` Sororitas-scoped; then the combined collision N=80 confirm.
 
 **IN FLIGHT:** Sororitas-scoped N=80 re-anchor run; Aeldari over-pole diagnostic agent (re-dispatch);
 movement-event emission sweep agent (briefed against `1fb141e` — its commit will need a cherry-pick
