@@ -88,10 +88,33 @@ fix; the pair decision is made on this confirm. Held builds (Strands one-substit
 on-kill heal, Aeldari archetype reshape, Chaos Space Marines reshape) land after the collision
 decision, then the Aeldari bundle measures Aeldari-scoped.
 
-**IN FLIGHT:** Sororitas-scoped N=80 re-anchor run; Aeldari over-pole diagnostic agent (re-dispatch);
-movement-event emission sweep agent (briefed against `1fb141e` — its commit will need a cherry-pick
-across the `1b04961` charge rewrite); Chaos Space Marines archetype reshape build; modularization
-Stage B agent.
+**7. Held builds pre-reviewed while the confirm runs (orchestrator pass over the four delivered
+worktrees — all agents had completed with clean trees).** (a) **Strands of Fate charge fix
+(`04c10f0`): review found the budget gate alone splits the squad** — the substituted roll stayed
+local to the model that spent the Fate die, so squad-mates re-read the natural pair from the
+per-squad cache and failed the very roll the rule had just flipped. The gate and the write-back
+are complements, not alternatives (the build agent's commit message had framed them as
+alternatives). Fixup committed in the same worktree (`2cb9583`, FATE-CHARGE-V2): on a successful
+substitution the substituted pair is written back to `Battle._squad_charge_roll[sid]`; new test
+asserts one die spent, the cache holds the substituted pair, and all five squad-mates end in
+engagement — verified discriminating (fails on gate-only code). File suite 19 green from the
+worktree. (b) **Yncarne on-kill D3 heal (`59348ee`): passes review** — killer-scoped trigger
+verified at all four kill sites (the Counter-Offensive site's `retaliator`/`loser_army` naming
+checked against the adjacent judgement-token hook), roll-then-cap matches "regains up to D3",
+citation rewritten faithful. (c) **Chaos Space Marines reshape (`0fdb1eb`): passes review** —
+two independent sources, seed-walk documented, the Daemons mono-god precedent applied; frame
+change, fresh anchor on land. (d) **Movement-event emission sweep (`3774528`): passes review** —
+emission-only, fingerprint-identical at its base, replay drift 0/0/0 on seeds 3-5; its charge
+hunk will conflict with the `1b04961` rewrite at cherry-pick (re-apply inside both placement
+branches). **Aeldari archetype reshape build DISPATCHED** (worktree agent off `a9c0fee`): the
+spec's pre-build check is done — "Battle Host" is selected at runtime by `rng.choice`, so the
+key rename is runtime-safe; literal references confined to `tests/test_aeldari_warhost_template.py`
+and the `tests/test_archetypes.py` anchor test, both in the agent's scope.
+
+**IN FLIGHT:** combined-collision N=80 confirm (healthy, ~12 workers since 18:08); Aeldari
+archetype reshape build agent; movement-event emission sweep cherry-pick pending harvest.
+Modularization Stage B complete on its own branch — awaiting the user's go to push and open
+its pull request.
 
 ## Wave 239 (2026-06-11, CLOSED) — Acts of Faith per-phase adopted as default + Stage A folded with on-branch fingerprint proof + anchor promoted at zero evaluation cost.
 
