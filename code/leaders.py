@@ -197,6 +197,15 @@ class LeaderAbility:
     # eee9-b689-1a73-742b, typeName Abilities). Cited as
     # `simulator.celestine_miraculous_intervention`.
     self_revive_on_2plus: bool = False
+    # Aeldari Ynnari — Ethereal Form (The Yncarne). Each time THIS model
+    # destroys an enemy unit it regains up to D3 lost wounds (roll 1D3, cap at
+    # starting wounds). The trigger fires on the KILLER being the Yncarne, NOT
+    # on any enemy unit dying anywhere. Implemented via
+    # `maybe_apply_yncarne_heal` called from each kill site in simulator.py
+    # (shooting, melee, Tank Shock, Counter-Offensive), mirroring the Celestine
+    # pattern. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/The-Yncarne
+    # Cited as `LeaderAbility.Ethereal Form`.
+    heal_d3_on_kill: bool = False
     # Legal bodyguard hosts for the calibrator. Preference order; the
     # picker chooses the first key present in UNIT_CATALOG.
     host_keys: Tuple[str, ...] = ()
@@ -650,49 +659,31 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # build_faction_random_army when faction == "Ynnari".
     ("Yvraine",            LeaderAbility(name="Word of the Phoenix",        aura_range=6.0, reroll_wound_ones=True, revive_destroyed_per_round=1,
                                           host_keys=_AELDARI_GUARDIAN_HOSTS)),
-    # The Yncarne (Ynnari EPIC HERO, MONSTER) — Ethereal Form regains D3
-    # wounds each time it destroys an enemy unit; we proxy as
-    # heal_per_round=2 (D3 median = 2) channelled at round end through
-    # apply_round_end_healing, which prefers the most-wounded friendly in
-    # aura but falls back to the leader itself — the latter case maps to
-    # the codex's self-heal behaviour. Inevitable Death (reactive teleport
-    # on Aeldari unit death) is NOT modelled — the simulator has no
-    # reactive-relocation hook. Listed AFTER Yvraine so substring lookup
-    # on "The Yncarne" doesn't collide with any generic match. Yncarne is
-    # a Monster — no formal leader attachment (host_keys empty). Cited as
-    # LeaderAbility."Ethereal Form".
+    # The Yncarne (Ynnari EPIC HERO, MONSTER) — Ethereal Form (Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/aeldari/The-Yncarne):
+    # "Each time this model destroys an enemy unit it regains up to D3
+    # lost wounds."
+    # Trigger: THIS model (the Yncarne) is the killer. NOT battlefield-wide.
+    # Effect: roll 1D3, restore that many lost wounds capped at starting wounds.
+    # Implemented via `maybe_apply_yncarne_heal` called from each kill site in
+    # simulator.py (shooting, melee, Tank Shock, Counter-Offensive), mirroring
+    # the Celestine Miraculous Intervention pattern. `heal_d3_on_kill=True`
+    # signals the hook; `heal_per_round` is NOT set (the old unconditional
+    # round-end drip was an approximation removed here).
     #
-    # iter17 note: dropped Yvraine from the Aeldari archetype template
-    # (the Word-of-the-Phoenix revive_destroyed_per_round=2 was compounding
-    # with Yncarne's heal under the round-end pipeline, pushing Aeldari sim
-    # to 55.6% vs real 44.4%). With Yvraine gone, Yncarne's heal_per_round
-    # is left at the iter15 value (D3 median = 2).
+    # History of approximations now retired:
+    #   iter15: heal_per_round=2 (D3 median proxy, round-end unconditional).
+    #   iter17: Yvraine dropped from archetype; heal_per_round left at 2.
+    #   iter21: plus_one_to_hit=True dropped (no codex basis).
+    #   AELDARI-DIAG-3 (2026-05-24): heal_per_round cut from 2 to 1.
+    #   wave 241 (this commit): heal_per_round removed; heal_d3_on_kill=True
+    #     wires the faithful on-kill D3 heal.
     #
-    # iter21 fab audit: dropped the +1-to-hit aura. The previous citation
-    # admitted plus_one_to_hit=True was "a loose threat-mobility proxy for
-    # the teleport's tactical upside" with NO basis in either Ethereal Form
-    # (a self-heal-on-kill) or Inevitable Death (a reactive teleport).
-    # Same pattern iter20 dropped from Necron Overlord and Typhus — proxy
-    # flag approximating a rule that does not, in fact, grant an aura buff.
-    #
-    # AELDARI-DIAG-3 (2026-05-24): cut heal_per_round from 2 to 1. The real
-    # Ethereal Form rule is on-unit-kill (D3 wounds each time Yncarne
-    # destroys an enemy unit), NOT every round end. Yncarne typically
-    # destroys 0-2 enemy units across a 5-round game (it has to charge,
-    # fight, and finish a target — frequently dead by round 3-4 itself).
-    # Real expected total heal: ~D3 * 1-2 kills = 2-4 wounds over the
-    # battle. Old sim heal_per_round=2 * 5 rounds = 10 wounds free, ~3x
-    # reality. heal_per_round=1 puts total sim heal at 5 wounds over 5
-    # rounds, closer to the codex median while preserving the conservative
-    # "Yncarne sometimes self-heals when stalled" approximation. Aeldari
-    # is +10.9pt over Warp Friends real win-rate (52.4% sim vs 41.5%
-    # real) at wave 25 — Yncarne is in the Battle Host archetype at
-    # count=4 (highest seed weight) so this lever lands on most Aeldari
-    # eval runs. Same scale-back rationale as Yvraine
-    # revive_destroyed_per_round=1 (iter15: D3+1 median proxy already
-    # halved to model real per-round attrition). Wahapedia:
-    # https://wahapedia.ru/wh40k10ed/factions/aeldari/The-Yncarne
-    ("The Yncarne",        LeaderAbility(name="Ethereal Form",              aura_range=6.0, heal_per_round=1)),
+    # Inevitable Death (reactive teleport on Aeldari unit death) is NOT
+    # modelled — the simulator has no reactive-relocation hook.
+    # Yncarne is a Monster — no formal leader attachment (host_keys empty).
+    # Cited as LeaderAbility."Ethereal Form".
+    ("The Yncarne",        LeaderAbility(name="Ethereal Form",              aura_range=6.0, heal_d3_on_kill=True)),
     # Farseer — Branching Fates (Psychic) is a once-per-phase set-one-roll-
     # to-6 ability (Wahapedia: "While this model is leading a unit, once per
     # phase, you can change the result of one Hit roll, one Wound roll or one
@@ -2094,3 +2085,41 @@ def maybe_apply_celestine_revival(
         destroyed_unit.current_health = destroyed_unit.profile.health
         return True
     return False
+
+
+def maybe_apply_yncarne_heal(
+    killer: "Unit",
+    killer_army: "Army",
+    rng,
+) -> int:
+    """The Yncarne — Ethereal Form on-kill D3 wound regain.
+
+    Called from each kill site in simulator.py (shooting, melee, Tank Shock,
+    Counter-Offensive) when an enemy unit is destroyed. If the KILLER is The
+    Yncarne and it carries heal_d3_on_kill=True, roll 1D3 and restore that
+    many lost wounds to the Yncarne itself, capped at its starting wounds.
+
+    Rule text (Wahapedia https://wahapedia.ru/wh40k10ed/factions/aeldari/The-Yncarne):
+    "Ethereal Form: Each time this model destroys an enemy unit it regains up
+    to D3 lost wounds."
+
+    Trigger: the killer unit IS The Yncarne (the unit that dealt the killing
+    blow). This is NOT battlefield-wide — only kills made by the Yncarne count.
+
+    Returns the number of wounds actually restored (0 if not applicable or
+    already at full wounds).
+
+    Cited as `LeaderAbility.Ethereal Form`.
+    """
+    ability = lookup_ability(killer.profile.name)
+    if ability is None or not ability.heal_d3_on_kill:
+        return 0
+
+    # No heal when already at full wounds.
+    if killer.current_health >= killer.profile.health:
+        return 0
+
+    heal = rng.randint(1, 3)
+    healed = min(heal, killer.profile.health - killer.current_health)
+    killer.current_health += healed
+    return healed

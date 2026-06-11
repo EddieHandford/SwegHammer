@@ -10,6 +10,7 @@ from code.detachments import Detachment
 from code.leaders import (
     LeaderAbility, apply_round_end_healing, apply_round_end_revival,
     effective_buffs, in_range_leaders, lookup_ability,
+    maybe_apply_yncarne_heal,
 )
 from code.units import Unit, UnitProfile
 
@@ -765,21 +766,22 @@ class AeldariFabricationLockInTests(unittest.TestCase):
         self.assertEqual(ab.plus_one_attack, 0)
         self.assertEqual(ab.fnp, 7)
 
-    def test_yncarne_has_no_to_hit_aura(self):
+    def test_yncarne_has_no_to_hit_aura_and_uses_heal_d3_on_kill(self):
         ab = lookup_ability("The Yncarne")
         self.assertIsNotNone(ab, "Yncarne entry must remain in the registry")
         # Ethereal Form is a self-heal; Inevitable Death is a teleport.
         # Neither grants a hit-roll buff. plus_one_to_hit was audited away
         # in iter21 fab audit (commit b50533e TSON-FINISH / 347b8f9 iter21 Aeldari).
         self.assertFalse(ab.plus_one_to_hit, "Yncarne plus_one_to_hit is a fab — see iter21 citation")
-        # heal_per_round MUST stay as a legitimate D3-median proxy of Ethereal Form.
-        # AELDARI-DIAG-3 (2026-05-24): cut from 2 to 1 — the real rule fires
-        # on-unit-kill (not every round end); heal_per_round=2 was a 3x over-proxy
-        # of the codex median over a 5-round game. Regression pin: must be 1, not 2.
-        # narrowed in AELDARI-DIAG-3 (2026-05-24)
-        self.assertEqual(ab.heal_per_round, 1,
-            "Yncarne heal_per_round was cut from 2 to 1 in AELDARI-DIAG-3 "
-            "(2026-05-24) — see code/leaders.py comment for derivation")
+        # wave 241: the unconditional round-end heal drip (heal_per_round) was
+        # replaced by the faithful on-kill D3 heal (heal_d3_on_kill). Regression
+        # pins for both directions so a rollback cannot sneak back in silently.
+        self.assertEqual(ab.heal_per_round, 0,
+            "Yncarne heal_per_round must be 0 — wave 241 replaced the unconditional "
+            "drip with heal_d3_on_kill=True (faithful Ethereal Form on-kill trigger)")
+        self.assertTrue(ab.heal_d3_on_kill,
+            "Yncarne must carry heal_d3_on_kill=True — Ethereal Form rule: "
+            "'Each time this model destroys an enemy unit it regains up to D3 lost wounds'")
 
     def test_autarch_aura_grants_nothing_in_range(self):
         # Build an Aeldari unit + Autarch in range; the merged buff dict
@@ -812,8 +814,8 @@ class AeldariFabricationLockInTests(unittest.TestCase):
         self.assertFalse(buffs["plus_one_to_hit"])
 
     def test_yncarne_aura_grants_nothing_in_range(self):
-        # Aura should NOT grant plus_one_to_hit. heal_per_round is exercised
-        # by HealTests via Dominus; we just confirm the merged offensive
+        # Aura should NOT grant plus_one_to_hit. heal_d3_on_kill fires at kill
+        # sites, not through effective_buffs; we just confirm the merged offensive
         # dict is empty here.
         yncarne_p = UnitProfile(
             name="The Yncarne", health=10, damage=4, hit_probability=2 / 3,
@@ -1224,7 +1226,7 @@ class HostKeysGatingTests(unittest.TestCase):
 
     def test_yncarne_host_keys_empty(self):
         # The Yncarne — MONSTER, no formal Leader attachment in 10e.
-        # heal_per_round is applied via apply_round_end_healing, not
+        # heal_d3_on_kill fires at kill sites in simulator.py, not through
         # effective_buffs, so the host_keys field doesn't gate any aura
         # buff. Still lock in that host_keys is empty so future code that
         # might wire an offensive flag onto Yncarne handles the broadcast
@@ -1429,6 +1431,138 @@ class CsmLeaderWave237Tests(unittest.TestCase):
             buffs["extra_invuln"], 5,
             "Dark Commune Faithful Flock must grant extra_invuln=5 to the led Cultist Mob",
         )
+
+
+class YncarneEtherealFormTests(unittest.TestCase):
+    """maybe_apply_yncarne_heal — faithful Ethereal Form on-kill D3 wound regain.
+
+    Rule text (Wahapedia https://wahapedia.ru/wh40k10ed/factions/aeldari/The-Yncarne):
+    'Ethereal Form: Each time this model destroys an enemy unit it regains up
+    to D3 lost wounds.'
+
+    Trigger scope: the KILLER must be The Yncarne. Not battlefield-wide.
+    """
+
+    def _yncarne_profile(self) -> UnitProfile:
+        return UnitProfile(
+            name="The Yncarne", health=10, damage=4, hit_probability=2 / 3,
+            ap=-3, save=3, strength=8, toughness=8,
+            attacks=4, weapon_damage_per_shot=4.0,
+            unit_keywords=("MONSTER", "CHARACTER", "EPIC HERO"),
+        )
+
+    def _non_yncarne_profile(self) -> UnitProfile:
+        return UnitProfile(
+            name="Avatar of Khaine", health=12, damage=4, hit_probability=2 / 3,
+            ap=-3, save=3, strength=10, toughness=10,
+            attacks=6, weapon_damage_per_shot=4.0,
+            unit_keywords=("MONSTER", "CHARACTER", "EPIC HERO"),
+        )
+
+    def test_heal_fires_when_yncarne_is_killer(self):
+        """Yncarne at partial wounds: killing an enemy unit triggers D3 heal."""
+        rng = random.Random(42)
+        army = _make_army("Aeldari", [self._yncarne_profile()], [(0.0, 0.0)])
+        yncarne = army.units[0]
+        yncarne.current_health = 5  # wounded: 5/10
+
+        healed = maybe_apply_yncarne_heal(yncarne, army, rng)
+
+        self.assertGreater(healed, 0,
+            "Yncarne Ethereal Form must heal at least 1 wound when it destroys "
+            "an enemy unit and is itself wounded")
+        self.assertGreaterEqual(yncarne.current_health, 6,
+            "Yncarne health must increase after Ethereal Form triggers")
+
+    def test_heal_d3_roll_is_bounded(self):
+        """Over 200 random calls the heal amount stays in [1, 3] and the
+        result is always capped at starting wounds."""
+        rng = random.Random(0)
+        profile = self._yncarne_profile()
+        seen = set()
+        for _ in range(200):
+            army = _make_army("Aeldari", [profile], [(0.0, 0.0)])
+            yncarne = army.units[0]
+            yncarne.current_health = 1  # low so the cap never clips the roll
+            healed = maybe_apply_yncarne_heal(yncarne, army, rng)
+            seen.add(healed)
+            self.assertIn(healed, (1, 2, 3),
+                f"D3 roll must land in 1-3; got healed={healed}")
+        # Should see at least two distinct values in 200 rolls
+        self.assertGreater(len(seen), 1,
+            "D3 distribution must produce more than one distinct value in 200 rolls")
+
+    def test_heal_capped_at_starting_wounds(self):
+        """D3 roll capped so Yncarne cannot exceed its starting wound total."""
+        # Force rng to return 3 (maximum D3).
+        class _FixedRng:
+            def randint(self, lo, hi):
+                return hi  # always returns max
+
+        profile = self._yncarne_profile()  # health=10
+        army = _make_army("Aeldari", [profile], [(0.0, 0.0)])
+        yncarne = army.units[0]
+        yncarne.current_health = 9  # only 1 wound missing; max D3=3 must be capped to 1
+
+        healed = maybe_apply_yncarne_heal(yncarne, army, _FixedRng())
+
+        self.assertEqual(healed, 1,
+            "Heal must be capped to remaining lost wounds (1), not the raw D3 roll (3)")
+        self.assertEqual(yncarne.current_health, 10,
+            "Yncarne must reach exactly its starting wound total, not exceed it")
+
+    def test_no_heal_when_already_at_full_wounds(self):
+        """Yncarne at full wounds: heal does not fire (no wounds to regain)."""
+        rng = random.Random(7)
+        profile = self._yncarne_profile()
+        army = _make_army("Aeldari", [profile], [(0.0, 0.0)])
+        yncarne = army.units[0]
+        # current_health starts at full by default
+        self.assertEqual(yncarne.current_health, 10)
+
+        healed = maybe_apply_yncarne_heal(yncarne, army, rng)
+
+        self.assertEqual(healed, 0,
+            "Ethereal Form must not fire when Yncarne is already at full wounds")
+        self.assertEqual(yncarne.current_health, 10,
+            "Health must be unchanged when no heal is needed")
+
+    def test_no_heal_when_killer_is_not_yncarne(self):
+        """Non-Yncarne unit killing an enemy must NOT trigger the heal."""
+        rng = random.Random(13)
+        profile = self._non_yncarne_profile()
+        army = _make_army("Aeldari", [profile], [(0.0, 0.0)])
+        killer = army.units[0]
+        killer.current_health = 5  # wounded so any incorrect heal would show
+
+        healed = maybe_apply_yncarne_heal(killer, army, rng)
+
+        self.assertEqual(healed, 0,
+            "Ethereal Form must only fire when the killer IS The Yncarne; "
+            "Avatar of Khaine must not trigger it")
+        self.assertEqual(killer.current_health, 5,
+            "Non-Yncarne killer health must be unchanged")
+
+    def test_no_per_round_drip_when_no_kills(self):
+        """A wounded Yncarne that makes no kills must not self-heal across rounds.
+
+        The old heal_per_round=1 drip would restore 1 HP each round via
+        apply_round_end_healing even with zero kills. Verify it no longer does so.
+        """
+        profile = self._yncarne_profile()
+        army = _make_army("Aeldari", [profile], [(0.0, 0.0)])
+        yncarne = army.units[0]
+        yncarne.current_health = 5  # wounded
+
+        # Simulate five round-end healing passes (no kills — only the round-end
+        # pipeline fires, not maybe_apply_yncarne_heal).
+        for _ in range(5):
+            apply_round_end_healing(army)
+
+        self.assertEqual(yncarne.current_health, 5,
+            "Yncarne must not self-heal between rounds without scoring a kill — "
+            "heal_per_round=0 must hold after wave 241 removes the drip; "
+            "five round-end healing passes must leave health at 5")
 
 
 if __name__ == "__main__":

@@ -11394,6 +11394,12 @@ class Battle:
             # alive_units; revival re-adds the unit before the phase ends).
             from code.leaders import maybe_apply_celestine_revival
             maybe_apply_celestine_revival(defender_army, shoot_target, random)
+            # AELDARI-YNCARNE — Ethereal Form: each time The Yncarne destroys
+            # an enemy unit it regains up to D3 lost wounds. Fires on the
+            # KILLER being the Yncarne, not on any enemy dying anywhere.
+            # Cited as `LeaderAbility.Ethereal Form`.
+            from code.leaders import maybe_apply_yncarne_heal
+            maybe_apply_yncarne_heal(attacker, attacker_army, random)
             # Deadly Demise (10e core): the destroyed unit may detonate.
             self._maybe_apply_deadly_demise(shoot_target)
 
@@ -12241,6 +12247,9 @@ class Battle:
             # melee. Mirrors the shooting-kill hook above.
             from code.leaders import maybe_apply_celestine_revival
             maybe_apply_celestine_revival(defender_army, target, random)
+            # AELDARI-YNCARNE — Ethereal Form: melee kill site.
+            from code.leaders import maybe_apply_yncarne_heal
+            maybe_apply_yncarne_heal(attacker, attacker_army, random)
             self._maybe_apply_deadly_demise(target)
             # CSM-EYE-OF-GODS: Eye of the Gods (Pactbound Zealots, 1 CP).
             # End-of-Fight-phase reactive stratagem fired on the kill site.
@@ -13330,6 +13339,9 @@ class Battle:
             # Shock kill site.
             from code.leaders import maybe_apply_celestine_revival
             maybe_apply_celestine_revival(target_army, _m, random)
+            # AELDARI-YNCARNE — Ethereal Form: Tank Shock kill site.
+            from code.leaders import maybe_apply_yncarne_heal
+            maybe_apply_yncarne_heal(charger, charger_army, random)
             self._maybe_apply_deadly_demise(_m)
 
     # CORE-RULES-AUDIT (2026-05-31): _do_heroic_intervention REMOVED. Heroic
@@ -13409,4 +13421,8 @@ class Battle:
             # Counter-Offensive kill site.
             from code.leaders import maybe_apply_celestine_revival
             maybe_apply_celestine_revival(winner_army, winner_unit, random)
+            # AELDARI-YNCARNE — Ethereal Form: Counter-Offensive kill site.
+            # The retaliator is the killer; loser_army is the retaliator's army.
+            from code.leaders import maybe_apply_yncarne_heal
+            maybe_apply_yncarne_heal(retaliator, loser_army, random)
             self._maybe_apply_deadly_demise(winner_unit)
