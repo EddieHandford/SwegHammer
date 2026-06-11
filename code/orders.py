@@ -147,6 +147,38 @@ AM_OFFICER_NAMES: frozenset = frozenset({
     "Front-line Commander [Crucible]",
 })
 
+# Per-datasheet Order count overrides. Officers with a non-default (non-1)
+# Order count per their datasheet's Orders profile get an entry here.
+# Default is 1 per the Voice of Command army rule: "Each OFFICER's datasheet
+# will specify how many Orders it can issue in a battle round" — the baseline
+# for every officer not listed here is 1 Order per round as documented in
+# dispatch_orders below.
+#
+# Lord Solar Leontus: "This OFFICER can issue up to 3 Orders to: REGIMENT
+# units, SQUADRON units, TITANIC units." — BSData Library Astra Militarum
+# cat.gz (id a9d-55c1-3d24-fa25, Orders profile id 4768-11ce-3c8b-3ce4),
+# cross-checked Wahapedia https://wahapedia.ru/wh40k10ed/factions/
+# astra-militarum/Lord-Solar-Leontus (both sources verbatim-identical, no
+# conflict). Cited as simulator.voice_of_command_orders in
+# data/rule_citations.d/astra_militarum.json.
+OFFICER_ORDER_COUNTS: dict = {
+    "Lord Solar Leontus": 3,
+}
+
+# Import-time validation: every key in OFFICER_ORDER_COUNTS must name a
+# datasheet in AM_OFFICER_NAMES. A key that isn't in the allowlist means
+# either the allowlist was updated without updating this dict, or the dict
+# was seeded with a typo. Fail loud per CLAUDE.md §13.
+for _k in OFFICER_ORDER_COUNTS:
+    if _k not in AM_OFFICER_NAMES:
+        raise ValueError(
+            f"OFFICER_ORDER_COUNTS contains key {_k!r} which is not in "
+            f"AM_OFFICER_NAMES. Either add the officer to AM_OFFICER_NAMES "
+            f"(if it is a real OFFICER datasheet) or remove the entry from "
+            f"OFFICER_ORDER_COUNTS. (code/orders.py import-time validation)"
+        )
+del _k  # don't leak the loop variable into module namespace
+
 
 def _distance(a: Tuple[float, float], b: Tuple[float, float]) -> float:
     dx = a[0] - b[0]
@@ -380,40 +412,55 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
 
     ordered_uids: set = set()
     for officer in officers:
-        # Find eligible targets within 6" of this Officer.
-        in_aura = [
-            t for t in targets
-            if t.uid not in ordered_uids
-            and _distance(officer.position, t.position) <= OFFICER_AURA_RANGE
-        ]
-        if not in_aura:
-            continue
+        officer_name = officer.profile.name or ""
+        # Each Officer issues up to OFFICER_ORDER_COUNTS.get(officer_name, 1)
+        # Orders per Command phase. The default of 1 is the explicit modelled
+        # rule: "If your Army Faction is ASTRA MILITARUM, OFFICER models with
+        # this ability can issue Orders. Each OFFICER's datasheet will specify
+        # how many Orders it can issue in a battle round and which units are
+        # eligible to receive those Orders." (Voice of Command, Wahapedia
+        # https://wahapedia.ru/wh40k10ed/factions/astra-militarum/). Officers
+        # without an OFFICER_ORDER_COUNTS entry issue exactly 1 Order per that
+        # army rule; the .get default is an explicit documented-legitimate value,
+        # not a silent fallback (CLAUDE.md §13).
+        orders_this_officer = OFFICER_ORDER_COUNTS.get(officer_name, 1)
 
-        # Greedy: prioritise the target whose chosen Order has the
-        # highest expected swing (cost × applicability). We use a coarse
-        # heuristic — pick the highest-DPA target in aura, then assign
-        # the best Order for that target. This biases toward
-        # FRFSRF on big Lasgun blocks (their DPA dominates) which
-        # matches real-meta usage.
-        def _target_priority(u: "Unit") -> float:
-            try:
-                cost = float(u.profile.points_cost)
-            except Exception:
-                cost = 0.0
-            dpa = _unit_ranged_dpa(u) + _unit_melee_dpa(u)
-            return cost + dpa * 10.0
+        for _ in range(orders_this_officer):
+            # Find eligible targets within 6" of this Officer.
+            in_aura = [
+                t for t in targets
+                if t.uid not in ordered_uids
+                and _distance(officer.position, t.position) <= OFFICER_AURA_RANGE
+            ]
+            if not in_aura:
+                break  # no more unordered targets in aura — stop early
 
-        target = max(in_aura, key=_target_priority)
-        order = _pick_order_for_target(target)
-        _apply_order(target, order)
-        ordered_uids.add(target.uid)
-        issued.append((officer.profile.name, target.profile.name, order))
+            # Greedy: prioritise the target whose chosen Order has the
+            # highest expected swing (cost × applicability). We use a coarse
+            # heuristic — pick the highest-DPA target in aura, then assign
+            # the best Order for that target. This biases toward
+            # FRFSRF on big Lasgun blocks (their DPA dominates) which
+            # matches real-meta usage.
+            def _target_priority(u: "Unit") -> float:
+                try:
+                    cost = float(u.profile.points_cost)
+                except Exception:
+                    cost = 0.0
+                dpa = _unit_ranged_dpa(u) + _unit_melee_dpa(u)
+                return cost + dpa * 10.0
+
+            target = max(in_aura, key=_target_priority)
+            order = _pick_order_for_target(target)
+            _apply_order(target, order)
+            ordered_uids.add(target.uid)
+            issued.append((officer.profile.name, target.profile.name, order))
 
     return issued
 
 
 __all__ = [
     "AM_OFFICER_NAMES",
+    "OFFICER_ORDER_COUNTS",
     "OFFICER_AURA_RANGE",
     "ORDER_TAKE_AIM",
     "ORDER_FIX_BAYONETS",

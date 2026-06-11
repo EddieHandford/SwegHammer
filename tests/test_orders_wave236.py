@@ -29,7 +29,14 @@ import unittest.mock
 
 from code.army import Army
 from code.map import Map, Objective
-from code.orders import ORDER_FRFSRF, ORDER_TAKE_AIM, _apply_order
+from code.orders import (
+    AM_OFFICER_NAMES,
+    OFFICER_ORDER_COUNTS,
+    ORDER_FRFSRF,
+    ORDER_TAKE_AIM,
+    _apply_order,
+    dispatch_orders,
+)
 from code.simulator import Battle
 from code.units import UnitProfile
 
@@ -274,6 +281,190 @@ class TestFRFSRFTransientCleared(unittest.TestCase):
             att.transient_frfsrf_active,
             "transient_frfsrf_active must be False after the round-start transient "
             "flag reset — it is a one-round-scoped buff (CLAUDE.md standing rule)",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Test group 5: Lord Solar Leontus order count (NE-9)
+# ---------------------------------------------------------------------------
+
+def _officer_profile(name: str, faction: str = "Astra Militarum") -> UnitProfile:
+    """A minimal Officer profile: alive, correct faction, in the OFFICER allowlist."""
+    return UnitProfile(
+        name=name,
+        health=8,
+        damage=0,
+        hit_probability=0.5,
+        attacks=0,
+        range_inches=0,
+        save=3,
+        toughness=4,
+        strength=4,
+        ap=0,
+        weapon_damage_per_shot=0.0,
+        points_override=130.0,
+        faction=faction,
+        # No BATTLELINE keyword so the officer is NOT in the target pool itself.
+        unit_keywords=("CHARACTER", "OFFICER", "MOUNTED", "EPIC HERO"),
+    )
+
+
+def _regiment_target(name: str, idx: int) -> UnitProfile:
+    """An AM BATTLELINE INFANTRY target eligible to receive Orders."""
+    return UnitProfile(
+        name=name,
+        health=1,
+        damage=1,
+        hit_probability=0.5,
+        attacks=1,
+        range_inches=24,
+        save=5,
+        toughness=3,
+        strength=4,
+        ap=0,
+        weapon_damage_per_shot=1.0,
+        rapid_fire=1,
+        points_override=10.0 + idx,  # distinct point costs so priority ranking is stable
+        faction="Astra Militarum",
+        unit_keywords=("INFANTRY", "BATTLELINE"),
+    )
+
+
+def _build_army_with_officer_and_targets(
+    officer_name: str, n_targets: int
+) -> Army:
+    """Build an Army with one officer and n_targets eligible REGIMENT targets.
+
+    All units are placed at (0.0, 0.0) so every target is within the
+    6-inch Order aura of the officer.
+    """
+    army = Army("Test")
+    army.add_unit(_officer_profile(officer_name))
+    for i in range(n_targets):
+        army.add_unit(_regiment_target(f"Squad{i}", i))
+
+    # Assign sequential uids so dispatch_orders can use uid-based de-duplication.
+    for idx, u in enumerate(army.units):
+        u.uid = f"U{idx}"
+
+    # Invalidate the alive cache so alive_units re-reads the full unit list.
+    army._alive_cache = None
+    return army
+
+
+class TestLordSolarOrderCount(unittest.TestCase):
+    """Lord Solar Leontus issues exactly 3 Orders in one Command phase
+    (wave 236 NE-9 fix).
+
+    Verbatim source (BSData Library Astra Militarum cat.gz,
+    Orders profile id 4768-11ce-3c8b-3ce4, cross-checked Wahapedia
+    https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Lord-Solar-Leontus):
+        'This OFFICER can issue up to 3 Orders to: REGIMENT units,
+         SQUADRON units, TITANIC units.'
+    """
+
+    def test_lord_solar_issues_three_orders(self) -> None:
+        """With 4 eligible targets, Lord Solar issues exactly 3 Orders
+        (the per-datasheet cap), leaving 1 target un-ordered."""
+        army = _build_army_with_officer_and_targets(
+            "Lord Solar Leontus", n_targets=4
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 3,
+            f"Lord Solar Leontus must issue exactly 3 Orders per his datasheet; "
+            f"got {len(issued)}: {issued}",
+        )
+
+    def test_lord_solar_targets_are_distinct(self) -> None:
+        """Each of the 3 issued Orders goes to a different target unit."""
+        army = _build_army_with_officer_and_targets(
+            "Lord Solar Leontus", n_targets=4
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        target_names = [t for (_, t, _) in issued]
+        self.assertEqual(
+            len(target_names), len(set(target_names)),
+            f"Each Order must go to a distinct target; got duplicates in {target_names}",
+        )
+
+    def test_lord_solar_targets_receive_transient_flags(self) -> None:
+        """Each of the 3 ordered units has a transient buff set after dispatch."""
+        army = _build_army_with_officer_and_targets(
+            "Lord Solar Leontus", n_targets=4
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        ordered_names = {t for (_, t, _) in issued}
+        for unit in army.alive_units:
+            if unit.profile.name in ordered_names:
+                has_buff = (
+                    unit.transient_plus_one_to_hit_shooting
+                    or unit.transient_frfsrf_active
+                    or unit.transient_plus_one_to_wound_melee
+                    or unit.transient_plus_one_save
+                )
+                self.assertTrue(
+                    has_buff,
+                    f"Unit {unit.profile.name!r} received an Order but has no "
+                    f"transient buff set",
+                )
+
+    def test_lord_solar_cap_with_fewer_targets(self) -> None:
+        """With only 2 eligible targets, Lord Solar issues 2 Orders
+        (not 3 — the cap is a maximum, not a minimum)."""
+        army = _build_army_with_officer_and_targets(
+            "Lord Solar Leontus", n_targets=2
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 2,
+            f"Lord Solar must issue min(cap, available targets) Orders; "
+            f"got {len(issued)} with 2 targets",
+        )
+
+
+class TestRegularOfficerOrderCount(unittest.TestCase):
+    """A regular officer (not in OFFICER_ORDER_COUNTS) issues exactly 1 Order
+    per Command phase, matching the Voice of Command army rule default."""
+
+    def test_cadian_castellan_issues_one_order(self) -> None:
+        """Cadian Castellan is not in OFFICER_ORDER_COUNTS; must issue 1 Order."""
+        army = _build_army_with_officer_and_targets(
+            "Cadian Castellan", n_targets=4
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 1,
+            f"Cadian Castellan must issue exactly 1 Order; got {len(issued)}: {issued}",
+        )
+
+
+class TestOfficerOrderCountsValidation(unittest.TestCase):
+    """OFFICER_ORDER_COUNTS import-time validation: every key must be in
+    AM_OFFICER_NAMES. This test guards the structural invariant directly
+    by inspecting the module-level constants — no subprocess needed."""
+
+    def test_all_keys_are_known_officers(self) -> None:
+        """Every key in OFFICER_ORDER_COUNTS must appear in AM_OFFICER_NAMES.
+
+        If this fails, either a new entry was added to OFFICER_ORDER_COUNTS
+        with a mistyped name, or AM_OFFICER_NAMES was updated without a
+        matching update here.
+        """
+        unknown = set(OFFICER_ORDER_COUNTS) - AM_OFFICER_NAMES
+        self.assertEqual(
+            unknown, set(),
+            f"OFFICER_ORDER_COUNTS contains unknown officer key(s): {unknown!r}. "
+            f"Each key must match a name in AM_OFFICER_NAMES exactly.",
+        )
+
+    def test_lord_solar_count_is_three(self) -> None:
+        """Structural smoke test: Lord Solar's entry encodes the sourced count of 3."""
+        self.assertEqual(
+            OFFICER_ORDER_COUNTS.get("Lord Solar Leontus"), 3,
+            "OFFICER_ORDER_COUNTS['Lord Solar Leontus'] must be 3 per his datasheet "
+            "Orders profile (BSData cat.gz id 4768-11ce-3c8b-3ce4; Wahapedia "
+            "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Lord-Solar-Leontus)",
         )
 
 
