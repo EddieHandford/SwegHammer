@@ -1,6 +1,6 @@
 # SwegHammer calibration — current state
 
-**BRANCH `claude/sim-calibration-7` (2026-06-11) — started clean off `origin/main` after Ed merged pull request 66; harvested Blood Surge (`a9cc9ee`), officer Order eligibility (`9a5bd4e`), Acts of Faith per-phase (`620a586`). Ed's defender-allocation pull requests 69+70 folded per procedure §H (`8e81bde`, `0550475`); modularization Stage A merge folded at the wave-239 boundary (fingerprint-proven identical pre/post on this branch). Checkpoint pending with the user: branch past size caps with no open pull request.**
+**BRANCH `claude/sim-calibration-8` (2026-06-11) — continuation branch rolled off the `claude/sim-calibration-7` checkpoint head (`1fb141e`) per the user's merge-wait-must-not-bottleneck directive. Checkpoint pull request 72 OPEN for `sim-calibration-7` (size agreed oversized with the user, wave-by-wave description); review fixes land on `sim-calibration-7` and fold forward here; on merge, fold `origin/main` per procedure §H. All new waves land HERE. Prior branch context: `sim-calibration-7` started clean off main post-pull-request-66, harvested Blood Surge / officer Order eligibility / Acts of Faith per-phase, folded Ed's pull requests 69+70+71.**
 
 ---
 
