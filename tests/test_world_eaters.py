@@ -377,138 +377,280 @@ class TestBloodSurge(unittest.TestCase):
     Verifies that when a Berzerker unit loses at least one model to a
     shooting attack, it advances toward the shooter via the D6+2
     reactive move (`simulator.blood_surge`).
+
+    Per-model architecture (Issue #61 fix): each Unit instance IS one
+    physical model (health=2, min_models=1).  A squad of ten Berzerkers
+    is ten separate Unit objects sharing the same squad_id on the same
+    Army.  The trigger fires when the targeted model unit dies (its
+    health drops to 0), and the whole surviving squad surges together.
     """
 
-    def _make_berzerkers(self, position):
-        """Build a Khorne Berzerkers stand-in unit. Squad of 10 @ 2W each."""
+    # ------------------------------------------------------------------ helpers
+
+    @staticmethod
+    def _make_shooter(position=(10.0, 30.0)):
+        """Build a minimal Marine shooter unit."""
         profile = UnitProfile(
+            name="Tactical Marine",
+            health=2, damage=1, hit_probability=2 / 3,
+            ap=0, save=3, strength=4, toughness=4,
+            attacks=2, weapon_damage_per_shot=1.0, range_inches=24,
+            leadership=7,
+            faction="Adeptus Astartes",
+            unit_keywords=("INFANTRY",),
+        )
+        u = Unit(profile)
+        u.position = position
+        return u
+
+    @staticmethod
+    def _berzerker_profile():
+        """Return the Khorne Berzerkers UnitProfile (per-model, health=2)."""
+        return UnitProfile(
             name="Khorne Berzerkers",   # name gate is exact
-            health=20, damage=1, hit_probability=2 / 3,
+            health=2, damage=1, hit_probability=2 / 3,
             ap=0, save=3, strength=4, toughness=4,
             attacks=2, weapon_damage_per_shot=1.0, range_inches=12,
             leadership=7,
             faction="World Eaters",   # faction gate
             unit_keywords=("INFANTRY",),
-            min_models=10,
+            min_models=1,   # per-model representation: one Unit = one model
             melee_attacks=4, melee_damage_per_shot=1.0,
             melee_hit_probability=2 / 3, melee_strength=5, melee_ap=1,
         )
-        unit = Unit(profile)
-        unit.position = position
-        return unit
 
-    def test_blood_surge_moves_berzerkers_toward_shooter(self):
-        bz = self._make_berzerkers(position=(40.0, 30.0))
-        # Drop them to 18 HP -- one model already destroyed worth before
-        # we even start the surge check. To check the helper directly,
-        # snapshot health_before = 20 and current_health = 16 (two models
-        # destroyed). Distance to the "shooter" at (10, 30) is 30 inches.
-        bz.current_health = 16.0
-        shooter_profile = UnitProfile(
-            name="Tactical Marine",
-            health=2, damage=1, hit_probability=2 / 3,
-            ap=0, save=3, strength=4, toughness=4,
-            attacks=2, weapon_damage_per_shot=1.0, range_inches=24,
-            leadership=7,
-            faction="Adeptus Astartes",
-            unit_keywords=("INFANTRY",),
-        )
-        shooter = Unit(shooter_profile)
-        shooter.position = (10.0, 30.0)
+    @staticmethod
+    def _build_squad(profile, positions, squad_id=0):
+        """Create Unit objects sharing squad_id on a fresh Army.
 
-        we = Army(name="WE")
-        we.units = [bz]
+        Returns (army, [unit, ...]).  Each unit is positioned at the
+        corresponding entry in ``positions``.  army_ref and squad_id are
+        set on every unit so the sibling-collection logic in
+        _maybe_apply_blood_surge can find them.
+        """
+        army = Army(name="WE")
+        units = []
+        for pos in positions:
+            u = Unit(profile)
+            u.position = pos
+            u.army_ref = army
+            u.squad_id = squad_id
+            army.units.append(u)
+            units.append(u)
+        army._invalidate_alive_cache()
+        return army, units
+
+    # ------------------------------------------------------------------ tests
+
+    def test_blood_surge_fires_when_targeted_model_dies(self):
+        """Surge triggers when the shot model's health drops to zero.
+
+        The targeted Berzerker model dies (health 2 -> 0).  A surviving
+        sibling in the same squad_id should surge toward the shooter.
+        This is the core per-model fix: previously the pooled-health
+        formula mis-computed model destruction, triggering on chip damage
+        or not at all when the model died.
+        """
+        profile = self._berzerker_profile()
+        # Squad of two models: model A (the target) and model B (the sibling).
+        positions = [(40.0, 30.0), (42.0, 30.0)]
+        we, (model_a, model_b) = self._build_squad(profile, positions)
+
+        shooter = self._make_shooter(position=(10.0, 30.0))
         marines = Army(name="Marines")
         marines.units = [shooter]
+
         battle = Battle(we, marines)
 
+        # Simulate model A being killed: snapshot health_before = 2.0, then
+        # drop to 0 (dead).
+        model_a.current_health = 0.0
+
+        sibling_pos_before = model_b.position
         random.seed(0)
-        old_pos = bz.position
-        old_gap = ((old_pos[0] - shooter.position[0]) ** 2
-                   + (old_pos[1] - shooter.position[1]) ** 2) ** 0.5
-        # Directly invoke the helper: defender (bz) lost 4 HP (>= 2 wpm),
-        # attacker army is Marines.
+        # The defender is model_a (the killed model).
         battle._maybe_apply_blood_surge(
-            defender=bz, attacker_army=marines, health_before=20.0,
+            defender=model_a, attacker_army=marines, health_before=2.0,
         )
-        new_pos = bz.position
-        new_gap = ((new_pos[0] - shooter.position[0]) ** 2
-                   + (new_pos[1] - shooter.position[1]) ** 2) ** 0.5
+
+        # model_b (alive sibling) should have moved toward the shooter.
+        sibling_gap_before = (
+            (sibling_pos_before[0] - shooter.position[0]) ** 2
+            + (sibling_pos_before[1] - shooter.position[1]) ** 2
+        ) ** 0.5
+        sibling_gap_after = (
+            (model_b.position[0] - shooter.position[0]) ** 2
+            + (model_b.position[1] - shooter.position[1]) ** 2
+        ) ** 0.5
         self.assertLess(
-            new_gap, old_gap,
-            "Berzerkers should be closer to the shooter after Blood Surge",
+            sibling_gap_after, sibling_gap_before,
+            "Surviving sibling should surge toward the shooter after a "
+            "Berzerker model is destroyed",
         )
-        # D6+2 with seed-0 is 3..8 inches; clamp check.
-        moved = old_gap - new_gap
+        # D6+2 clamped at up to 8 inches of travel.
+        moved = sibling_gap_before - sibling_gap_after
         self.assertGreaterEqual(moved, 3.0 - 1e-6)
         self.assertLessEqual(moved, 8.0 + 1e-6)
+
+    def test_blood_surge_does_not_fire_on_chip_damage(self):
+        """Chip damage (wounded but alive) must NOT trigger Surge.
+
+        This was the old pooled-health bug: with min_models=10 and
+        health=2 the formula gave wounds_per_model=0.2, so a single wound
+        counted as a model destroyed and fired the surge spuriously.  With
+        the corrected alive→dead transition check, only a killed model
+        triggers.
+        """
+        profile = self._berzerker_profile()
+        we, (bz,) = self._build_squad(profile, [(40.0, 30.0)])
+        # Model wounded but alive: took 1 wound out of 2.
+        bz.current_health = 1.0
+
+        shooter = self._make_shooter()
+        marines = Army(name="Marines")
+        marines.units = [shooter]
+
+        battle = Battle(we, marines)
+
+        pos_before = bz.position
+        random.seed(0)
+        battle._maybe_apply_blood_surge(
+            defender=bz, attacker_army=marines, health_before=2.0,
+        )
+        self.assertEqual(
+            bz.position, pos_before,
+            "Chip damage (model wounded but alive) must NOT trigger Blood Surge",
+        )
+
+    def test_blood_surge_does_not_fire_across_different_squads(self):
+        """A model dying in squad A must NOT trigger surge for squad B.
+
+        Verifies the squad_id boundary: the sibling-death hook only looks
+        at models sharing the same squad_id.  A Berzerker model from a
+        different squad_id (a separate detachment in the same army) must
+        remain stationary even if its faction+name gates pass.
+        """
+        profile = self._berzerker_profile()
+        # Squad 0: one model (the defender that dies).
+        # Squad 1: one model at a different position.
+        we = Army(name="WE")
+
+        model_sq0 = Unit(profile)
+        model_sq0.position = (40.0, 30.0)
+        model_sq0.army_ref = we
+        model_sq0.squad_id = 0
+        we.units.append(model_sq0)
+
+        model_sq1 = Unit(profile)
+        model_sq1.position = (45.0, 30.0)
+        model_sq1.army_ref = we
+        model_sq1.squad_id = 1   # DIFFERENT squad
+        we.units.append(model_sq1)
+        we._invalidate_alive_cache()
+
+        shooter = self._make_shooter(position=(10.0, 30.0))
+        marines = Army(name="Marines")
+        marines.units = [shooter]
+
+        battle = Battle(we, marines)
+
+        # Kill the squad-0 model.
+        model_sq0.current_health = 0.0
+
+        sq1_pos_before = model_sq1.position
+        random.seed(0)
+        # Surge is called for the squad-0 death.
+        battle._maybe_apply_blood_surge(
+            defender=model_sq0, attacker_army=marines, health_before=2.0,
+        )
+        self.assertEqual(
+            model_sq1.position, sq1_pos_before,
+            "A Berzerker model in a different squad_id must NOT surge when "
+            "another squad's model is destroyed",
+        )
 
     def test_blood_surge_skips_non_berzerker_world_eaters(self):
         """Eightbound (also WE) must NOT Blood Surge — name-gated."""
         eightbound_profile = UnitProfile(
             name="Eightbound",
-            health=18, damage=1, hit_probability=2 / 3,
+            health=6, damage=1, hit_probability=2 / 3,
             ap=0, save=3, strength=5, toughness=5,
             attacks=2, weapon_damage_per_shot=1.0, range_inches=12,
             leadership=7,
             faction="World Eaters",
             unit_keywords=("INFANTRY",),
-            min_models=3,
+            min_models=1,
         )
         eb = Unit(eightbound_profile)
         eb.position = (40.0, 30.0)
-        eb.current_health = 12.0
-        shooter_profile = UnitProfile(
-            name="Tactical Marine",
-            health=2, damage=1, hit_probability=2 / 3,
-            ap=0, save=3, strength=4, toughness=4,
-            attacks=2, weapon_damage_per_shot=1.0, range_inches=24,
-            leadership=7,
-            faction="Adeptus Astartes",
-            unit_keywords=("INFANTRY",),
-        )
-        shooter = Unit(shooter_profile)
-        shooter.position = (10.0, 30.0)
-        we = Army(name="WE")
-        we.units = [eb]
+        # Model dies — would fire if name were "Khorne Berzerkers".
+        eb.current_health = 0.0
+
+        shooter = self._make_shooter()
         marines = Army(name="Marines")
         marines.units = [shooter]
+
+        we = Army(name="WE")
+        we.units = [eb]
+
         battle = Battle(we, marines)
-        random.seed(0)
         before_pos = eb.position
+        random.seed(0)
         battle._maybe_apply_blood_surge(
-            defender=eb, attacker_army=marines, health_before=18.0,
+            defender=eb, attacker_army=marines, health_before=6.0,
         )
         self.assertEqual(eb.position, before_pos,
                          "Eightbound must NOT Blood Surge (name-gated)")
 
     def test_blood_surge_skips_when_no_models_destroyed(self):
-        """Damage that doesn't drop a full model must NOT trigger Surge."""
-        bz = self._make_berzerkers(position=(40.0, 30.0))
-        bz.current_health = 19.0   # 1 wound taken on a 2-wound model
-        shooter_profile = UnitProfile(
-            name="Tactical Marine",
-            health=2, damage=1, hit_probability=2 / 3,
-            ap=0, save=3, strength=4, toughness=4,
-            attacks=2, weapon_damage_per_shot=1.0, range_inches=24,
-            leadership=7,
-            faction="Adeptus Astartes",
-            unit_keywords=("INFANTRY",),
-        )
-        shooter = Unit(shooter_profile)
-        shooter.position = (10.0, 30.0)
-        we = Army(name="WE")
-        we.units = [bz]
+        """Damage that doesn't kill the targeted model must NOT trigger Surge."""
+        profile = self._berzerker_profile()
+        we, (bz,) = self._build_squad(profile, [(40.0, 30.0)])
+        # Model took 1 wound but is still alive (health=1 out of 2).
+        bz.current_health = 1.0
+
+        shooter = self._make_shooter()
         marines = Army(name="Marines")
         marines.units = [shooter]
+
         battle = Battle(we, marines)
+        pos_before = bz.position
         random.seed(0)
-        before_pos = bz.position
         battle._maybe_apply_blood_surge(
-            defender=bz, attacker_army=marines, health_before=20.0,
+            defender=bz, attacker_army=marines, health_before=2.0,
         )
-        self.assertEqual(bz.position, before_pos,
-                         "No full model destroyed -> no Surge")
+        self.assertEqual(bz.position, pos_before,
+                         "No model destroyed -> no Surge")
+
+    def test_blood_surge_lone_model_no_army_ref(self):
+        """Lone model with no army_ref: the trigger still fires but the
+        movement loop is a no-op because the dead model is the only one
+        (alive_units returns nothing and _surge_squad is empty).
+
+        This covers the legacy single-unit path — no crash, no movement.
+        """
+        profile = self._berzerker_profile()
+        bz = Unit(profile)
+        bz.position = (40.0, 30.0)
+        bz.current_health = 0.0   # model died
+
+        shooter = self._make_shooter()
+        marines = Army(name="Marines")
+        marines.units = [shooter]
+
+        # No army: army_ref stays None, squad_id = -1.
+        # Build a Battle by wrapping the unit in a bare Army.
+        we = Army(name="WE")
+        we.units = [bz]
+        battle = Battle(we, marines)
+
+        pos_before = bz.position
+        # Must not raise; dead lone model has no siblings to move.
+        battle._maybe_apply_blood_surge(
+            defender=bz, attacker_army=marines, health_before=2.0,
+        )
+        self.assertEqual(bz.position, pos_before,
+                         "Dead lone model with no siblings: position unchanged")
 
 
 if __name__ == "__main__":

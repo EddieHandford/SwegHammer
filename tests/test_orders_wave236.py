@@ -32,9 +32,11 @@ from code.map import Map, Objective
 from code.orders import (
     AM_OFFICER_NAMES,
     OFFICER_ORDER_COUNTS,
+    OFFICER_ORDER_PROFILES,
     ORDER_FRFSRF,
     ORDER_TAKE_AIM,
     _apply_order,
+    _officer_target_types,
     dispatch_orders,
 )
 from code.simulator import Battle
@@ -424,18 +426,29 @@ class TestLordSolarOrderCount(unittest.TestCase):
 
 
 class TestRegularOfficerOrderCount(unittest.TestCase):
-    """A regular officer (not in OFFICER_ORDER_COUNTS) issues exactly 1 Order
-    per Command phase, matching the Voice of Command army rule default."""
+    """Officers whose per-datasheet cap is 1 issue exactly 1 Order per
+    Command phase, matching their sourced Orders profile from BSData.
 
-    def test_cadian_castellan_issues_one_order(self) -> None:
-        """Cadian Castellan is not in OFFICER_ORDER_COUNTS; must issue 1 Order."""
+    Cadian Castellan's BSData Orders profile (unit id 2b49-4d03-aaf5-3532,
+    profile id 21e5-4e9-7904-8d96) reads:
+        "This OFFICER can issue 2 Orders to REGIMENT units."
+    So the class now uses Cadian Command Squad as the canonical 1-Order example.
+    """
+
+    def test_cadian_command_squad_is_still_one_order(self) -> None:
+        """Cadian Command Squad's BSData Orders profile (unit id
+        4d28-f2a7-67c1-eb2e, profile id 9c13-76b5-43ba-b4f7) reads:
+        'This unit's OFFICER can issue 1 Order to a REGIMENT unit.'
+        Must issue exactly 1 Order.
+        """
         army = _build_army_with_officer_and_targets(
-            "Cadian Castellan", n_targets=4
+            "Cadian Command Squad", n_targets=4
         )
         issued = dispatch_orders(army, battleshocked_uids=set())
         self.assertEqual(
             len(issued), 1,
-            f"Cadian Castellan must issue exactly 1 Order; got {len(issued)}: {issued}",
+            f"Cadian Command Squad must issue exactly 1 Order per its "
+            f"BSData Orders profile; got {len(issued)}: {issued}",
         )
 
 
@@ -642,6 +655,208 @@ class TestDefaultOfficerStillIssuesOne(unittest.TestCase):
             len(issued), 1,
             f"Krieg Command Squad must issue exactly 1 Order (default); "
             f"got {len(issued)}: {issued}",
+        )
+
+
+def _squadron_target(name: str, idx: int) -> UnitProfile:
+    """An AM BATTLELINE VEHICLE target (SQUADRON proxy) eligible to receive
+    Orders only from Officers whose target types include SQUADRON.
+    """
+    return UnitProfile(
+        name=name,
+        health=13,
+        damage=1,
+        hit_probability=0.5,
+        attacks=3,
+        range_inches=48,
+        save=2,
+        toughness=11,
+        strength=9,
+        ap=3,
+        weapon_damage_per_shot=3.0,
+        points_override=200.0 + idx,
+        faction="Astra Militarum",
+        unit_keywords=("VEHICLE", "BATTLELINE"),
+    )
+
+
+def _build_army_with_officer_regiment_and_squadron(
+    officer_name: str, n_regiment: int, n_squadron: int
+) -> Army:
+    """Build an Army with one officer, n_regiment BATTLELINE INFANTRY targets,
+    and n_squadron BATTLELINE VEHICLE targets, all at (0.0, 0.0).
+    """
+    army = Army("Test")
+    army.add_unit(_officer_profile(officer_name))
+    for i in range(n_regiment):
+        army.add_unit(_regiment_target(f"Reg{i}", i))
+    for j in range(n_squadron):
+        army.add_unit(_squadron_target(f"Sqn{j}", j))
+    for idx, u in enumerate(army.units):
+        u.uid = f"U{idx}"
+    army._alive_cache = None
+    return army
+
+
+# ---------------------------------------------------------------------------
+# Test group 8: Per-officer target-type eligibility enforcement (wave 237)
+# ---------------------------------------------------------------------------
+
+class TestOfficerTargetTypeEligibility(unittest.TestCase):
+    """Ursula Creed (REGIMENT only) cannot issue an Order to a BATTLELINE
+    VEHICLE target even when that target is within aura range. Lord Solar
+    Leontus (REGIMENT, SQUADRON, TITANIC) can issue to such a target.
+
+    Verbatim sources from BSData Library Astra Militarum cache:
+      Ursula Creed (unit id b6b2-9971-ec0c-349e, Orders profile id
+        85b7-65b8-1961-50ee):
+          "This OFFICER can issue up to 3 Orders to REGIMENT units."
+      Lord Solar Leontus (unit id a9d-55c1-3d24-fa25, Orders profile id
+        4768-11ce-3c8b-3ce4):
+          "This OFFICER can issue up to 3 Orders to: REGIMENT units,
+           SQUADRON units, TITANIC units."
+    """
+
+    def test_ursula_creed_cannot_issue_to_squadron_target(self) -> None:
+        """Ursula Creed must not issue any Order to a BATTLELINE VEHICLE
+        (SQUADRON) target, even when it is the only target within aura range
+        and Flexible Command has NOT fired this round.
+        """
+        # Army with only a SQUADRON target (no REGIMENT targets).
+        army = _build_army_with_officer_regiment_and_squadron(
+            "Ursula Creed", n_regiment=0, n_squadron=3
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        # Ursula Creed's target-type restriction (REGIMENT only) must block
+        # all three SQUADRON targets — zero Orders should be issued.
+        self.assertEqual(
+            len(issued), 0,
+            f"Ursula Creed must not issue Orders to SQUADRON (VEHICLE) targets; "
+            f"got {len(issued)} issued: {issued}",
+        )
+
+    def test_ursula_creed_issues_to_regiment_target_not_squadron(self) -> None:
+        """With both REGIMENT and SQUADRON targets in aura, Ursula Creed
+        issues only to REGIMENT targets (up to her cap of 3).
+        """
+        army = _build_army_with_officer_regiment_and_squadron(
+            "Ursula Creed", n_regiment=2, n_squadron=3
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        # Must have issued orders, all to REGIMENT (INFANTRY) targets.
+        self.assertGreater(len(issued), 0, "Ursula Creed must issue at least 1 Order")
+        for _officer, target_name, _order in issued:
+            # REGIMENT targets are named "Reg0", "Reg1"; SQUADRON are "Sqn0" etc.
+            self.assertTrue(
+                target_name.startswith("Reg"),
+                f"Ursula Creed issued Order to {target_name!r} which is a SQUADRON "
+                f"target — must only issue to REGIMENT targets",
+            )
+
+    def test_lord_solar_can_issue_to_squadron_target(self) -> None:
+        """Lord Solar Leontus can issue an Order to a BATTLELINE VEHICLE
+        (SQUADRON) target because his target types include SQUADRON.
+        With only SQUADRON targets available he must still issue Orders.
+        """
+        # Army with only SQUADRON targets (no REGIMENT targets).
+        army = _build_army_with_officer_regiment_and_squadron(
+            "Lord Solar Leontus", n_regiment=0, n_squadron=4
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        # Lord Solar issues up to 3; with 4 targets he should issue 3.
+        self.assertEqual(
+            len(issued), 3,
+            f"Lord Solar Leontus must issue 3 Orders even when all targets are "
+            f"SQUADRON; got {len(issued)}: {issued}",
+        )
+
+    def test_officer_target_types_helper_raises_for_unknown_officer(self) -> None:
+        """_officer_target_types must raise ValueError for an officer name
+        not in OFFICER_ORDER_PROFILES — fail loud per CLAUDE.md rule 13.
+        """
+        with self.assertRaises(ValueError):
+            _officer_target_types("Commissar Bogus")
+
+    def test_officer_profiles_cover_all_officer_names(self) -> None:
+        """Every name in AM_OFFICER_NAMES must have an entry in
+        OFFICER_ORDER_PROFILES (the import-time validation guard, mirrored
+        as a test for explicit coverage reporting).
+        """
+        missing = AM_OFFICER_NAMES - set(OFFICER_ORDER_PROFILES)
+        self.assertEqual(
+            missing, set(),
+            f"OFFICER_ORDER_PROFILES is missing entries for: {missing!r}. "
+            f"Each AM OFFICER must have a sourced (max_orders, target_types) entry.",
+        )
+
+
+class TestSentinelCommanderSquadron(unittest.TestCase):
+    """Sentinel Commander [Crucible] issues exactly 1 Order and only to
+    BATTLELINE VEHICLE (SQUADRON) targets, never to BATTLELINE INFANTRY
+    (REGIMENT) targets.
+
+    Verbatim source (BSData Library Astra Militarum cache,
+    unit id a040-9715-5d3a-52af, Orders profile id f785-4221-70aa-1ae4):
+        "This OFFICER can issue up to 1 Order to SQUADRON units."
+    """
+
+    def test_sentinel_commander_issues_one_order_to_squadron(self) -> None:
+        """With 4 SQUADRON targets, Sentinel Commander issues exactly 1 Order
+        (the per-datasheet cap).
+        """
+        army = _build_army_with_officer_regiment_and_squadron(
+            "Sentinel Commander [Crucible]", n_regiment=0, n_squadron=4
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 1,
+            f"Sentinel Commander [Crucible] must issue exactly 1 Order; "
+            f"got {len(issued)}: {issued}",
+        )
+
+    def test_sentinel_commander_target_is_squadron_not_regiment(self) -> None:
+        """When both REGIMENT and SQUADRON targets are in aura, Sentinel
+        Commander issues to a SQUADRON target only.
+        """
+        army = _build_army_with_officer_regiment_and_squadron(
+            "Sentinel Commander [Crucible]", n_regiment=3, n_squadron=3
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 1,
+            f"Sentinel Commander [Crucible] must issue exactly 1 Order; "
+            f"got {len(issued)}: {issued}",
+        )
+        _officer, target_name, _order = issued[0]
+        self.assertTrue(
+            target_name.startswith("Sqn"),
+            f"Sentinel Commander [Crucible] issued Order to {target_name!r} which "
+            f"looks like a REGIMENT target — must only issue to SQUADRON targets",
+        )
+
+    def test_sentinel_commander_cannot_issue_to_regiment_only_army(self) -> None:
+        """With only REGIMENT targets available (no SQUADRON), Sentinel
+        Commander must issue zero Orders — its target-type restriction blocks
+        all INFANTRY targets.
+        """
+        army = _build_army_with_officer_regiment_and_squadron(
+            "Sentinel Commander [Crucible]", n_regiment=4, n_squadron=0
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 0,
+            f"Sentinel Commander [Crucible] must not issue to REGIMENT targets; "
+            f"got {len(issued)}: {issued}",
+        )
+
+    def test_sentinel_commander_profile_is_one_squadron(self) -> None:
+        """Structural smoke test: the profile encodes 1 Order to SQUADRON."""
+        count, types = OFFICER_ORDER_PROFILES["Sentinel Commander [Crucible]"]
+        self.assertEqual(count, 1, "Sentinel Commander [Crucible] cap must be 1")
+        self.assertEqual(
+            types,
+            frozenset({"SQUADRON"}),
+            "Sentinel Commander [Crucible] target types must be {SQUADRON}",
         )
 
 

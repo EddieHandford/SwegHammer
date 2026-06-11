@@ -115,6 +115,39 @@ step of every research and diagnostic pass, not an optional extra:
   pull request that creates it.** An unlisted tool is a tool the next wave
   forgets.
 
+## H. Upstream pickup + pull-request size discipline
+
+User directive (2026-06-11). Work the reviewer merges to `main` must flow back
+into the loop automatically, and the loop's own output must stay reviewable
+(standing rule 14 in `CLAUDE.md`).
+
+**Upstream pickup.** The session hooks watch `origin/main` for the loop: the
+session-start hook fetches and reports any upstream commits this branch lacks,
+and the every-prompt hook re-checks on a fifteen-minute throttle, so a merge
+landing mid-session surfaces without anyone asking. When a `PICKUP NEEDED`
+notice appears:
+
+* **Fold `origin/main` into the working branch at the next wave boundary** —
+  not mid-wave (a moving base invalidates in-flight paired comparisons and
+  worktree agents' bases). Merge, resolve, run the full test suite.
+* **If the merge changes simulator behaviour or the archetype lists, every
+  standing anchor is stale** — a fresh full N=80 re-anchor is mandatory before
+  any keep/reject decision. A documentation-only or tooling-only merge keeps
+  the anchor.
+* Worktree agents dispatched after the fold-in must base on the post-merge
+  head (the `CLAUDE.md` rule 8 base-reset dance already enforces this).
+
+**Size discipline.** The push guard prints a soft pull-request size advisory
+(never blocks), and the every-prompt hook surfaces a `SIZE` warning when the
+branch passes the standing-rule-14 caps: four hundred hand-written changed
+lines (soft), one thousand (hard, agree with the reviewer first), and the
+rolling-branch checkpoint at roughly fifteen wave commits or one thousand five
+hundred reviewable lines — at the checkpoint, mark the pull request
+merge-ready and roll a fresh branch after it merges, as was done for
+`sim-calibration-6` to `sim-calibration-7`. Generated files
+(`data/bsdata/parsed.json` regenerations, archived evaluation logs) do not
+count toward the caps.
+
 ## Cleanup routine
 
 Run `python scripts/loop_cleanup.py` at the end of each iter (or whenever

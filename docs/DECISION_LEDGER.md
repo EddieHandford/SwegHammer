@@ -49,6 +49,9 @@ first.
 - Wave-236 fidelity batch — officer order counts (`33e1a67`), Forgefiend Daemonic Ordnance crit-election fix (`adc510e`+`d16cfba`), Legionaries Astartes-chainsword melee basket (`9c54ed2`), Chaos Space Marines leaders Master of Possession / Warpsmith / Dark Commune (`4f9cce3`, Faithful Flock real 5+ invulnerable; other two structural no-flag).
 - Fresh full N=80 re-anchor — wave 236 close: NEW standing frame gated 5.71 (raw 8.86, 5/22 in band, best yet on the honest scale), anchor `data/_anchor_wave237_n80_log.json`. Movers: Chaos Space Marines −20.9 → −18.0, Adepta Sororitas −19.5 → −17.4, Aeldari +16.5 → +14.3; Adeptus Custodes +17.7 NEW top residual.
 - Torrent-over-cannon override batch — retired wave 236: ALREADY COMPLETE in a prior wave (all 15 citable anti-tank weapon-election corrections landed as ATK-BIAS-1 entries in `data/overrides.json`); do not re-dispatch.
+- Acts of Faith per-phase ADOPTED AS DEFAULT — wave 239 (`7834b75`, `SWEG_AOF_PER_PHASE` default-on): N=80 paired vs the 5.83 anchor METRIC-NEUTRAL (headline +0.03, Sororitas −0.62 inside ±0.90 confidence interval, rest byte-flat); adopted on fidelity-first (verbatim codex one-per-phase; the conservative cap's justification died with the invulnerable-save repair). Legacy behind `=0`. Do NOT re-litigate the cap.
+- Modularization Stage A folded — wave 239 (merge of pull request 71): motion-proof fingerprint identical pre/post-merge on the calibration tree (`45df5b56…`) → anchor NOT staled by the fold; precedent for later code-motion folds.
+- Fresh standing anchor at ZERO eval cost — wave 239: the Acts-of-Faith ON arm promoted to `data/_anchor_sc7d_n80_log.json` (gated 5.85, raw 8.81, 5/22 in band) because its config equals the new production default exactly; anchor-promotion-not-re-run is the standing pattern when a measured arm becomes the default.
 
 ## REVERTED / REJECTED (tried, made it worse or proven wrong — do NOT re-attempt)
 - Dark Pacts coverage experiment — wave 209, REVERTED. The Chaos Space Marines under-output is NOT Dark-Pacts-coverage.
@@ -60,6 +63,7 @@ first.
 - Primary-mission rotation as the over-pole lever — wave 187, REFUTED.
 
 ## PARKED (not pursued now; needs NEW information to reopen — the line says what would reopen it)
+- Displacement Stage 2 swarm charge-to-contest (`SWEG_DISPLACE_SWARM`, default-OFF) — wave 238/239 N=80 paired A/B vs the 5.83 anchor: +0.07 WASH MISSING ITS TARGET (Adeptus Custodes −0.05 flat, Imperial Knights +0.83 wrong-direction; ~100 body-army flips = fires-but-churns). Code + tests kept (`724252e`); reopen for a paired re-test after a body-army composition change (e.g. the Chaos Space Marines real-list archetype reshape). See [[project-displacement-greenlit]].
 - Candidate B AI massing body-armies onto markers (`SWEG_MASS`) — expected wash; if it washes, report as a one-Unit-per-model representation limit and STOP chasing it (no knob/nerf). See [[project-matchup-fidelity-diagnosis]].
 - Imperial Knights / Daemons positional residual — likely a one-Unit-per-model representation limit; reopen only with a representation change, never a knob. See [[project-oc-contest-faithful]].
 - Stage 2 (equation fit) outputs — provisional until Stage 1 converges; `calibrated_points` / `equilibrium_points` are redo-able, do not treat as final.

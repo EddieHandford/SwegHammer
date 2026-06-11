@@ -7,7 +7,11 @@ with movement, shooting, charge, fight, and morale phases over a 5-round
 window on a 2D map. It models two armies fighting under SwegHammer's
 unit-by-unit activation rules and emits a battle event stream that can
 either be aggregated over thousands of battles for calibration sweeps or
-rendered as a watchable replay for a single battle.
+rendered as a watchable replay for a single battle. The replay reconstructs
+everything — positions, the running victory-point score, per-objective
+holders, scoring flashes, and end-of-round secondary points — purely from
+the event stream, so any simulator position change must emit a movement
+event or the replay silently drifts from the live game.
 
 ## Role in the two-stage pipeline
 

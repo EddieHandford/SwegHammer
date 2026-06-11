@@ -96,3 +96,36 @@ Faction Focus + Hammer of Math (Knights, Drukhari, Tyranids, Thousand Sons, Chao
 Daemons); Goonhammer Q3/Q4 2025 balance updates; Stat Check / Spikey Bits meta
 tiers; tournament reports (Cherokee Open, Gothcon, World Championships). Full URLs
 in the session research transcripts.
+
+## Chaos Space Marines re-diagnosis (wave 238, frame `0550475`, anchor gated 5.83)
+
+Read-only diagnostic over the 36,960-game anchor log (toolbox sections 7, 4, 6
+consulted; 1, 2, 3, 5 skipped as requiring new runs). Findings, evidence-ranked:
+
+1. **The deficit is uniform across all 21 opponents** (worst five 22.5-28.7%,
+   best three 49-58%, no single matchup carrying it) - the signature of an
+   army-construction problem, not an isolated missing mechanic.
+2. **Roughly half the deficit is Chaos-Space-Marines-specific**: 14-18-point
+   shortfalls persist against at-or-below-50% opponents (Drukhari 31.2%,
+   Leagues of Votann 35.0%, Chaos Daemons 33.8%), which opponent over-rating
+   cannot explain (correlation with opponent inflation r = -0.715 covers only
+   the other half).
+3. **The archetype is the FX-ALL coverage stub, never tuned**: 21 unit types,
+   all count=1 except Legionaries - the 0.3 seed walk places two squads then
+   random-fills from 18 leftover types, building a different incoherent army
+   every game. The Chaos Daemons conversion from the same stub class to tight
+   mono-god templates moved that faction -9.7 to -0.4.
+4. **Dark Pacts is verified correctly implemented** (wave-209 expansion testing
+   confirmed every broadening variant worsens it) and the defender-allocation
+   frame shift contributed only -1.3 (noise-level).
+
+**Named lever (wave 239):** reshape the archetype to the real May 2026
+Pactbound Zealots backbone (Abaddon warlord anchor, three Legionaries squads,
+Obliterators count=2, Forgefiend, attached characters; about 9-11 types) -
+data-layer only, sourced from the real meta, same class as the adopted Daemons
+and list-realism passes. Expected direction +8 to +15 toward target.
+
+**Instrumentation gap logged:** the game log carries only faction/seed/winner;
+a `units_a`/`units_b` roster field and a per-unit alive-on-marker end-state
+flag in `_write_game_log` would let future positional diagnostics partition by
+built army without re-running battles.

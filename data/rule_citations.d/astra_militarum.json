@@ -26,7 +26,7 @@
     "rule_name": "Voice of Command (Astra Militarum Army Rule)",
     "quoted_text": "If your Army Faction is ASTRA MILITARUM, OFFICER models with this ability can issue Orders. Each OFFICER's datasheet will specify how many Orders it can issue in a battle round and which units are eligible to receive those Orders.",
     "trigger": "start of each Command phase, on each alive AM OFFICER datasheet (per `code.orders.AM_OFFICER_NAMES` allowlist) within 6\" of an eligible BATTLELINE INFANTRY target",
-    "effect": "each Officer issues Orders to BATTLELINE INFANTRY (REGIMENT) targets within 6\", up to the per-Officer count in `code.orders.OFFICER_ORDER_COUNTS` (default 1 per the army rule above). Each Order applies a single transient buff for the round (Take Aim! / Fix Bayonets! / First Rank, Fire! Second Rank, Fire! / Take Cover!). No Order stacking — a unit holds at most one Order per round. Battle-shocked Officers and Battle-shocked targets are excluded. Wired in `code/orders.py`; called from `Battle._run_round` after the per-round command point drip and stratagem dispatch. Lord Solar Leontus exception (wave 236 NE-9): his Orders profile reads 'This OFFICER can issue up to 3 Orders to: REGIMENT units, SQUADRON units, TITANIC units.' (BSData Library Astra Militarum cat.gz id a9d-55c1-3d24-fa25 Orders profile id 4768-11ce-3c8b-3ce4; cross-checked Wahapedia https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Lord-Solar-Leontus — both sources verbatim-identical). `OFFICER_ORDER_COUNTS` maps him to 3; every other Officer not in that dict defaults to 1. The Flexible Command (Combined Arms, 2 command points) stratagem widens the eligible-target set to include AM BATTLELINE VEHICLE (SQUADRON) for the round it fires. Issuer gate narrowed (AM-DIAG, 2026-05-24): previously the dispatcher accepted ANY AM CHARACTER as an Order issuer, which mis-treated Commissar / Yarrick / Graves / Ministorum Priest / Tech-Priest Enginseer / Primaris Psyker / Nork Deddog / Ogryn Bodyguard / Sly Marbo / Straken / Harker / Gaunt's Ghosts / Hell's Last / Rein and Raus / Quartermaster / Death Rider Commissar as Officers. The new gate (`AM_OFFICER_NAMES`) is the Wahapedia OFFICER-keyword allowlist, populated by reading each AM CHARACTER datasheet's keyword line",
+    "effect": "each Officer issues Orders to its codex-permitted target types within 6\", up to the per-Officer count in `code.orders.OFFICER_ORDER_PROFILES`. Each Order applies a single transient buff for the round (Take Aim! / Fix Bayonets! / First Rank, Fire! Second Rank, Fire! / Take Cover!). No Order stacking — a unit holds at most one Order per round. Battle-shocked Officers and Battle-shocked targets are excluded. Wired in `code/orders.py`; called from `Battle._run_round` after the per-round command point drip and stratagem dispatch. Wave 237: per-Officer target-type restriction is now fully enforced — `OFFICER_ORDER_PROFILES` maps every Officer to (max_orders, frozenset of target-type keyword categories) sourced from the BSData Library Astra Militarum cache. The dispatcher filters each Officer's target pool by its own restriction (REGIMENT=BATTLELINE INFANTRY / SQUADRON=BATTLELINE VEHICLE / TITANIC=TITANIC keyword). The Flexible Command (Combined Arms, 2 command points) stratagem OR-widens the eligible-target set to include BATTLELINE VEHICLE (SQUADRON) for the round it fires, independently of per-Officer limits. Lord Solar Leontus's Orders profile (BSData cat.gz unit id a9d-55c1-3d24-fa25, Orders profile id 4768-11ce-3c8b-3ce4; cross-checked Wahapedia https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Lord-Solar-Leontus) allows REGIMENT, SQUADRON, TITANIC at 3 Orders per round. Issuer gate narrowed (AM-DIAG, 2026-05-24): previously the dispatcher accepted ANY AM CHARACTER as an Order issuer, which mis-treated Commissar / Yarrick / Graves / Ministorum Priest / Tech-Priest Enginseer / Primaris Psyker / Nork Deddog / Ogryn Bodyguard / Sly Marbo / Straken / Harker / Gaunt's Ghosts / Hell's Last / Rein and Raus / Quartermaster / Death Rider Commissar as Officers. The new gate (`AM_OFFICER_NAMES`) is the Wahapedia OFFICER-keyword allowlist, populated by reading each AM CHARACTER datasheet's keyword line",
     "scope": "army-wide",
     "approximation": false
   },
@@ -36,7 +36,7 @@
     "rule_name": "Ursula Creed Orders profile (Astra Militarum datasheet)",
     "quoted_text": "This OFFICER can issue up to 3 Orders to REGIMENT units.",
     "trigger": "Ursula Creed is alive, non-Battle-shocked, and acting as an Order-issuing OFFICER in the Command phase",
-    "effect": "Ursula Creed issues up to 3 Orders per Command phase (not 1). Encoded in `code.orders.OFFICER_ORDER_COUNTS[\"Ursula Creed\"] = 3`. Target-type restriction (REGIMENT only) is noted but not yet enforced — per-Officer target-type enforcement is a separate queued item; the dispatcher uses the army-wide AM BATTLELINE INFANTRY pool.",
+    "effect": "Ursula Creed issues up to 3 Orders per Command phase (not 1). Encoded in `code.orders.OFFICER_ORDER_PROFILES[\"Ursula Creed\"] = (3, frozenset({\"REGIMENT\"}))`. Target-type restriction (REGIMENT only) is now enforced in `dispatch_orders` (wave 237): only BATTLELINE INFANTRY targets are eligible for Ursula Creed's Orders. The Flexible Command stratagem can independently widen the army-wide eligible set to SQUADRON but that gate is OR-ed with, not replacing, the per-Officer restriction.",
     "scope": "character-only",
     "approximation": false
   },
@@ -46,7 +46,7 @@
     "rule_name": "Lord Marshal Dreir Orders profile (Astra Militarum datasheet)",
     "quoted_text": "This OFFICER can issue up to 3 Orders to REGIMENT units",
     "trigger": "Lord Marshal Dreir is alive, non-Battle-shocked, and acting as an Order-issuing OFFICER in the Command phase",
-    "effect": "Lord Marshal Dreir issues up to 3 Orders per Command phase (not 1). Encoded in `code.orders.OFFICER_ORDER_COUNTS[\"Lord Marshal Dreir\"] = 3`. Target-type restriction (REGIMENT only) is noted but not yet enforced — per-Officer target-type enforcement is a separate queued item; the dispatcher uses the army-wide AM BATTLELINE INFANTRY pool.",
+    "effect": "Lord Marshal Dreir issues up to 3 Orders per Command phase (not 1). Encoded in `code.orders.OFFICER_ORDER_PROFILES[\"Lord Marshal Dreir\"] = (3, frozenset({\"REGIMENT\"}))`. Target-type restriction (REGIMENT only) is now enforced in `dispatch_orders` (wave 237): only BATTLELINE INFANTRY targets are eligible for Lord Marshal Dreir's Orders.",
     "scope": "character-only",
     "approximation": false
   },
@@ -56,7 +56,17 @@
     "rule_name": "Front-line Commander [Crucible] Orders profile (Astra Militarum datasheet)",
     "quoted_text": "This OFFICER can issue up to 2 Orders to REGIMENT units.",
     "trigger": "Front-line Commander [Crucible] is alive, non-Battle-shocked, and acting as an Order-issuing OFFICER in the Command phase",
-    "effect": "Front-line Commander [Crucible] issues up to 2 Orders per Command phase (not 1). Encoded in `code.orders.OFFICER_ORDER_COUNTS[\"Front-line Commander [Crucible]\"] = 2`. Target-type restriction (REGIMENT only) is noted but not yet enforced — per-Officer target-type enforcement is a separate queued item; the dispatcher uses the army-wide AM BATTLELINE INFANTRY pool.",
+    "effect": "Front-line Commander [Crucible] issues up to 2 Orders per Command phase (not 1). Encoded in `code.orders.OFFICER_ORDER_PROFILES[\"Front-line Commander [Crucible]\"] = (2, frozenset({\"REGIMENT\"}))`. Target-type restriction (REGIMENT only) is now enforced in `dispatch_orders` (wave 237): only BATTLELINE INFANTRY targets are eligible.",
+    "scope": "character-only",
+    "approximation": false
+  },
+
+  "simulator.officer_order_counts.Sentinel_Commander_Crucible": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Imperium%20-%20Astra%20Militarum%20-%20Library.cat (unit id a040-9715-5d3a-52af, Orders profile id f785-4221-70aa-1ae4; cross-checked from local cache data/bsdata/cache/Imperium - Astra Militarum - Library.cat.gz)",
+    "rule_name": "Sentinel Commander [Crucible] Orders profile (Astra Militarum datasheet)",
+    "quoted_text": "This OFFICER can issue up to 1 Order to SQUADRON units.",
+    "trigger": "Sentinel Commander [Crucible] is alive, non-Battle-shocked, and acting as an Order-issuing OFFICER in the Command phase",
+    "effect": "Sentinel Commander [Crucible] issues up to 1 Order per Command phase. Target-type restriction (SQUADRON only) is enforced in `dispatch_orders` (wave 237): only BATTLELINE VEHICLE targets are eligible for Sentinel Commander [Crucible]'s Orders. Encoded in `code.orders.OFFICER_ORDER_PROFILES[\"Sentinel Commander [Crucible]\"] = (1, frozenset({\"SQUADRON\"}))`. This was previously treated as a 1-Order REGIMENT-default officer; the target-type correction means Sentinel Commander [Crucible] now issues to Leman Russ / Rogal Dorn tanks rather than infantry squads.",
     "scope": "character-only",
     "approximation": false
   },

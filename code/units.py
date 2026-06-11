@@ -1061,23 +1061,35 @@ class Unit:
         # a test. Cleared by the next round's Battle-shock phase (the same
         # call that re-tests the unit). Cited as `simulator.battleshock`.
         "battleshocked_until_round",
-        # SOROR-DIAG-4: Adepta Sororitas Acts of Faith per-round budget.
-        # The codex caps Acts of Faith at one per phase per unit; SOROR-DIAG-3
-        # left the substitution gated only by a per-attack() local flag, which
-        # let a defender spend one Miracle die per ATTACKING ENEMY across a
-        # whole shooting / fight phase (each enemy attacker enters attack()
-        # with a fresh flag, so the defender's defensive substitution branch
-        # could fire dozens of times per phase). SOROR-DIAG-4 promotes the
-        # flag onto the Unit itself and resets it once per round in
-        # `Battle._run_round`, capping each Sororitas unit at one Act of
-        # Faith per round across BOTH offensive (its own attack() calls) and
-        # defensive (incoming attack() calls on this unit). Tighter than the
-        # codex literal (which would permit one per phase, i.e. up to four
-        # per round across Move / Shoot / Charge / Fight), chosen
-        # conservatively because SOROR-DIAG-3 left Sororitas at +14.39pt
-        # over-performance after the bank cap was already tightened to 5.
-        # Cited as `simulator.acts_of_faith`.
+        # SOROR-DIAG-4: Adepta Sororitas Acts of Faith budget.
+        #
+        # Two parallel flags support two paths (selected by SWEG_AOF_PER_PHASE):
+        #
+        # Legacy path (SWEG_AOF_PER_PHASE="0"): `aof_used_this_round`
+        #   Prevents a single Unit instance from using Acts of Faith twice in
+        #   the same round. Reset once per round in `Battle._run_round`.
+        #   Conservative under-approximation of the codex's "one per phase"
+        #   literal (collapses to one per round). Chosen conservatively when
+        #   SOROR-DIAG-4 was introduced because SOROR-DIAG-3 left Sororitas at
+        #   +14.39 pt over-performance; that over-performance has since been
+        #   attributed to the broken invulnerable-save mapper (fixed,
+        #   commit 299aefc), so the historical reason for the conservative cap
+        #   is gone. Legacy path kept byte-identical when gate is OFF.
+        #
+        # Per-phase path (SWEG_AOF_PER_PHASE unset/"1" — the production default
+        # since wave 239; metric-neutral in the N=80 paired A/B, adopted on
+        # fidelity-first): `aof_used_this_phase`
+        #   Codex-correct: "each unit from your army with this ability can
+        #   perform one Act of Faith per phase." (Wahapedia Adepta Sororitas
+        #   army rule, https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/).
+        #   Reset at the start of the Shooting phase AND at the start of the
+        #   Fight phase in `Battle._run_round_vanilla_turns` (and before the
+        #   paired sub-phase blocks in `Battle._run_round_alternating`).
+        #   The squad-level budget (Army._unit_budget_used["aof"]) is also
+        #   cleared per-phase under this gate (instead of once per round).
+        #   Cited as `simulator.acts_of_faith`.
         "aof_used_this_round",
+        "aof_used_this_phase",
         # CSM-EYE-OF-GODS: Eye of the Gods stratagem stamp (Pactbound Zealots,
         # 1 CP). Set True the first time this CHARACTER destroys an enemy
         # unit with a melee attack AND the stratagem fires. While True, the
@@ -1225,12 +1237,14 @@ class Unit:
         # rationale). 0 = never failed; otherwise = the round_num during
         # which the unit is currently battle-shocked.
         self.battleshocked_until_round: int = 0
-        # SOROR-DIAG-4: per-round Acts of Faith budget. Reset at the top of
-        # every round in Battle._run_round for every Sororitas unit on both
-        # armies. While True, no further offensive OR defensive Miracle die
-        # substitution may fire on this unit until the next round-reset.
-        # See __slots__ for full rationale and citation linkage.
+        # SOROR-DIAG-4: Acts of Faith budget flags. See __slots__ for full
+        # rationale and citation linkage.
+        # Legacy path (SWEG_AOF_PER_PHASE="0"): reset once per round in
+        # Battle._run_round.
         self.aof_used_this_round: bool = False
+        # Per-phase path (unset/"1", the default): reset at the start of the
+        # Shooting phase and again at the start of the Fight phase.
+        self.aof_used_this_phase: bool = False
         # CSM-EYE-OF-GODS: persistent CHARACTER snowball flag. See __slots__
         # for full rationale; default False on construction. Stamped True by
         # `Battle._try_eye_of_the_gods` after a melee kill by a CSM CHARACTER
@@ -1423,13 +1437,21 @@ class Unit:
         # entire phase, because each enemy attacker entered attack() with a
         # fresh local flag. Likewise an attacking Sororitas unit firing
         # multiple weapon profiles routes through attack() once per target,
-        # each call fresh. Now we read AND write
-        # `self.aof_used_this_round` (offensive side, this unit) and
-        # `target.aof_used_this_round` (defensive side, the target unit) at
-        # each substitution gate, capping each Sororitas unit at one Act of
-        # Faith per round across both directions. Round-level reset happens
-        # in `Battle._run_round`. Cited as `simulator.acts_of_faith`.
+        # each call fresh. Now we read AND write a per-unit budget flag
+        # (offensive side: `self`; defensive side: `target`) at each
+        # substitution gate. Which flag is read/written depends on the gate:
+        #   Legacy (SWEG_AOF_PER_PHASE="0"): `aof_used_this_round` —
+        #     reset once per round in `Battle._run_round`.
+        #   Per-phase (unset/"1", the default): `aof_used_this_phase` —
+        #     reset at the start of the Shooting phase and again at the start
+        #     of the Fight phase in `Battle._run_round_vanilla_turns` (and
+        #     before the paired sub-phase blocks in `_run_round_alternating`).
+        # Cited as `simulator.acts_of_faith`.
         attack_aof_substitution_used = False
+        # SOROR-AOF-PER-PHASE: which per-unit Acts of Faith budget flag to
+        # consult and set. Unset/"1" (the default) uses the codex-correct
+        # per-phase flag; "0" reverts to the legacy per-round flag.
+        _aof_per_phase: bool = __import__("os").environ.get("SWEG_AOF_PER_PHASE", "1") == "1"
 
         # ---- Buff lookups (detachment + in-range leader auras) -------------
         # Attacker side: detachment passives + every in-range friendly leader
@@ -3810,7 +3832,9 @@ class Unit:
                         roll < hit_target
                         and p.faction == "Adepta Sororitas"
                         and not attack_aof_substitution_used
-                        and not self.aof_used_this_round  # SOROR-DIAG-4 per-round cap
+                        # SOROR-AOF-PER-PHASE: use phase flag when gate ON,
+                        # round flag on legacy path (byte-identical when OFF).
+                        and not (self.aof_used_this_phase if _aof_per_phase else self.aof_used_this_round)
                     ):
                         own_army = getattr(self, "army_ref", None)
                         if (
@@ -3823,7 +3847,11 @@ class Unit:
                             if sub is not None:
                                 roll = sub
                                 attack_aof_substitution_used = True
-                                self.aof_used_this_round = True  # SOROR-DIAG-4
+                                # SOROR-AOF-PER-PHASE: set phase flag (gate ON) or round flag.
+                                if _aof_per_phase:
+                                    self.aof_used_this_phase = True
+                                else:
+                                    self.aof_used_this_round = True  # SOROR-DIAG-4
                                 own_army.aof_squad_mark_used(p.name, getattr(self, "squad_id", -1))  # SOROR-ACTS-OF-FAITH-V1
                     # Fire Overwatch (10e core stratagem): "each time a model in
                     # that unit makes a ranged attack, an unmodified Hit roll of
@@ -3976,7 +4004,8 @@ class Unit:
                         not wound_succeeded
                         and p.faction == "Adepta Sororitas"
                         and not attack_aof_substitution_used
-                        and not self.aof_used_this_round  # SOROR-DIAG-4 per-round cap
+                        # SOROR-AOF-PER-PHASE: phase flag (gate ON) or round flag.
+                        and not (self.aof_used_this_phase if _aof_per_phase else self.aof_used_this_round)
                     ):
                         own_army = getattr(self, "army_ref", None)
                         if (
@@ -3991,7 +4020,11 @@ class Unit:
                                 wound_succeeded = True
                                 crit_wound = False
                                 attack_aof_substitution_used = True
-                                self.aof_used_this_round = True  # SOROR-DIAG-4
+                                # SOROR-AOF-PER-PHASE: set phase flag (gate ON) or round flag.
+                                if _aof_per_phase:
+                                    self.aof_used_this_phase = True
+                                else:
+                                    self.aof_used_this_round = True  # SOROR-DIAG-4
                                 own_army.aof_squad_mark_used(p.name, getattr(self, "squad_id", -1))  # SOROR-ACTS-OF-FAITH-V1
                     if not wound_succeeded:
                         continue
@@ -4142,7 +4175,8 @@ class Unit:
                             sroll < save_target
                             and target.profile.faction == "Adepta Sororitas"
                             and not attack_aof_substitution_used
-                            and not target.aof_used_this_round  # SOROR-DIAG-4
+                            # SOROR-AOF-PER-PHASE: phase flag (gate ON) or round flag.
+                            and not (target.aof_used_this_phase if _aof_per_phase else target.aof_used_this_round)
                         ):
                             tgt_army = getattr(target, "army_ref", None)
                             if (
@@ -4155,7 +4189,11 @@ class Unit:
                                 if sub is not None:
                                     sroll = sub
                                     attack_aof_substitution_used = True
-                                    target.aof_used_this_round = True  # SOROR-DIAG-4
+                                    # SOROR-AOF-PER-PHASE: set phase flag (gate ON) or round flag.
+                                    if _aof_per_phase:
+                                        target.aof_used_this_phase = True
+                                    else:
+                                        target.aof_used_this_round = True  # SOROR-DIAG-4
                                     tgt_army.aof_squad_mark_used(target.profile.name, getattr(target, "squad_id", -1))  # SOROR-ACTS-OF-FAITH-V1
                         if sroll >= save_target:
                             continue   # saved

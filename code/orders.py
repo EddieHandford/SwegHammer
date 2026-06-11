@@ -147,75 +147,139 @@ AM_OFFICER_NAMES: frozenset = frozenset({
     "Front-line Commander [Crucible]",
 })
 
-# Per-datasheet Order count overrides. Officers with a non-default (non-1)
-# Order count per their datasheet's Orders profile get an entry here.
-# Default is 1 per the Voice of Command army rule: "Each OFFICER's datasheet
-# will specify how many Orders it can issue in a battle round" — the baseline
-# for every officer not listed here is 1 Order per round as documented in
-# dispatch_orders below.
+# Per-datasheet Order profiles. Each entry maps an Officer name to a tuple of
+# (max_orders: int, target_types: frozenset[str]) sourced verbatim from the
+# BSData Library Astra Militarum cat.gz (cached at
+# data/bsdata/cache/Imperium - Astra Militarum - Library.cat.gz).
 #
-# NOTE on target-type eligibility (OUT OF SCOPE, wave 236+):
-# The codex restricts each Officer to a specific set of target keywords
-# (REGIMENT, SQUADRON, TITANIC). Per-Officer target-type enforcement is a
-# separate queued item; for now the dispatcher uses the army-wide target
-# pool (AM BATTLELINE INFANTRY ± SQUADRON via Flexible Command). The
-# comments below record the codex-verbatim target types for when that
-# enforcement is built.
+# target_types encodes which keyword categories the Officer may issue Orders
+# to. Three categories exist in the codex:
+#   "REGIMENT"  — BATTLELINE INFANTRY (the proxy used by this simulator)
+#   "SQUADRON"  — BATTLELINE VEHICLE
+#   "TITANIC"   — any unit with the TITANIC keyword
+#
+# The Flexible Command (Combined Arms, 2 command points) stratagem widens the
+# *army-wide* eligible-target set to also include SQUADRON for the round it
+# fires; that gate is an OR with per-officer eligibility (if either opens the
+# gate, the target is eligible) — see dispatch_orders.
 #
 # Lord Solar Leontus: "This OFFICER can issue up to 3 Orders to: REGIMENT
-# units, SQUADRON units, TITANIC units." — BSData Library Astra Militarum
-# cat.gz (unit id a9d-55c1-3d24-fa25, Orders profile id 4768-11ce-3c8b-3ce4),
-# cross-checked Wahapedia https://wahapedia.ru/wh40k10ed/factions/
-# astra-militarum/Lord-Solar-Leontus (both sources verbatim-identical, no
-# conflict). Cited as simulator.voice_of_command_orders in
-# data/rule_citations.d/astra_militarum.json.
-# Target types: REGIMENT, SQUADRON, TITANIC.
+# units, SQUADRON units, TITANIC units." — BSData unit id a9d-55c1-3d24-fa25,
+# Orders profile id 4768-11ce-3c8b-3ce4. Cross-checked Wahapedia
+# https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Lord-Solar-Leontus.
 #
 # Ursula Creed: "This OFFICER can issue up to 3 Orders to REGIMENT units."
-# — BSData Library Astra Militarum cat.gz (unit id b6b2-9971-ec0c-349e,
-# Orders profile id 85b7-65b8-1961-50ee). Cited as
-# simulator.officer_order_counts.Ursula_Creed in
-# data/rule_citations.d/astra_militarum.json.
-# Target types: REGIMENT only.
+# — BSData unit id b6b2-9971-ec0c-349e, Orders profile id
+# 85b7-65b8-1961-50ee.
 #
 # Lord Marshal Dreir: "This OFFICER can issue up to 3 Orders to REGIMENT
-# units" — BSData Library Astra Militarum cat.gz (unit id
-# 9033-d07c-3e1c-f6f0, Orders profile id c4eb-5868-02ac-efe3). Cited as
-# simulator.officer_order_counts.Lord_Marshal_Dreir in
-# data/rule_citations.d/astra_militarum.json.
-# Target types: REGIMENT only.
+# units" — BSData unit id 9033-d07c-3e1c-f6f0, Orders profile id
+# c4eb-5868-02ac-efe3.
 #
-# Front-line Commander [Crucible]: "This OFFICER can issue up to 2 Orders
-# to REGIMENT units." — BSData Library Astra Militarum cat.gz (unit id
-# 4fc5-184d-b305-3551, Orders profile id 467f-baf9-5dfd-0f3f). Cited as
-# simulator.officer_order_counts.Front_line_Commander_Crucible in
-# data/rule_citations.d/astra_militarum.json.
-# Target types: REGIMENT only.
+# Front-line Commander [Crucible]: "This OFFICER can issue up to 2 Orders to
+# REGIMENT units." — BSData unit id 4fc5-184d-b305-3551, Orders profile id
+# 467f-baf9-5dfd-0f3f.
 #
-# Officers at count == 1 (the default) are NOT listed here:
-#   Cadian Castellan, Cadian Command Squad, Militarum Tempestus Command Squad,
-#   Krieg Command Squad, Catachan Command Squad, Leman Russ Commander,
-#   Rogal Dorn Commander, Sentinel Commander [Crucible] (1 Order to SQUADRON).
-OFFICER_ORDER_COUNTS: dict = {
-    "Lord Solar Leontus": 3,   # targets: REGIMENT, SQUADRON, TITANIC
-    "Ursula Creed": 3,          # targets: REGIMENT only
-    "Lord Marshal Dreir": 3,    # targets: REGIMENT only
-    "Front-line Commander [Crucible]": 2,  # targets: REGIMENT only
+# Cadian Castellan: "This OFFICER can issue 2 Orders to REGIMENT units."
+# — BSData unit id 2b49-4d03-aaf5-3532, Orders profile id
+# 21e5-4e9-7904-8d96.
+#
+# Cadian Command Squad: "This unit's OFFICER can issue 1 Order to a REGIMENT
+# unit." — BSData unit id 4d28-f2a7-67c1-eb2e, Orders profile id
+# 9c13-76b5-43ba-b4f7.
+#
+# Militarum Tempestus Command Squad: "This unit's OFFICER can issue 1 Order
+# to a REGIMENT unit." — BSData unit id 497-36ad-8ecb-f7c7, Orders profile
+# id 78c6-15ac-3822-61f2.
+#
+# Krieg Command Squad: "This unit's OFFICER can issue 1 Order to a REGIMENT
+# unit." — BSData unit id fbcd-274b-0196-b4f6, Orders profile id
+# 9090-d3fb-61da-29d8.
+#
+# Catachan Command Squad: "This unit's OFFICER can issue 1 Order to a
+# REGIMENT unit." — BSData unit id 7d22-9fb6-a7e0-c21b, Orders profile id
+# 5722-8d6d-ae28-d30d.
+#
+# Leman Russ Commander: "This OFFICER can issue 2 Orders to SQUADRON units."
+# — BSData unit id 5430-18e-d7b0-1d54, Orders profile id
+# d520-92fd-8c74-ec6e.
+#
+# Rogal Dorn Commander: "This OFFICER can issue 2 Orders to SQUADRON units."
+# — BSData unit id 78b6-f280-bba9-0594, Orders profile id
+# 2798-cdef-e114-6795.
+#
+# Sentinel Commander [Crucible]: "This OFFICER can issue up to 1 Order to
+# SQUADRON units." — BSData unit id a040-9715-5d3a-52af, Orders profile id
+# f785-4221-70aa-1ae4.
+#
+# All twelve Officers are listed explicitly here regardless of count. The
+# Voice of Command army rule says "Each OFFICER's datasheet will specify how
+# many Orders it can issue" — every profile is sourced; none are defaulted.
+OFFICER_ORDER_PROFILES: dict = {
+    # (max_orders, frozenset of target-type keyword categories)
+    "Lord Solar Leontus":                   (3, frozenset({"REGIMENT", "SQUADRON", "TITANIC"})),
+    "Ursula Creed":                         (3, frozenset({"REGIMENT"})),
+    "Lord Marshal Dreir":                   (3, frozenset({"REGIMENT"})),
+    "Front-line Commander [Crucible]":      (2, frozenset({"REGIMENT"})),
+    "Cadian Castellan":                     (2, frozenset({"REGIMENT"})),
+    "Cadian Command Squad":                 (1, frozenset({"REGIMENT"})),
+    "Militarum Tempestus Command Squad":    (1, frozenset({"REGIMENT"})),
+    "Krieg Command Squad":                  (1, frozenset({"REGIMENT"})),
+    "Catachan Command Squad":               (1, frozenset({"REGIMENT"})),
+    "Leman Russ Commander":                 (2, frozenset({"SQUADRON"})),
+    "Rogal Dorn Commander":                 (2, frozenset({"SQUADRON"})),
+    "Sentinel Commander [Crucible]":        (1, frozenset({"SQUADRON"})),
 }
 
-# Import-time validation: every key in OFFICER_ORDER_COUNTS must name a
-# datasheet in AM_OFFICER_NAMES. A key that isn't in the allowlist means
-# either the allowlist was updated without updating this dict, or the dict
-# was seeded with a typo. Fail loud per CLAUDE.md §13.
-for _k in OFFICER_ORDER_COUNTS:
+# Backward-compatibility alias: code that reads OFFICER_ORDER_COUNTS directly
+# (e.g. test assertions, external scripts) continues to work unchanged.
+# Derived from OFFICER_ORDER_PROFILES at import time.
+OFFICER_ORDER_COUNTS: dict = {
+    name: profile[0] for name, profile in OFFICER_ORDER_PROFILES.items()
+}
+
+# Import-time validation: every key in OFFICER_ORDER_PROFILES must name a
+# datasheet in AM_OFFICER_NAMES, and every AM_OFFICER_NAMES entry must have
+# an OFFICER_ORDER_PROFILES entry. A key that isn't in the allowlist means
+# either the allowlist was updated without updating OFFICER_ORDER_PROFILES, or
+# the profile was seeded with a typo. Fail loud per CLAUDE.md §13.
+for _k in OFFICER_ORDER_PROFILES:
     if _k not in AM_OFFICER_NAMES:
         raise ValueError(
-            f"OFFICER_ORDER_COUNTS contains key {_k!r} which is not in "
+            f"OFFICER_ORDER_PROFILES contains key {_k!r} which is not in "
             f"AM_OFFICER_NAMES. Either add the officer to AM_OFFICER_NAMES "
             f"(if it is a real OFFICER datasheet) or remove the entry from "
-            f"OFFICER_ORDER_COUNTS. (code/orders.py import-time validation)"
+            f"OFFICER_ORDER_PROFILES. (code/orders.py import-time validation)"
+        )
+for _k in AM_OFFICER_NAMES:
+    if _k not in OFFICER_ORDER_PROFILES:
+        raise ValueError(
+            f"AM_OFFICER_NAMES contains {_k!r} which has no entry in "
+            f"OFFICER_ORDER_PROFILES. Add a (max_orders, target_types) entry "
+            f"sourced from the BSData Library Astra Militarum cache. "
+            f"(code/orders.py import-time validation)"
         )
 del _k  # don't leak the loop variable into module namespace
+
+
+def _officer_target_types(officer_name: str) -> frozenset:
+    """Return the set of codex keyword categories this Officer may issue
+    Orders to, sourced from OFFICER_ORDER_PROFILES.
+
+    Categories: "REGIMENT" (BATTLELINE INFANTRY), "SQUADRON" (BATTLELINE
+    VEHICLE), "TITANIC".
+
+    Raises ValueError if `officer_name` is not in OFFICER_ORDER_PROFILES —
+    fail loud per CLAUDE.md §13 (no silent .get default).
+    """
+    if officer_name not in OFFICER_ORDER_PROFILES:
+        raise ValueError(
+            f"No Orders profile found for officer {officer_name!r} in "
+            f"OFFICER_ORDER_PROFILES (code/orders.py). Add a sourced "
+            f"(max_orders, target_types) entry from the BSData Library "
+            f"Astra Militarum cache."
+        )
+    return OFFICER_ORDER_PROFILES[officer_name][1]
 
 
 def _distance(a: Tuple[float, float], b: Tuple[float, float]) -> float:
@@ -251,12 +315,43 @@ def _is_am_officer(unit: "Unit") -> bool:
     return (unit.profile.name or "") in AM_OFFICER_NAMES
 
 
-def _is_order_target_eligible(unit: "Unit", squadron_allowed: bool = False) -> bool:
-    """True iff the unit is an alive AM BATTLELINE INFANTRY unit (REGIMENT).
+def _unit_satisfies_target_type(unit: "Unit", target_types: frozenset) -> bool:
+    """True iff the unit's keyword set satisfies at least one of the
+    categories in `target_types`.
 
-    When `squadron_allowed` is True (set by Flexible Command, Combined
-    Arms stratagem), AM BATTLELINE VEHICLE units (SQUADRON) are also
-    eligible.
+    Category mapping (proxy, per module docstring):
+      "REGIMENT"  — unit has BATTLELINE and INFANTRY
+      "SQUADRON"  — unit has BATTLELINE and VEHICLE
+      "TITANIC"   — unit has TITANIC keyword
+    """
+    kw = set(unit.profile.unit_keywords or ())
+    if "REGIMENT" in target_types and "BATTLELINE" in kw and "INFANTRY" in kw:
+        return True
+    if "SQUADRON" in target_types and "BATTLELINE" in kw and "VEHICLE" in kw:
+        return True
+    if "TITANIC" in target_types and "TITANIC" in kw:
+        return True
+    return False
+
+
+def _is_order_target_eligible(
+    unit: "Unit",
+    squadron_allowed: bool = False,
+    officer_target_types: Optional[frozenset] = None,
+) -> bool:
+    """True iff the unit is an alive AM unit eligible to receive an Order.
+
+    Eligibility has two independent gates that are OR-ed:
+      1. Per-officer target-type gate: the unit satisfies at least one
+         category in `officer_target_types` (REGIMENT, SQUADRON, TITANIC).
+      2. Flexible Command gate: when `squadron_allowed` is True (set by the
+         Flexible Command Combined Arms stratagem), AM BATTLELINE VEHICLE
+         units (SQUADRON) are also eligible regardless of the Officer's own
+         restriction.
+
+    When `officer_target_types` is None the per-officer gate is skipped and
+    only the army-wide REGIMENT eligibility rule applies (backward-compatible
+    default for callers that don't pass officer context).
     """
     if not unit.is_alive:
         return False
@@ -265,11 +360,18 @@ def _is_order_target_eligible(unit: "Unit", squadron_allowed: bool = False) -> b
     kw = set(unit.profile.unit_keywords or ())
     if "BATTLELINE" not in kw:
         return False
-    if "INFANTRY" in kw and "VEHICLE" not in kw:
-        return True
-    if squadron_allowed and "VEHICLE" in kw:
-        return True
-    return False
+
+    # Gate 1: per-officer target-type restriction.
+    if officer_target_types is not None:
+        officer_allows = _unit_satisfies_target_type(unit, officer_target_types)
+    else:
+        # Legacy default: REGIMENT only (BATTLELINE INFANTRY).
+        officer_allows = "INFANTRY" in kw and "VEHICLE" not in kw
+
+    # Gate 2: Flexible Command stratagem widens the eligible set to SQUADRON.
+    flexible_command_allows = squadron_allowed and "VEHICLE" in kw
+
+    return officer_allows or flexible_command_allows
 
 
 # ---------------------------------------------------------------------------
@@ -380,27 +482,28 @@ def _pick_order_for_target(target: "Unit") -> str:
 # ---------------------------------------------------------------------------
 
 def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, str, str]]:
-    """Issue one Order per AM OFFICER for this Command phase.
+    """Issue Orders for each AM OFFICER for this Command phase.
 
     Returns a list of (officer_name, target_name, order_name) triples for
     event-log / verbose printing. Empty list when the army isn't AM,
     has no Officers, has no eligible targets, or no OFFICER is within
-    aura range of any eligible BATTLELINE INFANTRY.
+    aura range of any eligible target.
 
     Wahapedia rules respected:
       * Battle-shocked Officers cannot issue Orders (`battleshocked_uids`).
       * Battle-shocked targets cannot receive Orders (`battleshocked_uids`).
       * Each unit can only be affected by ONE Order per phase (the
         dispatcher tracks `ordered_uids` to enforce no-stacking).
-      * Each Officer issues at most one Order this Command phase (the
-        codex caps higher-rank Officers at 2-3; SwegHammer caps at 1
-        as the per-Officer baseline — Flexible Command stratagem doesn't
-        widen the per-Officer cap, only the eligible-target set).
+      * Each Officer issues up to its per-datasheet cap (from
+        OFFICER_ORDER_PROFILES) per Command phase.
       * Order target must be within 6" of the issuing Officer (canonical
         OFFICER_AURA_RANGE).
-      * Order target must be AM BATTLELINE INFANTRY (REGIMENT) — or AM
-        BATTLELINE VEHICLE (SQUADRON) if Flexible Command was fired this
-        round (the `Army.orders_eligible_squadron_this_round` flag).
+      * Order target must satisfy the Officer's per-datasheet keyword
+        restriction (REGIMENT / SQUADRON / TITANIC) as recorded in
+        OFFICER_ORDER_PROFILES — OR be AM BATTLELINE VEHICLE (SQUADRON) if
+        Flexible Command was fired this round (the two gates are OR-ed; the
+        Flexible Command stratagem widens the army-wide eligible set
+        independently of each Officer's own restriction).
 
     Cited as `simulator.voice_of_command_orders` in
     `data/rule_citations.d/astra_militarum.json`.
@@ -413,15 +516,15 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
 
     squadron_allowed = bool(getattr(army, "orders_eligible_squadron_this_round", False))
 
-    # Each codex OFFICER datasheet issues ONE Order per round regardless of
-    # how many model-instances share that profile name in the army (Command
-    # Squads are multi-model datasheets — Cadian/Catachan Command Squad
-    # min_models=5, Krieg Command Squad min_models=6, Militarum Tempestus
-    # Command Squad min_models=5). The simulator stores each model as its
-    # own Unit instance, so a 5-model squad produces 5 instances all
+    # Each codex OFFICER datasheet issues its capped Orders per round
+    # regardless of how many model-instances share that profile name in the
+    # army (Command Squads are multi-model datasheets — Cadian/Catachan
+    # Command Squad min_models=5, Krieg Command Squad min_models=6, Militarum
+    # Tempestus Command Squad min_models=5). The simulator stores each model
+    # as its own Unit instance, so a 5-model squad produces 5 instances all
     # passing _is_am_officer. De-duplicating by profile.name collapses them
     # to ONE Order-issuer per codex datasheet, matching Voice of Command:
-    # "each OFFICER [unit] … can issue one Order".
+    # "each OFFICER [unit] … can issue Orders".
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
     _seen_officer_names: set = set()
     officers = []
@@ -438,40 +541,52 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
     if not officers:
         return issued
 
-    # Eligible target pool (AM BATTLELINE INFANTRY, plus VEHICLE if Flexible
-    # Command is active). Exclude battle-shocked units.
-    targets = [
+    # Army-wide target pool: all alive, non-battle-shocked AM BATTLELINE units.
+    # Per-officer target-type filtering is applied per-officer below (inside
+    # the aura filter), not on this pool, so that an Officer whose restriction
+    # is REGIMENT doesn't accidentally steal a slot from an Officer whose
+    # restriction is SQUADRON (they draw from the same ranked pool but each
+    # filters by its own target types inside the aura loop).
+    all_targets = [
         u for u in army.alive_units
-        if _is_order_target_eligible(u, squadron_allowed=squadron_allowed)
+        if (u.profile.faction or "") == "Astra Militarum"
         and u.uid not in battleshocked_uids
+        and "BATTLELINE" in set(u.profile.unit_keywords or ())
     ]
-    if not targets:
+    if not all_targets:
         return issued
 
     ordered_uids: set = set()
     for officer in officers:
         officer_name = officer.profile.name or ""
-        # Each Officer issues up to OFFICER_ORDER_COUNTS.get(officer_name, 1)
-        # Orders per Command phase. The default of 1 is the explicit modelled
-        # rule: "If your Army Faction is ASTRA MILITARUM, OFFICER models with
-        # this ability can issue Orders. Each OFFICER's datasheet will specify
-        # how many Orders it can issue in a battle round and which units are
-        # eligible to receive those Orders." (Voice of Command, Wahapedia
-        # https://wahapedia.ru/wh40k10ed/factions/astra-militarum/). Officers
-        # without an OFFICER_ORDER_COUNTS entry issue exactly 1 Order per that
-        # army rule; the .get default is an explicit documented-legitimate value,
-        # not a silent fallback (CLAUDE.md §13).
-        orders_this_officer = OFFICER_ORDER_COUNTS.get(officer_name, 1)
+        # Per-datasheet caps and target-type restrictions sourced from
+        # OFFICER_ORDER_PROFILES (BSData Library Astra Militarum cache).
+        # _officer_target_types raises ValueError if the officer is absent —
+        # fail loud per CLAUDE.md §13 (the import-time validation above
+        # ensures this never fires in normal usage, but guards renames).
+        orders_this_officer = OFFICER_ORDER_COUNTS[officer_name]
+        officer_types = _officer_target_types(officer_name)
 
         for _ in range(orders_this_officer):
-            # Find eligible targets within 6" of this Officer.
+            # Find eligible targets within 6" of this Officer, filtered by:
+            #   - not already ordered this round,
+            #   - within aura range,
+            #   - satisfies this Officer's per-datasheet target-type
+            #     restriction OR falls under the Flexible Command SQUADRON
+            #     widening (the two gates are OR-ed per the codex: Flexible
+            #     Command overrides, it does not replace, per-Officer limits).
             in_aura = [
-                t for t in targets
+                t for t in all_targets
                 if t.uid not in ordered_uids
                 and _distance(officer.position, t.position) <= OFFICER_AURA_RANGE
+                and _is_order_target_eligible(
+                    t,
+                    squadron_allowed=squadron_allowed,
+                    officer_target_types=officer_types,
+                )
             ]
             if not in_aura:
-                break  # no more unordered targets in aura — stop early
+                break  # no more eligible unordered targets in aura — stop early
 
             # Greedy: prioritise the target whose chosen Order has the
             # highest expected swing (cost × applicability). We use a coarse
@@ -498,6 +613,7 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
 
 __all__ = [
     "AM_OFFICER_NAMES",
+    "OFFICER_ORDER_PROFILES",
     "OFFICER_ORDER_COUNTS",
     "OFFICER_AURA_RANGE",
     "ORDER_TAKE_AIM",
@@ -505,5 +621,6 @@ __all__ = [
     "ORDER_FRFSRF",
     "ORDER_TAKE_COVER",
     "WIRED_ORDERS",
+    "_officer_target_types",
     "dispatch_orders",
 ]

@@ -8729,12 +8729,27 @@ class Battle:
             self._grant_battle_focus_tokens(army)
 
         # SOROR-DIAG-4 / SOROR-ACTS-OF-FAITH-V1 — reset each Sororitas unit's
-        # per-round Acts of Faith budget. Two-level reset:
+        # Acts of Faith budget. Two-level reset, two paths:
         #
-        # (1) Per-instance flag `aof_used_this_round`: prevents a single Unit
-        #     instance from using AoF twice in the same round. Conservative
-        #     under-approximation of the codex's "one per phase" literal
-        #     (collapses to one per round). Cited as `simulator.acts_of_faith`.
+        # (1) Per-instance flag:
+        #     Legacy path (SWEG_AOF_PER_PHASE="0"): `aof_used_this_round`
+        #       reset here, once per round. Conservative under-approximation of
+        #       the codex's "one per phase" literal. Cited as
+        #       `simulator.acts_of_faith`.
+        #     Per-phase path (SWEG_AOF_PER_PHASE unset/"1" — the production
+        #       default since wave 239; measured metric-neutral in the N=80
+        #       paired A/B and adopted on fidelity-first): `aof_used_this_phase`
+        #       NOT reset here — reset twice per round (once before the Shooting
+        #       phase, once before the Fight phase) in
+        #       `_run_round_vanilla_turns` / `_run_round_alternating`. The
+        #       codex-correct "one per phase" grant (Wahapedia verbatim: "each
+        #       unit from your army with this ability can perform one Act of
+        #       Faith per phase", https://wahapedia.ru/wh40k10ed/factions/
+        #       adepta-sororitas/). The historical reason for the conservative
+        #       cap (SOROR-DIAG-3 +14.39 pt over-performance) has been
+        #       attributed to the broken invulnerable-save mapper (fixed,
+        #       commit 299aefc) so the gate is now available. Cited as
+        #       `simulator.acts_of_faith`.
         #
         # (2) SOROR-ACTS-OF-FAITH-V1 squad-level budget (the "aof" effect of
         #     the generalized `_unit_budget_used`, squad rebuild Stage C):
@@ -8743,23 +8758,29 @@ class Battle:
         #     each model in a squad as a separate Unit object (e.g. 10 Battle
         #     Sisters models = 10 Unit instances). Without this budget, each
         #     instance could independently use AoF, giving a 10-model squad up
-        #     to 10 AoF spends per round where the codex allows only 1 (one per
-        #     codex unit). Keying by squad_id (or profile.name fallback) so all
-        #     instances of one codex unit share one budget corrects this N×
-        #     over-count. Wahapedia verbatim: "each unit from your army with
-        #     this ability can perform one Act of Faith per phase." Cited as
+        #     to 10 AoF spends per round where the codex allows only 1. Keying
+        #     by squad_id (or profile.name fallback) so all instances of one
+        #     codex unit share one budget corrects this N× over-count. Cited as
         #     `simulator.acts_of_faith`.
+        #     Legacy path: budget cleared here once per round (army._unit_budget_used = {}).
+        #     Per-phase path: budget cleared per-phase in
+        #       `_run_round_vanilla_turns` / `_run_round_alternating` (the "aof"
+        #       key is removed from _unit_budget_used before each Shooting and
+        #       Fight phase, while the other effect keys — Strands of Fate — are
+        #       left intact for the round).
+        _aof_per_phase: bool = __import__("os").environ.get("SWEG_AOF_PER_PHASE", "1") == "1"
         for army in (self.a, self.b):
             # Squad rebuild Stage C — reset the ONE generalized per-round
             # unit-budget, clearing every once-per-codex-unit-per-round effect
-            # at once. This replaces the four separate set re-creations that
-            # previously cleared Acts of Faith ("aof") and the three Strands of
-            # Fate gates ("fate_advance" / "fate_hit" / "fate_save") — clearing
-            # the dict is identical to clearing each set. The keys are still
-            # squad_id (int) when the unit has squad_id >= 0, else profile.name
-            # (str) — the task #28 squad_id re-key; the mixed int/str type is
-            # intentional and cannot collide. Cited as `simulator.acts_of_faith`
-            # (aof) and `simulator.strands_of_fate` (the three fate_* effects).
+            # at once. The keys are squad_id (int) when the unit has squad_id
+            # >= 0, else profile.name (str) — the task #28 squad_id re-key;
+            # the mixed int/str type is intentional and cannot collide. Cited
+            # as `simulator.acts_of_faith` (aof) and `simulator.strands_of_fate`
+            # (the three fate_* effects). Under the per-phase gate, the "aof"
+            # key is cleared per-phase instead (see above), so we remove only
+            # the non-aof effects here to keep Strands of Fate round-scoped.
+            # Clear the full unit budget (all per-round effects including
+            # Strands of Fate and, on the legacy path, Acts of Faith).
             army._unit_budget_used = {}
             for u in army.units:
                 if u.profile.faction == "Adepta Sororitas":
@@ -9399,6 +9420,14 @@ class Battle:
             if second_unit is not None:
                 second_activated.add(id(second_unit))
 
+            # SOROR-AOF-PER-PHASE (gate SWEG_AOF_PER_PHASE): in the
+            # alternating activation model there is no global phase boundary;
+            # each pair activates shoot then fight within one loop iteration.
+            # Approximate the per-phase rule by resetting the active pair's
+            # phase flag immediately before each sub-phase block. Byte-identical
+            # when the gate is off. Cited as `simulator.acts_of_faith`.
+            _aof_pp = __import__("os").environ.get("SWEG_AOF_PER_PHASE", "1") == "1"
+
             if self.rules.simultaneous_movement:
                 # Both units complete each sub-phase before either moves on
                 if first_unit is not None and first_unit.is_alive:
@@ -9406,6 +9435,11 @@ class Battle:
                 if second_unit is not None and second_unit.is_alive:
                     self._do_move(second_unit, second, first)
 
+                # SOROR-AOF-PER-PHASE: reset the active pair before Shoot sub-phase.
+                if _aof_pp:
+                    for _u in (first_unit, second_unit):
+                        if _u is not None and _u.profile.faction == "Adepta Sororitas":
+                            _u.aof_used_this_phase = False
                 if first_unit is not None and first_unit.is_alive:
                     self._do_shoot(first_unit, first, second)
                 if second_unit is not None and second_unit.is_alive:
@@ -9416,6 +9450,11 @@ class Battle:
                 if second_unit is not None and second_unit.is_alive:
                     self._do_charge(second_unit, second, first)
 
+                # SOROR-AOF-PER-PHASE: reset the active pair before Fight sub-phase.
+                if _aof_pp:
+                    for _u in (first_unit, second_unit):
+                        if _u is not None and _u.profile.faction == "Adepta Sororitas":
+                            _u.aof_used_this_phase = False
                 if first_unit is not None and first_unit.is_alive:
                     self._do_fight(first_unit, first, second)
                 if second_unit is not None and second_unit.is_alive:
@@ -9430,10 +9469,16 @@ class Battle:
                         continue
                     if unit.is_alive:
                         self._do_move(unit, own, foe)
+                    # SOROR-AOF-PER-PHASE: reset before Shoot sub-phase.
+                    if _aof_pp and unit.profile.faction == "Adepta Sororitas":
+                        unit.aof_used_this_phase = False
                     if unit.is_alive:
                         self._do_shoot(unit, own, foe)
                     if unit.is_alive:
                         self._do_charge(unit, own, foe)
+                    # SOROR-AOF-PER-PHASE: reset before Fight sub-phase.
+                    if _aof_pp and unit.profile.faction == "Adepta Sororitas":
+                        unit.aof_used_this_phase = False
                     if unit.is_alive:
                         self._do_fight(unit, own, foe)
 
@@ -9453,6 +9498,9 @@ class Battle:
         approximates that choice.
         """
         from .leaders import bump_buffs_generation
+        # SOROR-AOF-PER-PHASE: evaluated once per call, shared across all
+        # per-turn phase blocks below. Byte-identical when gate is off.
+        _aof_per_phase: bool = __import__("os").environ.get("SWEG_AOF_PER_PHASE", "1") == "1"
         for active, other in ((first, second), (second, first)):
             # Per-Command-phase primary scoring (wave 116, env-gated SWEG_CMDSCORE).
             # 10e scores Primary VP at the end of each player's Command phase —
@@ -9616,6 +9664,22 @@ class Battle:
             # when the gate is on.
             self._squad_fire_plan = {}
             self._squad_fire_planned = set()
+            # SOROR-AOF-PER-PHASE (gate SWEG_AOF_PER_PHASE): reset each
+            # Sororitas unit's per-phase Acts of Faith flag at the start of
+            # the Shooting phase, and clear the squad-level "aof" budget so
+            # each codex unit may spend once in this phase. No-op when the gate
+            # is off (aof_used_this_phase is never read in the legacy path, and
+            # _unit_budget_used["aof"] was already cleared at round start).
+            # Byte-identical when OFF. Cited as `simulator.acts_of_faith`.
+            if _aof_per_phase:
+                for _army in (self.a, self.b):
+                    _army._unit_budget_used.pop("aof", None)
+                    for _u in _army.units:
+                        if _u.profile.faction == "Adepta Sororitas":
+                            _u.aof_used_this_phase = False
+                    for _u in self._reserves.get(_army.name, []):
+                        if _u.profile.faction == "Adepta Sororitas":
+                            _u.aof_used_this_phase = False
             bump_buffs_generation()
             for unit in list(active.units):
                 if unit.is_alive:
@@ -9625,6 +9689,22 @@ class Battle:
                 if unit.is_alive:
                     self._do_charge(unit, active, other)
             bump_buffs_generation()
+            # SOROR-AOF-PER-PHASE (gate SWEG_AOF_PER_PHASE): reset each
+            # Sororitas unit's per-phase Acts of Faith flag at the start of
+            # the Fight phase, allowing units that spent in the Shooting phase
+            # to spend again here (codex-correct: one Act of Faith per phase).
+            # Also clears the squad-level "aof" budget for this phase.
+            # No-op when the gate is off. Byte-identical when OFF.
+            # Cited as `simulator.acts_of_faith`.
+            if _aof_per_phase:
+                for _army in (self.a, self.b):
+                    _army._unit_budget_used.pop("aof", None)
+                    for _u in _army.units:
+                        if _u.profile.faction == "Adepta Sororitas":
+                            _u.aof_used_this_phase = False
+                    for _u in self._reserves.get(_army.name, []):
+                        if _u.profile.faction == "Adepta Sororitas":
+                            _u.aof_used_this_phase = False
             # Fight phase — active player's units fight. Real 10e Fight phase
             # interleaves both players' chargers + locked units; this
             # approximates by giving the active player their full fight pass,
@@ -11237,35 +11317,27 @@ class Battle:
             return
         if defender.profile.name != "Khorne Berzerkers":
             return
-        if not defender.is_alive:
-            return  # whole unit wiped — nothing left to Surge
 
-        # "any models from this unit were destroyed" — gate on at least
-        # one full model worth of wounds lost across this shot resolution.
-        # NOTE (Issue #61): in the per-model architecture each Unit IS one
-        # model, so profile.health is the per-model wound count and the
-        # correct wounds_per_model is profile.health (not health/min_models).
-        # However, changing this formula here would break Blood Surge in
-        # per-model context: a unit that takes partial damage (< 1 full model
-        # worth) never triggers, and a dead unit is caught by the is_alive
-        # guard above. Fixing this correctly requires moving Blood Surge to a
-        # squad-level hook (trigger when any sibling unit dies). Left as a
-        # known issue; the existing pooled-health formula at least fires on
-        # chip damage, which is over-eager but not silent. See Issue #61.
-        wounds_per_model = defender.profile.health / defender.profile.min_models
-        if wounds_per_model <= 0:
-            return
-        models_before = int(health_before / wounds_per_model + 1e-9)
-        models_after = int(defender.current_health / wounds_per_model + 1e-9)
-        # Round up survivors: if you've taken any wounds into a model
-        # you've "wounded" but not "destroyed" it. Match the codex
-        # threshold: the floor of (lost_health / wpm) gives the count of
-        # destroyed models. Use floor of remaining health on both sides
-        # — if a model lost some-but-not-all wounds neither side counts
-        # that as destruction.
-        lost_health = max(0.0, health_before - defender.current_health)
-        models_destroyed = int(lost_health / wounds_per_model + 1e-9)
-        if models_destroyed < 1:
+        # "any models from this unit were destroyed as a result of those
+        # attacks" — per-model representation fix (Issue #61).
+        #
+        # In the per-model architecture each Unit IS one physical model, so
+        # the correct detection is whether THIS specific model unit
+        # transitioned from alive to dead as a result of the shot just
+        # resolved.  The old pooled-health formula
+        # (wounds_per_model = profile.health / profile.min_models) produced
+        # wounds_per_model = 2 / 10 = 0.2 for a Khorne Berzerker, causing
+        # Blood Surge to fire on any chip damage (lost_health >= 0.2) rather
+        # than only on a model death.  The old `is_alive` guard placed above
+        # this block also suppressed the surge when the targeted model died,
+        # because a dead Unit reports is_alive = False.  Both errors are
+        # corrected here: we detect the alive→dead transition directly.
+        #
+        # If the whole squad was wiped (all siblings also dead), the
+        # _surge_squad list below will be empty and the movement loop is a
+        # no-op — no explicit guard needed.
+        model_destroyed = (health_before > 1e-9) and (not defender.is_alive)
+        if not model_destroyed:
             return
 
         # task #28 squad_id re-key: collect ALL alive squad siblings so they
@@ -11279,8 +11351,14 @@ class Battle:
                 if getattr(u, "squad_id", -1) == _defender_squad_id
             ]
         else:
-            # Lone model or no army reference — move only the targeted model.
-            _surge_squad = [defender]
+            # Lone model or no army reference — the targeted model itself was
+            # the only one and it is now dead, so nothing to move.
+            _surge_squad = []
+
+        # If no models survived (whole squad wiped in this shot) there is
+        # nothing to move — bail out before spending time on enemy lookup.
+        if not _surge_squad:
+            return
 
         # Pick nearest enemy unit (from the shooting army — those are the
         # "closest enemy" units from the Berzerkers' perspective at the
@@ -11296,7 +11374,7 @@ class Battle:
         # Use the first squad member's position as the squad's reference point
         # for finding the nearest enemy (consistent regardless of straggler
         # positions after coherency drift).
-        ref_pos = _surge_squad[0].position if _surge_squad else defender.position
+        ref_pos = _surge_squad[0].position
         nearest = min(enemy_pool, key=lambda e: _distance(ref_pos, e.position))
         gap = _distance(ref_pos, nearest.position)
         if gap <= 0:
