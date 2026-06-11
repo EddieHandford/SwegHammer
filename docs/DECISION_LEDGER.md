@@ -60,6 +60,7 @@ first.
 - Primary-mission rotation as the over-pole lever — wave 187, REFUTED.
 
 ## PARKED (not pursued now; needs NEW information to reopen — the line says what would reopen it)
+- Displacement Stage 2 swarm charge-to-contest (`SWEG_DISPLACE_SWARM`, default-OFF) — wave 238/239 N=80 paired A/B vs the 5.83 anchor: +0.07 WASH MISSING ITS TARGET (Adeptus Custodes −0.05 flat, Imperial Knights +0.83 wrong-direction; ~100 body-army flips = fires-but-churns). Code + tests kept (`724252e`); reopen for a paired re-test after a body-army composition change (e.g. the Chaos Space Marines real-list archetype reshape). See [[project-displacement-greenlit]].
 - Candidate B AI massing body-armies onto markers (`SWEG_MASS`) — expected wash; if it washes, report as a one-Unit-per-model representation limit and STOP chasing it (no knob/nerf). See [[project-matchup-fidelity-diagnosis]].
 - Imperial Knights / Daemons positional residual — likely a one-Unit-per-model representation limit; reopen only with a representation change, never a knob. See [[project-oc-contest-faithful]].
 - Stage 2 (equation fit) outputs — provisional until Stage 1 converges; `calibrated_points` / `equilibrium_points` are redo-able, do not treat as final.

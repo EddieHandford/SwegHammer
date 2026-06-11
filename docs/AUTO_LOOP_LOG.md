@@ -31,8 +31,14 @@ the contest decision sums the FULL CLUSTER's stacked objective control on both s
 at least tie the defending cluster contributes zero contest value (no-suicidal-feed); the score injection
 mirrors the tarpit-pin pattern. Six tests green. Cherry-picked onto the calibration branch as `724252e`;
 full suite + citation audit + demo validation, then the paired eighty-battle A/B
-(`SWEG_DISPLACE_SWARM=1` versus the 5.83 anchor) — IN FLIGHT at wave close. Targets the Adeptus
-Custodes / Imperial Knights over-hold.
+(`SWEG_DISPLACE_SWARM=1` versus the 5.83 anchor) — RESULT (early wave 239): gated 5.83 → 5.90
+(+0.07), a **wash missing its target**. Adeptus Custodes −0.05 (flat) and Imperial Knights +0.83
+(wrong direction) — the two factions the mechanic was built for did not move toward target — while
+the decisive movers were elsewhere: Adeptus Astartes −1.06 toward target, Astra Militarum −0.83 and
+Chaos Knights −1.21 away. Roughly one hundred flipped games concentrated in body-army factions: the
+mechanic fires but churns outcomes rather than converting the over-hold. **PARKED default-OFF** per
+the displacement plan — code and tests kept (`724252e`); re-test candidate once the Chaos Space
+Marines archetype reshape changes body-army composition.
 
 **4. Simulator modularization Stage A shipped for review.** On the user's explicit go, pull request 71
 opened: `code/sim/constants.py` + `code/sim/geometry.py` extracted from `code/simulator.py` by pure code
