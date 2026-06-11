@@ -467,6 +467,183 @@ class TestOfficerOrderCountsValidation(unittest.TestCase):
             "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Lord-Solar-Leontus)",
         )
 
+    def test_ursula_creed_count_is_three(self) -> None:
+        """Structural smoke test: Ursula Creed encodes the sourced count of 3.
+
+        Verbatim source (BSData Library Astra Militarum cat.gz,
+        unit id b6b2-9971-ec0c-349e, Orders profile id 85b7-65b8-1961-50ee):
+            'This OFFICER can issue up to 3 Orders to REGIMENT units.'
+        """
+        self.assertEqual(
+            OFFICER_ORDER_COUNTS.get("Ursula Creed"), 3,
+            "OFFICER_ORDER_COUNTS['Ursula Creed'] must be 3 per her datasheet "
+            "Orders profile (BSData cat.gz id 85b7-65b8-1961-50ee)",
+        )
+
+    def test_lord_marshal_dreir_count_is_three(self) -> None:
+        """Structural smoke test: Lord Marshal Dreir encodes the sourced count of 3.
+
+        Verbatim source (BSData Library Astra Militarum cat.gz,
+        unit id 9033-d07c-3e1c-f6f0, Orders profile id c4eb-5868-02ac-efe3):
+            'This OFFICER can issue up to 3 Orders to REGIMENT units'
+        """
+        self.assertEqual(
+            OFFICER_ORDER_COUNTS.get("Lord Marshal Dreir"), 3,
+            "OFFICER_ORDER_COUNTS['Lord Marshal Dreir'] must be 3 per his datasheet "
+            "Orders profile (BSData cat.gz id c4eb-5868-02ac-efe3)",
+        )
+
+    def test_front_line_commander_crucible_count_is_two(self) -> None:
+        """Structural smoke test: Front-line Commander [Crucible] encodes the sourced count of 2.
+
+        Verbatim source (BSData Library Astra Militarum cat.gz,
+        unit id 4fc5-184d-b305-3551, Orders profile id 467f-baf9-5dfd-0f3f):
+            'This OFFICER can issue up to 2 Orders to REGIMENT units.'
+        """
+        self.assertEqual(
+            OFFICER_ORDER_COUNTS.get("Front-line Commander [Crucible]"), 2,
+            "OFFICER_ORDER_COUNTS['Front-line Commander [Crucible]'] must be 2 per "
+            "the datasheet Orders profile (BSData cat.gz id 467f-baf9-5dfd-0f3f)",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Test group 7: Dispatch behaviour for new non-1 officers
+# ---------------------------------------------------------------------------
+
+class TestUrsulaCreedOrderCount(unittest.TestCase):
+    """Ursula Creed issues exactly 3 Orders in one Command phase.
+
+    Verbatim source (BSData Library Astra Militarum cat.gz,
+    unit id b6b2-9971-ec0c-349e, Orders profile id 85b7-65b8-1961-50ee):
+        'This OFFICER can issue up to 3 Orders to REGIMENT units.'
+    """
+
+    def test_ursula_creed_issues_three_orders(self) -> None:
+        """With 4 eligible targets, Ursula Creed issues exactly 3 Orders."""
+        army = _build_army_with_officer_and_targets(
+            "Ursula Creed", n_targets=4
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 3,
+            f"Ursula Creed must issue exactly 3 Orders per her datasheet; "
+            f"got {len(issued)}: {issued}",
+        )
+
+    def test_ursula_creed_cap_with_fewer_targets(self) -> None:
+        """With only 2 eligible targets, Ursula Creed issues 2 Orders
+        (the cap is a maximum, not a minimum)."""
+        army = _build_army_with_officer_and_targets(
+            "Ursula Creed", n_targets=2
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 2,
+            f"Ursula Creed must issue min(3, available targets) Orders; "
+            f"got {len(issued)} with 2 targets",
+        )
+
+
+class TestLordMarshalDreirOrderCount(unittest.TestCase):
+    """Lord Marshal Dreir issues exactly 3 Orders in one Command phase.
+
+    Verbatim source (BSData Library Astra Militarum cat.gz,
+    unit id 9033-d07c-3e1c-f6f0, Orders profile id c4eb-5868-02ac-efe3):
+        'This OFFICER can issue up to 3 Orders to REGIMENT units'
+    """
+
+    def test_lord_marshal_dreir_issues_three_orders(self) -> None:
+        """With 4 eligible targets, Lord Marshal Dreir issues exactly 3 Orders."""
+        army = _build_army_with_officer_and_targets(
+            "Lord Marshal Dreir", n_targets=4
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 3,
+            f"Lord Marshal Dreir must issue exactly 3 Orders per his datasheet; "
+            f"got {len(issued)}: {issued}",
+        )
+
+    def test_lord_marshal_dreir_cap_with_fewer_targets(self) -> None:
+        """With only 1 eligible target, Lord Marshal Dreir issues 1 Order."""
+        army = _build_army_with_officer_and_targets(
+            "Lord Marshal Dreir", n_targets=1
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 1,
+            f"Lord Marshal Dreir must issue min(3, available targets) Orders; "
+            f"got {len(issued)} with 1 target",
+        )
+
+
+class TestFrontLineCommanderCrucibleOrderCount(unittest.TestCase):
+    """Front-line Commander [Crucible] issues exactly 2 Orders in one Command phase.
+
+    Verbatim source (BSData Library Astra Militarum cat.gz,
+    unit id 4fc5-184d-b305-3551, Orders profile id 467f-baf9-5dfd-0f3f):
+        'This OFFICER can issue up to 2 Orders to REGIMENT units.'
+    """
+
+    def test_front_line_commander_issues_two_orders(self) -> None:
+        """With 4 eligible targets, Front-line Commander issues exactly 2 Orders."""
+        army = _build_army_with_officer_and_targets(
+            "Front-line Commander [Crucible]", n_targets=4
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 2,
+            f"Front-line Commander [Crucible] must issue exactly 2 Orders per "
+            f"the datasheet; got {len(issued)}: {issued}",
+        )
+
+    def test_front_line_commander_cap_with_one_target(self) -> None:
+        """With only 1 eligible target, Front-line Commander issues 1 Order
+        (the cap is a maximum, not a minimum)."""
+        army = _build_army_with_officer_and_targets(
+            "Front-line Commander [Crucible]", n_targets=1
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 1,
+            f"Front-line Commander [Crucible] must issue min(2, available targets) "
+            f"Orders; got {len(issued)} with 1 target",
+        )
+
+
+class TestDefaultOfficerStillIssuesOne(unittest.TestCase):
+    """Regression: officers not listed in OFFICER_ORDER_COUNTS still issue exactly 1
+    Order per Command phase (the Voice of Command army rule default).
+
+    This class covers officers that are registered in AM_OFFICER_NAMES but absent
+    from OFFICER_ORDER_COUNTS — they must not gain extra Orders from the new entries.
+    """
+
+    def test_cadian_command_squad_issues_one_order(self) -> None:
+        """Cadian Command Squad is not in OFFICER_ORDER_COUNTS; must issue 1 Order."""
+        army = _build_army_with_officer_and_targets(
+            "Cadian Command Squad", n_targets=4
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 1,
+            f"Cadian Command Squad must issue exactly 1 Order (default); "
+            f"got {len(issued)}: {issued}",
+        )
+
+    def test_krieg_command_squad_issues_one_order(self) -> None:
+        """Krieg Command Squad is not in OFFICER_ORDER_COUNTS; must issue 1 Order."""
+        army = _build_army_with_officer_and_targets(
+            "Krieg Command Squad", n_targets=4
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 1,
+            f"Krieg Command Squad must issue exactly 1 Order (default); "
+            f"got {len(issued)}: {issued}",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

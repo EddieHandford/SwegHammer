@@ -154,15 +154,53 @@ AM_OFFICER_NAMES: frozenset = frozenset({
 # for every officer not listed here is 1 Order per round as documented in
 # dispatch_orders below.
 #
+# NOTE on target-type eligibility (OUT OF SCOPE, wave 236+):
+# The codex restricts each Officer to a specific set of target keywords
+# (REGIMENT, SQUADRON, TITANIC). Per-Officer target-type enforcement is a
+# separate queued item; for now the dispatcher uses the army-wide target
+# pool (AM BATTLELINE INFANTRY ± SQUADRON via Flexible Command). The
+# comments below record the codex-verbatim target types for when that
+# enforcement is built.
+#
 # Lord Solar Leontus: "This OFFICER can issue up to 3 Orders to: REGIMENT
 # units, SQUADRON units, TITANIC units." — BSData Library Astra Militarum
-# cat.gz (id a9d-55c1-3d24-fa25, Orders profile id 4768-11ce-3c8b-3ce4),
+# cat.gz (unit id a9d-55c1-3d24-fa25, Orders profile id 4768-11ce-3c8b-3ce4),
 # cross-checked Wahapedia https://wahapedia.ru/wh40k10ed/factions/
 # astra-militarum/Lord-Solar-Leontus (both sources verbatim-identical, no
 # conflict). Cited as simulator.voice_of_command_orders in
 # data/rule_citations.d/astra_militarum.json.
+# Target types: REGIMENT, SQUADRON, TITANIC.
+#
+# Ursula Creed: "This OFFICER can issue up to 3 Orders to REGIMENT units."
+# — BSData Library Astra Militarum cat.gz (unit id b6b2-9971-ec0c-349e,
+# Orders profile id 85b7-65b8-1961-50ee). Cited as
+# simulator.officer_order_counts.Ursula_Creed in
+# data/rule_citations.d/astra_militarum.json.
+# Target types: REGIMENT only.
+#
+# Lord Marshal Dreir: "This OFFICER can issue up to 3 Orders to REGIMENT
+# units" — BSData Library Astra Militarum cat.gz (unit id
+# 9033-d07c-3e1c-f6f0, Orders profile id c4eb-5868-02ac-efe3). Cited as
+# simulator.officer_order_counts.Lord_Marshal_Dreir in
+# data/rule_citations.d/astra_militarum.json.
+# Target types: REGIMENT only.
+#
+# Front-line Commander [Crucible]: "This OFFICER can issue up to 2 Orders
+# to REGIMENT units." — BSData Library Astra Militarum cat.gz (unit id
+# 4fc5-184d-b305-3551, Orders profile id 467f-baf9-5dfd-0f3f). Cited as
+# simulator.officer_order_counts.Front_line_Commander_Crucible in
+# data/rule_citations.d/astra_militarum.json.
+# Target types: REGIMENT only.
+#
+# Officers at count == 1 (the default) are NOT listed here:
+#   Cadian Castellan, Cadian Command Squad, Militarum Tempestus Command Squad,
+#   Krieg Command Squad, Catachan Command Squad, Leman Russ Commander,
+#   Rogal Dorn Commander, Sentinel Commander [Crucible] (1 Order to SQUADRON).
 OFFICER_ORDER_COUNTS: dict = {
-    "Lord Solar Leontus": 3,
+    "Lord Solar Leontus": 3,   # targets: REGIMENT, SQUADRON, TITANIC
+    "Ursula Creed": 3,          # targets: REGIMENT only
+    "Lord Marshal Dreir": 3,    # targets: REGIMENT only
+    "Front-line Commander [Crucible]": 2,  # targets: REGIMENT only
 }
 
 # Import-time validation: every key in OFFICER_ORDER_COUNTS must name a

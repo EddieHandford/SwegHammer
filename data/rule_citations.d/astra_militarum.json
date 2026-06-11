@@ -31,6 +31,36 @@
     "approximation": false
   },
 
+  "simulator.officer_order_counts.Ursula_Creed": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Imperium%20-%20Astra%20Militarum%20-%20Library.cat (unit id b6b2-9971-ec0c-349e, Orders profile id 85b7-65b8-1961-50ee; cross-checked from local cache data/bsdata/cache/Imperium - Astra Militarum - Library.cat.gz)",
+    "rule_name": "Ursula Creed Orders profile (Astra Militarum datasheet)",
+    "quoted_text": "This OFFICER can issue up to 3 Orders to REGIMENT units.",
+    "trigger": "Ursula Creed is alive, non-Battle-shocked, and acting as an Order-issuing OFFICER in the Command phase",
+    "effect": "Ursula Creed issues up to 3 Orders per Command phase (not 1). Encoded in `code.orders.OFFICER_ORDER_COUNTS[\"Ursula Creed\"] = 3`. Target-type restriction (REGIMENT only) is noted but not yet enforced — per-Officer target-type enforcement is a separate queued item; the dispatcher uses the army-wide AM BATTLELINE INFANTRY pool.",
+    "scope": "character-only",
+    "approximation": false
+  },
+
+  "simulator.officer_order_counts.Lord_Marshal_Dreir": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Imperium%20-%20Astra%20Militarum%20-%20Library.cat (unit id 9033-d07c-3e1c-f6f0, Orders profile id c4eb-5868-02ac-efe3; cross-checked from local cache data/bsdata/cache/Imperium - Astra Militarum - Library.cat.gz)",
+    "rule_name": "Lord Marshal Dreir Orders profile (Astra Militarum datasheet)",
+    "quoted_text": "This OFFICER can issue up to 3 Orders to REGIMENT units",
+    "trigger": "Lord Marshal Dreir is alive, non-Battle-shocked, and acting as an Order-issuing OFFICER in the Command phase",
+    "effect": "Lord Marshal Dreir issues up to 3 Orders per Command phase (not 1). Encoded in `code.orders.OFFICER_ORDER_COUNTS[\"Lord Marshal Dreir\"] = 3`. Target-type restriction (REGIMENT only) is noted but not yet enforced — per-Officer target-type enforcement is a separate queued item; the dispatcher uses the army-wide AM BATTLELINE INFANTRY pool.",
+    "scope": "character-only",
+    "approximation": false
+  },
+
+  "simulator.officer_order_counts.Front_line_Commander_Crucible": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Imperium%20-%20Astra%20Militarum%20-%20Library.cat (unit id 4fc5-184d-b305-3551, Orders profile id 467f-baf9-5dfd-0f3f; cross-checked from local cache data/bsdata/cache/Imperium - Astra Militarum - Library.cat.gz)",
+    "rule_name": "Front-line Commander [Crucible] Orders profile (Astra Militarum datasheet)",
+    "quoted_text": "This OFFICER can issue up to 2 Orders to REGIMENT units.",
+    "trigger": "Front-line Commander [Crucible] is alive, non-Battle-shocked, and acting as an Order-issuing OFFICER in the Command phase",
+    "effect": "Front-line Commander [Crucible] issues up to 2 Orders per Command phase (not 1). Encoded in `code.orders.OFFICER_ORDER_COUNTS[\"Front-line Commander [Crucible]\"] = 2`. Target-type restriction (REGIMENT only) is noted but not yet enforced — per-Officer target-type enforcement is a separate queued item; the dispatcher uses the army-wide AM BATTLELINE INFANTRY pool.",
+    "scope": "character-only",
+    "approximation": false
+  },
+
   "Order.Take Aim!": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Take Aim! (Astra Militarum Order)",
