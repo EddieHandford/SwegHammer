@@ -693,7 +693,19 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # halved to model real per-round attrition). Wahapedia:
     # https://wahapedia.ru/wh40k10ed/factions/aeldari/The-Yncarne
     ("The Yncarne",        LeaderAbility(name="Ethereal Form",              aura_range=6.0, heal_per_round=1)),
-    ("Farseer",            LeaderAbility(name="Runes of Fate",              aura_range=6.0, reroll_wound_ones=True, host_keys=_AELDARI_GUARDIAN_HOSTS)),
+    # Farseer — Branching Fates (Psychic) is a once-per-phase set-one-roll-
+    # to-6 ability (Wahapedia: "While this model is leading a unit, once per
+    # phase, you can change the result of one Hit roll, one Wound roll or one
+    # Damage roll made for a model in that unit (excluding SUPPORT WEAPON
+    # models) to an unmodified 6." BSData v10.6.0, Aeldari - Aeldari
+    # Library.cat.gz, ability id 1db8-859e-c4c7-d8b2). The simulator has no
+    # once-per-phase set-roll-to-6 leader hook — the prior reroll_wound_ones=True
+    # flag was a loose stand-in with no codex support for an always-on aura.
+    # wave 236 drops the proxy (same standard as Autarch iter21 / Avatar iter21
+    # / Necron Overlord iter20). Registry entry retained (host_keys kept for
+    # is_actually_led gating). Will return as a once-per-phase set-to-6
+    # modifier once the leader-hook layer gains that capability.
+    ("Farseer",            LeaderAbility(name="Runes of Fate",              aura_range=6.0,                          host_keys=_AELDARI_GUARDIAN_HOSTS)),
     # Autarch — Path of Command is a once-per-round Stratagem CP-discount
     # ability, IDENTICAL in pattern to Necron Overlord "My Will Be Done"
     # (which iter20 audited and dropped the +1-to-hit proxy from). iter21

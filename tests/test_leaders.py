@@ -192,8 +192,9 @@ class ExpandedRegistryTests(unittest.TestCase):
     # a movement-phase buff). Both registry entries are kept but with no
     # offensive flags; see AeldariFabricationLockInTests below.
     NEW_LEADERS = (
-        # Aeldari
-        ("Farseer",                 "reroll_wound_ones"),
+        # Aeldari — Farseer reroll_wound_ones removed in wave 236 (Branching Fates
+        # is once-per-phase set-one-roll-to-6, not an always-on wound-reroll aura).
+        # Absence locked in AeldariFabricationLockInTests.test_farseer_has_no_wound_reroll.
         # T'au — Ethereal Failure Is Not an Option grants FNP 5+ (defensive)
         ("Ethereal",                "fnp"),
         # NOTE: the "Commander in <variant> Battlesuit" Coordinated Fire Plan
@@ -811,6 +812,26 @@ class AeldariFabricationLockInTests(unittest.TestCase):
         buffs = effective_buffs(army.units[0])
         self.assertFalse(buffs["plus_one_to_hit"])
         self.assertFalse(buffs["reroll_hit_ones"])
+
+    def test_farseer_has_no_wound_reroll(self):
+        """wave 236 fab audit: Branching Fates is once-per-phase set-one-roll-to-6,
+        NOT an always-on wound-reroll aura. reroll_wound_ones must be absent."""
+        ab = lookup_ability("Farseer")
+        self.assertIsNotNone(ab, "Farseer entry must remain in the registry")
+        self.assertFalse(
+            ab.reroll_wound_ones,
+            "Farseer reroll_wound_ones was a fabricated always-on proxy — "
+            "wave 236 audit removed it; the real Branching Fates is a "
+            "once-per-phase set-one-roll-to-6 ability with no simulator field",
+        )
+        # All other offensive flags must also be off.
+        self.assertFalse(ab.plus_one_to_hit)
+        self.assertFalse(ab.plus_one_to_wound)
+        self.assertFalse(ab.reroll_hit_ones)
+        self.assertEqual(ab.plus_one_attack, 0)
+        # Registry entry must be retained (host_keys gating still needed).
+        self.assertEqual(ab.aura_range, 6.0)
+
 # ---------------------------------------------------------------------------
 # iter21 fabrication-audit lock-ins — Marines leader aura proxies
 # ---------------------------------------------------------------------------
