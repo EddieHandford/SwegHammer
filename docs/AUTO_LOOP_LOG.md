@@ -4,7 +4,7 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
-## Wave 241 (2026-06-11) — CRITICAL FIX: the wave-240 charge placement shipped without its measurement half, structurally disabling melee under the adopted default; the gate-aware Engagement Range measure now lands everywhere, and the 5.13 anchor is declared INVALID pending a fresh re-anchor.
+## Wave 241 (2026-06-11, CLOSED) — CRITICAL FIX landed: the wave-240 charge placement shipped without its measurement half, structurally disabling melee under the adopted default; the gate-aware Engagement Range measure now lands everywhere; honest re-anchor gated 6.38 (the +1.30 versus the last honest frame is the cost of melee actually working).
 
 **1. The bug (caught by a new one-question diagnostic, not by the metric).** `scripts/diag_fightgate_check.py`
 (now registered in the analysis toolbox) asks: does a successful charge ever produce a melee swing
@@ -53,6 +53,36 @@ harvest already landed on this branch before the fix (Strands charge write-back,
 heal, the Chaos Space Marines and Aeldari archetype reshapes, the movement-event sweep — commits
 `97255b9` through `e82951a`), so the one re-anchor covers the harvest and the fight fix together;
 the two reshapes are frame changes that required a fresh anchor regardless.
+
+**5. Honest re-anchor landed: gated 6.38 (raw 9.88, 4/22 in band) — NEW STANDING ANCHOR
+`data/_anchor_sc9a_n80_log.json`.** The paired decomposition against the last honest frame
+(`_anchor_sc8b_n80_log.json`, gated 5.08 — pre-collision-adoption, melee intact) attributes the
++1.30 cleanly: **every melee faction rises decisively now that charges actually connect** (Chaos
+Space Marines +17.31, Chaos Daemons +13.00, Death Guard +12.58, World Eaters +12.47, Grey Knights
++9.70, Adeptus Custodes +8.63, Emperor's Children +7.25, Thousand Sons +6.69) while shooty
+factions give back wins they were taking from melee armies whose melee never fired (T'au −14.80,
+Aeldari −9.46, Leagues of Votann −5.65, Adeptus Mechanicus −4.74, Adeptus Astartes −3.56). The
+wave-240/241 fidelity work hit its targets on the honest frame: **Chaos Space Marines gated
+21.28 → 0.00 in band** (the archetype reshape), **Adepta Sororitas in band** (Bringers of Flame
+survives honestly), **Aeldari gated 2.39** (reshape + Strands + Yncarne, as diagnosed). The
+broken-melee frame's apparent Astra Militarum windfall was bug-flattered — the faction is back to
+**17.48 gated under** (sim 24.6 versus real 45.3), and the exposed melee over-poles are the new
+lever surface: **Adeptus Custodes 21.56, World Eaters 15.07, Death Guard 14.02, Imperial Knights
+10.61, Necrons 9.56, Emperor's Children 9.50, Chaos Daemons 9.10**. Headline rising for a faithful
+mechanic is expected and authorised (fidelity-first); the simulator is more correct at 6.38 than
+it was at 5.08.
+
+**Checkpoint shipped:** pull request 73 opened on the user's explicit go (waves 240-241,
+rolling-branch checkpoint pattern, size caveat and the 5.13 invalidation stated in the
+description); continuation branch `claude/sim-calibration-9` rolled off the checkpoint head
+`d66a251` per the merge-wait-must-not-bottleneck directive — wave 242 lands there.
+
+**NEXT (wave 242) on the new anchor:** (1) Adeptus Custodes 21.56 over — the elite board-control
+residual, now amplified by working melee; (2) Astra Militarum 17.48 under — the banked structural
+displacement diagnosis, no longer masked; (3) the melee over-pole cluster (World Eaters 15.07,
+Death Guard 14.02, Chaos Daemons 9.10) — first question is whether base-edge placement plus
+working melee now over-rates charge reach or fight output systemically (one mechanic, many
+factions) before any per-faction work.
 
 ## Wave 240 (2026-06-11, in progress) — first workflow-orchestrated agenda wave: five builds landed with adversarial per-commit review on `claude/sim-calibration-8`; checkpoint pull request 72 merged by Ed and folded; review fixes applied; measurement frames queued. **[Wave-241 correction: the collision-pair confirm and the 5.13 anchor below were measured on broken melee — see the wave-241 block above.]**
 
