@@ -7004,6 +7004,7 @@ class Battle:
         army.cult_ambush_resurgence_points -= 3
         revived.current_health = revived.profile.health
         revived.position = landing_pos
+        self._emit(UnitDeepStrike(unit_uid=revived.uid, position=landing_pos))
         revived.cult_ambush_revived = True
         # Reset transient combat flags that may have stuck on death.
         revived.moved_this_round = True   # skips movement sub-phase
@@ -7894,6 +7895,7 @@ class Battle:
                 # eventual disembark have a real position to work from.
                 for passenger in list(getattr(u, "passengers", [])):
                     passenger.position = pos
+                    self._emit(UnitDeepStrike(unit_uid=passenger.uid, position=pos))
                     army._add_live_unit(passenger)
                     self._fresh_arrivals.add(passenger.uid)
             # Passengers whose transport stayed in reserves stay in reserves
@@ -10117,7 +10119,13 @@ class Battle:
             ny = max(0.0, min(self.map.height, fy + side * py * step))
             if self.map.is_blocked((nx, ny)):
                 continue
+            _lane_old_pos = f.position
             f.position = (nx, ny)
+            self._emit(UnitMoved(
+                unit_uid=f.uid,
+                from_pos=_lane_old_pos,
+                to_pos=(nx, ny),
+            ))
 
     def _ring_slots(self, obj, n: int) -> list:
         """Reusable coordination primitive (avenue-2 note A): `n` DISTINCT positions in
@@ -11546,6 +11554,12 @@ class Battle:
             new_pos = _move_toward(old_pos, nearest.position, travel, self.map,
                                    **self._collision_kwargs(_surging_model, allow_engagement=True))
             _surging_model.position = new_pos
+            if new_pos != old_pos:
+                self._emit(UnitMoved(
+                    unit_uid=_surging_model.uid,
+                    from_pos=old_pos,
+                    to_pos=new_pos,
+                ))
             if self.verbose:
                 print(
                     f"  [Blood Surge] {_surging_model.profile.name} ({_surging_model.uid}) "
@@ -12045,10 +12059,19 @@ class Battle:
         # of `_collision_kwargs`. NO RNG is consumed on either path (the gated
         # search is fixed-step deterministic geometry), so the gate-OFF arm stays
         # byte-identical and even the gate-ON arm draws no extra random numbers.
+        # Telemetry (wave 239 movement-event sweep): the charge displacement
+        # must be emitted as a UnitMoved so the replay viewer never sees a
+        # silent position change — applied inside BOTH placement branches.
+        _charge_old_pos = attacker.position
         if os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1":
             new_pos = self._charge_baseedge_end(attacker, target, dist)
             if not self.map.is_blocked(new_pos):
                 attacker.position = new_pos
+                self._emit(UnitMoved(
+                    unit_uid=attacker.uid,
+                    from_pos=_charge_old_pos,
+                    to_pos=new_pos,
+                ))
         else:
             dx = target.position[0] - attacker.position[0]
             dy = target.position[1] - attacker.position[1]
@@ -12059,6 +12082,11 @@ class Battle:
             )
             if not self.map.is_blocked(new_pos):
                 attacker.position = new_pos
+                self._emit(UnitMoved(
+                    unit_uid=attacker.uid,
+                    from_pos=_charge_old_pos,
+                    to_pos=new_pos,
+                ))
         self._charging_this_round.add(attacker.uid)
         self._emit(UnitCharged(
             unit_uid=attacker.uid, target_uid=target.uid,
@@ -12189,6 +12217,7 @@ class Battle:
         )
         pre_engaged = _distance(attacker.position, nearest_pre.position) <= 1.0
         is_charging_this_turn = attacker.uid in self._charging_this_round
+        _pile_old_pos = attacker.position
         if (
             (pre_engaged or is_charging_this_turn)
             and not self.map.is_blocked(attacker.position)
@@ -12199,6 +12228,12 @@ class Battle:
             )
             if not self.map.is_blocked(new_pos):
                 attacker.position = new_pos
+                if new_pos != _pile_old_pos:
+                    self._emit(UnitMoved(
+                        unit_uid=attacker.uid,
+                        from_pos=_pile_old_pos,
+                        to_pos=new_pos,
+                    ))
 
         # #C1 (auto-loop iter1): pick the engagement-range candidate with
         # the highest `_melee_target_score` rather than the geometrically
@@ -12288,6 +12323,7 @@ class Battle:
         # primary objective. The "no enemies within 3" of the end position"
         # condition in the 10e rule text is trivially satisfied when the
         # entire defending force has been destroyed.
+        _consol_old_pos = attacker.position
         if attacker.is_alive and not self.map.is_blocked(attacker.position):
             remaining = defender_army.alive_units
             if remaining:
@@ -12303,6 +12339,12 @@ class Battle:
                 )
                 if not self.map.is_blocked(new_pos):
                     attacker.position = new_pos
+                    if new_pos != _consol_old_pos:
+                        self._emit(UnitMoved(
+                            unit_uid=attacker.uid,
+                            from_pos=_consol_old_pos,
+                            to_pos=new_pos,
+                        ))
             elif self.map.objectives:
                 # Objective path: combat cleared, no surviving enemies —
                 # move toward nearest objective marker if the move would
@@ -12322,6 +12364,12 @@ class Battle:
                     and _distance(move_end, obj_pos) <= nearest_obj.control_radius
                 ):
                     attacker.position = move_end
+                    if move_end != _consol_old_pos:
+                        self._emit(UnitMoved(
+                            unit_uid=attacker.uid,
+                            from_pos=_consol_old_pos,
+                            to_pos=move_end,
+                        ))
 
     # ------------------------------------------------------------------
     # Helpers
@@ -13004,7 +13052,13 @@ class Battle:
                 break
         if placed is None:
             placed = transport.position
+        _disembark_old_pos = passenger.position
         passenger.position = placed
+        self._emit(UnitMoved(
+            unit_uid=passenger.uid,
+            from_pos=_disembark_old_pos,
+            to_pos=placed,
+        ))
         passenger.embarked_in = None
         if passenger in transport.passengers:
             transport.passengers.remove(passenger)
