@@ -4494,10 +4494,11 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     # ----- ST-2 wave 3 — one stratagem per under-performing faction -----
 
     if name == "Apoplectic Frenzy":
-        # ctx: {"attacker": Unit, "target": Unit}. 1 CP melee offensive
-        # uplift for a WORLD EATERS unit. Fire when a high-DPA WE melee
-        # unit has a HEAVY-class target — same gate as other melee-uplift
-        # stratagems (Big Krumpin' / Profane Zeal pattern).
+        # ctx: {"attacker": Unit, "target": Unit}. 1 CP advance-and-charge
+        # delivery enabler for a WORLD EATERS unit (the unit becomes
+        # eligible to charge in a turn it Advanced). Fire when a high-DPA
+        # WE melee unit has a HEAVY-class target worth delivering into —
+        # the gate keeps the spend on units whose charge actually matters.
         attacker = ctx.get("attacker")
         target = ctx.get("target")
         if attacker is None or target is None:
@@ -4554,7 +4555,8 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
 
     if name == "Profane Zeal":
         # ctx: {"attacker": Unit, "target": Unit}. 1 CP melee +1-to-wound
-        # uplift on a CSM unit. Same shape as Apoplectic Frenzy.
+        # uplift on a CSM unit. Same melee-DPA/heavy-target gate shape as
+        # Apoplectic Frenzy (the effects differ — this one is a wound buff).
         attacker = ctx.get("attacker")
         target = ctx.get("target")
         if attacker is None or target is None:

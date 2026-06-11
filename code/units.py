@@ -890,6 +890,13 @@ class Unit:
         #   transient_assault_this_round — Feigned Retreat (Warhost), Strike
         #       Swiftly (T'au Mont'ka). Movement buff: unit may shoot in the
         #       same round it advanced.
+        #   transient_charge_after_advance — Apoplectic Frenzy (Berzerker
+        #       Warband, wave 235). Movement buff: unit is eligible to declare
+        #       a charge in a round it Advanced (the [LETHAL HITS] reading was
+        #       a fabricated paraphrase — the verbatim rule is advance-and-
+        #       charge). Consumed by Battle._do_charge as an exemption from
+        #       the _advanced_this_round lockout, parallel to Gladius Assault
+        #       Doctrine and Murderer's Cowl, but transient (one round).
         # Awakened Dynasty (Necrons):
         #   transient_fnp_5 — (legacy slot, retained for stable layout) was
         #       Implacable Onslaught, deleted in the fabrication audit. Now
@@ -912,6 +919,7 @@ class Unit:
         "transient_plus_one_save",
         "transient_reroll_hits_shooting",
         "transient_assault_this_round",
+        "transient_charge_after_advance",
         "transient_fnp_5",
         "transient_plus_one_to_hit_shooting",
         "transient_halve_damage",
@@ -1117,6 +1125,7 @@ class Unit:
         self.transient_plus_one_save: bool = False
         self.transient_reroll_hits_shooting: bool = False
         self.transient_assault_this_round: bool = False
+        self.transient_charge_after_advance: bool = False
         # Awakened Dynasty (Necrons) per-round stratagem flags.
         self.transient_fnp_5: bool = False
         self.transient_plus_one_to_hit_shooting: bool = False

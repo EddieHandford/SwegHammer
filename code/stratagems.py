@@ -1233,16 +1233,20 @@ COMBINED_ARMS_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 # Berzerker Warband (World Eaters) — Apoplectic Frenzy (Wahapedia)
 # https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Berzerker-Warband
-# Real text: each model in a WORLD EATERS unit fights with [LETHAL HITS] until
-# end of Fight phase. Approximation: routed through transient_plus_one_to_wound_melee
-# (LETHAL HITS auto-wounds on a crit-to-hit; +1 to wound is a direction-correct
-# offensive uplift via existing flag). 1 CP.
+# Verbatim text (fetched 2026-06-11): "WHEN: Your Movement phase, just after
+# a KHORNE BERZERKERS unit from your army is selected to Advance. TARGET:
+# That KHORNE BERZERKERS unit. EFFECT: Until the end of the turn, your unit
+# is eligible to declare a charge in a turn in which it Advanced." This is an
+# advance-and-charge delivery stratagem — the earlier [LETHAL HITS] comment
+# here was a fabricated paraphrase (wave 235 corrected it). Routed through
+# transient_charge_after_advance, consumed by Battle._do_charge's
+# advance-lockout exemption. 1 CP.
 APOPLECTIC_FRENZY = Stratagem(
     name="Apoplectic Frenzy",
     cp_cost=1,
-    phase="fight",
-    trigger="own_fight_phase_world_eaters_unit",
-    effect="lethal_hits_melee_approximation",
+    phase="movement",
+    trigger="own_movement_phase_world_eaters_unit_advances",
+    effect="transient_charge_after_advance",
 )
 
 BERZERKER_WARBAND_STRATAGEMS: Tuple[Stratagem, ...] = (

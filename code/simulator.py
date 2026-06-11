@@ -3423,6 +3423,7 @@ class Battle:
             u.transient_plus_one_save = False
             u.transient_reroll_hits_shooting = False
             u.transient_assault_this_round = False
+            u.transient_charge_after_advance = False
             # Go To Ground lasts "until the end of the phase"; clearing it with
             # the other per-round transient flags is a faithful approximation
             # (the 6++/cover buff is only read while the unit is shot, which
@@ -5587,12 +5588,21 @@ class Battle:
     # non-matching attached allies.
 
     def _try_apoplectic_frenzy(self, army: Army, opponent: Army) -> None:
-        """Apoplectic Frenzy (Berzerker Warband, 1 CP). Real rule: a WORLD
-        EATERS unit's melee weapons gain [LETHAL HITS] until end of Fight
-        phase. APPROXIMATION: routed through transient_plus_one_to_wound_melee
-        on the highest-DPA WE unit (LETHAL HITS auto-wounds on crit-to-hit;
-        +1 to wound is a direction-correct offensive uplift via an existing
-        transient flag). Wahapedia:
+        """Apoplectic Frenzy (Berzerker Warband, 1 CP). Verbatim rule
+        (Wahapedia, fetched 2026-06-11): "WHEN: Your Movement phase, just
+        after a KHORNE BERZERKERS unit from your army is selected to Advance.
+        TARGET: That KHORNE BERZERKERS unit. EFFECT: Until the end of the
+        turn, your unit is eligible to declare a charge in a turn in which it
+        Advanced." This is an advance-and-charge delivery stratagem — NOT a
+        melee-output buff (an earlier [LETHAL HITS] reading was a fabricated
+        paraphrase written during a Wahapedia outage; wave 235 corrected it).
+        Routed through transient_charge_after_advance, consumed by
+        `_do_charge`'s advance-lockout exemption (the transient analogue of
+        Murderer's Cowl). APPROXIMATION: targeting picks the highest-DPA
+        World Eaters unit — the KHORNE BERZERKERS datasheet keyword is not in
+        the sim's keyword surface — and the round-start dispatcher collapses
+        the in-phase "just after selected to Advance" timing to a
+        start-of-round grant. Wahapedia:
         https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Berzerker-Warband
         """
         attacker = self._highest_dpa_unit(
@@ -5610,7 +5620,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, APOPLECTIC_FRENZY):
             return
-        self._set_transient_squad(attacker, "transient_plus_one_to_wound_melee")
+        self._set_transient_squad(attacker, "transient_charge_after_advance")
 
     def _try_denizens_of_the_warp(self, army: Army, opponent: Army) -> None:
         """Denizens of the Warp (Daemonic Incursion, 1 CP). Real rule: re-roll
@@ -11688,10 +11698,16 @@ class Battle:
         # the lockout for all qualifying Khorne Daemon datasheets. BSData
         # verbatim: "This unit is eligible to shoot and declare a charge in a
         # turn in which it Advanced." Cited as `simulator.murderers_cowl`.
+        # Apoplectic Frenzy (Berzerker Warband stratagem) grants the same
+        # exemption transiently for one round via
+        # transient_charge_after_advance — Wahapedia verbatim: "Until the end
+        # of the turn, your unit is eligible to declare a charge in a turn in
+        # which it Advanced." Cited as `Stratagem.Apoplectic Frenzy`.
         if attacker.uid in self._advanced_this_round:
             if (
                 self._gladius_active_doctrine(attacker, attacker_army) != "Assault"
                 and not attacker.profile.murderers_cowl
+                and not attacker.transient_charge_after_advance
             ):
                 return
         # Fall Back lockout (10e core): a unit that Fell Back this turn cannot

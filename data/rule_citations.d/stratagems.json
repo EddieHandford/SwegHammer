@@ -519,9 +519,9 @@
   "Stratagem.Apoplectic Frenzy": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Berzerker-Warband",
     "rule_name": "Apoplectic Frenzy (Berzerker Warband Stratagem)",
-    "quoted_text": "(Paraphrase — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer World Eaters detachment focus + Frontline Gaming Berzerker Warband breakdown.) When: your Fight phase. Target: one WORLD EATERS unit from your army that has not been selected to fight this phase. Effect: until end of phase, melee weapons equipped by models in your unit have the [LETHAL HITS] ability.",
-    "trigger": "own Fight phase, on a friendly WORLD EATERS unit selected to fight",
-    "effect": "(APPROXIMATION) Routed through transient_plus_one_to_wound_melee on the highest-DPA WORLD EATERS unit. LETHAL HITS auto-wounds on a crit-to-hit; +1 to wound is a direction-correct offensive uplift via an existing transient flag. ST-1 in parallel adds a proper transient_lethal_hits_melee flag — this stratagem will rewire onto it then. ST-2 wave 3 of sim-calibration-6 (WE was -9.9 pts at N=40 in wave 2). 1 CP.",
+    "quoted_text": "WHEN: Your Movement phase, just after a KHORNE BERZERKERS unit from your army is selected to Advance. TARGET: That KHORNE BERZERKERS unit. EFFECT: Until the end of the turn, your unit is eligible to declare a charge in a turn in which it Advanced.",
+    "trigger": "own Movement phase, just after a KHORNE BERZERKERS unit from your army is selected to Advance",
+    "effect": "(APPROXIMATION in targeting and timing, not effect) Sets transient_charge_after_advance on the highest-damage-per-attack WORLD EATERS unit; Battle._do_charge consumes it as an exemption from the advance-charge lockout (the transient analogue of Murderer's Cowl), cleared at round start. The KHORNE BERZERKERS datasheet keyword is not in the sim's keyword surface, so targeting uses the faction filter; the round-start stratagem dispatcher collapses the in-phase 'just after selected to Advance' timing to a start-of-round grant. Verbatim text fetched live from Wahapedia 2026-06-11 — replaces a fabricated [LETHAL HITS] paraphrase written during a Wahapedia outage (wave 235 correction). 1 CP.",
     "scope": "phase-gated",
     "approximation": true
   },
