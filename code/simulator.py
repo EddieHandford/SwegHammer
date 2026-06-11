@@ -6737,14 +6737,16 @@ class Battle:
         offensive uplift against the chosen target exceeds the expected
         [HAZARDOUS] self-damage cost.
 
-        [DEVASTATING WOUNDS] uplift: on a critical wound (wound roll of 6+),
-        attacks bypass saves and deal mortal wounds equal to Damage. The
-        marginal uplift relative to a normal wound is the fraction of attacks
-        that become critical wounds (1/6) multiplied by the target's effective
-        armour save probability (the saves that devastating wounds bypass) times
-        the weapon's Damage. We approximate with the Forgefiend's primary ranged
-        profile (attacks * hit_probability * wound_probability_vs_T10 * 1/6
-        * target_save_probability * damage).
+        [DEVASTATING WOUNDS] uplift: on a critical wound (an unmodified wound
+        roll of 6), attacks bypass saves and deal mortal wounds equal to
+        Damage. A critical wound is an unmodified 6, which is one sixth of all
+        HITS regardless of Strength versus Toughness (a 6 always wounds, so no
+        separate wound-probability factor applies to the crit fraction). The
+        marginal uplift relative to a normal wound is that crit fraction
+        multiplied by the target's effective armour save probability (the
+        saves that devastating wounds bypass) times the weapon's Damage. We
+        approximate with the Forgefiend's primary ranged profile
+        (attacks * hit_probability * 1/6 * target_save_probability * damage).
 
         [HAZARDOUS] cost: d6 after firing; on a 1 (probability 1/6), the unit
         takes 3 mortal wounds. The expected cost is 3 * (1/6) = 0.5 wounds.
@@ -6769,24 +6771,14 @@ class Battle:
         # Critical wounds bypass saves; the uplift is the expected saving-throw
         # damage that bypasses, per crit. We approximate with the profile's
         # primary ranged weapon stats.
-        #
-        # wound_probability: simplified to 1/2 (S8 vs T10 → wounds on 5+, so
-        # 2/6 ≈ 0.33; but the primary weapon Hades autocannon is S8 vs most
-        # targets at T8-10). We use the real wound probability approximated from
-        # S vs T (S >= T → 3+, S >= T/2 → 5+, else 6+).
-        target_t = target.profile.toughness
-        s = p.strength
-        if s >= target_t * 2:
-            wound_prob = 5.0 / 6.0   # 2+
-        elif s >= target_t:
-            wound_prob = 4.0 / 6.0   # 3+
-        elif s >= target_t / 2:
-            wound_prob = 2.0 / 6.0   # 5+
-        else:
-            wound_prob = 1.0 / 6.0   # 6+
 
-        # The fraction of wounds that become crits under Devastating Wounds.
-        crit_fraction = 1.0 / 6.0   # wound roll of 6+
+        # The fraction of HITS that become critical wounds. A critical wound
+        # is an unmodified 6 on the wound roll — one sixth of hits regardless
+        # of Strength versus Toughness, because a 6 always wounds. No separate
+        # wound-probability factor belongs here: multiplying one in would
+        # under-count crits (~3x for the Hades autocannon into tough targets)
+        # and bias the election toward never surging.
+        crit_fraction = 1.0 / 6.0   # unmodified wound roll of 6
 
         # The save probability the crit bypasses: use the target's effective
         # armour save (post-AP). This is the probability that a non-crit wound
@@ -6799,13 +6791,12 @@ class Battle:
         effective_save_threshold = min(effective_save_threshold, inv)
         save_prob = max(0.0, (7 - effective_save_threshold) / 6.0)
 
-        # Expected uplift = attacks hitting * wounding * becoming crits * saves
+        # Expected uplift = attacks hitting * crit fraction of hits * saves
         # bypassed * damage per attack.
         dmg_per_shot = p.per_shot_damage or p.weapon_damage_per_shot or 0.0
         expected_uplift = (
             p.attacks
             * p.hit_probability
-            * wound_prob
             * crit_fraction
             * save_prob
             * dmg_per_shot
