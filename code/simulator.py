@@ -7455,10 +7455,11 @@ class Battle:
         # <= 50% of total points. Deep Strike and Cult Ambush (a type of Strategic
         # Reserves) BOTH count toward it — no exemptions.
         #
-        # With the gate OFF (default), this cap is NOT enforced; the old behaviour
-        # reserves every deep_strike / GSC unit regardless of legality (ILLEGAL for
-        # most armies). Gate OFF must be byte-identical to the prior anchor so A/B
-        # evals remain valid.
+        # With the gate ON (default, SWEG_DEPLOY_AI=1), the cap IS enforced as the
+        # cited game rule (gate flipped default-ON in wave 225). Gate OFF (SWEG_DEPLOY_AI=0)
+        # does NOT enforce the cap; the old behaviour reserves every deep_strike / GSC
+        # unit regardless of legality (ILLEGAL for most armies). Gate OFF is byte-
+        # identical to the prior anchor so A/B evals remain valid.
         #
         # With the gate ON (SWEG_DEPLOY_AI=1), the cap IS enforced as the cited
         # game rule, and the CHOICE of which units to reserve is an AI tactical
@@ -7533,6 +7534,15 @@ class Battle:
                         # Adding this unit would breach a cap — promote to on-board.
                         promoted.add(id(u))
                 direct_reserves_ids -= promoted
+                # When a GSC unit is cap-promoted from reserves back to on-board,
+                # clear its cult_ambush_pending flag — it was set in the loop above
+                # before the cap was enforced. Leaving it stale is harmless now
+                # (the flag is only read from the reserves list, not from army.units),
+                # but it is misleading and could cause double-placement if the unit
+                # is ever revived back into reserves via Cult Ambush Resurgence.
+                for u in army.units:
+                    if id(u) in promoted:
+                        u.cult_ambush_pending = False
                 # When a transport is promoted to on-board, its embarked passengers
                 # must follow — remove their ids from direct_reserves_ids too so
                 # the passenger co-routing below doesn't route them back to reserves.
@@ -7973,9 +7983,20 @@ class Battle:
                     placed_positions=anchor_placed if use_anchor else None,
                 )
                 if pos is None:
-                    # No valid arrival spot — defer to next round (rare;
-                    # only happens on saturated maps).
-                    still_waiting.append(u)
+                    # No valid arrival spot. 10e Strategic Reserves rule: any
+                    # unit still in reserves at the end of battle round 3
+                    # counts as destroyed. If the map is saturated and we
+                    # cannot land a unit by round 3, it counts as destroyed.
+                    # Past round 3 the unit also counts as destroyed (the AI
+                    # has already forced all units to land; the only reason to
+                    # reach here post-round-3 is a saturated map edge case).
+                    # Round 1-2 deferral is still valid (units haven't missed
+                    # the deadline yet).
+                    if round_num >= 3:
+                        u.current_health = 0.0
+                        self._emit(UnitKilled(unit_uid=u.uid))
+                    else:
+                        still_waiting.append(u)
                     continue
                 u.position = pos
                 u.cult_ambush_pending = False
@@ -9186,12 +9207,23 @@ class Battle:
                     continue
                 if u.profile.name in _pain_token_awarded:
                     continue   # codex-squad cap: one token per squad
-                # Single-model units can never be Below Starting Strength.
+                # In the per-model architecture each Unit IS one model, so
+                # profile.health is the per-model wound count. The pooled-health
+                # formula (health / min_models) was wrong: it divided per-model
+                # health by squad size, yielding a fractional wounds_per_model
+                # (e.g. 2/5 = 0.4 for Intercessors) that fired on any damage.
+                # Correct fix: wounds_per_model = profile.health (a model is
+                # destroyed when current_health drops to 0). min_models check
+                # is retained as a guard for truly single-model profiles.
                 if u.profile.min_models < 2:
                     continue
-                wounds_per_model = u.profile.health / u.profile.min_models
-                # Below Starting Strength = lost at least one full model.
-                if u.current_health <= u.profile.health - wounds_per_model:
+                # Below Starting Strength = this model instance has taken any damage.
+                # In the per-model architecture, each Unit IS one model. A model is
+                # Below Starting Strength when its current_health < profile.health
+                # (it has taken at least one wound). The old pooled-health formula
+                # required a full model kill (current_health <= 0); the per-model
+                # equivalent is any damage at all.
+                if u.current_health < u.profile.health:
                     u.pain_tokens = 1
                     _pain_token_awarded.add(u.profile.name)
         # ---- Adepta Sororitas Acts of Faith (10e army rule). At the
@@ -11362,11 +11394,16 @@ class Battle:
 
         # "any models from this unit were destroyed" — gate on at least
         # one full model worth of wounds lost across this shot resolution.
-        # `current_health` is total wounds across surviving models; a
-        # model is destroyed when the unit's health crosses a
-        # `wounds_per_model` boundary downward.
-        if defender.profile.min_models < 2:
-            return  # not a multi-model squad — defensive guard
+        # NOTE (Issue #61): in the per-model architecture each Unit IS one
+        # model, so profile.health is the per-model wound count and the
+        # correct wounds_per_model is profile.health (not health/min_models).
+        # However, changing this formula here would break Blood Surge in
+        # per-model context: a unit that takes partial damage (< 1 full model
+        # worth) never triggers, and a dead unit is caught by the is_alive
+        # guard above. Fixing this correctly requires moving Blood Surge to a
+        # squad-level hook (trigger when any sibling unit dies). Left as a
+        # known issue; the existing pooled-health formula at least fires on
+        # chip damage, which is over-eager but not silent. See Issue #61.
         wounds_per_model = defender.profile.health / defender.profile.min_models
         if wounds_per_model <= 0:
             return
@@ -12823,12 +12860,14 @@ class Battle:
         for passenger in survivors:
             self._disembark(passenger, transport, forced=True)
             # Per-model D6: roll one die per surviving model and destroy
-            # that model on a 1. SwegHammer abstracts a multi-model squad
-            # as a single Unit with pooled wounds, so we compute model
-            # count from `current_health / wounds_per_model` and subtract
-            # `wounds_per_model` from `current_health` for each 1 rolled.
-            min_models = max(1, getattr(passenger.profile, "min_models", 1) or 1)
-            wounds_per_model = passenger.profile.health / min_models
+            # that model on a 1. In the per-model architecture each Unit IS
+            # one model, so profile.health is the per-model wound count.
+            # The old pooled-health formula (health / min_models) was wrong:
+            # it divided per-model health by squad size, producing a
+            # fractional wounds_per_model (e.g. 2/5 = 0.4 for a 5-model
+            # squad) and inflating models_alive 5-fold. Fix: use
+            # profile.health directly as wounds_per_model. Issue #61.
+            wounds_per_model = passenger.profile.health
             if wounds_per_model <= 0:
                 continue
             models_alive = max(

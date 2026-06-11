@@ -399,7 +399,7 @@ class TestBloodSurge(unittest.TestCase):
 
     def test_blood_surge_moves_berzerkers_toward_shooter(self):
         bz = self._make_berzerkers(position=(40.0, 30.0))
-        # Drop them to 18 HP — one model already destroyed worth before
+        # Drop them to 18 HP -- one model already destroyed worth before
         # we even start the surge check. To check the helper directly,
         # snapshot health_before = 20 and current_health = 16 (two models
         # destroyed). Distance to the "shooter" at (10, 30) is 30 inches.

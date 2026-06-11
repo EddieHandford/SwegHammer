@@ -2897,10 +2897,15 @@ def should_declare_waaagh(army, round_num: int, opponent=None) -> bool:
 #
 #   * Round 2: hold unless the enemy gunline is exposed (no screens within 9")
 #     OR an objective steal is open. If holding, the units stay in reserves.
-#   * Round 3: drop ALL remaining DS units (alpha strike window).
-#   * Round 4-5: drop ALL remaining DS units, biased toward objective grabs
-#     over max-threat targets. Never leave a unit in reserves past Round 4 —
-#     it scores zero VP and contributes zero damage.
+#   * Round 3: drop ALL remaining DS units (alpha strike window). 10e rule:
+#     any unit still in Strategic Reserves at the end of battle round 3
+#     counts as destroyed (Wahapedia core rules, Strategic Reserves). The
+#     AI therefore forces arrival at round 3; if no valid landing point is
+#     found the simulator marks the unit as destroyed (see
+#     Battle._arrive_from_reserves). Never leave a unit in reserves past
+#     Round 3 — it counts as destroyed by the game rules.
+#   * Round 4-5: drop ALL remaining DS units (belt-and-braces catch for
+#     units that missed round 3 placement due to a saturated map).
 #
 # The scoring inside `_pick_arrival_point` (simulator.py) handles the
 # "what to land near" question; this module answers "should we land NOW"
