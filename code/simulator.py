@@ -11530,35 +11530,27 @@ class Battle:
             return
         if defender.profile.name != "Khorne Berzerkers":
             return
-        if not defender.is_alive:
-            return  # whole unit wiped — nothing left to Surge
 
-        # "any models from this unit were destroyed" — gate on at least
-        # one full model worth of wounds lost across this shot resolution.
-        # NOTE (Issue #61): in the per-model architecture each Unit IS one
-        # model, so profile.health is the per-model wound count and the
-        # correct wounds_per_model is profile.health (not health/min_models).
-        # However, changing this formula here would break Blood Surge in
-        # per-model context: a unit that takes partial damage (< 1 full model
-        # worth) never triggers, and a dead unit is caught by the is_alive
-        # guard above. Fixing this correctly requires moving Blood Surge to a
-        # squad-level hook (trigger when any sibling unit dies). Left as a
-        # known issue; the existing pooled-health formula at least fires on
-        # chip damage, which is over-eager but not silent. See Issue #61.
-        wounds_per_model = defender.profile.health / defender.profile.min_models
-        if wounds_per_model <= 0:
-            return
-        models_before = int(health_before / wounds_per_model + 1e-9)
-        models_after = int(defender.current_health / wounds_per_model + 1e-9)
-        # Round up survivors: if you've taken any wounds into a model
-        # you've "wounded" but not "destroyed" it. Match the codex
-        # threshold: the floor of (lost_health / wpm) gives the count of
-        # destroyed models. Use floor of remaining health on both sides
-        # — if a model lost some-but-not-all wounds neither side counts
-        # that as destruction.
-        lost_health = max(0.0, health_before - defender.current_health)
-        models_destroyed = int(lost_health / wounds_per_model + 1e-9)
-        if models_destroyed < 1:
+        # "any models from this unit were destroyed as a result of those
+        # attacks" — per-model representation fix (Issue #61).
+        #
+        # In the per-model architecture each Unit IS one physical model, so
+        # the correct detection is whether THIS specific model unit
+        # transitioned from alive to dead as a result of the shot just
+        # resolved.  The old pooled-health formula
+        # (wounds_per_model = profile.health / profile.min_models) produced
+        # wounds_per_model = 2 / 10 = 0.2 for a Khorne Berzerker, causing
+        # Blood Surge to fire on any chip damage (lost_health >= 0.2) rather
+        # than only on a model death.  The old `is_alive` guard placed above
+        # this block also suppressed the surge when the targeted model died,
+        # because a dead Unit reports is_alive = False.  Both errors are
+        # corrected here: we detect the alive→dead transition directly.
+        #
+        # If the whole squad was wiped (all siblings also dead), the
+        # _surge_squad list below will be empty and the movement loop is a
+        # no-op — no explicit guard needed.
+        model_destroyed = (health_before > 1e-9) and (not defender.is_alive)
+        if not model_destroyed:
             return
 
         # task #28 squad_id re-key: collect ALL alive squad siblings so they
@@ -11572,8 +11564,14 @@ class Battle:
                 if getattr(u, "squad_id", -1) == _defender_squad_id
             ]
         else:
-            # Lone model or no army reference — move only the targeted model.
-            _surge_squad = [defender]
+            # Lone model or no army reference — the targeted model itself was
+            # the only one and it is now dead, so nothing to move.
+            _surge_squad = []
+
+        # If no models survived (whole squad wiped in this shot) there is
+        # nothing to move — bail out before spending time on enemy lookup.
+        if not _surge_squad:
+            return
 
         # Pick nearest enemy unit (from the shooting army — those are the
         # "closest enemy" units from the Berzerkers' perspective at the
@@ -11589,7 +11587,7 @@ class Battle:
         # Use the first squad member's position as the squad's reference point
         # for finding the nearest enemy (consistent regardless of straggler
         # positions after coherency drift).
-        ref_pos = _surge_squad[0].position if _surge_squad else defender.position
+        ref_pos = _surge_squad[0].position
         nearest = min(enemy_pool, key=lambda e: _distance(ref_pos, e.position))
         gap = _distance(ref_pos, nearest.position)
         if gap <= 0:
