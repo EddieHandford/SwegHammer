@@ -89,7 +89,11 @@ class M4ClusterIntentTests(unittest.TestCase):
     def test_locked_in_melee_no_move(self):
         m = _map()
         unit = _u((34.0, 30.0))
-        enemy = SimpleNamespace(position=(34.4, 30.0))   # within Engagement Range
+        # Enemy stand-ins need a profile since wave 241: the melee-lock check
+        # measures Engagement Range base-edge to base-edge (`_er_gap`), which
+        # reads the base footprint off the profile (absent base data defaults
+        # to a 32mm round base).
+        enemy = _u((34.4, 30.0))   # within Engagement Range
         self.assertIsNone(
             _m4_cluster_intent(unit, 2, [enemy], m.objectives, m),
             "A model locked in melee is left to the fight / fall-back logic.",
@@ -109,7 +113,7 @@ class M4ClusterIntentTests(unittest.TestCase):
         # from the marker (the move breaks the shot) holds its firing line.
         m = _map()   # marker at (30, 30)
         heavy = _u((34.0, 30.0), attacks=1, hit=0.6, dmg=6.0, rng=12.0)
-        enemy = SimpleNamespace(position=(44.0, 30.0))   # 10" from heavy (in range), 14" from marker (out)
+        enemy = _u((44.0, 30.0))   # 10" from heavy (in range), 14" from marker (out)
         self.assertIsNone(
             _m4_cluster_intent(heavy, 2, [enemy], m.objectives, m),
             "A shooter that would LOSE its shot by moving to the marker holds "
@@ -121,7 +125,7 @@ class M4ClusterIntentTests(unittest.TestCase):
         # pulled — it holds the objective AND keeps firing.
         m = _map()   # marker at (30, 30)
         gun = _u((34.0, 30.0), attacks=1, hit=0.6, dmg=6.0, rng=48.0)
-        enemy = SimpleNamespace(position=(45.0, 30.0))   # 15" from marker, within 48"
+        enemy = _u((45.0, 30.0))   # 15" from marker, within 48"
         self.assertIsNotNone(
             _m4_cluster_intent(gun, 2, [enemy], m.objectives, m),
             "A hold-and-shoot model (target in range from the marker) is pulled "
@@ -131,7 +135,7 @@ class M4ClusterIntentTests(unittest.TestCase):
     def test_shooter_with_no_target_pulled(self):
         m = _map()
         heavy = _u((34.0, 30.0), attacks=1, hit=0.6, dmg=6.0, rng=12.0)
-        enemy = SimpleNamespace(position=(55.0, 55.0))   # far out of any range
+        enemy = _u((55.0, 55.0))   # far out of any range
         self.assertIsNotNone(
             _m4_cluster_intent(heavy, 2, [enemy], m.objectives, m),
             "A gun with no eligible target loses nothing by holding — pull it.",
@@ -141,7 +145,7 @@ class M4ClusterIntentTests(unittest.TestCase):
         # A lasgun trooper (low output) near the marker tightens in regardless.
         m = _map()
         trooper = _u((34.0, 30.0), attacks=1, hit=0.5, dmg=1.0, rng=24.0)  # ~0.5 output
-        enemy = SimpleNamespace(position=(44.0, 30.0))
+        enemy = _u((44.0, 30.0))
         self.assertIsNotNone(
             _m4_cluster_intent(trooper, 2, [enemy], m.objectives, m),
             "A low-output trooper is not a gunline piece — it masses on the "

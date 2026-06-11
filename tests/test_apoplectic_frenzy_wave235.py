@@ -16,8 +16,10 @@ Assertions:
 4. _clear_transient_stratagem_flags resets the flag (one-round scope).
 5. Charge-lockout integration: a unit in _advanced_this_round is blocked by
    _do_charge without the flag and charges successfully with it (asserted
-   via _charging_this_round membership). Positions 2.0 inches apart make the
-   2D6 charge roll (minimum 2) always sufficient, so no dice mocking needed.
+   via _charging_this_round membership). Positions 2.5 inches apart (wave-241
+   base-edge Engagement Range: gap 1.24 inches, a valid charge candidate
+   whose required move is 0.24 inches) make the 2D6 charge roll (minimum 2)
+   always sufficient, so no dice mocking needed.
 """
 
 from __future__ import annotations
@@ -119,8 +121,11 @@ def _build_stratagem_battle() -> tuple:
 
 
 def _build_charge_battle() -> tuple:
-    """Melee charger 2.0 inches from a harmless defender: a 2D6 charge roll
-    (minimum 2) always reaches, so only the advance lockout can block."""
+    """Melee charger 2.5 inches (centre) from a harmless defender. Under the
+    wave-241 base-edge Engagement Range measure (production default) that is
+    a gap of 1.24 inches — a valid charge candidate, not already engaged —
+    and the required charge move is 0.24 inches, so a 2D6 charge roll
+    (minimum 2) always reaches and only the advance lockout can block."""
     a = Army("Chargers")
     a.add_unit(_we_berzerker())
     b = Army("Defenders")
@@ -130,7 +135,7 @@ def _build_charge_battle() -> tuple:
     charger = a.units[0]
     defender = b.units[0]
     charger.position = (20.0, 30.0)
-    defender.position = (22.0, 30.0)
+    defender.position = (22.5, 30.0)
     return battle, charger, defender
 
 
@@ -246,7 +251,7 @@ class TestAdvanceChargeLockoutExemption(unittest.TestCase):
         battle._do_charge(charger, battle.a, battle.b)
         self.assertIn(
             charger.uid, battle._charging_this_round,
-            "a unit that did not Advance must charge normally at 2 inches",
+            "a unit that did not Advance must charge normally at 2.5 inches",
         )
 
 

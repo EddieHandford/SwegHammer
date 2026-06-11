@@ -169,10 +169,26 @@ from .sim.geometry import (  # noqa: F401  (re-exported for the public surface)
     _OccupantGrid,
     _collision_pos_legal,
     _enemy_path_cap_t,
+    _er_gap,
     _fan_to_goal,
     _move_toward,
     _bc_model_radius_in,
 )
+
+
+def _er_gap_units(a, b) -> float:
+    """Engagement-Range distance between two Unit instances (inches).
+
+    Thin wrapper over `code.sim.geometry._er_gap`: base-edge gap when
+    SWEG_CHARGE_BASEEDGE is on (default since wave 240), legacy
+    centre-to-centre distance when it is off (byte-identical). Every
+    Engagement-Range test in this module routes through here so engagement
+    is measured the same way the gated charge-end placement parks the
+    charger — the wave-241 fix for the fight gate that never fired (a
+    base-edge charge ends ~2.26" centre-to-centre for two 32mm bases, which
+    a centre-based `<= 1.0` gate can never see). Cited as
+    `simulator.engagement_range_base_edge`."""
+    return _er_gap(a.position, a.profile, b.position, b.profile)
 
 
 @dataclass(frozen=True)
@@ -1434,7 +1450,7 @@ class Battle:
             if dx * dx + dy * dy > _burn_r2:
                 continue
             engaged = any(
-                (u.position[0] - h.position[0]) ** 2 + (u.position[1] - h.position[1]) ** 2 <= 1.0
+                _er_gap_units(u, h) <= 1.0
                 for h in holder.alive_units
             )
             if not engaged:
@@ -2317,7 +2333,7 @@ class Battle:
                 return False
         # Not in melee with any enemy.
         for e in other.alive_units:
-            if _distance(unit.position, e.position) <= self._DEDICATION_ENGAGE_RANGE:
+            if _er_gap_units(unit, e) <= self._DEDICATION_ENGAGE_RANGE:
                 return False
         # Not a productive shooter with a target in range.
         p = unit.profile
@@ -2438,7 +2454,7 @@ class Battle:
         complete an Action this turn (10e: a unit within Engagement Range
         cannot perform an Action)."""
         for e in other.alive_units:
-            if _distance(unit.position, e.position) <= self._DEDICATION_ENGAGE_RANGE:
+            if _er_gap_units(unit, e) <= self._DEDICATION_ENGAGE_RANGE:
                 return True
         return False
 
@@ -9923,7 +9939,7 @@ class Battle:
                 continue
             in_engagement = [
                 e for e in other.alive_units
-                if _distance(src.position, e.position) <= 1.0
+                if _er_gap_units(src, e) <= 1.0
             ]
             if not in_engagement:
                 continue
@@ -9950,31 +9966,51 @@ class Battle:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _fall_back_crosses_enemy(old_pos, new_pos, defender_army) -> bool:
+    def _fall_back_crosses_enemy(old_pos, new_pos, defender_army,
+                                 mover_profile=None) -> bool:
         """Approximate the 10e "a model moves over/through an enemy model" half
         of the Desperate Escape trigger. Returns True if any enemy model lies
-        within Engagement Range (1") of the fall-back path segment old_pos ->
-        new_pos AND is more than 1" from old_pos — i.e. an enemy AHEAD in the
-        path, not the one the unit is disengaging from at the start. Used by the
-        Fall Back branch of `_do_move`. See docs/CORE_RULES_AUDIT.md #2."""
+        within Engagement Range of the fall-back path segment old_pos ->
+        new_pos AND is outside Engagement Range of old_pos — i.e. an enemy
+        AHEAD in the path, not the one the unit is disengaging from at the
+        start. Used by the Fall Back branch of `_do_move`. See
+        docs/CORE_RULES_AUDIT.md #2.
+
+        Under SWEG_CHARGE_BASEEDGE (default ON since wave 240) Engagement
+        Range is measured base-edge to base-edge, so the per-enemy threshold
+        widens from 1" of the path line to 1" + mover_radius + enemy_radius —
+        a Knight falling back over a horde genuinely crosses bases the
+        centre-line test missed. Gate OFF (or no `mover_profile` passed) keeps
+        the legacy centre-based 1" threshold byte-identically. Cited as
+        `simulator.engagement_range_base_edge`."""
         ox, oy = old_pos
         nx, ny = new_pos
         dx, dy = nx - ox, ny - oy
         seg_len_sq = dx * dx + dy * dy
         if seg_len_sq <= 1e-9:
             return False
+        base_edge = (
+            mover_profile is not None
+            and os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1"
+        )
+        r_mover = _bc_model_radius_in(mover_profile) if base_edge else 0.0
         for e in defender_army.alive_units:
             if getattr(e, "embarked_in", None) is not None:
                 continue
             ex, ey = e.position
-            # Skip the enemy being disengaged from (within 1" of the start).
-            if (ex - ox) ** 2 + (ey - oy) ** 2 <= 1.0:
+            rr = 1.0 + r_mover + (
+                _bc_model_radius_in(e.profile) if base_edge else 0.0
+            )
+            rr_sq = rr * rr
+            # Skip the enemy being disengaged from (within Engagement Range
+            # of the start).
+            if (ex - ox) ** 2 + (ey - oy) ** 2 <= rr_sq:
                 continue
             # Point-to-segment distance from the enemy to the fall-back path.
             t = ((ex - ox) * dx + (ey - oy) * dy) / seg_len_sq
             t = max(0.0, min(1.0, t))
             px, py = ox + t * dx, oy + t * dy
-            if (ex - px) ** 2 + (ey - py) ** 2 <= 1.0:
+            if (ex - px) ** 2 + (ey - py) ** 2 <= rr_sq:
                 return True
         return False
 
@@ -10346,6 +10382,7 @@ class Battle:
                 _shocked = attacker.is_currently_battle_shocked(self._current_round)
                 _crosses = self._fall_back_crosses_enemy(
                     old_pos, new_pos, defender_army,
+                    mover_profile=attacker.profile,
                 )
                 if (_shocked or _crosses) and random.randint(1, 6) <= 2:
                     attacker.current_health = 0.0
@@ -11038,7 +11075,7 @@ class Battle:
         kw = attacker.profile.unit_keywords or ()
         big_guns_eligible = "VEHICLE" in kw or "MONSTER" in kw
         in_engagement = any(
-            _distance(attacker.position, e.position) <= 1.0
+            _er_gap_units(attacker, e) <= 1.0
             for e in defender_army.alive_units
         )
         # SCREENING / melee-avoidance instrument (#86, gated SWEG_SHOOTLOSS_INSTR,
@@ -11118,14 +11155,14 @@ class Battle:
         if in_engagement:
             candidates = [
                 u for u in candidates
-                if _distance(attacker.position, u.position) <= 1.0
+                if _er_gap_units(attacker, u) <= 1.0
             ]
         # CORE-RULES-AUDIT (2026-05-31): a Blast weapon cannot target a unit
         # that is within Engagement Range of the bearer. See #5.
         if attacker.profile.blast:
             candidates = [
                 u for u in candidates
-                if _distance(attacker.position, u.position) > 1.0
+                if _er_gap_units(attacker, u) > 1.0
             ]
         if not candidates:
             return
@@ -11535,9 +11572,14 @@ class Battle:
         # positions after coherency drift).
         ref_pos = _surge_squad[0].position
         nearest = min(enemy_pool, key=lambda e: _distance(ref_pos, e.position))
-        gap = _distance(ref_pos, nearest.position)
+        # Engagement-Range distance (base-edge gap when SWEG_CHARGE_BASEEDGE
+        # is on, legacy centre distance when off — `_er_gap`). The travel
+        # arithmetic below is identical either way because the radii term is
+        # constant along the approach line.
+        gap = _er_gap(ref_pos, _surge_squad[0].profile,
+                      nearest.position, nearest.profile)
         if gap <= 0:
-            return  # already co-located, nothing to do
+            return  # already co-located / in base contact, nothing to do
 
         surge_roll = random.randint(1, 6) + 2   # D6 + 2
         # "finish as close as possible" -> if we can reach engagement
@@ -11817,7 +11859,7 @@ class Battle:
             )
             self._maybe_apply_deadly_demise(target)
 
-    def _charge_baseedge_end(self, attacker, target, dist: float):
+    def _charge_baseedge_end(self, attacker, target):
         """Base-edge charge-end placement (env-gate SWEG_CHARGE_BASEEDGE, wave 240
         lever 1). Return the end POSITION for a charger whose 2D6 has already
         succeeded, so its BASE EDGE finishes within 1.0" of the target's base edge
@@ -11852,18 +11894,21 @@ class Battle:
         t_rad = _bc_model_radius_in(target.profile)
         # Target centre distance whose base-edge gap is exactly 1.0".
         target_center_dist = 1.0 + a_rad + t_rad
-        # Legacy placement (used as the never-cancel fallback below).
-        scale = max(0.0, (dist - 1.0)) / dist
-        legacy_pos = (ax + (tx - ax) * scale, ay + (ty - ay) * scale)
 
         # Direction from target toward attacker (the approach bearing). If the
-        # charger sits exactly on the target centre (degenerate), keep the legacy
-        # placement — there is no defined approach line to rotate around.
+        # charger sits exactly on the target centre (degenerate), stay put —
+        # there is no defined approach line to rotate around.
         dx = ax - tx
         dy = ay - ty
         d = (dx * dx + dy * dy) ** 0.5
         if d == 0.0:
-            return legacy_pos
+            return attacker.position
+        # Legacy centre-1" placement (used as the never-cancel fallback below),
+        # computed from the ACTUAL centre distance `d` — the caller's charge
+        # distance is the REQUIRED 2D6 move (base-edge measurement) under this
+        # gate, not the centre distance, so it cannot be used for this scale.
+        scale = max(0.0, (d - 1.0)) / d
+        legacy_pos = (ax + (tx - ax) * scale, ay + (ty - ay) * scale)
         ux, uy = dx / d, dy / d   # unit vector target -> attacker
         base_ang = _m.atan2(uy, ux)
 
@@ -11905,6 +11950,15 @@ class Battle:
         weak in melee (gunlines / battlesuits) over near-but-resilient brick
         units, which is closer to real tournament melee play and brings the
         sim's over-rating of T'au / Astartes / Votann shooty factions down.
+
+        `dist` (the second value pick_charge_target returns, also emitted on
+        the UnitCharged event) is the number the 2D6 roll must meet: under
+        SWEG_CHARGE_BASEEDGE (default ON since wave 240) that is the move
+        needed to bring the bases within 1" of each other (base-edge gap
+        minus 1" — 10e measures every distance between the closest points of
+        the bases, cited `simulator.engagement_range_base_edge`); with the
+        gate off it is the legacy centre-to-centre distance, byte-identical
+        to the pre-gate behaviour.
         """
         # Pariah Nexus action lockout (10e core, wave 74): a unit performing an
         # action cannot declare a charge this turn. Cited as
@@ -12064,7 +12118,7 @@ class Battle:
         # silent position change — applied inside BOTH placement branches.
         _charge_old_pos = attacker.position
         if os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1":
-            new_pos = self._charge_baseedge_end(attacker, target, dist)
+            new_pos = self._charge_baseedge_end(attacker, target)
             if not self.map.is_blocked(new_pos):
                 attacker.position = new_pos
                 self._emit(UnitMoved(
@@ -12146,7 +12200,7 @@ class Battle:
             # in-range gate; pile-in then closes the residual gap).
             if u.uid in self._charging_this_round:
                 return True
-            return any(_distance(u.position, e.position) <= 1.0
+            return any(_er_gap_units(u, e) <= 1.0
                        for e in foe.alive_units)
 
         def _is_ff(u) -> bool:
@@ -12213,9 +12267,9 @@ class Battle:
         # the full melee profile.
         nearest_pre = min(
             alive_enemies,
-            key=lambda e: _distance(attacker.position, e.position),
+            key=lambda e: _er_gap_units(attacker, e),
         )
-        pre_engaged = _distance(attacker.position, nearest_pre.position) <= 1.0
+        pre_engaged = _er_gap_units(attacker, nearest_pre) <= 1.0
         is_charging_this_turn = attacker.uid in self._charging_this_round
         _pile_old_pos = attacker.position
         if (
@@ -12245,7 +12299,7 @@ class Battle:
         # breaks the lock rather than the closest brick.
         in_range = [
             e for e in alive_enemies
-            if _distance(attacker.position, e.position) <= 1.0
+            if _er_gap_units(attacker, e) <= 1.0
         ]
         if not in_range:
             return
@@ -13425,7 +13479,7 @@ class Battle:
             u for u in loser_army.alive_units
             if u is not loser_unit
             and u.profile.melee_attacks > 0
-            and _distance(u.position, winner_unit.position) <= 1.0
+            and _er_gap_units(u, winner_unit) <= 1.0
         ]
         in_engagement = bool(candidates)
         ctx = {

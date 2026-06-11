@@ -221,6 +221,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # / `_do_charge` (fixes the deep base interpenetration of big-based charge
     # targets the legacy centre-to-centre placement caused).
     "simulator.charge_end_base_to_base",
+    # The MEASUREMENT half of the same rule (wave 241): the same gate controls
+    # how the Engagement Range distance is MEASURED everywhere — fight
+    # eligibility, the shooting melee-lock, Fall Back crossing, the charge-roll
+    # requirement (`_er_gap` in code/sim/geometry.py and every caller).
+    # Placement (`simulator.charge_end_base_to_base` above) and measurement
+    # are two halves of one rule; shipping placement alone structurally
+    # disabled melee under the adopted default.
+    "simulator.engagement_range_base_edge",
     "simulator.battle_focus",
     # Aeldari army rule (10e). Strands of Fate — 6D6 rolled at start of
     # battle into Army.fate_dice; each die later substituted for one d6

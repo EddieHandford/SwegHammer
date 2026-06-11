@@ -35,6 +35,7 @@ from typing import Dict, Optional, Tuple
 from .detachments import effective_move
 from .map import _terrain_epoch
 from .roles import classify
+from .sim.geometry import _er_gap
 from .units import save_probability, wound_probability
 
 
@@ -1042,7 +1043,8 @@ def _kite_target_bonus(defender, attacker_army) -> float:
     if profile is None or not _is_melee_class(profile):
         return 1.0
     for f in attacker_army.alive_units:
-        if _dist(f.position, defender.position) <= _ENGAGEMENT_RANGE:
+        if _er_gap(f.position, f.profile,
+                   defender.position, defender.profile) <= _ENGAGEMENT_RANGE:
             return 1.0  # still tarpitted by a friendly — move (1) un-sticks first
     return _KITE_TARGET_BONUS
 
@@ -1638,6 +1640,16 @@ def pick_charge_target(attacker, enemy):
             / charge_difficulty
 
     Returns (target_unit, distance) or (None, None) if no legal charge.
+    The returned distance is the number the 2D6 charge roll must meet:
+    under SWEG_CHARGE_BASEEDGE (default ON since wave 240; cited
+    `simulator.engagement_range_base_edge`) the 12" declaration range and
+    the already-engaged exclusion are measured base-edge to base-edge, and
+    the roll requirement is the move needed to bring the bases within 1"
+    (base-edge gap minus 1") — 10e measures every distance between the
+    closest points of the bases, so a charge against a big-based target
+    (Knight, tank) needs the real ~gap move, not the centre-to-centre
+    distance the legacy path demanded. Gate off: byte-identical legacy
+    centre distance throughout.
     """
     alive_enemies = [e for e in enemy.alive_units]
     if not alive_enemies:
@@ -1648,11 +1660,22 @@ def pick_charge_target(attacker, enemy):
     a_melee_dpa = (p.melee_attacks * p.melee_hit_probability
                    * (p.melee_damage_per_shot or 1.0))
 
+    # Read the gate once per call (matches the simulator's per-call gate
+    # reads). `_er_gap` itself is gate-aware; this local flag only controls
+    # the gap -> required-move conversion below, which must not fire on the
+    # legacy path (where the required move IS the centre distance).
+    base_edge = os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1"
+
     candidates = []
     for e in alive_enemies:
-        d = _dist(attacker.position, e.position)
-        if d > 12.0 or d <= 1.0:
+        d_er = _er_gap(attacker.position, attacker.profile,
+                       e.position, e.profile)
+        if d_er > 12.0 or d_er <= 1.0:
             continue   # out of charge range / already engaged
+        # The number the 2D6 must meet: the move that brings the bases
+        # within 1" (gap - 1") when the base-edge gate is on; the legacy
+        # centre distance when it is off.
+        d = max(0.0, d_er - 1.0) if base_edge else d_er
         tp = _score_profile(e)
 
         kill_potential = a_melee_dpa / _durability(
@@ -1828,9 +1851,14 @@ def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, fl
             if map_.is_blocked((cx, cy)):
                 return None
         # Must clear every enemy's engagement bubble by a small margin so
-        # the simulator's strict `< _ENGAGEMENT_RANGE` (1.0") check actually flips to False.
+        # the simulator's strict `< _ENGAGEMENT_RANGE` (1.0") check actually
+        # flips to False. Engagement is measured base-edge to base-edge under
+        # SWEG_CHARGE_BASEEDGE (`_er_gap`, default ON since wave 240), so the
+        # destination must clear the WIDER base-aware bubble or the unit
+        # re-pins itself against a big-based enemy.
         for e in enemies:
-            if _dist((cx, cy), e.position) <= _ENGAGEMENT_RANGE + 0.01:
+            if _er_gap((cx, cy), unit.profile,
+                       e.position, e.profile) <= _ENGAGEMENT_RANGE + 0.01:
                 return None
         return (cx, cy)
 
@@ -2579,7 +2607,8 @@ def _m4_cluster_intent(unit, own_oc, enemy_alive, objectives, map_):
     # Locked in melee: leave it to the existing fight / fall-back logic, do not
     # waltz onto a marker while in Engagement Range.
     for e in enemy_alive:
-        if _dist(unit.position, e.position) <= _ENGAGEMENT_RANGE:
+        if _er_gap(unit.position, unit.profile,
+                   e.position, e.profile) <= _ENGAGEMENT_RANGE:
             return None
     PULL_IN = 6.0          # only tighten models already committed near a marker
     INNER = 1.5            # already tight on the centre — no move needed
@@ -2680,8 +2709,14 @@ def pick_move_intent(
     # no rule citation, this is play-style modelling.
     if role in _fall_back_eligible_roles and not _is_melee_class(_score_profile(unit)):
         enemies = enemy.alive_units
+        # Engagement measured base-edge to base-edge under SWEG_CHARGE_BASEEDGE
+        # (`_er_gap`, default ON since wave 240) — this trigger MUST match the
+        # simulator's fight/shoot gates or a base-contact-engaged shooter would
+        # classify itself as free, take a NORMAL move out of melee, and dodge
+        # the Fall Back lockout and the Desperate Escape test entirely.
         in_engagement = any(
-            _dist(unit.position, e.position) <= _ENGAGEMENT_RANGE
+            _er_gap(unit.position, unit.profile,
+                    e.position, e.profile) <= _ENGAGEMENT_RANGE
             for e in enemies
         )
         if in_engagement and enemies:
@@ -2699,7 +2734,8 @@ def pick_move_intent(
                 _objectives = map_.objectives
                 _engaged = [
                     e for e in _e_alive
-                    if _dist(unit.position, e.position) <= _ENGAGEMENT_RANGE
+                    if _er_gap(unit.position, unit.profile,
+                               e.position, e.profile) <= _ENGAGEMENT_RANGE
                 ]
                 if (
                     _displace_no_control_consequence(

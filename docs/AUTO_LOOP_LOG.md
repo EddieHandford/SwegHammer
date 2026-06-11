@@ -4,7 +4,57 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
-## Wave 240 (2026-06-11, in progress) — first workflow-orchestrated agenda wave: five builds landed with adversarial per-commit review on `claude/sim-calibration-8`; checkpoint pull request 72 merged by Ed and folded; review fixes applied; measurement frames queued.
+## Wave 241 (2026-06-11) — CRITICAL FIX: the wave-240 charge placement shipped without its measurement half, structurally disabling melee under the adopted default; the gate-aware Engagement Range measure now lands everywhere, and the 5.13 anchor is declared INVALID pending a fresh re-anchor.
+
+**1. The bug (caught by a new one-question diagnostic, not by the metric).** `scripts/diag_fightgate_check.py`
+(now registered in the analysis toolbox) asks: does a successful charge ever produce a melee swing
+under the current gates? Under the adopted `SWEG_CHARGE_BASEEDGE` default the answer was NO —
+**18 successful charges, 0 fight activations, 0.0 melee damage** (seed-7 fixed bundle). Root cause:
+wave 240 shipped only the PLACEMENT half of the base-edge rule. The charger now ends its move one
+inch from the target's base EDGE — about 2.26 inches centre-to-centre for two 32-millimetre bases —
+but every Engagement Range check in the simulator still measured CENTRE distance against the
+one-inch threshold. Fight eligibility, the shooting melee-lock, the Fall Back crossing test, and
+the charge-roll candidate filter all judged the charger "not engaged" at its own legal charge-end
+spot. Melee never resolved in any game under the production default.
+
+**2. The fix: the measurement half of the same rule.** New gate-aware primitive
+`_er_gap(pos_a, profile_a, pos_b, profile_b)` in `code/sim/geometry.py` — gate ON it returns the
+base-edge gap (centre distance minus both base radii, minus a one-nanometre epsilon so the exact
+one-inch placement spot counts as engaged); gate OFF it returns the plain centre distance, keeping
+the legacy path byte-identical. Twelve simulator sites and five strategy sites converted together
+(fight eligibility, the shooting melee-lock, Fall Back, overwatch eligibility, the
+`pick_charge_target` filter, the m4 melee-lock, the displace-swarm rails) so no check can diverge
+from another. The charge-roll requirement is now the REAL move the 2D6 must cover —
+`max(0, gap − 1")` — not the centre distance, matching the 10e charge rule's "ends within
+Engagement Range" wording. Cited `simulator.engagement_range_base_edge` (placement and measurement
+are two halves of one rule under one gate) and registered in the `scripts/audit_rules.py`
+required-keys list; audit green, 343/343.
+
+**3. Validation.** The diagnostic now reads **gate ON: 18 charges / 20 fight activations / 10.0
+melee damage** (gate OFF: 19 / 16 / 7.0 — legacy behaviour intact). New
+`EngagementMeasurementTests` class (eight tests) in `tests/test_charge_baseedge.py` covers the
+pure math both gate ways, fight resolution at the gated charge-end spot, the shooting melee-lock
+at base contact, the charge requirement as real-move-not-centre-distance (forced 2D6 against an
+eleven-inch Knight), and a full-battle mirror of the diagnostic scenario. Fourteen full-suite
+failures triaged — every one a centre-distance-era TEST SCENARIO artifact (stand-ins without
+profiles in the m4 tests; units placed at 2.0 inches centre, which used to mean "near but not
+engaged" and now means "already engaged", in the displace-swarm, Apoplectic Frenzy, and Relentless
+Onslaught scenarios) — fixed by spreading the scenarios past the base-edge threshold with
+explanatory comments, NOT by pinning the gate off, so the production default stays the tested path.
+
+**4. Consequence: the wave-240 adoption measurement is INVALID.** The combined-collision N=80
+confirm (gated 5.13, 8/22 in band) and the standing anchor `data/_anchor_sc8c_n80_log.json` were
+measured on a simulator whose melee never fired under the ON arm. The melee-faction movement in
+that confirm (World Eaters, Chaos Daemons, Death Guard down; shooty factions up) is the bug's
+signature, not the mechanic's. The ADOPTION itself stands — the placement rule is faithful and the
+measurement now matches it — but the headline and residual surface must be re-measured: **fresh
+full N=80 re-anchor queued on the fixed tree** (`data/wf_w241_fightgate_n80.json`). The held-build
+harvest already landed on this branch before the fix (Strands charge write-back, Yncarne on-kill
+heal, the Chaos Space Marines and Aeldari archetype reshapes, the movement-event sweep — commits
+`97255b9` through `e82951a`), so the one re-anchor covers the harvest and the fight fix together;
+the two reshapes are frame changes that required a fresh anchor regardless.
+
+## Wave 240 (2026-06-11, in progress) — first workflow-orchestrated agenda wave: five builds landed with adversarial per-commit review on `claude/sim-calibration-8`; checkpoint pull request 72 merged by Ed and folded; review fixes applied; measurement frames queued. **[Wave-241 correction: the collision-pair confirm and the 5.13 anchor below were measured on broken melee — see the wave-241 block above.]**
 
 **0. Branch transition + checkpoint shipped.** Continuation branch `claude/sim-calibration-8` rolled
 off the `claude/sim-calibration-7` checkpoint head per the user's merge-wait-must-not-bottleneck
@@ -141,65 +191,4 @@ log promoted directly at zero evaluation cost (config equality after the flip).
 full N=80 re-anchor after the batch covers all five builds. Modularization Stage B complete on
 its own branch — awaiting the user's go to push and open its pull request.
 
-## Wave 239 (2026-06-11, CLOSED) — Acts of Faith per-phase adopted as default + Stage A folded with on-branch fingerprint proof + anchor promoted at zero evaluation cost.
-
-**1. Displacement Stage 2 verdict recorded** (`b0b36c6`): wash missing its target, parked default-off
-— full detail in the wave-238 block below and the decision ledger.
-
-**2. Acts of Faith per-phase adopted as production default** (`7834b75`). The N=80 paired A/B versus
-the 5.83 anchor measured metric-neutral: headline +0.03, Adepta Sororitas −0.62 inside the ±0.90
-confidence interval (31 flips), every other faction byte-flat. The expected +2-4 uplift did not
-materialize — but the per-phase grant is the verbatim codex rule, the conservative cap's historical
-justification (the +14.39 over-performance) was attributed to the since-fixed invulnerable-save
-mapper bug, and the fidelity-first precedent (conditional invulnerable saves, kept default-on as
-metric-neutral fidelity) applies directly. Legacy per-round path kept behind `=0`; gate-off tests
-opt out explicitly.
-
-**3. Modularization Stage A folded with an on-branch behaviour proof** (merge commit, procedure §H).
-Ed merged pull request 71; because the calibration branch has diverged ~2,400 lines from main, the
-main-side fingerprint proof does not automatically transfer — so the motion-proof harness was run on
-THIS branch's tree immediately before and after the merge: fingerprint identical both sides
-(`45df5b56…`). The fold is behaviour-neutral here too; the standing anchor survives. Full suite
-1500 green on the merged tree, demonstration battle exit 0.
-
-**4. Standing anchor promoted at zero evaluation cost.** With the default flipped, the production
-configuration now equals the Acts-of-Faith ON arm exactly, and the Stage A fold is proven
-behaviour-neutral — so the ON-arm log was promoted directly to
-**NEW STANDING ANCHOR `data/_anchor_sc7d_n80_log.json` (gated 5.85, raw 8.81, 5/22 in band)**
-with no re-run, per the no-redundant-evaluations rule.
-
-**5. GitHub hygiene on the user's direction.** Stage-2-function issues relabelled (`stage-2` +
-`blocked`: #45-#49, #51, each with a comment naming its unblock condition) and two milestones
-created: "Stage 1 completion" (#44, #52, #61, #63 — definition of done: gated mean absolute error
-below the per-faction noise floor) and "Post-convergence (Stage 2 and held work)".
-
-**6. User-directed display work (same wave, display-only).** Three requests from the user's live
-replay session, all built and visually verified: (a) the Streamlit army table now shows composition
-in the natural reading order ("2 × 10 = 20" — two squads of ten models, twenty models total);
-(b) the replay renderer gained a full victory-point display — running score in the title bar and
-legend, per-objective holder tint with the holder's army colour and a white outline (user-confirmed
-direction), objective markers resized to their physical forty-millimetre footprint (the old
-three-and-a-half-inch diamond out-sized its own control ring and read as a giant stacked unit),
-a per-frame scoring flash showing the points awarded and both sides' objective control, and an
-end-of-round banner showing each army's secondary victory points (the only place secondary points
-are observable in the event stream); (c) `event_description` and the title now carry the running
-total. All reconstruction is event-stream-pure — legacy logs still scrub.
-
-**7. Collision report from the same session: ROOT CAUSE FOUND.** The user's screenshot showed
-overlapping bases and "units leaving objectives". New audit `scripts/diag_overlap_audit.py`
-(registered in the toolbox) measured both failure modes on the screenshot matchup: REAL overlap
-(80–114 live incidents per game; deploy already 21–36; tanks 2.2–3.0 inches deep; cross-army
-charge cases) and REPLAY drift (27–42 units per game up to 9.99 inches between live and
-event-reconstructed positions — the "leaving objectives" was the replay drawing stale positions).
-One root cause explains both: `_do_charge` (code/simulator.py:11763-11772) places the charger one
-inch from the target's CENTER with no collision-legality check and assigns the position without
-emitting a movement event. Deployment placement also never consults collision. Fix split per the
-telemetry precedent: the silent-position-assignment emission sweep is telemetry-only (UnitActivated
-precedent, byte-identical) → dispatched now; charge-end placement legality (one inch from base
-EDGE, collision-legal) and deployment spacing are behaviour-changing calibration levers → queued
-gated + paired for wave 240.
-
-**IN FLIGHT at last update:** Chaos Space Marines archetype reshape build agent (frame change on
-land → fresh anchor); movement-event emission sweep agent. **NEXT:** wave-240 gated collision
-levers (charge-end placement legality, deployment spacing); Sororitas F5 Bringers of Flame ASSAULT
-leg; Aeldari issue #44 scoped diagnostic; modularization Stage B on its own branch off main.
+*Wave 239 and older archived to `AUTO_LOOP_LOG_archive.md`.*

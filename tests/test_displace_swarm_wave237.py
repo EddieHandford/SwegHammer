@@ -170,15 +170,21 @@ class GateOffByteIdenticalTests(unittest.TestCase):
     def _scenario(self):
         # Five swarm bodies near the marker (OC 2 each = 10) face a Knight (OC
         # 10) ON the marker plus a crackable soft enemy just off it. Both enemies
-        # are valid charge candidates (> 1" from the charger). Default picker: the
-        # Knight is won't-crack-suppressed, so the crackable soft target wins.
+        # are valid charge candidates — since wave 241 Engagement Range is
+        # measured base-edge to base-edge (`_er_gap`), so "valid candidate"
+        # means a base-edge gap over 1" (centre over ~2.26" for two default
+        # 32mm bases), not the old centre-1" rule. The swarm row sits at 2.5"
+        # centre (gap 1.24") — clear of engagement, still inside the marker's
+        # 3" control radius so its Objective Control counts for the rail.
+        # Default picker: the Knight is won't-crack-suppressed, so the
+        # crackable soft target wins.
         map_ = _marker_map()
         swarm = _make_army("Swarm", [
-            (_swarm_body_profile(oc=2), (30.0 + 0.4 * k, 32.0)) for k in range(5)
+            (_swarm_body_profile(oc=2), (30.0 + 0.3 * k, 32.5)) for k in range(5)
         ])
         enemy = _make_army("Foe", [
-            (_knight_profile(oc=10), (30.0, 30.0)),       # on the marker (2" away)
-            (_crackable_chaff_profile(oc=1), (30.0, 34.0)),  # off the marker (2" away)
+            (_knight_profile(oc=10), (30.0, 30.0)),       # on the marker (gap 1.24")
+            (_crackable_chaff_profile(oc=1), (30.0, 35.0)),  # off the marker (gap 1.24")
         ])
         _wire(swarm, enemy, map_)
         return swarm, enemy
@@ -216,16 +222,18 @@ class GateOnContestWinnableTests(unittest.TestCase):
 
     def test_on_path_picks_the_durable_holder(self):
         # Same board as the OFF scenario: five swarm bodies (OC 2 each) already
-        # near the marker. Once one charges in, friendly Objective Control on the
+        # near the marker (2.5" centre — base-edge gap 1.24", clear of
+        # engagement under the wave-241 measure, inside the 3" control
+        # radius). Once one charges in, friendly Objective Control on the
         # marker (>= 10) at least ties the Knight's lone OC 10 -> winnable -> the
         # Stage 2 bonus promotes the Knight over the crackable soft target.
         map_ = _marker_map()
         swarm = _make_army("Swarm", [
-            (_swarm_body_profile(oc=2), (30.0 + 0.4 * k, 32.0)) for k in range(5)
+            (_swarm_body_profile(oc=2), (30.0 + 0.3 * k, 32.5)) for k in range(5)
         ])
         enemy = _make_army("Foe", [
             (_knight_profile(oc=10), (30.0, 30.0)),
-            (_crackable_chaff_profile(oc=1), (30.0, 34.0)),
+            (_crackable_chaff_profile(oc=1), (30.0, 35.0)),
         ])
         _wire(swarm, enemy, map_)
         charger = swarm.units[0]
@@ -252,13 +260,15 @@ class NoSuicideRailTests(unittest.TestCase):
         # A LONE swarm body (OC 1) versus a Knight holding OC 10 alone. Even
         # after it lands, friendly OC on the marker = 1 < 10 -> cannot tie ->
         # rail blocks -> legacy pick (the crackable soft target) stands.
+        # (Positions per the wave-241 base-edge Engagement Range: 2.5" centre
+        # = gap 1.24", a valid charge candidate, not already engaged.)
         map_ = _marker_map()
         swarm = _make_army("Swarm", [
-            (_swarm_body_profile(oc=1), (30.0, 32.0)),
+            (_swarm_body_profile(oc=1), (30.0, 32.5)),
         ])
         enemy = _make_army("Foe", [
             (_knight_profile(oc=10), (30.0, 30.0)),
-            (_crackable_chaff_profile(oc=1), (30.0, 34.0)),
+            (_crackable_chaff_profile(oc=1), (30.0, 35.0)),
         ])
         _wire(swarm, enemy, map_)
         charger = swarm.units[0]
@@ -284,12 +294,14 @@ class FullClusterAccountingTests(unittest.TestCase):
     def _swarm_and_enemy(self, with_armiger: bool):
         map_ = _marker_map()
         # Five swarm bodies (OC 2 each = 10) — exactly ties a lone Knight (OC 10).
+        # (Positions per the wave-241 base-edge Engagement Range: 2.5" centre
+        # = gap 1.24", valid charge candidates, inside the control radius.)
         swarm = _make_army("Swarm", [
-            (_swarm_body_profile(oc=2), (30.0 + 0.4 * k, 32.0)) for k in range(5)
+            (_swarm_body_profile(oc=2), (30.0 + 0.3 * k, 32.5)) for k in range(5)
         ])
         enemy_specs = [
             (_knight_profile(oc=10), (30.0, 30.0)),
-            (_crackable_chaff_profile(oc=1), (30.0, 34.0)),
+            (_crackable_chaff_profile(oc=1), (30.0, 35.0)),
         ]
         if with_armiger:
             # Armiger ON the same marker — its OC 8 stacks into the cluster
