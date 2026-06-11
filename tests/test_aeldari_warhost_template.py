@@ -1,4 +1,4 @@
-"""Tests for the Aeldari Battle Host (Warhost) archetype template.
+"""Tests for the Aeldari Warhost archetype template.
 
 History:
   * iter13 (879daf6) added Yvraine + Yncarne EPIC HERO pair to the template
@@ -16,6 +16,16 @@ History:
     scaled from 2 to 1 (the codex per-kill heal was being modelled as a
     steady per-round buff). Avatar of Khaine added as the canonical real-
     meta Warhost MONSTER CHARACTER centerpiece.
+  * wave-240 (docs/AELDARI_LIST_REALISM_SPEC.md) replaced the Wraith-heavy
+    iter17 template with the Phoenix Lord + Aspect Warrior spine confirmed
+    by 6 tournament lists (Salt City Grand Tournament IV 7-0, Nova Open
+    2025 1st, Michigan Grand Tournament 2025 1st, and three more). Renamed
+    archetype key from "Battle Host" to "Warhost" (the actual detachment
+    name). Yncarne and Avatar of Khaine removed: zero appearances in any
+    confirmed Warhost or Aspect Host list. New twelve-key template centres
+    on Fuegan + Jain Zar + Lhykhis (Phoenix Lords) and Warp Spiders + Fire
+    Dragons + Dark Reapers + Howling Banshees + Swooping Hawks (Aspect
+    Warriors).
 
 Reference: https://wahapedia.ru/wh40k10ed/factions/aeldari/
 """
@@ -28,16 +38,15 @@ from code.units import UNIT_CATALOG
 
 
 class AeldariWarhostTemplateTests(unittest.TestCase):
-    def test_aeldari_has_battle_host_archetype(self):
-        """Aeldari must expose the Battle Host archetype."""
+    def test_aeldari_has_warhost_archetype(self):
+        """Aeldari must expose the Warhost archetype."""
         self.assertTrue(has_archetype("Aeldari"))
-        self.assertIn("Battle Host", ARCHETYPES["Aeldari"])
+        self.assertIn("Warhost", ARCHETYPES["Aeldari"])
 
-    def test_battle_host_keys_resolve_in_catalogue(self):
-        """Every key in the Battle Host template must exist in UNIT_CATALOG
-        and its faction must be 'Aeldari' or 'Ynnari' (the Ynnari sub-
-        faction is legal in any Aeldari army per the 10e Aeldari index)."""
-        template = ARCHETYPES["Aeldari"]["Battle Host"]
+    def test_warhost_keys_resolve_in_catalogue(self):
+        """Every key in the Warhost template must exist in UNIT_CATALOG
+        and its faction must be 'Aeldari' (all units are Craftworlds)."""
+        template = ARCHETYPES["Aeldari"]["Warhost"]
         allowed = {"Aeldari", "Ynnari"}
         missing = []
         misplaced = []
@@ -51,55 +60,76 @@ class AeldariWarhostTemplateTests(unittest.TestCase):
         self.assertEqual(missing, [], f"Missing keys: {missing}")
         self.assertEqual(misplaced, [], f"Wrong faction: {misplaced}")
 
-    def test_template_includes_yncarne_and_avatar(self):
-        """Template must reference Yncarne (Ynnari MONSTER spine) and
-        Avatar of Khaine (canonical Warhost centerpiece). iter17 dropped
-        Yvraine in favour of Avatar — the EPIC HERO pair is now Yncarne +
-        Avatar rather than the iter13 Yvraine + Yncarne triumvirate."""
-        template = ARCHETYPES["Aeldari"]["Battle Host"]
-        self.assertIn("aeldari_ynnari_the_yncarne", template)
-        self.assertIn("aeldari_craftworlds_avatar_of_khaine", template)
-        # iter17 drop — Yvraine should NOT be templated; she's Ynnari-
-        # detachment-flavour and over-stacked with Yncarne's heal.
-        self.assertNotIn("aeldari_ynnari_yvraine", template)
+    def test_template_includes_phoenix_lords_and_aspect_warriors(self):
+        """Template must reference Fuegan + Jain Zar + Lhykhis (Phoenix
+        Lords) and Warp Spiders + Fire Dragons + Dark Reapers + Howling
+        Banshees + Swooping Hawks (Aspect Warriors) — the wave-240
+        list-realism reshape. The Yncarne and Avatar of Khaine are
+        explicitly NOT in the template (zero competitive appearances in
+        confirmed Warhost lists)."""
+        template = ARCHETYPES["Aeldari"]["Warhost"]
+        # Phoenix Lord trio
+        self.assertIn("aeldari_craftworlds_fuegan", template)
+        self.assertIn("aeldari_craftworlds_jain_zar", template)
+        self.assertIn("aeldari_craftworlds_lhykhis", template)
+        # Aspect Warriors
+        self.assertIn("aeldari_craftworlds_warp_spiders", template)
+        self.assertIn("aeldari_craftworlds_fire_dragons", template)
+        self.assertIn("aeldari_craftworlds_dark_reapers", template)
+        self.assertIn("aeldari_craftworlds_howling_banshees", template)
+        self.assertIn("aeldari_craftworlds_swooping_hawks", template)
+        # Transport
+        self.assertIn("aeldari_craftworlds_wave_serpent", template)
+        # wave-240 drops — Yncarne and Avatar must NOT be in the template
+        self.assertNotIn("aeldari_ynnari_the_yncarne", template)
+        self.assertNotIn("aeldari_craftworlds_avatar_of_khaine", template)
 
-    def test_yncarne_and_avatar_seed_in_90pct_of_trials_at_2000pt(self):
-        """At 2000 pts both Yncarne (260pt) and Avatar (280pt) must seed in
-        >=90% of 30 trials. The (-template_count, -squad_cost) anchor sort
-        places both EH MONSTERs at the top of the seed walk (count=2 each),
-        and the 600pt seed slice (0.3 * 2000) easily accommodates both
-        (260 + 280 = 540pt total).
+    def test_phoenix_lords_seed_in_90pct_of_trials_at_2000pt(self):
+        """At 2000 pts, Fuegan + Jain Zar + Lhykhis (all count=3, ~120-135pt
+        each) must each seed in >= 90% of 30 trials. The (-template_count,
+        -squad_cost) sort places all three Phoenix Lords ahead of count=2
+        entries; the 600pt seed slice (0.3 * 2000) accommodates all three
+        (120 + 120 + 135 = 375pt) plus a Wave Serpent (125pt = 500pt total)
+        before filling.
 
-        The 1500pt seed slice (450pt) only fits ONE of the two, so the
-        threshold here uses 2000pt; both pair fit in. Real-meta Aeldari
-        Warhost lists are 2000pt by definition (GW tournament format)."""
-        yncarne_name = UNIT_CATALOG["aeldari_ynnari_the_yncarne"].name
-        avatar_name = UNIT_CATALOG["aeldari_craftworlds_avatar_of_khaine"].name
+        Real competitive Aeldari lists are 2000pt by definition (GW tournament
+        format) and the Phoenix Lords are the list's backbone."""
+        fuegan_name = UNIT_CATALOG["aeldari_craftworlds_fuegan"].name
+        jain_zar_name = UNIT_CATALOG["aeldari_craftworlds_jain_zar"].name
+        lhykhis_name = UNIT_CATALOG["aeldari_craftworlds_lhykhis"].name
 
         trials = 30
-        yncarne_hits = 0
-        avatar_hits = 0
+        fuegan_hits = 0
+        jain_zar_hits = 0
+        lhykhis_hits = 0
         for seed in range(trials):
             rng = random.Random(seed)
             army = build_archetype_army(
                 "A", "Aeldari", 2000.0, rng=rng,
-                archetype_name="Battle Host",
+                archetype_name="Warhost",
             )
             names = {u.profile.name for u in army.units}
-            if yncarne_name in names:
-                yncarne_hits += 1
-            if avatar_name in names:
-                avatar_hits += 1
+            if fuegan_name in names:
+                fuegan_hits += 1
+            if jain_zar_name in names:
+                jain_zar_hits += 1
+            if lhykhis_name in names:
+                lhykhis_hits += 1
 
         threshold = int(trials * 0.9)
         self.assertGreaterEqual(
-            yncarne_hits, threshold,
-            f"Yncarne seeded only {yncarne_hits}/{trials} times "
+            fuegan_hits, threshold,
+            f"Fuegan seeded only {fuegan_hits}/{trials} times "
             f"(need >= {threshold})",
         )
         self.assertGreaterEqual(
-            avatar_hits, threshold,
-            f"Avatar of Khaine seeded only {avatar_hits}/{trials} times "
+            jain_zar_hits, threshold,
+            f"Jain Zar seeded only {jain_zar_hits}/{trials} times "
+            f"(need >= {threshold})",
+        )
+        self.assertGreaterEqual(
+            lhykhis_hits, threshold,
+            f"Lhykhis seeded only {lhykhis_hits}/{trials} times "
             f"(need >= {threshold})",
         )
 
