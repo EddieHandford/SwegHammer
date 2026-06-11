@@ -146,6 +146,7 @@ equal points implies equal expected battlefield score. See
 | `ROADMAP.md` | Development milestones organised around Goals A–D |
 | `docs/CORE_RULES_AUDIT.md` | 10e core rules vs implementation coverage map |
 | `code/` | Python simulation engine |
+| `code/sim/` | Simulator package — modules extracted from `code/simulator.py` by pure code motion (constants, geometry so far), behaviour-identical; see [`docs/SIM_MODULARIZATION_PLAN.md`](docs/SIM_MODULARIZATION_PLAN.md) |
 | `app.py` | Streamlit dashboard — 6 tabs (Statistics, Watch a battle, Efficiency, Equilibrium, Compare to SwegHammer, Convergence) |
 | `run.py` | Cross-platform launcher (`python run.py` for the GUI menu, `python run.py --cli` to skip it) |
 | `code/factions.py` | Codex → faction mapping + per-faction display colours; Marine umbrella detection |
@@ -163,6 +164,7 @@ equal points implies equal expected battlefield score. See
 | `code/bsdata/audit.py` | Diff successive `parsed.json` runs, flag unmapped codices and stat drift |
 | `scripts/audit_rules.py` | Citation coverage gate — every cite-able rule has a Wahapedia source |
 | `scripts/bench_simulator.py` | Benchmark harness — reports per-battle wall time across three representative matchups |
+| `scripts/sim_motion_proof.py` | Behaviour-identity fingerprint harness — proves a simulator code-motion refactor changes nothing, by hashing fixed-seed battle traces before and after |
 | `scripts/evaluate_vs_meta.py` | Sim-vs-real-meta matchup matrix; reports raw MAE + noise-gated MAE against the 4-week rolling Warp Friends aggregate in `data/warpfriends_rolling.json` |
 | `scripts/scrape_warpfriends.py` | Refresh `data/warpfriends_rolling.json` from the latest weekly posts at warpfriends.wordpress.com |
 | `scripts/sweg_balance_mc.py` | MC-driven per-faction balance pass on top win-rate residuals |

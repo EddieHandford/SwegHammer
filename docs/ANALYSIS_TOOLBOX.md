@@ -54,6 +54,7 @@ umbrella (`diag_multimetric`). Reuse before writing a new one.
 | Wahapedia (live fetch) | Rule prose, stratagem lists, frequently-asked-question clarifications; may be unreachable from agent worktrees — orchestrator fetches. |
 | `scripts/audit_rules.py` | Every rule-bearing flag has a verbatim citation (blocking pre-commit hook). |
 | Test suite (1,315 tests) + `run.py --cli` + catalogue import smoke | Correctness floor before any push. |
+| `scripts/sim_motion_proof.py` | Deterministic motion-proof fingerprint. Runs a fixed bundle of five seeded battles in-process and prints one secure-hash fingerprint of the full per-battle record. Used to prove that a pure code-motion refactor of the simulator (see `docs/SIM_MODULARIZATION_PLAN.md`) changed no observable behaviour: the fingerprint must match the recorded baseline byte for byte after every extraction. Seeds explicitly, mirroring the calibration evaluation's per-pair seeding, because `run.py --cli` does not seed and so is not reproducible. |
 
 ## 7. Event stream and research agents
 
