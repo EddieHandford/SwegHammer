@@ -37,12 +37,21 @@ misses under the fixed seed) — now a guaranteed-lethal profile and a strict he
 Retributor citation scope corrected to keyword-gated and the loader reads the field directly. Full
 suite 1536 green, demonstration battle exit 0, pushed.
 
-**3. Measurement frames (queued, serial).** The two ungated Sororitas commits change the production
-configuration, so the 5.85 anchor no longer matches production — a Sororitas-scoped N=80 run is IN
-FLIGHT (42/462 cells; merge into the anchor via `paired_delta.py --scoped` per the matchup-scoping
-method) to measure the Retributor+Paragon delta and mint the new standing anchor. Then, serially:
-`SWEG_CHARGE_BASEEDGE=1` full-matrix paired A/B, `SWEG_DEPLOY_COLLISION=1` full-matrix paired A/B,
-`SWEG_BOF_ASSAULT=1` Sororitas-scoped paired A/B.
+**3. Retributor+Paragon measured — gated 5.85 → 5.75, new standing anchor.** The two ungated
+Sororitas commits change the production configuration, so the 5.85 anchor no longer matched
+production. The Sororitas-scoped N=80 run (42/462 cells, ~11× cheaper than a full re-anchor)
+merged via `paired_delta.py --scoped`: **Adepta Sororitas +1.99 decisive toward target** (141
+flips, confidence interval ±1.57; the faction is the third-deepest under-pole at −17.8, so up is
+right), Death Guard −0.22 decisive but tiny, every other faction flat. Gated mean absolute error
+**5.85 → 5.75 — best yet on the honest scale**. **NEW STANDING ANCHOR
+`data/_anchor_sc8a_n80_log.json`**, minted by overwriting the anchor's 3,360 Sororitas cells with
+the scoped run's; self-checked by re-pairing old-versus-merged WITHOUT the scoped fill path, which
+reproduces the scoped report exactly.
+
+**4. Gate screens (serial).** `SWEG_CHARGE_BASEEDGE=1` full-matrix N=40 paired screen IN FLIGHT
+versus the new anchor (paired join handles the N=40-versus-N=80 seed subset). Then
+`SWEG_DEPLOY_COLLISION=1` N=40, then `SWEG_BOF_ASSAULT=1` Sororitas-scoped. N=80 confirm before
+any default flip.
 
 **IN FLIGHT:** Sororitas-scoped N=80 re-anchor run; Aeldari over-pole diagnostic agent (re-dispatch);
 movement-event emission sweep agent (briefed against `1fb141e` — its commit will need a cherry-pick
