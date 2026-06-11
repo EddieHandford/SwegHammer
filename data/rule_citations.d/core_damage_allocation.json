@@ -10,6 +10,15 @@
     "scope": "army-wide"
   },
 
+  "simulator.defender_allocation": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Making-Attacks",
+    "rule_name": "Allocate Attack",
+    "quoted_text": "The player controlling the target unit then allocates that attack to one model in the target unit (the attack can be allocated to any model in that unit, but if the target unit already contains a model that has lost any wounds or has already had attacks allocated to it this phase, the attack must be allocated to that model).",
+    "trigger": "an unsaved wound or a save-bypassing hit is about to be allocated to a model in the target unit",
+    "effect": "the DEFENDING player (not the attacking player) chooses which model in the target unit receives the wound; the defender will typically sacrifice trailing models first, preserving models that are on or near objectives",
+    "scope": "army-wide"
+  },
+
   "simulator.mortal_wound_spillover": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Mortal-Wounds",
     "rule_name": "Mortal Wounds",
