@@ -97,15 +97,6 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # gates on this detachment flag) — see RUBRICAE_PHALANX.all_is_dust
     # in data/rule_citations.d/detachments.json.
     ("all_is_dust", False),
-    # Necrons Awakened Dynasty Command Protocol flags (AD-PR,
-    # claude/sim-calibration-4). Three rotation-gated round buffs that
-    # together cover Protocols of the Hungry Void (melee AP+1, even rounds),
-    # Vengeful Stars (ranged Sustained Hits, odd rounds), and Eternal
-    # Conquerors (+1 save, round 3 only). Citations live in
-    # data/rule_citations.d/detachments.json.
-    ("necrons_melee_ap_plus_one_army_wide", False),
-    ("necrons_ranged_sustained_hits_army_wide", False),
-    ("necrons_army_wide_plus_one_save_command_protocol", False),
     # Necrons Cursed Legion — Relentless Onslaught (Abilities #1,
     # claude/sim-calibration-6). Two clauses on one flag: +1 to Hit vs
     # objective-marker targets (Unit.attack) and [ASSAULT] on NECRONS VEHICLE /
@@ -128,6 +119,14 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # under this detachment (gated SWEG_WARP_RIFTS). Cited as
     # `simulator.warp_rifts` in data/rule_citations.d/chaos_daemons.json.
     ("warp_rifts", False),
+    # Adepta Sororitas Hallowed Martyrs — The Blood of Martyrs (wave 234).
+    # Damage-gated hit and wound bonus: +1 Hit when below Starting Strength,
+    # +1 Wound when below Half-strength (both ranged and melee). Squad
+    # substrate (squad_id / _squad_start_count) gates the multi-model path;
+    # wound-fraction fallback for single-model units. Cited as
+    # `HALLOWED_MARTYRS.soror_blood_of_martyrs` in
+    # data/rule_citations.d/detachments.json.
+    ("soror_blood_of_martyrs", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
@@ -216,6 +215,9 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # the substitution only when it flips a fail -> success.
     "simulator.strands_of_fate",
     "simulator.battleshock",
+    # Once-per-battle first-turn roll-off (10e mission sequence, gated
+    # SWEG_ROLLOFF_ONCE) — registered so the citation is enforced, not stale.
+    "simulator.first_turn_rolloff",
     "simulator.judgement_tokens",
     # Orks faction army rules (10e). mob_rule auto-passes Battle-shock for
     # Ork units when the army has 10+ Ork models on the battlefield;
@@ -229,6 +231,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # 12" of a Tyranid SYNAPSE model.
     "simulator.synapse_imperative",
     "simulator.shadow_in_the_warp",
+    # Tyranids army rule (10e) — Shadow in the Warp forced Battle-shock test
+    # (env-gated SWEG_SITW_TEST, default-OFF). The main half of the codex rule:
+    # "each enemy unit on the battlefield must take a Battle-shock test" when
+    # Shadow is unleashed. Forced regardless of below-half-strength. Implemented
+    # in _apply_shadow_in_the_warp_forced_tests via the shared _battleshock_test_squad
+    # helper. See data/rule_citations.d/tyranids.json.
+    "simulator.shadow_in_the_warp_forced_test",
     # Drukhari army rule (10e). Command-phase token award + while-held
     # buffs (Lethal Hits, FNP 6+). Faction-gated on attacker/defender.
     "simulator.power_from_pain",
@@ -559,6 +568,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Dark Pact, weapons gain [DEVASTATING WOUNDS] until the end of the phase.
     # Gated SWEG_CSM_ABILITIES. Cited in data/rule_citations.d/keywords_and_mechanics.json.
     "simulator.csm_unholy_bloodshed",
+    # Wave 236 — Forgefiend "Daemonic Ordnance": per-activation opt-in; ranged
+    # weapons gain [DEVASTATING WOUNDS] and [HAZARDOUS] until end of phase.
+    # Grants transient_devastating_wounds + transient_hazardous; Hazardous
+    # d6 self-check fires in Unit.attack (ranged mode). Not env-gated (datasheet
+    # ability, narrow flag, not a sweep across all CSM). Cited in
+    # data/rule_citations.d/keywords_and_mechanics.json.
+    "simulator.csm_daemonic_ordnance",
     # CSM wave — Dark Apostle "Dark Zealotry": +1 to Wound roll on melee attacks
     # while the unit is led by a Dark Apostle. Gated SWEG_CSM_ABILITIES.
     # Cited in data/rule_citations.d/leaders.json.
@@ -581,6 +597,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Chaos Daemons units arriving under the Daemonic Incursion detachment.
     # Cited in data/rule_citations.d/chaos_daemons.json.
     "simulator.warp_rifts",
+    # Wave 232 — Tank Shock dice-faithful ON path (env-gated SWEG_TANKSHOCK_DICE).
+    # ON: roll D6 + charger Toughness; on 7+ target takes D3 mortal wounds capped 6.
+    # OFF (default): flat 2 mortal wounds (median D3, byte-identical).
+    # Verbatim rule text from data/rule_citations.d/stratagems.json
+    # "Stratagem.Tank Shock". Cited in data/rule_citations.json.
+    "simulator.tank_shock_dice",
     # Wave 223 — 10e core Reserves cap (env-gated SWEG_DEPLOY_AI). Dual cap:
     # no more than half of an army's units AND no more than half of its total
     # points may start in Reserves. Deep Strike and Cult Ambush (a type of
@@ -702,6 +724,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.fights_first_chargers",
     "simulator.fights_first_keyword",
     "simulator.harbingers_of_dread",
+    # Wave 232 — Chaos Knights Harbingers of Dread additional Dread abilities
+    # (env-gated SWEG_HARBINGERS, default-OFF). Despair and Darkness wired in
+    # code/units.py Unit.attack; Dismay and Delirium wired in
+    # code/simulator.py _run_battleshock_phase.
+    "simulator.harbingers_of_dread_despair",
+    "simulator.harbingers_of_dread_darkness",
+    "simulator.harbingers_of_dread_dismay",
+    "simulator.harbingers_of_dread_delirium",
     "simulator.multi_profile_weapon_selection",
     # PER-MODEL-LOADOUTS (Stage 3, env-gated SWEG_PERMODEL). One Unit per model,
     # each firing its OWN BSData loadout, so a special-weapon model loses its

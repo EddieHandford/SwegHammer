@@ -1,6 +1,5 @@
 {
   "_comment": "Citations for the Tyranids army rules implemented in code/simulator.py (#117) and the Tyranid-specific Detachments registered in code/detachments.py. Both Synapse Imperative and Shadow in the Warp key off the SYNAPSE keyword extracted from BSData categoryLinks. Source: Wahapedia core Tyranids faction page. iter16 — Subterranean Assault detachment registered with its real-meta reroll-hit-1s passive.",
-
   "simulator.synapse_imperative": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/tyranids/",
     "rule_name": "Synapse Imperative",
@@ -9,17 +8,24 @@
     "effect": "the unit rolls 3D6 (sum) instead of 2D6 for its Battle-shock test. Drastically reduces fail rate (~16% vs Ld 8 at 3D6 vs ~58% at 2D6) but is NOT auto-pass — distinct from the pre-September-2024 codex text 'the unit cannot be Battle-shocked' that the simulator previously modelled. TYRANIDS-SYNAPSE-3D6 (wave-44) corrected the over-buff. SwegHammer models each squad member as a separate Unit instance, so the canonical 6\" aura is measured from the SYNAPSE Unit's position to the testing unit's position (not model-to-model).",
     "scope": "keyword-gated"
   },
-
   "simulator.shadow_in_the_warp": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/tyranids/",
     "rule_name": "Shadow in the Warp",
     "quoted_text": "If your Army Faction is TYRANIDS, once per battle, in either player's Command phase, if one or more units from your army with this ability are on the battlefield, you can unleash the Shadow in the Warp. When you do, each enemy unit on the battlefield must take a Battle-shock test. Each time an enemy unit takes such a Battle-shock test, if it is within 6\" of one or more SYNAPSE units from your army, subtract 1 from that test.",
     "trigger": "once per battle, in either player's Command phase; the Tyranid army unleashes Shadow in the Warp via a Command-phase declaration. On the round Shadow is unleashed, any enemy Battle-shock test taken within 6\" of a friendly Tyranid SYNAPSE model receives -1 to the test result.",
-    "effect": "subtract 1 from the 2D6 Battle-shock roll for any enemy unit within 6\" of a Tyranids SYNAPSE source, on the round Shadow was unleashed. Modelled equivalently by raising the test target Leadership by 1. Composes additively with detachment ld_bonus / enemy_ld_penalty. TYRANIDS-DIAG-5 (2026-05-24): collapsed from the prior always-on 12\" aura that fired every Battle-shock phase, to the codex-correct once-per-battle 6\" trigger. The previous over-application contributed materially to Tyranids sim over-perf vs the tournament target. AI declares Shadow in Round 2 (earliest round when enemy units have advanced into 6\" of Synapse but have not yet taken meaningful casualties); once-per-battle gated via `army.shadow_in_the_warp_used_round` set in `_run_command_phase`. APPROXIMATION: the codex rule also forces a Battle-shock test on EVERY enemy unit on the battlefield on the unleashing round; that half is not modelled here because at-strength enemy units (Ld 7-9) pass 2D6 reliably and the dominant Tyranid impact comes from -1 to existing below-half tests within 6\".",
+    "effect": "subtract 1 from the 2D6 Battle-shock roll for any enemy unit within 6\" of a Tyranids SYNAPSE source, on the round Shadow was unleashed. Modelled equivalently by raising the test target Leadership by 1. Composes additively with detachment ld_bonus / enemy_ld_penalty. TYRANIDS-DIAG-5 (2026-05-24): collapsed from the prior always-on 12\" aura that fired every Battle-shock phase, to the codex-correct once-per-battle 6\" trigger. The previous over-application contributed materially to Tyranids sim over-perf vs the tournament target. AI declares Shadow in Round 2 (earliest round when enemy units have advanced into 6\" of Synapse but have not yet taken meaningful casualties); once-per-battle gated via `army.shadow_in_the_warp_used_round` set in `_run_command_phase`. The forced-test half (a Battle-shock test on EVERY enemy unit on the battlefield on the unleashing round) is now modelled under the SWEG_SITW_TEST gate — see the companion entry simulator.shadow_in_the_warp_forced_test.",
     "scope": "keyword-gated",
-    "approximation": true
+    "approximation": false
   },
-
+  "simulator.shadow_in_the_warp_forced_test": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/tyranids/",
+    "rule_name": "Shadow in the Warp — forced Battle-shock test on unleash",
+    "quoted_text": "If your Army Faction is TYRANIDS, once per battle, in either player's Command phase, if one or more units from your army with this ability are on the battlefield, you can unleash the Shadow in the Warp. When you do, each enemy unit on the battlefield must take a Battle-shock test. Each time an enemy unit takes such a Battle-shock test, if it is within 6\" of one or more SYNAPSE units from your army, subtract 1 from that test.",
+    "trigger": "the Tyranid player unleashes Shadow in the Warp in the Command phase; every enemy unit on the battlefield must immediately take a Battle-shock test regardless of whether it is below half-strength",
+    "effect": "each enemy unit takes a Battle-shock test (2D6 vs Leadership); if the unit is within 6\" of a friendly Tyranid SYNAPSE model, subtract 1 from the test. Failure marks the unit as Battle-shocked (objective control drops to 0, cannot be the subject of Stratagems). Gated SWEG_SITW_TEST (default-ON since wave 232); implemented in _apply_shadow_in_the_warp_forced_tests via the shared _battleshock_test_squad helper.",
+    "scope": "army-wide",
+    "approximation": false
+  },
   "SUBTERRANEAN_ASSAULT.reroll_hit_ones": {
     "source": "https://www.goonhammer.com/detachment-focus-subterranean-assault/",
     "rule_name": "Subterranean Assault detachment rule (army-wide reroll-hit-1s + Burrower)",

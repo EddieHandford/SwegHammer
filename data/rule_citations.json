@@ -89,12 +89,14 @@
     "trigger": "Drukhari army; one Combat Drug active army-wide at a time on every WYCH CULT unit"
   },
   "simulator.dark_pacts": {
-    "effect": "unit gains [LETHAL HITS] OR [SUSTAINED HITS 1] for the phase; on failed 2D6>=Ld test the unit suffers D3 mortal wounds",
-    "quoted_text": "Each time a unit with this ability is selected to shoot or fight, it can make a Dark Pact. If it does, it must first take a Leadership test before any effects of that Dark Pact are resolved; if that test is failed, that unit suffers D3 mortal wounds.",
+    "approximation": true,
+    "approximation_note": "Player choice [LETHAL HITS] vs [SUSTAINED HITS 1] collapsed to always-Lethal Hits (dominant pick against high-toughness targets; no target-context plumbing)",
+    "effect": "elected unit gains transient_lethal_hits ([LETHAL HITS]) for the phase; on failed 2D6>=Ld test the unit suffers D3 mortal wounds. CHOICE COLLAPSE: [SUSTAINED HITS 1] option not modelled — always grants [LETHAL HITS].",
+    "quoted_text": "If your Army Faction is Heretic Astartes, each time a unit with this ability is selected to shoot or fight, it can make a Dark Pact. If it does, it must first take a Leadership test before any effects of the Dark Pact are resolved; if that test is failed, that unit suffers D3 mortal wounds. Then, select one of the following abilities for that unit's weapons to gain until the end of the phase: [LETHAL HITS] / [SUSTAINED HITS 1]",
     "rule_name": "Dark Pacts",
     "scope": "army-wide",
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/",
-    "trigger": "attacker unit has CHAOS SPACE MARINES army-rule keyword AND is selected to attack"
+    "trigger": "attacker unit faction is Chaos Space Marines AND is selected to shoot or fight AND is the highest-DPA unit in the army this round AND DPA >= 6"
   },
   "simulator.fights_first_chargers": {
     "effect": "Within the active player's Fight phase pass (`_run_round_vanilla_turns`), units that charged this turn (uid in `_charging_this_round`) fight before units that did not. Implemented as a stable sort with key `0 if charging else 1` so non-charger relative order is preserved.",
@@ -175,5 +177,21 @@
     "scope": "phase-gated",
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#MAKING-ATTACKS",
     "trigger": "AI threat-score heuristic in `code/strategy.py._durability` â€” paired compensation for the iter26-S1 FNP re-land. After folding FNP into durability, opponent AI correctly diverted fire from FNP-bearing defenders to no-FNP horde armies (Orks regressed +5.7 -> +10.1 at N=20). Real play: a 10-model Boyz squad still threatens return fire after losing 4 models, because the defender allocates wounds per attack and the unit only ceases to be a threat when fully wiped. Modelling: multiply effective durability by (1.0 + max(0, sibling_count - 1) * 0.05) where sibling_count is alive same-name models in the defender's army."
+  },
+  "simulator.first_turn_rolloff": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/matched-play/",
+    "rule_name": "Determine First Turn",
+    "quoted_text": "The players roll off. The winner declares whether they will take the first or second turn.",
+    "trigger": "Once per battle, during mission sequence step 12 (Determine First Turn), before the first battle round begins",
+    "effect": "The player who wins the roll-off chooses whether to take the first or second turn; that turn order then persists for the entire battle — the same player always takes the first turn in every subsequent battle round",
+    "scope": "army-wide"
+  },
+  "simulator.tank_shock_dice": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/quick-start-guide/",
+    "rule_name": "Tank Shock (dice-faithful ON path, gate SWEG_TANKSHOCK_DICE)",
+    "quoted_text": "WHEN: Your Charge phase, just after a VEHICLE unit from your army ends a Charge move. TARGET: That VEHICLE unit. EFFECT: Select one enemy unit within Engagement Range of your unit, and select one VEHICLE model in your unit that is within Engagement Range of that enemy unit. Roll a number of D6 equal to the Toughness characteristic of the selected VEHICLE model. For each 5+, that enemy unit suffers 1 mortal wound (to a maximum of 6 mortal wounds).",
+    "trigger": "ON path (SWEG_TANKSHOCK_DICE=1) only; charge phase, after a friendly VEHICLE unit ends a successful charge move and the stratagem fires; same trigger as Stratagem.Tank Shock",
+    "effect": "Roll a number of D6 equal to the charging VEHICLE model's Toughness characteristic (charger.profile.toughness); each die of 5 or 6 adds 1 mortal wound, capped at 6 total, applied via _apply_mortal_wounds. OFF path (default): flat 2 mortal wounds (the incumbent deterministic approximation, byte-identical to prior behaviour, no additional random draws).",
+    "scope": "phase-gated"
   }
 }

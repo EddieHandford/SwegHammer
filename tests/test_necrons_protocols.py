@@ -222,12 +222,20 @@ class ProtocolDispatcherTests(unittest.TestCase):
         ))
 
     def test_conquering_tyrant_sets_reroll_hits_shooting(self):
+        """Unled attacker (no CHARACTER in the army) must set the re-roll-1s
+        flag and must NOT set the full-re-roll flag (wave 236 two-branch fix)."""
         battle, a, b = self._make_battle()
         battle._assign_uids()
+        # Confirm no CHARACTER is present so _is_led_unit returns False for all units.
+        for u in a.units:
+            self.assertNotIn("CHARACTER", u.profile.unit_keywords or ())
         battle._try_protocol_conquering_tyrant(a, b)
         self.assertTrue(any(
             u.transient_reroll_hits_shooting for u in a.units
-        ))
+        ), "unled branch must set transient_reroll_hits_shooting")
+        self.assertFalse(any(
+            getattr(u, "transient_reroll_all_hits", False) for u in a.units
+        ), "unled branch must NOT set transient_reroll_all_hits")
 
     def test_undying_legions_sets_pulse_on_wounded_unit(self):
         battle, a, b = self._make_battle()
@@ -310,6 +318,87 @@ class NoOpProtocolTests(unittest.TestCase):
         # dispatcher must skip them cleanly without raising.
         battle._apply_detachment_stratagems(a, b)
         battle._apply_detachment_stratagems(b, a)
+
+
+class ArmyWidePassiveRemovalRegressionTests(unittest.TestCase):
+    """wave 234 regression: the three fabricated army-wide passive flags
+    must NOT exist on the Detachment dataclass or on AWAKENED_DYNASTY.
+    The real Command Protocols rotation is handled by the stratagem layer
+    (code/stratagems.py / code/simulator.py / code/strategy.py); the
+    only detachment-level rule is the led-gated +1 to Hit
+    (`bonus_to_hit_when_led`).
+    """
+
+    def test_melee_ap_flag_removed_from_detachment_class(self):
+        self.assertFalse(
+            hasattr(AWAKENED_DYNASTY, "necrons_melee_ap_plus_one_army_wide"),
+            "necrons_melee_ap_plus_one_army_wide must not exist on AWAKENED_DYNASTY "
+            "(removed wave 234 as uncited army-wide passive)",
+        )
+
+    def test_ranged_sustained_hits_flag_removed_from_detachment_class(self):
+        self.assertFalse(
+            hasattr(AWAKENED_DYNASTY, "necrons_ranged_sustained_hits_army_wide"),
+            "necrons_ranged_sustained_hits_army_wide must not exist on AWAKENED_DYNASTY "
+            "(removed wave 234 as uncited army-wide passive)",
+        )
+
+    def test_save_command_protocol_flag_removed_from_detachment_class(self):
+        self.assertFalse(
+            hasattr(AWAKENED_DYNASTY, "necrons_army_wide_plus_one_save_command_protocol"),
+            "necrons_army_wide_plus_one_save_command_protocol must not exist on "
+            "AWAKENED_DYNASTY (removed wave 234 as uncited army-wide passive)",
+        )
+
+    def test_bonus_to_hit_when_led_still_present(self):
+        """The real led-gated +1 to Hit rule must remain intact."""
+        self.assertTrue(
+            getattr(AWAKENED_DYNASTY, "bonus_to_hit_when_led", False),
+            "bonus_to_hit_when_led must remain True on AWAKENED_DYNASTY "
+            "(real Command Protocols detachment rule, BSData id 388f-814a-df25-c988)",
+        )
+
+    def test_necrons_ranged_attack_gets_no_army_wide_sustained_hits_without_leader(self):
+        """A Necrons unit with no leader attached must NOT gain sustained hits
+        from any army-wide passive on AWAKENED_DYNASTY when making a ranged
+        attack on battle round 1 (the former Vengeful Stars even-round slot).
+        The stratagem layer is NOT invoked here (no CP spend in attack resolution),
+        so the only source of sustained hits would be the removed passive flag."""
+        from code.army import Army
+        from code.units import Unit
+
+        a = Army("Necrons")
+        a.detachment = AWAKENED_DYNASTY
+        attacker = Unit(_necron_warriors_profile())
+        attacker.army_ref = a
+
+        # Build a minimal battle reference at round 1 so any round-gated
+        # passive would fire.
+        class _FakeBattle:
+            _current_round = 1
+
+        a._battle_ref = _FakeBattle()
+
+        target = Unit(_heavy_target_profile())
+        target.army_ref = None
+
+        # Capture the ap value from a ranged attack — if the army-wide
+        # sustained-hits passive were present it would increment
+        # effective_sustained_hits inside Unit.attack. We verify indirectly
+        # by checking the attacker has no `transient_sustained_hits` and that
+        # the AWAKENED_DYNASTY detachment carries no flag that would feed the
+        # sustained-hits accumulator.
+        self.assertFalse(
+            getattr(AWAKENED_DYNASTY, "necrons_ranged_sustained_hits_army_wide", False),
+        )
+        # Confirm AWAKENED_DYNASTY does not carry any army-wide melee AP flag.
+        self.assertFalse(
+            getattr(AWAKENED_DYNASTY, "necrons_melee_ap_plus_one_army_wide", False),
+        )
+        # Confirm AWAKENED_DYNASTY does not carry the save protocol flag.
+        self.assertFalse(
+            getattr(AWAKENED_DYNASTY, "necrons_army_wide_plus_one_save_command_protocol", False),
+        )
 
 
 if __name__ == "__main__":

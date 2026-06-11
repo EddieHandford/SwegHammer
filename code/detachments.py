@@ -166,49 +166,6 @@ class Detachment:
     # which is not faithfully proxied by an army-wide SUSTAINED HITS 1 flag.
     melee_sustained_hits_army_wide: bool = False
 
-    # Necrons Awakened Dynasty Command Protocols rotation (AD-PR, branch
-    # claude/sim-calibration-4). The detachment's real rule rotates one of
-    # six Command Protocols per battle round (player picks at the start of
-    # each Command phase). Three protocols map onto clean simulator hooks
-    # and are alternated by round parity to approximate the rotation:
-    #   * `necrons_melee_ap_plus_one_army_wide` — Protocol of the Hungry
-    #     Void: "NECRONS melee weapons gain the [LETHAL HITS] ability and
-    #     improve their Armour Penetration by 1." We wire the AP+1 leg
-    #     only (the Lethal Hits leg is dropped to keep the buff bounded;
-    #     direction-correct). Fires on EVEN battle rounds (2, 4). Gate:
-    #     mode == "melee" AND attacker faction == "Necrons" AND the
-    #     detachment carries this flag AND current battle round is even.
-    #   * `necrons_ranged_sustained_hits_army_wide` — Protocol of the
-    #     Vengeful Stars: "NECRONS ranged weapons gain the [SUSTAINED HITS
-    #     1] ability." Fires on ODD battle rounds (1, 3, 5). Gate:
-    #     mode != "melee" AND attacker faction == "Necrons" AND the
-    #     detachment carries this flag AND current battle round is odd.
-    #   * `bonus_to_hit_when_led` (above) — Protocol of the Conquering
-    #     Tyrant: always-on representation of the +1-to-hit-when-led leg.
-    # Rounds 0/no battle ref treated as inactive so detachment-flag tests
-    # without a battle round set see no buff (matches the SHIELD_HOST
-    # alternation gate). Wahapedia:
-    # https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols
-    necrons_melee_ap_plus_one_army_wide: bool = False
-    necrons_ranged_sustained_hits_army_wide: bool = False
-
-    # NECRONS-CLOSE (claude/sim-calibration-6): Command Protocols third slot —
-    # Protocol of the Eternal Conquerors (defensive). Real Wahapedia text:
-    # "Until the start of your next Command phase, the first failed armour
-    # saving throw made for each NECRONS unit from your army in each phase
-    # is automatically passed." Closest clean simulator hook: army-wide +1
-    # to the armour save, gated by the save-modifier ±1 cap so it composes
-    # with no other defensive +1-save sources stacked. Round-gated to ROUND
-    # 3 ONLY — odd-round Vengeful Stars and even-round Hungry Void already
-    # cover rounds 1-2-4-5, so Eternal Conquerors adds a single round of
-    # additional defensive uplift (over-model bounded to one round). The
-    # save-cap clamp (see code/units.py save_buff_sources) means this
-    # composes with at most one other +1-save source as a single net +1
-    # rather than stacking to +2. Gate: defender faction == "Necrons" AND
-    # detachment carries `necrons_army_wide_plus_one_save_command_protocol`
-    # AND current battle round == 3. Wahapedia:
-    # https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols
-    necrons_army_wide_plus_one_save_command_protocol: bool = False
 
     # Necrons Cursed Legion — Relentless Onslaught detachment rule (Abilities #1,
     # claude/sim-calibration-6). BSData v10.6.0 (Necrons.cat.gz, rule id
@@ -396,6 +353,33 @@ class Detachment:
     # detachments are unaffected. Cited as `simulator.warp_rifts`.
     warp_rifts: bool = False
 
+    # Adepta Sororitas Hallowed Martyrs — The Blood of Martyrs detachment
+    # rule (wave 234). BSData v10.6.0 (Imperium - Adepta Sororitas.cat.gz,
+    # rule id afa4-169c-3aaa-650) verbatim: "Each time an ADEPTA SORORITAS
+    # model from your army makes an attack, add 1 to the Hit roll if that
+    # model's unit is below its Starting Strength, and add 1 to the Wound
+    # roll, as well, if that model's unit is Below Half-strength."
+    #
+    # Gate in Unit.attack (both ranged and melee):
+    #   1. attacker faction == "Adepta Sororitas"
+    #   2. attacker's army detachment carries soror_blood_of_martyrs == True
+    #   3. Below Starting Strength: alive squad members < start_count
+    #      (single-model units: current_health < profile.health)
+    #      → hit_mod_delta += 1 (routes through the 10e ±1 hit-modifier clamp)
+    #   4. Below Half-strength (additionally): alive members < start_count / 2.0
+    #      (single-model units: current_health < profile.health / 2.0)
+    #      → wound_mod_delta += 1 (routes through the 10e ±1 wound-modifier clamp)
+    #
+    # History: SC5-4 (2026-05-21) removed the previous always-on
+    # `plus_one_to_wound=True` proxy (army-wide, no damage gate) that was
+    # driving Adepta Sororitas to +18.9pt overperformance. The justification
+    # at the time was "a damage-gated trigger the simulator does not track
+    # per-unit." That justification is now stale: the squad substrate
+    # (self._squad_start_count keyed by (army.name, squad_id)) landed in
+    # wave 65, enabling the faithful damage-gated implementation (wave 234).
+    # Cited as `HALLOWED_MARTYRS.soror_blood_of_martyrs`.
+    soror_blood_of_martyrs: bool = False
+
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
     enemy_ld_penalty: int = 0            # -N to enemy Ld (higher target)
@@ -450,42 +434,30 @@ AWAKENED_DYNASTY = Detachment(
     notes=(
         "Reanimation Protocols: dead models flip back to alive at end of "
         "round (simulator handles this directly via reanimate_per_round + "
-        "_apply_reanimation). PLUS Command Protocols (Wahapedia): '\"While "
-        "a NECRONS CHARACTER model is leading this unit, each time a model "
-        "in this unit makes an attack, add 1 to the Hit roll.\"' The whole "
-        "detachment's offensive teeth are gated on being character-led; "
-        "lone Warrior squads get nothing. Detachment stratagems (#194 "
-        "rebuild) are the six real 'Protocol of the …' entries from the "
-        "Necrons codex: Eternal Revenant, Undying Legions, Hungry Void, "
-        "Sudden Storm, Conquering Tyrant, Vengeful Stars. Two of those "
-        "(Eternal Revenant, Vengeful Stars) have no clean simulator hook "
-        "and are catalogued-but-no-op APPROXIMATIONs; the other four map "
-        "onto existing transient_* flags (plus a new "
-        "transient_undying_legions_pulse for the extra reanimation pulse). "
-        "AD-PR (claude/sim-calibration-4): the detachment-rule rotation "
-        "of Command Protocols is now modelled by alternating two new "
-        "always-on flags by battle-round parity — Hungry Void (melee "
-        "AP+1, `necrons_melee_ap_plus_one_army_wide`) on EVEN rounds and "
-        "Vengeful Stars (ranged SUSTAINED HITS 1, "
-        "`necrons_ranged_sustained_hits_army_wide`) on ODD rounds. The "
-        "always-on Conquering Tyrant +1-to-hit-when-led leg "
-        "(`bonus_to_hit_when_led`) is retained — strictly speaking the "
-        "real codex picks only ONE protocol per round, so this is an "
-        "APPROXIMATION (slight over-model) but the led-only gate keeps "
-        "the over-coverage bounded to character-led squads. "
-        "NECRONS-CLOSE (claude/sim-calibration-6): wires the fourth "
-        "Command Protocol — Protocol of the Eternal Conquerors (defensive, "
-        "first failed armour save auto-passed per phase) — as army-wide "
-        "+1 to the armour save (`necrons_army_wide_plus_one_save_command_protocol`) "
-        "gated to ROUND 3 ONLY. Single-round defensive uplift; clamped to "
-        "+1 by the existing save-modifier cap so it composes safely with "
-        "any other +1-save source as a single net +1 rather than stacking."
+        "_apply_reanimation). PLUS Command Protocols (Wahapedia, BSData "
+        "Necrons.cat.gz rule id 388f-814a-df25-c988): the sole detachment "
+        "rule is 'While a NECRONS CHARACTER model is leading this unit, "
+        "each time a model in this unit makes an attack, add 1 to the Hit "
+        "roll.' Implemented as `bonus_to_hit_when_led=True` — gated on the "
+        "attacker's unit being led by a character. Lone Warrior squads "
+        "without a character attachment receive no Hit bonus. "
+        "The six codex 'Protocol of the …' entries (Eternal Revenant, "
+        "Undying Legions, Hungry Void, Sudden Storm, Conquering Tyrant, "
+        "Vengeful Stars) are STRATAGEMS, not army-wide passives, and are "
+        "handled exclusively by the stratagem layer (code/stratagems.py, "
+        "code/simulator.py, code/strategy.py). "
+        "wave 234: the three former army-wide passive flags "
+        "(`necrons_melee_ap_plus_one_army_wide`, "
+        "`necrons_ranged_sustained_hits_army_wide`, "
+        "`necrons_army_wide_plus_one_save_command_protocol`) were removed "
+        "as uncited over-modelling — they double-counted effects that "
+        "belong to the stratagem layer (Hungry Void, Vengeful Stars) or "
+        "do not exist in 10e at all (Protocol of the Eternal Conquerors "
+        "is a real stratagem but was wrongly named; the passive save "
+        "auto-pass has no army-wide permanent expression in the codex)."
     ),
     reanimate_per_round=1,
     bonus_to_hit_when_led=True,
-    necrons_melee_ap_plus_one_army_wide=True,
-    necrons_ranged_sustained_hits_army_wide=True,
-    necrons_army_wide_plus_one_save_command_protocol=True,
     stratagems=AWAKENED_DYNASTY_STRATAGEMS,
     preferred_composition="balanced",
 )
@@ -656,15 +628,24 @@ HALLOWED_MARTYRS = Detachment(
     name="Hallowed Martyrs",
     faction="Adepta Sororitas",
     notes=(
-        "SC5-4 (2026-05-21): real 'Blood of Martyrs' rule grants +1 Hit only "
-        "when the attacking unit is Below Starting Strength and +1 Wound only "
-        "when Below Half-strength — a damage-gated trigger the simulator does "
-        "not track per-unit. The previous proxy `plus_one_to_wound=True` "
-        "(army-wide, always-on) was a strict over-buff driving Adepta "
-        "Sororitas to +18.9pt overperformance in the SC5-3 baseline, so it "
-        "was removed. The detachment is still registered and its infantry "
-        "composition preference is retained — list-build shape still applies."
+        "wave 234 (2026-06-10): 'The Blood of Martyrs' rule is now implemented "
+        "faithfully damage-gated on the squad substrate. BSData v10.6.0 "
+        "(Imperium - Adepta Sororitas.cat.gz, rule id afa4-169c-3aaa-650) "
+        "verbatim: 'Each time an ADEPTA SORORITAS model from your army makes "
+        "an attack, add 1 to the Hit roll if that model's unit is below its "
+        "Starting Strength, and add 1 to the Wound roll, as well, if that "
+        "model's unit is Below Half-strength.' Gated by "
+        "`soror_blood_of_martyrs=True`; Unit.attack checks squad alive count "
+        "vs _squad_start_count (multi-model) or current wounds vs max wounds "
+        "(single-model). Applies to both ranged and melee attacks. Cited as "
+        "`HALLOWED_MARTYRS.soror_blood_of_martyrs`. "
+        "History: SC5-4 (2026-05-21) removed the previous always-on "
+        "`plus_one_to_wound=True` proxy (army-wide, no damage gate) that was "
+        "driving Adepta Sororitas to +18.9pt overperformance; the justification "
+        "was 'a damage-gated trigger the simulator does not track per-unit' — "
+        "that is now stale since the squad substrate landed in wave 65."
     ),
+    soror_blood_of_martyrs=True,
     preferred_composition="infantry",
 )
 
@@ -1545,23 +1526,36 @@ ANNIHILATION_LEGION = Detachment(
     name="Annihilation Legion",
     faction="Necrons",
     notes=(
-        "Hardened Killers (Wahapedia verbatim): \"Each time a NECRONS "
-        "unit from your army makes a ranged attack, you can re-roll a "
-        "Wound roll of 1.\" Simulator: wired via the existing army-wide "
-        "`reroll_wound_ones` flag (already in use by other detachments). "
-        "Lossy by design — the Annihilation Legion detachment text "
-        "applies the reroll specifically to RANGED attacks; the existing "
-        "schema reroll_wound_ones applies to all attacks (ranged + "
-        "melee). Necrons are a ranged-leaning faction so the over-broad "
-        "application is small in practice. Real Annihilation Legion "
-        "also gives various ranged stratagems and tank-flavour buffs "
-        "that aren't wired individually here — the detachment rule "
-        "alone is the LC-1 lever to give Necrons a stronger offensive "
-        "alternative to Awakened Dynasty (whose lead-required +1-to-hit "
-        "is conditional on character attachment that not every Necrons "
-        "squad has). Cited as `ANNIHILATION_LEGION.reroll_wound_ones`."
+        "FABRICATION REMOVED (wave 235, claude/sim-calibration-6): the "
+        "previous notes block attributed a rule named 'Hardened Killers' "
+        "to this detachment, with a verbatim quote reading 'Each time a "
+        "NECRONS unit from your army makes a ranged attack, you can "
+        "re-roll a Wound roll of 1.' No rule by that name exists in the "
+        "Necrons Annihilation Legion codex entry on Wahapedia. The inline "
+        "quoted text was fabricated. The `reroll_wound_ones=True` flag "
+        "that accompanied it has been removed.\n\n"
+        "REAL RULE — Annihilation Protocol (Wahapedia verbatim, "
+        "https://wahapedia.ru/wh40k10ed/factions/necrons/#Annihilation-Legion): "
+        "\"Each time a DESTROYER CULT or FLAYED ONES unit from your army "
+        "declares a charge, you can re-roll the Charge roll. If one or "
+        "more targets of that charge are Below Half-strength, add 1 to "
+        "the Charge roll as well. Each time a DESTROYER CULT unit from "
+        "your army makes a ranged attack that targets the closest eligible "
+        "target, add 1 to the Armour Penetration characteristic of that "
+        "attack.\"\n\n"
+        "Neither leg can be wired with existing machinery:\n"
+        "  * Charge re-roll: the Detachment dataclass has no charge-reroll "
+        "flag, and _do_charge has no hook for a detachment-supplied "
+        "re-roll. New machinery required; left unmodelled.\n"
+        "  * +1 Armour Penetration on closest-eligible-target: the "
+        "simulator's target-selection path does not expose a "
+        "'is closest eligible target' predicate to Unit.attack. New "
+        "machinery required; left unmodelled.\n\n"
+        "The detachment remains registered as a variety pick in the "
+        "Necrons detachment pool (balanced composition preference) so the "
+        "list-build-shape diversity is preserved without any offensive "
+        "buff firing."
     ),
-    reroll_wound_ones=True,
     stratagems=AWAKENED_DYNASTY_STRATAGEMS,  # share for now — real
     # Annihilation Legion has its own stratagems (Galvanic Resurrection,
     # Tachyonic Annihilation, etc.); per-strat differences are smaller

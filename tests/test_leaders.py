@@ -192,8 +192,9 @@ class ExpandedRegistryTests(unittest.TestCase):
     # a movement-phase buff). Both registry entries are kept but with no
     # offensive flags; see AeldariFabricationLockInTests below.
     NEW_LEADERS = (
-        # Aeldari
-        ("Farseer",                 "reroll_wound_ones"),
+        # Aeldari — Farseer reroll_wound_ones removed in wave 236 (Branching Fates
+        # is once-per-phase set-one-roll-to-6, not an always-on wound-reroll aura).
+        # Absence locked in AeldariFabricationLockInTests.test_farseer_has_no_wound_reroll.
         # T'au — Ethereal Failure Is Not an Option grants FNP 5+ (defensive)
         ("Ethereal",                "fnp"),
         # NOTE: the "Commander in <variant> Battlesuit" Coordinated Fire Plan
@@ -207,7 +208,12 @@ class ExpandedRegistryTests(unittest.TestCase):
         # against the led unit; FNP 5+ is our defensive proxy.
         ("Sorcerer",                "fnp"),
         ("Dark Apostle",            "reroll_hit_ones"),
-        ("Chaos Lord",              "plus_one_to_wound"),
+        # Chaos Lord plus_one_to_wound removed in wave 236 (Lord of Chaos is a
+        # once-per-battle-round Stratagem command-point-discount, not a wound-roll
+        # aura). Absence locked in ChaosLordLordOfChaosRemovalTests in
+        # tests/test_leader_fabrications_wave236.py.
+        # Registry entry retained; assert the structural no-op (aura_range still 6.0).
+        ("Chaos Lord",              "aura_range"),
         # Adeptus Custodes
         # CUSTODES-AUDIT (claude/sim-calibration-6): Shield-Captain's
         # reroll_hit_ones proxy was removed — "Master of the Stances" is a
@@ -263,6 +269,16 @@ class ExpandedRegistryTests(unittest.TestCase):
         # numerical proxy than plus_one_to_hit (~17% vs ~33% wound uplift on BS4+).
         # audited/narrowed in VOTANN-JUDGEMENT-TOKENS-V1 (2026-05-28)
         ("Kâhl",                    "reroll_hit_ones"),
+        # Chaos Space Marines — three new leaders (wave 237).
+        # Master of Possession and Warpsmith have no expressible led-unit aura
+        # (both abilities are Movement-phase roll modifiers or Command-phase
+        # vehicle-targeting abilities). Registry entries exist for CLAUDE.md
+        # rule 13 (fail loud on missing data). Assert structural aura_range.
+        ("Master of Possession",    "aura_range"),
+        ("Warpsmith",               "aura_range"),
+        # Dark Commune: Faithful Flock grants extra_invuln=5 to the led unit
+        # (Accursed Cultists / Cultist Mob) while a Cult Demagogue is present.
+        ("Dark Commune",            "extra_invuln"),
     )
 
     def test_each_new_leader_resolves(self):
@@ -299,9 +315,10 @@ class ExpandedRegistryTests(unittest.TestCase):
         self.assertIsNotNone(lookup_ability("Archon on Skyboard"))
 
     def test_registry_size(self):
-        # Sanity check: we expanded from 11 to at least 25 entries.
+        # Sanity check: wave 237 added three new CSM leaders; minimum bumped
+        # from 25 to 28 to pin all three as regression guards.
         from code.leaders import _REGISTRY
-        self.assertGreaterEqual(len(_REGISTRY), 25)
+        self.assertGreaterEqual(len(_REGISTRY), 28)
 
 
 # ---------------------------------------------------------------------------
@@ -811,6 +828,26 @@ class AeldariFabricationLockInTests(unittest.TestCase):
         buffs = effective_buffs(army.units[0])
         self.assertFalse(buffs["plus_one_to_hit"])
         self.assertFalse(buffs["reroll_hit_ones"])
+
+    def test_farseer_has_no_wound_reroll(self):
+        """wave 236 fab audit: Branching Fates is once-per-phase set-one-roll-to-6,
+        NOT an always-on wound-reroll aura. reroll_wound_ones must be absent."""
+        ab = lookup_ability("Farseer")
+        self.assertIsNotNone(ab, "Farseer entry must remain in the registry")
+        self.assertFalse(
+            ab.reroll_wound_ones,
+            "Farseer reroll_wound_ones was a fabricated always-on proxy — "
+            "wave 236 audit removed it; the real Branching Fates is a "
+            "once-per-phase set-one-roll-to-6 ability with no simulator field",
+        )
+        # All other offensive flags must also be off.
+        self.assertFalse(ab.plus_one_to_hit)
+        self.assertFalse(ab.plus_one_to_wound)
+        self.assertFalse(ab.reroll_hit_ones)
+        self.assertEqual(ab.plus_one_attack, 0)
+        # Registry entry must be retained (host_keys gating still needed).
+        self.assertEqual(ab.aura_range, 6.0)
+
 # ---------------------------------------------------------------------------
 # iter21 fabrication-audit lock-ins — Marines leader aura proxies
 # ---------------------------------------------------------------------------
@@ -997,11 +1034,14 @@ class HostKeysGatingTests(unittest.TestCase):
             "Typhus FNP must NOT leak onto a non-host bystander — this "
             "is the iter22 structural bug fix")
 
-    def test_overlord_plus_one_to_hit_only_to_warriors(self):
-        # Necron Overlord host_keys = warriors / immortals / lychguard.
-        # A C'tan Shard or Lokhust Heavy Destroyer in range must NOT
-        # receive +1-to-hit (those datasheets can't be led at all per the
-        # 10e Overlord datasheet's LEADER block).
+    def test_overlord_grants_no_plus_one_to_hit(self):
+        # Wave 235: the Overlord's plus_one_to_hit was a fabrication. The
+        # real "My Will Be Done" is a once-per-round free-Stratagem ability
+        # (a command-point discount), not a hit aura. The fabricated flag
+        # was removed; this test is repurposed as a regression pin against
+        # re-adding it (same pattern as test_dominus_aura_only_to_skitarii
+        # below). See tests/test_necron_leaders_wave235.py for the full
+        # removal coverage.
         leader = self._character("Overlord")
         warriors = self._non_character("Necron Warriors")   # legal host
         ctan = self._non_character("C'tan Shard of the Nightbringer")  # not in host_keys
@@ -1012,10 +1052,12 @@ class HostKeysGatingTests(unittest.TestCase):
         )
         warriors_buffs = effective_buffs(army.units[0])
         ctan_buffs = effective_buffs(army.units[1])
-        self.assertTrue(warriors_buffs["plus_one_to_hit"],
-            "Overlord My Will Be Done must reach Necron Warriors")
+        self.assertFalse(warriors_buffs["plus_one_to_hit"],
+            "Overlord must NOT grant +1-to-hit — My Will Be Done is a "
+            "free-Stratagem ability, not a hit aura (wave 235 fabrication "
+            "removal)")
         self.assertFalse(ctan_buffs["plus_one_to_hit"],
-            "Overlord aura must NOT reach a non-leadable C'tan Shard")
+            "Overlord must NOT buff a non-leadable C'tan Shard")
 
     def test_dominus_aura_only_to_skitarii(self):
         # ADMECH-DIAG-3 (2026-05-26): Dominus reroll_hit_ones was a fabrication;
@@ -1245,6 +1287,147 @@ class CoordinatedFirePlanFidelityTests(unittest.TestCase):
             ab.plus_one_to_hit,
             "Coordinated Fire Plan must NOT grant +1 to Hit by default — the real "
             "rule is [ASSAULT] + Move 12\" to the led unit, no Hit bonus (wave 212).",
+        )
+
+
+class CsmLeaderWave237Tests(unittest.TestCase):
+    """Wave 237 — three new Chaos Space Marines leader entries.
+
+    Master of Possession and Warpsmith have no expressible led-unit aura in the
+    current LeaderAbility schema (their abilities are Movement-phase roll modifiers
+    and Command-phase vehicle-targeting abilities respectively). Their registry
+    entries exist solely so lookup_ability returns non-None per CLAUDE.md rule 13
+    (fail loud on missing data).
+
+    Dark Commune grants a 5+ invulnerable save (extra_invuln=5) to its led unit
+    via Faithful Flock (always active while a Cult Demagogue model is present in
+    the Dark Commune unit).
+    """
+
+    def test_master_of_possession_resolves(self):
+        ab = lookup_ability("Master of Possession")
+        self.assertIsNotNone(
+            ab,
+            "Master of Possession must resolve via lookup_ability — CLAUDE.md rule 13",
+        )
+        self.assertEqual(
+            ab.name, "Daemonkin (Psychic)",
+            "Master of Possession ability name must be 'Daemonkin (Psychic)'",
+        )
+
+    def test_master_of_possession_no_offensive_aura(self):
+        # Daemonkin (Psychic) is an Advance/Charge roll modifier; Sacrificial Dagger
+        # is a self-activation once-per-phase buff — neither is a led-unit aura.
+        ab = lookup_ability("Master of Possession")
+        self.assertIsNotNone(ab)
+        self.assertFalse(ab.reroll_hit_ones,       "Master of Possession has no hit-reroll aura")
+        self.assertFalse(ab.plus_one_to_hit,       "Master of Possession has no +1 to Hit aura")
+        self.assertFalse(ab.plus_one_to_wound,     "Master of Possession has no +1 to Wound aura")
+        self.assertEqual(ab.extra_invuln, 7,       "Master of Possession confers no invuln aura")
+        self.assertEqual(ab.fnp, 7,                "Master of Possession confers no feel no pain aura")
+        # Structural check: registry entry is present (aura_range set)
+        self.assertEqual(ab.aura_range, 6.0)
+
+    def test_master_of_possession_host_keys(self):
+        ab = lookup_ability("Master of Possession")
+        self.assertIsNotNone(ab)
+        self.assertIn("chaos_space_marines_chosen",      ab.host_keys)
+        self.assertIn("chaos_space_marines_legionaries", ab.host_keys)
+        self.assertIn("chaos_space_marines_possessed",   ab.host_keys)
+
+    def test_warpsmith_resolves(self):
+        ab = lookup_ability("Warpsmith")
+        self.assertIsNotNone(
+            ab,
+            "Warpsmith must resolve via lookup_ability — CLAUDE.md rule 13",
+        )
+        self.assertEqual(
+            ab.name, "Master of Mechanisms",
+            "Warpsmith ability name must be 'Master of Mechanisms'",
+        )
+
+    def test_warpsmith_no_offensive_aura(self):
+        # All Warpsmith abilities target the Warpsmith itself or a nearby Vehicle —
+        # none are led-unit aura buffs expressible in the current LeaderAbility schema.
+        ab = lookup_ability("Warpsmith")
+        self.assertIsNotNone(ab)
+        self.assertFalse(ab.reroll_hit_ones,       "Warpsmith has no hit-reroll aura")
+        self.assertFalse(ab.plus_one_to_hit,       "Warpsmith has no +1 to Hit aura")
+        self.assertFalse(ab.plus_one_to_wound,     "Warpsmith has no +1 to Wound aura")
+        self.assertEqual(ab.extra_invuln, 7,       "Warpsmith confers no invuln aura")
+        self.assertEqual(ab.fnp, 7,                "Warpsmith confers no feel no pain aura")
+        self.assertEqual(ab.heal_per_round, 0,     "Warpsmith has no round-end heal (vehicle repair is not wired)")
+        self.assertEqual(ab.aura_range, 6.0)
+
+    def test_warpsmith_host_keys(self):
+        ab = lookup_ability("Warpsmith")
+        self.assertIsNotNone(ab)
+        self.assertIn("chaos_space_marines_chosen",      ab.host_keys)
+        self.assertIn("chaos_space_marines_havocs",      ab.host_keys)
+        self.assertIn("chaos_space_marines_legionaries", ab.host_keys)
+
+    def test_dark_commune_resolves(self):
+        ab = lookup_ability("Dark Commune")
+        self.assertIsNotNone(
+            ab,
+            "Dark Commune must resolve via lookup_ability — CLAUDE.md rule 13",
+        )
+        self.assertEqual(
+            ab.name, "Faithful Flock",
+            "Dark Commune ability name must be 'Faithful Flock'",
+        )
+
+    def test_dark_commune_grants_invuln_five(self):
+        # Faithful Flock: "models in that unit have a 5+ invulnerable save."
+        # The Cult Demagogue is always present in the Dark Commune unit, so
+        # extra_invuln=5 is the correct unconditional grant.
+        ab = lookup_ability("Dark Commune")
+        self.assertIsNotNone(ab)
+        self.assertEqual(
+            ab.extra_invuln, 5,
+            "Dark Commune Faithful Flock must grant extra_invuln=5 to the led unit",
+        )
+
+    def test_dark_commune_no_dark_ritual_proxy(self):
+        # Dark Ritual is once-per-battle on the Dark Commune's own attacks only;
+        # it must NOT be proxied as an always-on hit/wound aura.
+        ab = lookup_ability("Dark Commune")
+        self.assertIsNotNone(ab)
+        self.assertFalse(ab.plus_one_to_hit,   "Dark Ritual must not be proxied as a permanent +1 to Hit aura")
+        self.assertFalse(ab.plus_one_to_wound, "Dark Ritual must not be proxied as a permanent +1 to Wound aura")
+        self.assertEqual(ab.fnp, 7,            "Dark Commune confers no feel no pain aura")
+
+    def test_dark_commune_host_keys(self):
+        ab = lookup_ability("Dark Commune")
+        self.assertIsNotNone(ab)
+        self.assertIn("chaos_space_marines_accursed_cultists", ab.host_keys)
+        self.assertIn("chaos_space_marines_cultist_mob",       ab.host_keys)
+
+    def test_dark_commune_invuln_applies_via_effective_buffs(self):
+        """Functional: Dark Commune's 5+ invuln merges into effective_buffs for
+        the led Cultist Mob unit when the leader is within aura range."""
+        # Create a Cultist Mob attacker with the correct catalogue name so the
+        # host_keys gate passes (_name_to_catalog_keys("Cultist Mob") returns
+        # "chaos_space_marines_cultist_mob" which is in Dark Commune.host_keys).
+        army = _make_army(
+            "csm_test",
+            [
+                _grunt_profile(name="Cultist Mob"),
+                UnitProfile(
+                    name="Dark Commune",
+                    health=4, damage=1, hit_probability=0.5,
+                    ap=0, save=6, strength=3, toughness=3,
+                    attacks=1, weapon_damage_per_shot=1.0,
+                    unit_keywords=("INFANTRY", "CHARACTER"),
+                ),
+            ],
+            [(12.0, 12.0), (12.0, 12.0)],
+        )
+        attacker = army.units[0]
+        buffs = effective_buffs(attacker)
+        self.assertEqual(
+            buffs["extra_invuln"], 5,
+            "Dark Commune Faithful Flock must grant extra_invuln=5 to the led Cultist Mob",
         )
 
 

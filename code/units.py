@@ -475,6 +475,15 @@ class UnitProfile:
     # transient_devastating_wounds grant (once-per-battle guarded), gated
     # SWEG_CSM_ABILITIES. Cited simulator.csm_unholy_bloodshed.
     csm_unholy_bloodshed: bool = False
+    # CSM Forgefiend datasheet ability "Daemonic Ordnance" (10e): each time
+    # this model is selected to shoot, it can use this ability. If it does,
+    # until the end of the phase, its ranged weapons have the [DEVASTATING
+    # WOUNDS] and [HAZARDOUS] abilities. Override-only flag; applied in
+    # simulator._apply_daemonic_ordnance as transient_devastating_wounds +
+    # transient_hazardous grants. Opt-in per activation: elected when the
+    # expected [DEVASTATING WOUNDS] uplift on the chosen target exceeds the
+    # expected [HAZARDOUS] self-damage cost. Cited simulator.csm_daemonic_ordnance.
+    csm_daemonic_ordnance: bool = False
     leadership: int = 7                        # Ld target for Battleshock tests (10e: 2D6 >= Ld passes)
     oc: int = 1                                # Objective Control characteristic (10e)
     # Phase A2 + A3 weapon keywords (carried from the unit's chosen ranged weapon)
@@ -624,6 +633,17 @@ class UnitProfile:
     secondary_assault: bool = False
     secondary_torrent: bool = False
     secondary_blast: bool = False
+    # SEC-KEYWORD-PARITY — four boolean weapon keywords missing from the
+    # secondary profile block. Without these, dataclasses.replace inherits the
+    # PRIMARY profile's value when the simulator hot-swaps the secondary in,
+    # so a unit whose secondary has one_shot=True but whose primary does not
+    # would fire the secondary weapon every activation (never gated once per
+    # battle), and a unit whose secondary is hazardous but primary is not would
+    # never self-harm. Defaults False (safe legacy behaviour pre-regen).
+    secondary_one_shot: bool = False
+    secondary_hazardous: bool = False
+    secondary_indirect_fire: bool = False
+    secondary_precision: bool = False
     # ---- MAP-1 — TERTIARY and beyond RANGED weapon profiles ------------------
     # Generalises the multi-profile picker from 2 to N. Knight Castellan fires
     # five ranged weapons (Volcano Lance + Plasma Decimator + Twin Meltagun +
@@ -879,6 +899,13 @@ class Unit:
         #   transient_assault_this_round — Feigned Retreat (Warhost), Strike
         #       Swiftly (T'au Mont'ka). Movement buff: unit may shoot in the
         #       same round it advanced.
+        #   transient_charge_after_advance — Apoplectic Frenzy (Berzerker
+        #       Warband, wave 235). Movement buff: unit is eligible to declare
+        #       a charge in a round it Advanced (the [LETHAL HITS] reading was
+        #       a fabricated paraphrase — the verbatim rule is advance-and-
+        #       charge). Consumed by Battle._do_charge as an exemption from
+        #       the _advanced_this_round lockout, parallel to Gladius Assault
+        #       Doctrine and Murderer's Cowl, but transient (one round).
         # Awakened Dynasty (Necrons):
         #   transient_fnp_5 — (legacy slot, retained for stable layout) was
         #       Implacable Onslaught, deleted in the fabrication audit. Now
@@ -894,6 +921,13 @@ class Unit:
         # Saim-Hann (Aeldari):
         #   transient_halve_damage — Spirit Stones. Defender buff: each per-shot
         #       damage is halved (rounded up) for the round.
+        # Astra Militarum (Voice of Command Order):
+        #   transient_frfsrf_active — First Rank, Fire! Second Rank, Fire! Order
+        #       (AM Order). While True, weapons with rapid_fire > 0 gain +1 to
+        #       their Attacks characteristic (unconditional, any range). Set by
+        #       `orders._apply_order`; cleared with all other transient flags.
+        #       Cited as `Order.First Rank, Fire! Second Rank, Fire!`.
+        "transient_frfsrf_active",
         "transient_plus_one_to_wound_shooting",
         "transient_invuln_4",
         "transient_minus_one_damage_taken",
@@ -901,6 +935,7 @@ class Unit:
         "transient_plus_one_save",
         "transient_reroll_hits_shooting",
         "transient_assault_this_round",
+        "transient_charge_after_advance",
         "transient_fnp_5",
         "transient_plus_one_to_hit_shooting",
         "transient_halve_damage",
@@ -922,12 +957,19 @@ class Unit:
         # transient_devastating_wounds: unit's weapons gain [DEVASTATING WOUNDS]
         # for the round/phase (granted by Unholy Bloodshed when making a Dark
         # Pact, gated SWEG_CSM_ABILITIES). Composed into effective_dw.
+        # transient_hazardous: unit's ranged weapons gain [HAZARDOUS] for this
+        # shooting activation (granted by Daemonic Ordnance opt-in, together
+        # with transient_devastating_wounds). d6 self-check fires in Unit.attack
+        # after the ranged attack sequence, on a roll of 1 the unit takes 3
+        # mortal wounds. Cleared per-round by _clear_transient_stratagem_flags.
+        # Cited simulator.csm_daemonic_ordnance.
         "transient_lethal_hits",
         "transient_sustained_hits",
         "transient_reroll_wounds",
         "transient_reroll_wounds_ones",
         "transient_reroll_all_hits",
         "transient_devastating_wounds",
+        "transient_hazardous",
         # Go To Ground (10e core Battle Tactic Stratagem, 1CP, env-gated
         # SWEG_GTG). Defender buff: a targeted INFANTRY unit gains a 6+
         # invulnerable save AND the Benefit of Cover until the end of the
@@ -1106,9 +1148,13 @@ class Unit:
         self.transient_plus_one_save: bool = False
         self.transient_reroll_hits_shooting: bool = False
         self.transient_assault_this_round: bool = False
+        self.transient_charge_after_advance: bool = False
         # Awakened Dynasty (Necrons) per-round stratagem flags.
         self.transient_fnp_5: bool = False
         self.transient_plus_one_to_hit_shooting: bool = False
+        # First Rank, Fire! Second Rank, Fire! (AM Order): +1 Attacks for
+        # Rapid Fire weapons (unconditional, any range). Cleared per round.
+        self.transient_frfsrf_active: bool = False
         # Saim-Hann (Aeldari) per-round stratagem flag.
         self.transient_halve_damage: bool = False
         # Awakened Dynasty (Necrons) Protocol of the Undying Legions: integer
@@ -1126,6 +1172,11 @@ class Unit:
         # See simulator._apply_dark_pacts for the grant site.
         self.transient_reroll_all_hits: bool = False
         self.transient_devastating_wounds: bool = False
+        # Daemonic Ordnance (Forgefiend datasheet ability): ranged weapons gain
+        # [HAZARDOUS] for this shooting activation when the ability is elected.
+        # Cleared per-round by _clear_transient_stratagem_flags. See
+        # simulator._apply_daemonic_ordnance for the grant site.
+        self.transient_hazardous: bool = False
         # Go To Ground (10e core stratagem). 6++ invuln + Benefit of Cover on a
         # targeted INFANTRY unit until end of the opponent's Shooting phase.
         self.go_to_ground_active: bool = False
@@ -1477,6 +1528,15 @@ class Unit:
                     "twin_linked": bool(_ed.get("twin_linked", False)),
                     "lance": bool(_ed.get("lance", False)),
                     "precision": bool(_ed.get("precision", False)),
+                    # EXTRA-MELEE-KEYWORD-PARITY — one_shot and hazardous were
+                    # absent from the runtime swap dict, so dataclasses.replace
+                    # silently inherited the PRIMARY melee profile's values.
+                    # A melee weapon that is one_shot must be gated once per
+                    # battle; if hazardous=True the fighter self-harms in the
+                    # Fight phase. Default False so pre-regen profiles (which
+                    # lack the key) behave identically to before the fix.
+                    "one_shot": bool(_ed.get("one_shot", False)),
+                    "hazardous": bool(_ed.get("hazardous", False)),
                     # anti_keywords on an extra weapon profile replaces the
                     # primary's anti_keywords during this extra's resolution
                     # pass. Wave-52 MAPPER-EXTRA-MELEE-V1 populated this as
@@ -1626,6 +1686,17 @@ class Unit:
                         "torrent": p.secondary_torrent,
                         "blast": p.secondary_blast,
                         "anti_keywords": tuple(p.secondary_anti_keywords or ()),
+                        # SEC-KEYWORD-PARITY — carry the four boolean fields so
+                        # dataclasses.replace does not silently inherit the
+                        # PRIMARY profile's values when the secondary is active.
+                        # A secondary profile that is one_shot must be gated
+                        # once per battle; if hazardous=True the shooter
+                        # self-harms; if indirect_fire=True LoS is waived;
+                        # if precision=True cover is bypassed vs CHARACTERs.
+                        "one_shot": bool(p.secondary_one_shot),
+                        "hazardous": bool(p.secondary_hazardous),
+                        "indirect_fire": bool(p.secondary_indirect_fire),
+                        "precision": bool(p.secondary_precision),
                     }
                     _candidates.append((
                         _strip_mode_suffix(p.secondary_weapon or ""),
@@ -1684,6 +1755,20 @@ class Unit:
                         if isinstance(ed_fields.get("anti_keywords"), dict)
                         else (ed_fields.get("anti_keywords") or ())
                     ),
+                    # INDIRECT-PARITY-FIX — carry the five boolean weapon keywords
+                    # that _weapon_to_dict now serializes but ex_swap previously
+                    # omitted. Without these entries, dataclasses.replace inherits
+                    # the PRIMARY profile's value for each field, which produces
+                    # silent bugs: a Wyvern whose primary has indirect_fire=False
+                    # fires its mortar stormshard with the wrong flag; a unit whose
+                    # extra has hazardous=True but primary does not will never
+                    # self-harm. Default-False so legacy profiles (pre-regen)
+                    # that lack the key behave identically to before the fix.
+                    "indirect_fire": bool(ed_fields.get("indirect_fire", False)),
+                    "one_shot": bool(ed_fields.get("one_shot", False)),
+                    "hazardous": bool(ed_fields.get("hazardous", False)),
+                    "precision": bool(ed_fields.get("precision", False)),
+                    "lance": bool(ed_fields.get("lance", False)),
                 }
                 _candidates.append((
                     _strip_mode_suffix(str(ed_fields.get("weapon", "")) or ""),
@@ -1825,6 +1910,18 @@ class Unit:
                 _dmg_dice = p.damage_dice
                 _dmg_dice_mean = per_shot_dmg
                 n_attacks = max(1, int(p.attacks))
+                # FRFSRF: "First Rank, Fire! Second Rank, Fire!" Order
+                # (Astra Militarum Voice of Command). Verbatim rule text:
+                # "Improve the Attacks characteristic of Rapid Fire weapons
+                # equipped by models in this unit by 1." — no range condition,
+                # so the +1 applies at all ranges. The half-range Rapid Fire X
+                # bonus (line ~2010) is separate and unchanged.
+                # Cited: `Order.First Rank, Fire! Second Rank, Fire!`
+                if (
+                    getattr(self, "transient_frfsrf_active", False)
+                    and int(p.rapid_fire) > 0
+                ):
+                    n_attacks += 1
                 hit_target = None     # set below
                 strength = p.strength
                 ap = p.ap
@@ -1893,41 +1990,6 @@ class Unit:
                         if _round_mk % 2 == 1:
                             ap = ap - 1
 
-            # ---- Necrons Awakened Dynasty — Protocol of the Hungry Void
-            # (army-wide melee AP+1). AD-PR (claude/sim-calibration-4): the
-            # detachment-rule rotation of Command Protocols is approximated
-            # by alternating Hungry Void (this flag) and Vengeful Stars by
-            # battle-round parity. Hungry Void fires on EVEN rounds (2, 4)
-            # so the parity matches the SHIELD_HOST AP+1 convention but
-            # inverted (Custodes AP+1 = ODD, Necrons AP+1 = EVEN; they don't
-            # collide because the faction gate keeps the two detachments
-            # apart). Gate: mode == "melee" AND attacker faction == "Necrons"
-            # AND detachment carries `necrons_melee_ap_plus_one_army_wide`
-            # (set by AWAKENED_DYNASTY) AND current battle round is even.
-            # Cited as `AWAKENED_DYNASTY.necrons_melee_ap_plus_one_army_wide`.
-            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
-            # #Command-Protocols.
-            if mode == "melee" and p.faction == "Necrons":
-                _own_army_hv = getattr(self, "army_ref", None)
-                if _own_army_hv is not None:
-                    try:
-                        _det_hv = _own_army_hv.resolve_detachment()
-                    except Exception:
-                        _det_hv = None
-                    if _det_hv is not None and getattr(
-                        _det_hv, "necrons_melee_ap_plus_one_army_wide", False,
-                    ):
-                        _battle_hv = getattr(_own_army_hv, "_battle_ref", None)
-                        _round_hv = (
-                            getattr(_battle_hv, "_current_round", 0)
-                            if _battle_hv is not None else 0
-                        )
-                        # Even round (2, 4) -> Hungry Void active. Round 0
-                        # (pre-battle / no battle ref) treated as inactive
-                        # so standalone tests without a battle round set
-                        # see no buff unless they configure the round.
-                        if _round_hv > 0 and _round_hv % 2 == 0:
-                            ap = ap - 1
 
             # ---- World Eaters Blessings of Khorne (10e army rule) —
             # Cleaving Blows grants army-wide melee AP+1 (more negative AP)
@@ -2120,21 +2182,25 @@ class Unit:
             # ---- Chaos Knights — Harbingers of Dread (army rule, 10e). Verbatim
             # Wahapedia (https://wahapedia.ru/wh40k10ed/factions/chaos-knights/):
             # "The Deathly Terror ability is active for your army from the start
-            # of the battle." Plus one additional Dread ability is selected at
-            # battle start; SwegHammer always picks Doom — the offensive Dread
+            # of the battle." Additional Dread abilities are selected at the
+            # start of battle rounds 1, 3 and 5. With SWEG_HARBINGERS OFF
+            # (default), SwegHammer always picks Doom — the offensive Dread
             # ("Each time this model makes an attack, if the target of that attack
             # is Battle-shocked, add 1 to the Wound roll.") because Doom is the
             # only Dread the attack pipeline can directly express; the auras
             # (Despair / Deathly Terror, Ld debuffs within 9") are wired into the
-            # Battle-shock phase in code/simulator.py. The R1/R3/R5 bonus
-            # additional-Dread pick is NOT modelled here (the wound bonus already
-            # represents the "selected additional ability" slot, and the two
-            # always-on Ld auras saturate the battleshock side). Faction-gated to
-            # Chaos Knights so Imperial Knights' Code Chivalric handling is
-            # untouched. Cited as `simulator.harbingers_of_dread`.
+            # Battle-shock phase in code/simulator.py. With SWEG_HARBINGERS ON,
+            # Despair replaces Doom as the round-1 pick (and Dismay / Darkness /
+            # Delirium fill the remaining picks — see code/simulator.py and the
+            # Darkness block below), so Doom is SUPPRESSED here — leaving it on
+            # would give the army more selected Dread abilities than the rule's
+            # three picks grant. Faction-gated to Chaos Knights so Imperial
+            # Knights' Code Chivalric handling is untouched. Cited as
+            # `simulator.harbingers_of_dread`.
             if (
                 mode in ("melee", "ranged")
                 and (p.faction or "") == "Chaos Knights"
+                and __import__("os").environ.get("SWEG_HARBINGERS", "1") == "0"
                 and target.is_currently_battle_shocked(
                     getattr(
                         getattr(getattr(self, "army_ref", None), "_battle_ref", None),
@@ -2279,6 +2345,75 @@ class Unit:
                         _det_ro, "relentless_onslaught", False
                     ):
                         hit_mod_delta += 1
+
+            # ---- Adepta Sororitas Hallowed Martyrs — The Blood of Martyrs
+            # (wave 234, detachment rule). BSData v10.6.0 verbatim (rule id
+            # afa4-169c-3aaa-650): "Each time an ADEPTA SORORITAS model from
+            # your army makes an attack, add 1 to the Hit roll if that model's
+            # unit is below its Starting Strength, and add 1 to the Wound
+            # roll, as well, if that model's unit is Below Half-strength."
+            # Two-tier gate (both ranged and melee — the rule says "makes an
+            # attack" with no mode restriction):
+            #   Tier 1 — below Starting Strength: alive members < start_count
+            #     (single-model units: current_health < profile.health)
+            #     → hit_mod_delta += 1; routes through the 10e ±1 hit-modifier
+            #     clamp at line ~2755 (hit_mod_clamped = max(-1, min(1, ...))).
+            #   Tier 2 — below Half-strength (additionally): alive members <
+            #     start_count / 2.0 (single-model: current_health < health/2.0)
+            #     → wound_mod_delta += 1; same ±1 wound-modifier clamp.
+            # Reach the squad substrate via the army back-reference and
+            # _battle_ref._squad_start_count[(army.name, squad_id)] — same
+            # access pattern as the Cursed Legion block immediately above.
+            # If no army ref or no battle ref the buffs do not fire (pre-battle
+            # standalone tests see no buff); no silent default for data that
+            # should exist.
+            # Cited as `HALLOWED_MARTYRS.soror_blood_of_martyrs`.
+            if p.faction == "Adepta Sororitas":
+                _own_army_bom = getattr(self, "army_ref", None)
+                if _own_army_bom is not None:
+                    try:
+                        _det_bom = _own_army_bom.resolve_detachment()
+                    except Exception:
+                        _det_bom = None
+                    if _det_bom is not None and getattr(
+                        _det_bom, "soror_blood_of_martyrs", False
+                    ):
+                        _battle_bom = getattr(_own_army_bom, "_battle_ref", None)
+                        _sid_bom = getattr(self, "squad_id", -1)
+                        if _sid_bom >= 0 and _battle_bom is not None:
+                            # Multi-model squad: use alive member count vs
+                            # recorded starting count (10e core: "below
+                            # [Starting] Strength" = fewer models than the
+                            # unit's Starting Strength).
+                            _start_bom = _battle_bom._squad_start_count.get(
+                                (_own_army_bom.name, _sid_bom), 1
+                            )
+                            _alive_bom = sum(
+                                1 for _u in _own_army_bom.alive_units
+                                if getattr(_u, "squad_id", -1) == _sid_bom
+                            )
+                            if _start_bom > 1:
+                                _below_start_bom = _alive_bom < _start_bom
+                                _below_half_bom = _alive_bom < _start_bom / 2.0
+                            else:
+                                # Single-model unit: use wound-fraction gate
+                                # (10e convention: vehicles / characters are
+                                # never "below Starting Strength" per model
+                                # count; wounds fraction is the canonical
+                                # proxy, mirroring the Delirium / battleshock
+                                # single-model path in simulator.py).
+                                _hp_bom = float(p.health) or 1.0
+                                _below_start_bom = self.current_health < _hp_bom
+                                _below_half_bom = self.current_health < _hp_bom / 2.0
+                        else:
+                            # No battle ref or lone model without a squad —
+                            # buffs do not fire (pre-battle tests, edge cases).
+                            _below_start_bom = False
+                            _below_half_bom = False
+                        if _below_start_bom:
+                            hit_mod_delta += 1
+                        if _below_half_bom:
+                            wound_mod_delta += 1
 
             # NOTE: Adeptus Astartes Combat Doctrines (Gladius Task Force,
             # 10e) live in the SIMULATOR'S movement gates, not here. Iter-9
@@ -2498,11 +2633,17 @@ class Unit:
             #     uplift on ranged weapons skipped — Advance-and-shoot is not
             #     a feature the simulator models. The +1 AP for battleline-
             #     adjacent attacks is applied below in the AP block.)
-            # The rule's BATTLELINE-or-within-6"-of-BATTLELINE proximity gate is
-            # approximated as army-wide here: most AdMech infantry are Skitarii
-            # BATTLELINE and the simulator's abstracted positioning does not
-            # resolve 6" aura adjacency for non-battleline support units.
-            # Faction-gated on the attacker. Cited as
+            # The rule's BATTLELINE-or-within-6"-of-BATTLELINE proximity gate
+            # now uses the same `_doctrina_battleline_proximity_met` helper as
+            # the Conqueror armour-penetration leg (~line 1968) and the
+            # Protector defensive leg (~line 2565). Only 2 of 42 AdMech
+            # datasheets carry BATTLELINE (Skitarii Vanguard / Rangers), so
+            # applying the hit-modifier army-wide was granting the Ballistic
+            # Skill / Weapon Skill bonus to ~95% of AdMech units that the
+            # codex does not cover. The proximity helper mirrors the real-rule
+            # "if this unit has the BATTLELINE keyword and/or it is within 6"
+            # of one or more friendly ADEPTUS MECHANICUS BATTLELINE units"
+            # gate. Faction-gated on the attacker. Cited as
             # `simulator.doctrina_imperatives`.
             if p.faction == "Adeptus Mechanicus":
                 own_army = getattr(self, "army_ref", None)
@@ -2510,9 +2651,17 @@ class Unit:
                     getattr(own_army, "doctrina_imperative", None)
                     if own_army is not None else None
                 )
-                if imperative == "protector" and mode != "melee":
+                if (
+                    imperative == "protector"
+                    and mode != "melee"
+                    and _doctrina_battleline_proximity_met(self)
+                ):
                     hit_mod_delta += 1
-                elif imperative == "conqueror" and mode == "melee":
+                elif (
+                    imperative == "conqueror"
+                    and mode == "melee"
+                    and _doctrina_battleline_proximity_met(self)
+                ):
                     hit_mod_delta += 1
 
             # ---- T'au Empire Markerlights — base army-rule offensive buff.
@@ -2686,6 +2835,38 @@ class Unit:
             ):
                 hit_mod_delta -= 1
 
+            # ---- Harbingers of Dread — Darkness (SWEG_HARBINGERS, default-ON since wave 232).
+            # The TARGET model must be a Chaos Knights model; if the attacking
+            # unit is Battle-shocked OR more than 18" away from the target, the
+            # attacker suffers -1 to its Hit roll. Melee is included (the rule
+            # text says "each time an attack is made against this model" with no
+            # ranged-only restriction). The 18" range check uses the `distance`
+            # parameter passed to Unit.attack (0.0 for melee calls means the
+            # attacker is in engagement, which is always ≤ 18", so the
+            # distance-gate never fires in melee — consistent with competitive
+            # play where Darkness only matters at range for non-engaged targets).
+            # BSData verbatim:
+            # "3 - Darkness: Each time an attack is made against this model, if
+            # the attacking model's unit is Battle-shocked or more than 18\" away,
+            # subtract 1 from the Hit roll."
+            # Cited as `simulator.harbingers_of_dread_darkness`.
+            if (
+                __import__("os").environ.get("SWEG_HARBINGERS", "1") != "0"
+                and (target.profile.faction or "") == "Chaos Knights"
+            ):
+                _atk_army_dk = getattr(self, "army_ref", None)
+                _battle_dk = (
+                    getattr(_atk_army_dk, "_battle_ref", None)
+                    if _atk_army_dk is not None else None
+                )
+                _cur_round_dk = (
+                    getattr(_battle_dk, "_current_round", 0)
+                    if _battle_dk is not None else 0
+                )
+                _atk_bs_dk = self.is_currently_battle_shocked(_cur_round_dk)
+                if _atk_bs_dk or distance > 18.0:
+                    hit_mod_delta -= 1
+
             # ---- Apply the ±1 modifier cap (Wahapedia core rules: "Hit roll
             # modifiers are cumulative, but the Hit roll for an attack can
             # never be modified by more than -1 or +1." Same for Wound rolls).
@@ -2798,44 +2979,6 @@ class Unit:
             # target unit for the round.
             if target.transient_plus_one_save:
                 save_buff_sources += 1
-            # ---- Necrons Awakened Dynasty — Protocol of the Eternal Conquerors
-            # (army-wide +1 save, round-gated). NECRONS-CLOSE
-            # (claude/sim-calibration-6): wires the fourth Command Protocol as
-            # a single-round defensive uplift on round 3 only. Real codex text
-            # auto-passes the first failed armour save per NECRONS unit per
-            # phase; the closest clean simulator hook is +1 to the armour
-            # save, contributed into the same `save_buff_sources` counter so
-            # the existing ±1 save-modifier cap clamps it as a single net +1
-            # alongside any other +1-save source. Gate: defender faction ==
-            # "Necrons" AND defender's detachment carries
-            # `necrons_army_wide_plus_one_save_command_protocol` (set by
-            # AWAKENED_DYNASTY) AND current battle round == 3.
-            # Cited as
-            # `AWAKENED_DYNASTY.necrons_army_wide_plus_one_save_command_protocol`.
-            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
-            # #Command-Protocols.
-            if target.profile.faction == "Necrons":
-                _own_army_ec = getattr(target, "army_ref", None)
-                if _own_army_ec is not None:
-                    try:
-                        _det_ec = _own_army_ec.resolve_detachment()
-                    except Exception:
-                        _det_ec = None
-                    if _det_ec is not None and getattr(
-                        _det_ec,
-                        "necrons_army_wide_plus_one_save_command_protocol",
-                        False,
-                    ):
-                        _battle_ec = getattr(_own_army_ec, "_battle_ref", None)
-                        _round_ec = (
-                            getattr(_battle_ec, "_current_round", 0)
-                            if _battle_ec is not None else 0
-                        )
-                        # Round 3 only — single-round defensive uplift to
-                        # keep the Command Protocol rotation approximately
-                        # one-protocol-per-round on average.
-                        if _round_ec == 3:
-                            save_buff_sources += 1
             # All Is Dust (Rubricae Phalanx, see boolean computed in the
             # wound-modifier block above). +1 to the armour save when the
             # incoming attack is Damage 1 AND the defender carries the RUBRICAE
@@ -3381,42 +3524,6 @@ class Unit:
                     if _me_round is not None and _me_round == _cur_round_me:
                         effective_sustained_hits += 1
 
-            # ---- Necrons Awakened Dynasty — Protocol of the Vengeful Stars
-            # (army-wide ranged SUSTAINED HITS 1). AD-PR (claude/sim-cal-4):
-            # alternates with Hungry Void by battle-round parity. Vengeful
-            # Stars fires on ODD rounds (1, 3, 5) — opposite parity to
-            # Hungry Void (EVEN). Gate: mode != "melee" AND attacker faction
-            # == "Necrons" AND detachment carries `necrons_ranged_sustained
-            # _hits_army_wide` (set by AWAKENED_DYNASTY) AND current battle
-            # round is odd. Stacks additively with per-weapon
-            # `sustained_hits` already on the profile, matching the
-            # melee_sustained_hits_army_wide compositional behaviour above.
-            # Cited as
-            # `AWAKENED_DYNASTY.necrons_ranged_sustained_hits_army_wide`.
-            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
-            # #Command-Protocols.
-            if mode != "melee" and p.faction == "Necrons":
-                _own_army_vs = getattr(self, "army_ref", None)
-                if _own_army_vs is not None:
-                    try:
-                        _det_vs = _own_army_vs.resolve_detachment()
-                    except Exception:
-                        _det_vs = None
-                    if _det_vs is not None and getattr(
-                        _det_vs, "necrons_ranged_sustained_hits_army_wide", False,
-                    ):
-                        _battle_vs = getattr(_own_army_vs, "_battle_ref", None)
-                        _round_vs = (
-                            getattr(_battle_vs, "_current_round", 0)
-                            if _battle_vs is not None else 0
-                        )
-                        # Odd round (1, 3, 5) -> Vengeful Stars active.
-                        # Round 0 (pre-battle / no battle ref) treated as
-                        # inactive so standalone tests without a battle
-                        # round set see no buff unless they configure the
-                        # round explicitly.
-                        if _round_vs % 2 == 1 and _round_vs > 0:
-                            effective_sustained_hits += 1
 
             # T'au Markerlights base army rule — [SUSTAINED HITS 1] vs Guided
             # targets (the +1-to-Hit half is applied in the hit-modifier block
@@ -4066,7 +4173,11 @@ class Unit:
                         total_damage += _alloc_dmg
 
         # ---- Hazardous: d6 after firing; on a 1, take 3 mortal wounds ----
-        if p.hazardous:
+        # Fires when the weapon's static hazardous flag is set, OR when the
+        # transient_hazardous flag is active (granted by Daemonic Ordnance for
+        # the current shooting activation, ranged mode only).
+        _hazardous_ranged = getattr(self, "transient_hazardous", False) and mode != "melee"
+        if p.hazardous or _hazardous_ranged:
             if random.randint(1, 6) == 1:
                 self.receive_damage(3.0)
 
@@ -4250,6 +4361,14 @@ _PERMODEL_SECONDARY_RANGED_RESET: Dict[str, Any] = {
     "secondary_torrent": False,
     "secondary_blast": False,
     "secondary_pistol": False,
+    # SEC-KEYWORD-PARITY — new fields; cleared to False on the per-model path
+    # (per-model units reset the secondary block entirely; the keywords default
+    # False which is safe for all four: no once-per-battle gating, no self-harm,
+    # no line-of-sight exemption, no precision bypass).
+    "secondary_one_shot": False,
+    "secondary_hazardous": False,
+    "secondary_indirect_fire": False,
+    "secondary_precision": False,
 }
 
 
@@ -4594,6 +4713,12 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             secondary_assault=entry.secondary_assault,
             secondary_torrent=entry.secondary_torrent,
             secondary_blast=entry.secondary_blast,
+            # SEC-KEYWORD-PARITY — new fields read from parsed.json; default
+            # False via getattr so pre-regen entries load cleanly.
+            secondary_one_shot=bool(getattr(entry, "secondary_one_shot", False)),
+            secondary_hazardous=bool(getattr(entry, "secondary_hazardous", False)),
+            secondary_indirect_fire=bool(getattr(entry, "secondary_indirect_fire", False)),
+            secondary_precision=bool(getattr(entry, "secondary_precision", False)),
             # MAP-1: TERTIARY and beyond ranged profiles (Knight Castellan
             # 5-weapon, etc.). Stored on the CatalogEntry as a list of dicts;
             # flatten into a tuple-of-(key, value) pairs so the UnitProfile

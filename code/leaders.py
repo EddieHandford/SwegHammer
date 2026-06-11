@@ -192,7 +192,7 @@ class LeaderAbility:
     # the end of the phase; on a 2+, set the model back up with full wounds.
     # Tracked via Army.self_revive_used_uids so the once-per-battle guard fires
     # on the model's uid, not on the unit name.
-    # Gated SWEG_SOROR_ABILITIES (default-OFF).
+    # Gated SWEG_SOROR_ABILITIES (default-ON since wave 232).
     # BSData v10.6.0 (Imperium - Adepta Sororitas.cat.gz, ability id
     # eee9-b689-1a73-742b, typeName Abilities). Cited as
     # `simulator.celestine_miraculous_intervention`.
@@ -476,7 +476,7 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # offensive aura until a faithful implementation lands. Wahapedia:
     # https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Canoness
     #
-    # SWEG_SOROR_ABILITIES-gated entries (default-OFF — gate is in
+    # SWEG_SOROR_ABILITIES-gated entries (default-ON since wave 232 — gate is in
     # effective_buffs via _soror_gate_on, same pattern as SWEG_CSM_ABILITIES).
     #
     # Saint Celestine — "Miraculous Intervention" (once-per-battle self-revive
@@ -512,12 +512,83 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("adepta_sororitas_paragon_warsuits",))),
     # Necrons — named characters first so they win the substring match
     # before the generic "Overlord" entry below.
-    ("Trazyn the Infinite", LeaderAbility(name="Surreptitious Acquisition", aura_range=6.0, plus_one_to_hit=True,
+    #
+    # wave 235 fabrication removals (four entries):
+    #
+    # 1. Trazyn the Infinite `plus_one_to_hit` — REMOVED. The real datasheet
+    #    abilities are "Leader" / "Ancient Collector" (sticky objective:
+    #    "While this model is leading a unit, that unit counts as having at
+    #    least 5 models for the purposes of controlling objective markers.")
+    #    and "Surrogate Hosts" (resurrection: "Once per battle, if this
+    #    model is destroyed, roll one D6 at the end of the phase. On a 2+,
+    #    set this model back up anywhere on the battlefield that is not
+    #    within Engagement Range of any enemy models, with half its starting
+    #    wounds remaining."). Neither grants a to-hit aura. The
+    #    `cp_refund_per_battle=1` field models the Warlord-gated
+    #    "Surreptitious Acquisition" CP-steal ability (separately cited as
+    #    LeaderAbility.Surreptitious Acquisition and faithfully retained).
+    #    UNMODELLED REAL RULES: Ancient Collector (sticky objective count),
+    #    Surrogate Hosts (once-per-battle 2+ self-revive to half wounds) —
+    #    neither has a LeaderAbility flag equivalent; parking-lot until
+    #    objective-counting and per-character resurrection hooks land.
+    #    BSData v10.6.0 Necrons.cat.gz, Trazyn the Infinite profile, typeName
+    #    "Abilities": ids for Ancient Collector and Surrogate Hosts confirmed.
+    #
+    # 2. Overlord `plus_one_to_hit` — REMOVED. The real "My Will Be Done" is
+    #    "Once per battle round, one unit from your army with this ability
+    #    can use it when its unit is targeted with a Stratagem. If it does,
+    #    reduce the CP cost of that use of that Stratagem by 1CP." This is a
+    #    Stratagem CP-discount ability (same pattern as Space Marine Captain
+    #    "Rites of Battle" dropped in iter21, Autarch "Path of Command"
+    #    dropped in iter21, and Adeptus Custodes Shield-Captain "Strategic
+    #    Mastery" dropped in the custodes audit) — NOT a hit-roll aura.
+    #    UNMODELLED REAL RULE: My Will Be Done (once-per-round Stratagem
+    #    CP discount) — no per-character Stratagem-CP-discount hook exists.
+    #    BSData v10.6.0 Necrons.cat.gz, Overlord profile: ability text
+    #    confirmed verbatim via STRUCTURAL_DEBT_REVIEW.md orchestrator
+    #    cross-verification.
+    #
+    # 3. Chronomancer `fnp=5` — REMOVED. The real "Chronometron" is:
+    #    "In your Shooting phase, after this model's unit has shot, if it
+    #    is not within Engagement Range of any enemy units, that unit can
+    #    make a Normal move of up to 5\" as if it were your Movement phase.
+    #    If it does, until the end of the turn, that unit is not eligible to
+    #    declare a charge." This is a post-Shooting-phase movement ability,
+    #    not a feel no pain save. UNMODELLED REAL RULE: Chronometron (post-
+    #    shoot 5\" Normal move conditional on not being in Engagement Range)
+    #    — the simulator has no post-shooting-phase movement hook for led
+    #    units. Parking-lot until a Movement-phase trigger layer lands.
+    #    BSData v10.6.0 Necrons.cat.gz, Chronomancer profile: ability text
+    #    confirmed verbatim via STRUCTURAL_DEBT_REVIEW.md orchestrator
+    #    cross-verification.
+    #
+    # 4. Plasmancer `fnp=5` — REMOVED. The real "Harbinger of Destruction"
+    #    is: "While this model is leading a unit, each time a model in that
+    #    unit makes a ranged attack, a successful unmodified Hit roll of 5+
+    #    scores a Critical Hit." This is a ranged crit-hit-threshold lowering
+    #    ability (5+ instead of the canonical 6), not a feel no pain save.
+    #    FAITHFUL REBUILD ASSESSMENT: the existing `melee_crit_threshold`
+    #    variable in code/units.py (set up around line 3523) lowers the crit
+    #    threshold for melee only; the ranged crit path (line 3816) is
+    #    hard-coded to `unmodified_roll == 6` with no variable or leader-aura
+    #    hook. Wiring a ranged crit-on-5+ from a leader aura would require
+    #    (a) a new `ranged_crit_threshold_aura: int = 6` field on
+    #    LeaderAbility and (b) a new read of `att_buffs.get(...)` in the
+    #    ranged crit branch of code/units.py — NEW MACHINERY. Per the wave 235
+    #    briefing: removal only when new machinery is needed. UNMODELLED REAL
+    #    RULE: Harbinger of Destruction (ranged crit-hit threshold lowered to
+    #    5+ on the led unit) — parking-lot until a ranged-crit-threshold
+    #    leader-aura field is added. BSData v10.6.0 Necrons.cat.gz, Plasmancer
+    #    profile: "While this model is leading a unit, each time a model in
+    #    that unit makes a ranged attack, a successful unmodified Hit roll of
+    #    5+ scores a Critical Hit." Confirmed verbatim via STRUCTURAL_DEBT_REVIEW.md
+    #    orchestrator cross-verification.
+    ("Trazyn the Infinite", LeaderAbility(name="Surreptitious Acquisition", aura_range=6.0,
                                           cp_refund_per_battle=1,
                                           host_keys=_NECRON_HOSTS)),
-    ("Overlord",           LeaderAbility(name="My Will Be Done",            aura_range=6.0, plus_one_to_hit=True,  host_keys=_NECRON_HOSTS)),
-    ("Chronomancer",       LeaderAbility(name="Chronometron",               aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
-    ("Plasmancer",         LeaderAbility(name="Harbinger of Destruction",   aura_range=6.0, fnp=5,                 host_keys=("necrons_immortals", "necrons_necron_warriors"))),
+    ("Overlord",           LeaderAbility(name="My Will Be Done",            aura_range=6.0, host_keys=_NECRON_HOSTS)),
+    ("Chronomancer",       LeaderAbility(name="Chronometron",               aura_range=6.0, host_keys=_NECRON_HOSTS)),
+    ("Plasmancer",         LeaderAbility(name="Harbinger of Destruction",   aura_range=6.0, host_keys=("necrons_immortals", "necrons_necron_warriors"))),
     ("Technomancer",       LeaderAbility(name="Canoptek Cloak",             aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
     # Orks — "Might is Right" (Warboss, Warboss In Mega Armour). Real rule:
     # "While this model is leading a unit, each time a model in that unit makes
@@ -622,7 +693,19 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # halved to model real per-round attrition). Wahapedia:
     # https://wahapedia.ru/wh40k10ed/factions/aeldari/The-Yncarne
     ("The Yncarne",        LeaderAbility(name="Ethereal Form",              aura_range=6.0, heal_per_round=1)),
-    ("Farseer",            LeaderAbility(name="Runes of Fate",              aura_range=6.0, reroll_wound_ones=True, host_keys=_AELDARI_GUARDIAN_HOSTS)),
+    # Farseer — Branching Fates (Psychic) is a once-per-phase set-one-roll-
+    # to-6 ability (Wahapedia: "While this model is leading a unit, once per
+    # phase, you can change the result of one Hit roll, one Wound roll or one
+    # Damage roll made for a model in that unit (excluding SUPPORT WEAPON
+    # models) to an unmodified 6." BSData v10.6.0, Aeldari - Aeldari
+    # Library.cat.gz, ability id 1db8-859e-c4c7-d8b2). The simulator has no
+    # once-per-phase set-roll-to-6 leader hook — the prior reroll_wound_ones=True
+    # flag was a loose stand-in with no codex support for an always-on aura.
+    # wave 236 drops the proxy (same standard as Autarch iter21 / Avatar iter21
+    # / Necron Overlord iter20). Registry entry retained (host_keys kept for
+    # is_actually_led gating). Will return as a once-per-phase set-to-6
+    # modifier once the leader-hook layer gains that capability.
+    ("Farseer",            LeaderAbility(name="Runes of Fate",              aura_range=6.0,                          host_keys=_AELDARI_GUARDIAN_HOSTS)),
     # Autarch — Path of Command is a once-per-round Stratagem CP-discount
     # ability, IDENTICAL in pattern to Necron Overlord "My Will Be Done"
     # (which iter20 audited and dropped the +1-to-hit proxy from). iter21
@@ -781,8 +864,103 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           reroll_hit_ones=True,
                                           plus_one_to_wound_melee_only=True,
                                           host_keys=_CSM_APOSTLE_HOSTS)),
-    ("Chaos Lord",         LeaderAbility(name="Lord of Hosts",              aura_range=6.0, plus_one_to_wound=True,
-                                          host_keys=("chaos_space_marines_traitor_guardsmen_squad",))),
+    # Master of Possession — PSYKER CHARACTER, leads CHOSEN / LEGIONARIES /
+    # POSSESSED (BSData v10.6.0, Chaos - Chaos Space Marines.cat.gz, profile id
+    # 287f-7d48-59cf-dc1e, Leader ability id 638e-667a-a1c5-1135).
+    # Datasheet abilities:
+    #   "Daemonkin (Psychic)": "While this model is leading a unit, add 1 to
+    #   Advance and Charge rolls made for that unit." — a Movement-phase roll
+    #   modifier. The simulator has no Advance/Charge roll leader-aura hook;
+    #   parking-lot until a charge-roll modifier is added to LeaderAbility.
+    #   "Sacrificial Dagger": "Once per phase, when this model is selected to
+    #   shoot or fight, it can use this ability. If it does, this model's unit
+    #   suffers 1 mortal wound and, until the end of the phase, each time this
+    #   model makes a Psychic Attack, add 1 to the Hit roll and add 1 to the
+    #   Wound roll." — a self-activation once-per-phase mortal-wound trade
+    #   (affects only the Master of Possession's own Psychic Attacks, not the
+    #   whole led unit). The simulator has no once-per-phase self-activation
+    #   leader hook; parking-lot.
+    # No currently-expressible led-unit aura flags. Entry exists so
+    # lookup_ability("Master of Possession") returns non-None per CLAUDE.md §13.
+    # Cited as LeaderAbility.Daemonkin (Psychic).
+    # BSData sole source per project memory (wahapedia.ru DNS may fail in agents).
+    ("Master of Possession", LeaderAbility(name="Daemonkin (Psychic)",          aura_range=6.0,
+                                          host_keys=("chaos_space_marines_chosen",
+                                                     "chaos_space_marines_legionaries",
+                                                     "chaos_space_marines_possessed"))),
+    # Warpsmith — INFANTRY CHARACTER, leads CHOSEN / HAVOCS / LEGIONARIES
+    # (BSData v10.6.0, Chaos - Chaos Space Marines.cat.gz, profile id
+    # 440-a22a-eac1-b107, Leader ability id b5da-4ab-cfb5-4e4c).
+    # Datasheet abilities:
+    #   "Warpsmith" (Lone Operative): "While this model is within 3\" of one or
+    #   more friendly HERETIC ASTARTES VEHICLE units, this model has the Lone
+    #   Operative ability." — a self-defence ability on the Warpsmith; does not
+    #   affect the led unit.
+    #   "Master of Mechanisms": "In your Command phase, select one friendly
+    #   HERETIC ASTARTES VEHICLE model within 3\" of this model. That VEHICLE
+    #   model regains up to D3 lost wounds and, until the start of your next
+    #   Command phase, each time that VEHICLE makes an attack, add 1 to the Hit
+    #   roll." — a Command-phase heal + Hit buff on a VEHICLE model, not a
+    #   led-unit aura. The simulator has no per-leader Command-phase vehicle
+    #   repair hook; parking-lot.
+    #   "Enrage Machine Spirits": "At the end of your Movement phase, select one
+    #   enemy VEHICLE unit within 12\" of this model. That unit must take a
+    #   Battle-shock test." — an enemy debuff applied in the Movement phase.
+    #   The simulator does not model per-leader Battle-shock triggers; parking-lot.
+    # No currently-expressible led-unit aura flags. Entry exists so
+    # lookup_ability("Warpsmith") returns non-None per CLAUDE.md §13.
+    # Cited as LeaderAbility.Master of Mechanisms.
+    # BSData sole source per project memory (wahapedia.ru DNS may fail in agents).
+    ("Warpsmith",            LeaderAbility(name="Master of Mechanisms",          aura_range=6.0,
+                                          host_keys=("chaos_space_marines_chosen",
+                                                     "chaos_space_marines_havocs",
+                                                     "chaos_space_marines_legionaries"))),
+    # Dark Commune — INFANTRY CHARACTER UNIT (contains a Cult Demagogue model),
+    # leads ACCURSED CULTISTS / CULTIST MOB (BSData v10.6.0, Chaos - Chaos Space
+    # Marines.cat.gz, profile id 1780-25b8-ce0b-898d, Leader ability id
+    # 98b1-c4d2-400d-f8c7).
+    # Datasheet abilities:
+    #   "Faithful Flock": "While this unit is leading a unit and contains a CULT
+    #   DEMAGOGUE model, models in that unit have a 5+ invulnerable save."
+    #   The Dark Commune always contains a Cult Demagogue (the Cult Demagogue
+    #   is one of its constituent models per the unit datasheet), so the
+    #   condition "contains a CULT DEMAGOGUE model" is always true while the
+    #   Dark Commune is intact. Modelled as extra_invuln=5.
+    #   "Dark Ritual": "Once per battle, in your Command phase, if this unit
+    #   contains a CULT DEMAGOGUE model, it can use this ability. If it does,
+    #   until the end of the turn, this unit can declare a charge in a turn in
+    #   which it Advanced and each time a model in this unit makes an attack,
+    #   add 1 to the Hit roll and add 1 to the Wound roll." — a once-per-battle
+    #   self-activation on the Dark Commune's own attacks, not a persistent led-
+    #   unit aura. Parking-lot until a once-per-battle Command-phase trigger hook
+    #   lands in the leader layer.
+    # Cited as LeaderAbility.Faithful Flock.
+    # BSData sole source per project memory (wahapedia.ru DNS may fail in agents).
+    ("Dark Commune",         LeaderAbility(name="Faithful Flock",                aura_range=6.0,
+                                          extra_invuln=5,
+                                          host_keys=("chaos_space_marines_accursed_cultists",
+                                                     "chaos_space_marines_cultist_mob"))),
+    # Chaos Lord — Lord of Chaos is a once-per-battle-round Stratagem
+    # command-point-discount ability (Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Chaos-Lord;
+    # BSData v10.6.0, Chaos - Chaos Space Marines.cat.gz, ability id
+    # 73e9-284e-fd62-4056: "Once per battle round, one unit from your army
+    # with this ability can use it when its unit is targeted with a Stratagem.
+    # If it does, reduce the CP cost of that use of that Stratagem by 1CP.").
+    # There is NO offensive aura component — plus_one_to_wound=True was a
+    # flavour proxy with no codex support (two-source fabrication verified,
+    # docs/STRUCTURAL_DEBT_REVIEW.md surface 2 line 104). wave 236 drops the
+    # proxy on the same standard as Autarch "Path of Command" (iter21) and
+    # Shield-Captain "Master of the Stances" (CUSTODES-AUDIT). Entry retained
+    # with corrected host_keys (BSData Leader text: "CHOSEN / LEGIONARIES").
+    # Note: this flag fires on near-dormant units (prior host was
+    # chaos_space_marines_traitor_guardsmen_squad, absent from archetype
+    # lists), so the metric impact is near-neutral — this is a fidelity
+    # correction, not a metric knob. Will return as a Stratagem CP-discount
+    # once per-character command-point-reduction hooks are added.
+    ("Chaos Lord",         LeaderAbility(name="Lord of Hosts",              aura_range=6.0,
+                                          host_keys=("chaos_space_marines_legionaries",
+                                                     "chaos_space_marines_chosen"))),
     # Abaddon the Despoiler: the Warmaster ability "Paragon of Hatred" (Aura)
     # is the competitively dominant pick. BSData v10.6.0 (Chaos - Chaos Space
     # Marines.cat.gz, ability id 8b8a-6967-9f60-3de0, typeName "Warmaster"):
@@ -1621,12 +1799,13 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         # are suppressed entirely — their leader entries are default-off, so if
         # the gate is OFF we skip the whole leader. Gate-ON: aura fields merge
         # normally (no proxy suppression needed, the fields are the faithful rule).
-        _soror_gate_on = __import__("os").environ.get("SWEG_SOROR_ABILITIES", "0") != "0"
+        _soror_gate_on = __import__("os").environ.get("SWEG_SOROR_ABILITIES", "1") != "0"
         _soror_off = (not _soror_gate_on) and (_ability_name in (
             "Miraculous Intervention", "Abbess Sanctorum",
         ))
         if _soror_off:
-            # Sororitas abilities are default-off; skip all fields for this leader.
+            # Sororitas gate explicitly disabled (default-ON since wave 232);
+            # skip all fields for this leader.
             continue
         # Dark Apostle gate-ON: suppress the legacy reroll_hit_ones proxy because
         # plus_one_to_wound_melee_only (gated in units.py) fires in its place.
@@ -1885,7 +2064,7 @@ def maybe_apply_celestine_revival(
     Cited as `simulator.celestine_miraculous_intervention`.
     """
     # Gate OFF by default.
-    if __import__("os").environ.get("SWEG_SOROR_ABILITIES", "0") == "0":
+    if __import__("os").environ.get("SWEG_SOROR_ABILITIES", "1") == "0":
         return False
 
     ability = lookup_ability(destroyed_unit.profile.name)

@@ -1,4 +1,4 @@
-"""Adepta Sororitas datasheet abilities gated SWEG_SOROR_ABILITIES (default-OFF).
+"""Adepta Sororitas datasheet abilities gated SWEG_SOROR_ABILITIES (default-ON since wave 232).
 
 Three abilities verified and built:
 
@@ -15,7 +15,7 @@ Three abilities verified and built:
 
 Each test verifies:
   - Gate ON (SWEG_SOROR_ABILITIES=1): ability fires and produces a measurable effect.
-  - Gate OFF (default, SWEG_SOROR_ABILITIES not set or "0"): baseline unchanged.
+  - Gate OFF (SWEG_SOROR_ABILITIES=0 explicitly; default-ON since wave 232): baseline unchanged.
 """
 from __future__ import annotations
 
@@ -141,7 +141,7 @@ class TriumphSolemnProcessionTests(unittest.TestCase):
         """Gate OFF: round-start Miracle die is rolled D6 (average ~3.5, not
         always 6). Directly call gain_miracle_dice 200 times and assert the mean
         is well below 6 (the gate-OFF path uses a random roll)."""
-        os.environ.pop("SWEG_SOROR_ABILITIES", None)
+        os.environ["SWEG_SOROR_ABILITIES"] = "0"
         random.seed(42)
         values = []
         army = self._build_army_with_triumph()
@@ -190,7 +190,7 @@ class TriumphSolemnProcessionTests(unittest.TestCase):
             # Manually trigger the Acts-of-Faith site logic for gate-ON path:
             # the Triumph is alive in army.alive_units.
             from code.army import Army as _Army
-            _soror_on = os.environ.get("SWEG_SOROR_ABILITIES", "0") != "0"
+            _soror_on = os.environ.get("SWEG_SOROR_ABILITIES", "1") != "0"
             triumph_alive = any(
                 u.is_alive and "Triumph of Saint Katherine" in u.profile.name
                 for u in army.alive_units
@@ -252,7 +252,7 @@ class CelestineMiraculousInterventionTests(unittest.TestCase):
         """Gate OFF: Celestine's LeaderAbility resolves in the registry (fail-loud
         per CLAUDE.md §13), but the self_revive_on_2plus field must be gated off
         at consumption time in effective_buffs (_soror_off check)."""
-        os.environ.pop("SWEG_SOROR_ABILITIES", None)
+        os.environ["SWEG_SOROR_ABILITIES"] = "0"
         ability = lookup_ability("Saint Celestine")
         self.assertIsNotNone(
             ability, "Saint Celestine must resolve in _REGISTRY (fail-loud)"
@@ -390,13 +390,13 @@ class MorvennVahlAbbessSancttorumTests(unittest.TestCase):
         suppression by confirming that the registry entry has name 'Abbess
         Sanctorum' (so the suppression key matches) and that effective_buffs's
         _soror_off check triggers for this name when gate is OFF."""
-        os.environ.pop("SWEG_SOROR_ABILITIES", None)
+        os.environ["SWEG_SOROR_ABILITIES"] = "0"
         # Verify the suppression condition directly: _soror_off fires when
         # ability.name in ("Miraculous Intervention", "Abbess Sanctorum")
-        # and SWEG_SOROR_ABILITIES env is not "1".
+        # and SWEG_SOROR_ABILITIES env is "0" (default-ON since wave 232).
         ability = lookup_ability("Morvenn Vahl")
         self.assertIsNotNone(ability)
-        soror_gate_on = os.environ.get("SWEG_SOROR_ABILITIES", "0") != "0"
+        soror_gate_on = os.environ.get("SWEG_SOROR_ABILITIES", "1") != "0"
         self.assertFalse(soror_gate_on, "Gate must be OFF for this test")
         suppressed = (not soror_gate_on) and (
             ability.name in ("Miraculous Intervention", "Abbess Sanctorum")
@@ -413,7 +413,7 @@ class MorvennVahlAbbessSancttorumTests(unittest.TestCase):
         os.environ["SWEG_SOROR_ABILITIES"] = "1"
         ability = lookup_ability("Morvenn Vahl")
         self.assertIsNotNone(ability)
-        soror_gate_on = os.environ.get("SWEG_SOROR_ABILITIES", "0") != "0"
+        soror_gate_on = os.environ.get("SWEG_SOROR_ABILITIES", "1") != "0"
         suppressed = (not soror_gate_on) and (
             ability.name in ("Miraculous Intervention", "Abbess Sanctorum")
         )
@@ -430,10 +430,10 @@ class MorvennVahlAbbessSancttorumTests(unittest.TestCase):
 #    we verify the gate default leaves the sim byte-identical to baseline)
 # ---------------------------------------------------------------------------
 
-class SororAbilitiesDefaultOffTests(unittest.TestCase):
+class SororAbilitiesDefaultOnTests(unittest.TestCase):
     """Verify that with no SWEG_SOROR_ABILITIES env var set, a Sororitas-vs-Dummy
-    battle produces the same result as with SWEG_SOROR_ABILITIES=0 (byte-identical
-    default behaviour)."""
+    battle produces the same result as with SWEG_SOROR_ABILITIES=1 (default-ON
+    since wave 232 — unset IS the ON path)."""
 
     def setUp(self):
         os.environ.pop("SWEG_SOROR_ABILITIES", None)
@@ -458,15 +458,15 @@ class SororAbilitiesDefaultOffTests(unittest.TestCase):
             total_damage += 300 - b.units[0].current_health
         return total_damage
 
-    def test_default_off_identical_to_explicit_off(self):
-        """Default (no env var) and explicit SWEG_SOROR_ABILITIES=0 must produce
-        identical damage totals (byte-identical behaviour)."""
+    def test_default_identical_to_explicit_on(self):
+        """Default (no env var) and explicit SWEG_SOROR_ABILITIES=1 must produce
+        identical damage totals (default-ON since wave 232)."""
         dmg_default = self._run_soror_battle(gate_val="", seed=42, n=200)
-        dmg_explicit_off = self._run_soror_battle(gate_val="0", seed=42, n=200)
+        dmg_explicit_on = self._run_soror_battle(gate_val="1", seed=42, n=200)
         self.assertEqual(
-            dmg_default, dmg_explicit_off,
-            f"Default and explicit gate-OFF must be byte-identical: "
-            f"default={dmg_default:.1f} explicit_off={dmg_explicit_off:.1f}"
+            dmg_default, dmg_explicit_on,
+            f"Default and explicit gate-ON must be byte-identical: "
+            f"default={dmg_default:.1f} explicit_on={dmg_explicit_on:.1f}"
         )
 
 

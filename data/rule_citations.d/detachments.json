@@ -1,36 +1,6 @@
 {
   "_comment": "Detachment-rule citations. Many of our Detachment flags are LOSSY approximations of the real 10e rule (per the dataclass docstring in code/detachments.py). The rule_name and quoted_text are verbatim from Wahapedia; the trigger and effect describe what the simulator actually implements, and are tagged 'approximation: true' where the simulator's behaviour diverges from the canonical rule. 5 fabricated detachments (CULT_OF_MAGIC, PLAGUE_COMPANY, PLAGUE_MARINES_ONSLAUGHT, SAIM_HANN_WILD_HOST, WAAAGH_DETACHMENT) and their citations were deleted in commit e4b057f per the fabrication audit.",
 
-  "AWAKENED_DYNASTY.necrons_melee_ap_plus_one_army_wide": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols",
-    "rule_name": "Command Protocols (Protocol of the Hungry Void)",
-    "quoted_text": "At the start of your Command phase, select one Command Protocol that is not already active for your army: ... Protocol of the Hungry Void: Until the start of your next Command phase, each time a NECRONS model from your army makes a melee attack, improve the Armour Penetration characteristic of the weapon used for that attack by 1.",
-    "trigger": "Necrons melee attacker in an army with the Awakened Dynasty detachment, on EVEN battle rounds (2, 4)",
-    "effect": "melee Armour Penetration improved by 1 (AP-1 becomes AP-2 etc). AD-PR (claude/sim-calibration-4): the detachment's real rule rotates one of six Command Protocols per battle round (player picks at the start of each Command phase). Three protocols map onto clean simulator hooks (Hungry Void / Vengeful Stars / Conquering Tyrant); the AP+1 leg of Hungry Void (this flag) fires on EVEN battle rounds (2, 4) and the SUSTAINED HITS 1 leg of Vengeful Stars (AWAKENED_DYNASTY.necrons_ranged_sustained_hits_army_wide) fires on ODD battle rounds (1, 3, 5), averaging to one protocol active per round. The Conquering Tyrant +1-to-hit-when-led leg (AWAKENED_DYNASTY.bonus_to_hit_when_led) is retained as always-on; strictly speaking the codex picks only ONE protocol per round, so retaining Tyrant alongside the alternation is an over-model — bounded by the led-only gate. The Lethal Hits leg of Hungry Void is dropped (only the AP+1 leg is wired) to keep the buff bounded; direction-correct. Round gating is enforced inside Unit.attack via the army's _battle_ref._current_round; the detachment flag remains True so detachment registry tests still pass.",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
-  "AWAKENED_DYNASTY.necrons_ranged_sustained_hits_army_wide": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols",
-    "rule_name": "Command Protocols (Protocol of the Vengeful Stars)",
-    "quoted_text": "At the start of your Command phase, select one Command Protocol that is not already active for your army: ... Protocol of the Vengeful Stars: Until the start of your next Command phase, ranged weapons equipped by NECRONS models from your army have the [SUSTAINED HITS 1] ability.",
-    "trigger": "Necrons ranged attacker in an army with the Awakened Dynasty detachment, on ODD battle rounds (1, 3, 5)",
-    "effect": "ranged weapons gain the SUSTAINED HITS 1 ability (each unmodified Hit roll of 6 scores 1 additional hit). AD-PR (claude/sim-calibration-4): paired with Protocol of the Hungry Void (AWAKENED_DYNASTY.necrons_melee_ap_plus_one_army_wide) via battle-round parity — Vengeful Stars fires on ODD rounds (1, 3, 5), Hungry Void fires on EVEN rounds (2, 4). This averages to one protocol active per round, matching the codex 'pick one Command Protocol at the start of each Command phase' rule. Round gating is enforced inside Unit.attack via the army's _battle_ref._current_round; the detachment flag remains True so detachment registry tests still pass. Stacks additively with per-weapon SUSTAINED HITS already on the profile (re-uses the AURIC_CHAMPIONS / WAR_HORDE army-wide sustained-hits plumbing pattern).",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
-  "AWAKENED_DYNASTY.necrons_army_wide_plus_one_save_command_protocol": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols",
-    "rule_name": "Command Protocols (Protocol of the Eternal Conquerors)",
-    "quoted_text": "At the start of your Command phase, select one Command Protocol that is not already active for your army: ... Protocol of the Eternal Conquerors: Until the start of your next Command phase, the first failed armour saving throw made for each NECRONS unit from your army in each phase is automatically passed.",
-    "trigger": "Necrons defender in an army with the Awakened Dynasty detachment, on battle ROUND 3 ONLY",
-    "effect": "+1 to the armour save (cap 2+) for Necrons defenders. APPROXIMATION: the codex rule auto-passes the FIRST failed armour save per NECRONS unit per PHASE (a per-unit-per-phase one-shot save save); SwegHammer has no per-unit/per-phase one-shot save hook, so the closest direction-correct proxy is +1 to the armour save, contributed into the existing `save_buff_sources` counter so the global ±1 save-modifier cap clamps it as a single net +1 alongside any other +1-save source (Lightning-Fast Reactions, All Is Dust). NECRONS-CLOSE (claude/sim-calibration-6): paired with Protocol of the Hungry Void (necrons_melee_ap_plus_one_army_wide, EVEN rounds 2/4) and Protocol of the Vengeful Stars (necrons_ranged_sustained_hits_army_wide, ODD rounds 1/3/5) — Eternal Conquerors fires on ROUND 3 ONLY as a single-round defensive uplift, the smallest direction-correct buff to close the Necrons under-perform residual (-5pt gated 1.79). Round 3 over-models (Vengeful Stars also active) bounded to one round; the save-cap clamp prevents stacking with any future +1-save source. Round gating is enforced inside Unit.attack via the defender army's _battle_ref._current_round; the detachment flag remains True so detachment registry tests still pass.",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
   "AWAKENED_DYNASTY.reanimate_per_round": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Reanimation-Protocols",
     "rule_name": "Reanimation Protocols",
@@ -51,14 +21,14 @@
     "approximation": true
   },
 
-  "ANNIHILATION_LEGION.reroll_wound_ones": {
+  "_ANNIHILATION_LEGION.annihilation_protocol_unmodelled": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Annihilation-Legion",
-    "rule_name": "Hardened Killers",
-    "quoted_text": "Each time a NECRONS unit from your army makes a ranged attack, you can re-roll a Wound roll of 1.",
-    "trigger": "Necrons attacker in an army with the Annihilation Legion detachment, making a ranged attack",
-    "effect": "re-roll Wound rolls of 1 on ranged attacks. APPROXIMATION: schema flag `reroll_wound_ones` applies to all attacks (ranged + melee); real detachment limits to RANGED only. Necrons is a ranged-leaning faction so the over-broad melee leakage is small in practice. The detachment exists as the LC-1 stronger-offensive alternative to Awakened Dynasty (whose +1-to-hit only fires on character-led squads) for Necrons -8.8 outlier compensation.",
-    "scope": "army-wide",
-    "approximation": true
+    "rule_name": "Annihilation Protocol",
+    "quoted_text": "Each time a DESTROYER CULT or FLAYED ONES unit from your army declares a charge, you can re-roll the Charge roll. If one or more targets of that charge are Below Half-strength, add 1 to the Charge roll as well. Each time a DESTROYER CULT unit from your army makes a ranged attack that targets the closest eligible target, add 1 to the Armour Penetration characteristic of that attack.",
+    "trigger": "DESTROYER CULT or FLAYED ONES unit declaring a charge (charge re-roll leg); DESTROYER CULT unit making a ranged attack targeting the closest eligible target (+1 Armour Penetration leg)",
+    "effect": "UNMODELLED — both legs require new simulator machinery not yet present. Charge re-roll leg: the Detachment dataclass has no charge-reroll field and _do_charge has no detachment-supplied re-roll hook. Plus-one Armour Penetration leg: Unit.attack has no 'is closest eligible target' predicate. The fabricated 'Hardened Killers' rule and its reroll_wound_ones=True flag were removed in wave 235 as they corresponded to no real codex rule. The detachment remains registered as a no-buff variety pick.",
+    "scope": "keyword-gated",
+    "unmodelled": true
   },
 
   "INQUISITION_TASK_FORCE.reroll_hit_ones": {
@@ -96,7 +66,7 @@
     "rule_name": "Martial Grace",
     "quoted_text": "At the start of the battle round, you receive 1 additional Battle Focus token. Each time a unit from your army performs the Swift as the Wind Agile Manoeuvre, until the end of the phase, add an additional 1\" to the Move characteristic of models in that unit. Each time a unit from your army performs an Agile Manoeuvre that involves rolling a D6, add 1 to the result.",
     "trigger": "start of each battle round, while the Warhost detachment is active and the army contains at least one ASURYANI unit",
-    "effect": "Battle Focus token starting pool is bumped from 4 to 5 when the Warhost detachment is active (approximation: SwegHammer's Battle Focus model is a flat once-at-start pool rather than a per-round +1 refresh, so we collapse the round-by-round bump into a single +1 to the starting pool). The Swift-as-the-Wind +1\" Move and the +1-to-D6 Agile-Manoeuvre boon are APPROXIMATED away — the grid-free movement model can't usefully consume per-phase +1\" / +1-to-d6 buffs. Renamed from BATTLE_HOST.reroll_hit_ones in #197 to use the real Martial Grace rule",
+    "effect": "+1 Battle Focus token at the start of each battle round, stacking on top of the battle-size base grant in Battle._grant_battle_focus_tokens (wave 235: corrected from a single +1 to the starting pool to a per-round +1, matching the verbatim 'at the start of the battle round' trigger). The Swift-as-the-Wind +1\" Move leg and the +1-to-D6 Agile-Manoeuvre boon are NOT MODELLED — the movement model has no per-phase +1\" / +1-to-d6 infrastructure for Agile Manoeuvres other than Star Engines; these two legs remain queued as unmodelled Agile Manoeuvre work.",
     "scope": "army-wide",
     "approximation": true
   },
@@ -127,6 +97,15 @@
     "trigger": "the defender carries the RUBRICAE unit-keyword AND the incoming attack's per_shot_dmg == 1.0 AND the defender's army resolves to a detachment with `all_is_dust=True` (Rubricae Phalanx)",
     "effect": "+1 to the defender's armour saving throw at the save-modifier layer, capped at 2+. iter15 makes this the canonical detachment for TSON (DEFAULT_BY_FACTION['Thousand Sons'] = 'rubricae_phalanx'); Grand Coven retained as opt-in for psyker-heavy lists. The simulator-side gate lives in `Unit.attack` and reads `target.army_ref.resolve_detachment().all_is_dust`. Companion citation `simulator.all_is_dust` covers the Unit.attack call-site. Verbatim 'unmodified Damage characteristic of 1' wording cross-checked against 40k.app + Goonhammer + Frontline Gaming Rubricae Phalanx breakdowns (WebFetch against wahapedia.ru returned ECONNREFUSED at edit time).",
     "scope": "keyword-gated"
+  },
+
+  "HALLOWED_MARTYRS.soror_blood_of_martyrs": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Hallowed-Martyrs",
+    "rule_name": "The Blood of Martyrs",
+    "quoted_text": "Each time an ADEPTA SORORITAS model from your army makes an attack, add 1 to the Hit roll if that model's unit is below its Starting Strength, and add 1 to the Wound roll, as well, if that model's unit is Below Half-strength.",
+    "trigger": "attacker faction is Adepta Sororitas AND the army's resolved detachment carries soror_blood_of_martyrs=True (Hallowed Martyrs detachment); below Starting Strength = alive squad members < starting count (single-model unit: current wounds < starting wounds); below Half-strength = alive members < starting count divided by 2 (single-model: current wounds < starting wounds divided by 2); applies to both ranged and melee attacks",
+    "effect": "+1 to the Hit roll when below Starting Strength (routes through the 10e plus-or-minus-1 hit-modifier clamp); additionally +1 to the Wound roll when below Half-strength (routes through the 10e plus-or-minus-1 wound-modifier clamp). Verbatim rule text taken from BSData v10.6.0 cache (Imperium - Adepta Sororitas.cat.gz, rule id afa4-169c-3aaa-650) per CLAUDE.md rule 6; Wahapedia URL recorded for human verification. Gate implemented in Unit.attack via squad alive count vs _battle_ref._squad_start_count[(army.name, squad_id)] for multi-model squads and wound fraction for single-model units (mirrors the Delirium / battleshock single-model convention in simulator.py). wave 234 (2026-06-10).",
+    "scope": "army-wide"
   }
 
 }

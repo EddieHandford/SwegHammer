@@ -1924,6 +1924,26 @@ def _weapon_to_dict(w: WeaponStats, include_dice: bool = False) -> Dict:
         # MAP-MULTIFIRE-VALIDATE — Pistol exclusivity per profile (10e core
         # rule). The picker partitions extras into pistol/non-pistol groups.
         "pistol": w.pistol,
+        # INDIRECT-PARITY-FIX — boolean weapon keywords that were previously
+        # dropped when a weapon profile was serialized into extra_ranged_profiles.
+        # When a multi-profile unit hot-swaps one of these extras in via
+        # dataclasses.replace, fields absent from the swap dict are silently
+        # inherited from the primary profile — so a Wyvern whose primary has
+        # indirect_fire=False would fire its mortar stormshard profile without
+        # the Indirect Fire keyword, causing the profile to be wall-blocked.
+        # All five fields are consumed by units.py / code/simulator.py:
+        #   indirect_fire  — LoS exemption + -1 to-hit vs non-visible targets
+        #   one_shot       — once-per-battle gate in simulator
+        #   hazardous      — d6 self-harm on activation in units.py
+        #   precision      — bypasses cover vs CHARACTER targets (ranged)
+        #   lance          — +1 to wound on melee if charged (melee path only,
+        #                    but carried here so extras that ARE melee-mode-
+        #                    swapped do not silently lose the keyword)
+        "indirect_fire": w.indirect_fire,
+        "one_shot": w.one_shot,
+        "hazardous": w.hazardous,
+        "precision": w.precision,
+        "lance": w.lance,
     }
     if include_dice:
         d["attacks_dice"] = w.attacks_dice
@@ -2094,6 +2114,15 @@ class MappedUnit:
     secondary_assault: bool = False
     secondary_torrent: bool = False
     secondary_blast: bool = False
+    # SEC-KEYWORD-PARITY — four boolean weapon keywords that were missing from
+    # the secondary profile serialization, causing the secondary profile to
+    # silently inherit the PRIMARY profile's value for each when the simulator
+    # hot-swaps via dataclasses.replace. Mirrors the fix applied to
+    # extra_ranged_profiles in dc4f63c (INDIRECT-PARITY-FIX). Defaults False.
+    secondary_one_shot: bool = False
+    secondary_hazardous: bool = False
+    secondary_indirect_fire: bool = False
+    secondary_precision: bool = False
     # ---- MAP-1: TERTIARY+ ranged weapon profiles ----------------------------
     # Generalises the multi-profile mapper from 2 to N. Knight Castellan fires
     # five ranged weapons in real 10e play (Volcano Lance, Plasma Decimator,
@@ -2650,6 +2679,13 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         secondary_assault=second_best.assault if second_best else False,
         secondary_torrent=second_best.torrent if second_best else False,
         secondary_blast=second_best.blast if second_best else False,
+        # SEC-KEYWORD-PARITY — carry the four boolean keyword fields added to
+        # MappedUnit above; secondary profile silently inherited primary values
+        # before this fix.
+        secondary_one_shot=second_best.one_shot if second_best else False,
+        secondary_hazardous=second_best.hazardous if second_best else False,
+        secondary_indirect_fire=second_best.indirect_fire if second_best else False,
+        secondary_precision=second_best.precision if second_best else False,
         # MAP-1: 3rd+ ranged profiles. Same fields as the secondary block,
         # one dict per profile, in expected-damage-descending order so the
         # picker sees them in priority order. Empty list = no extras.
@@ -2686,6 +2722,14 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
                 "devastating_wounds": w.devastating_wounds,
                 "lance": w.lance,
                 "precision": w.precision,
+                # EXTRA-MELEE-KEYWORD-PARITY — one_shot and hazardous were
+                # absent from this inline dict, so they were never written into
+                # extra_melee_profiles in parsed.json and the runtime swap block
+                # silently inherited the primary melee profile's values. The
+                # fix mirrors dc4f63c (INDIRECT-PARITY-FIX) for the melee path.
+                # indirect_fire is ranged-only and intentionally omitted here.
+                "one_shot": w.one_shot,
+                "hazardous": w.hazardous,
             }
             for w in extra_melee_weapons
         ],
@@ -3377,8 +3421,14 @@ _INVULN_BARE_RE = re.compile(r"^\s*(\d)\+\s*$")
 # `extract_invuln` value is kept unchanged for back-compat; the per-attack
 # values are extracted in parallel from the same Shape-2/3 descriptions.
 _INVULN_PER_ATTACK_RE = re.compile(
-    r"(\d)\+\s*[Ii]nvulnerable\s+[Ss]ave"
-    r"(?:\s+against\s+(melee|ranged)\s+attacks)?",
+    # Two canonical BSData phrasings for a per-attack invulnerable save clause.
+    # Group names:
+    #   pre  — digit-first form:  "4+ invulnerable save"
+    #   post — post-of form:      "invulnerable save of 4+"
+    #   qual — optional qualifier: "against (melee|ranged) attacks"
+    r"(?:(?P<pre>\d)\+\s*[Ii]nvulnerable\s+[Ss]ave"
+    r"|[Ii]nvulnerable\s+[Ss]ave\s+of\s+(?P<post>\d)\+)"
+    r"(?:\s+against\s+(?P<qual>melee|ranged)\s+attacks)?",
     re.IGNORECASE,
 )
 
@@ -3397,13 +3447,24 @@ def _parse_invuln_per_attack(desc: str) -> Tuple[int, int]:
     melee: List[int] = []
     ranged: List[int] = []
     for m in _INVULN_PER_ATTACK_RE.finditer(desc):
-        v = int(m.group(1))
-        q = (m.group(2) or "").lower()
+        v = int(m.group("pre") or m.group("post"))
+        q = (m.group("qual") or "").lower()
         if q == "melee":
             melee.append(v)
         elif q == "ranged":
             ranged.append(v)
         else:
+            uncond.append(v)
+    # Bare-digit fallback: a linked profile whose Description is just "4+" (no
+    # prose) is always an unconditional invulnerable save — the profile name
+    # "Invulnerable Save" already supplies the context.  This covers the Shape-2
+    # and Shape-3 groups (Black Templars Terminators, Adeptus Mechanicus vehicles,
+    # Dark Angels characters, and ~90 other datasheets) where BSData stores only
+    # the bare save value in the Description field.
+    if not uncond and not melee and not ranged:
+        mb = _INVULN_BARE_RE.match(desc.strip())
+        if mb:
+            v = int(mb.group(1))
             uncond.append(v)
     base = min(uncond) if uncond else None
     pool_m = ([base] if base is not None else []) + melee

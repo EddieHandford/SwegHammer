@@ -188,6 +188,13 @@ class CatalogEntry:
     secondary_assault: bool = False
     secondary_torrent: bool = False
     secondary_blast: bool = False
+    # SEC-KEYWORD-PARITY — four boolean weapon keywords missing from the
+    # secondary profile chain. Mirrors the fix applied to extra_ranged_profiles
+    # in dc4f63c. Defaults False (safe legacy behaviour for pre-regen entries).
+    secondary_one_shot: bool = False
+    secondary_hazardous: bool = False
+    secondary_indirect_fire: bool = False
+    secondary_precision: bool = False
     # MAP-1: TERTIARY and beyond ranged profiles. List of dicts, each carrying
     # the same fields as the secondary block (weapon, attacks, damage,
     # hit_probability, ap, strength, range_inches, anti_keywords, plus the
@@ -342,6 +349,12 @@ class CatalogEntry:
             secondary_assault=bool(d.get("secondary_assault", False)),
             secondary_torrent=bool(d.get("secondary_torrent", False)),
             secondary_blast=bool(d.get("secondary_blast", False)),
+            # SEC-KEYWORD-PARITY — new fields; default False for pre-regen
+            # parsed.json entries that pre-date this fix.
+            secondary_one_shot=bool(d.get("secondary_one_shot", False)),
+            secondary_hazardous=bool(d.get("secondary_hazardous", False)),
+            secondary_indirect_fire=bool(d.get("secondary_indirect_fire", False)),
+            secondary_precision=bool(d.get("secondary_precision", False)),
             # MAP-1: list of tertiary+ ranged profiles. Each is a dict mirroring
             # the secondary_* fields. Missing key = no extras (most units).
             extra_ranged_profiles=list(d.get("extra_ranged_profiles") or []),
@@ -578,6 +591,14 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "secondary_assault": override.get("secondary_assault", base.secondary_assault),
         "secondary_torrent": override.get("secondary_torrent", base.secondary_torrent),
         "secondary_blast": override.get("secondary_blast", base.secondary_blast),
+        # SEC-KEYWORD-PARITY — new override-passthrough entries for the four
+        # new secondary keyword fields. Same convention as the other secondary_*
+        # fields above: override fully replaces when present, base value is the
+        # fallback.
+        "secondary_one_shot": override.get("secondary_one_shot", base.secondary_one_shot),
+        "secondary_hazardous": override.get("secondary_hazardous", base.secondary_hazardous),
+        "secondary_indirect_fire": override.get("secondary_indirect_fire", base.secondary_indirect_fire),
+        "secondary_precision": override.get("secondary_precision", base.secondary_precision),
         # MAP-1: tertiary+ ranged profiles — override fully replaces (rare; the
         # mapper populates these from BSData and overrides almost never touch
         # multi-profile lists). base value defaults to [] when None.

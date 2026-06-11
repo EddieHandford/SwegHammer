@@ -19,11 +19,10 @@
   "Stratagem.Tank Shock": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
     "rule_name": "Tank Shock",
-    "quoted_text": "USE THIS STRATAGEM IN THE CHARGE PHASE, WHEN A VEHICLE UNIT FROM YOUR ARMY ENDS A CHARGE MOVE. SELECT ONE ENEMY UNIT THAT IS WITHIN ENGAGEMENT RANGE OF THAT VEHICLE UNIT AND ROLL ONE D6, ADDING THE TOUGHNESS CHARACTERISTIC OF ONE MODEL FROM THAT VEHICLE UNIT TO THE RESULT: ON A 7+, THE ENEMY UNIT TAKES D3 MORTAL WOUNDS (TO A MAXIMUM OF 6 MORTAL WOUNDS).",
+    "quoted_text": "WHEN: Your Charge phase, just after a VEHICLE unit from your army ends a Charge move. TARGET: That VEHICLE unit. EFFECT: Select one enemy unit within Engagement Range of your unit, and select one VEHICLE model in your unit that is within Engagement Range of that enemy unit. Roll a number of D6 equal to the Toughness characteristic of the selected VEHICLE model. For each 5+, that enemy unit suffers 1 mortal wound (to a maximum of 6 mortal wounds).",
     "trigger": "charge phase, when a friendly VEHICLE unit ends a charge move",
-    "effect": "the target enemy unit takes D3 mortal wounds (approximation: simulator skips the d6+T 7+ gate and applies median D3 = 2 mortal wounds deterministically; matches our other 'median D3' uses such as Reanimation Protocols)",
-    "scope": "phase-gated",
-    "approximation": true
+    "effect": "ON path (SWEG_TANKSHOCK_DICE=1, wave 232): roll a number of D6 equal to the charging VEHICLE model's Toughness; each 5+ deals 1 mortal wound, capped at 6 total. OFF path (default): flat 2 mortal wounds (the incumbent deterministic approximation, byte-identical to prior behaviour). Full dice procedure cited separately as simulator.tank_shock_dice in data/rule_citations.json.",
+    "scope": "phase-gated"
   },
   "Stratagem.Disgustingly Resilient": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
@@ -55,11 +54,11 @@
   "Stratagem.Plaguesurge": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
     "rule_name": "Plaguesurge (Virulent Vectorium Stratagem)",
-    "quoted_text": "WHEN: Your Command phase. TARGET: Your DEATH GUARD WARLORD that is on the battlefield. EFFECT: Until the start of your next Command phase, add 3\" to the Contagion Range of models from your army.",
-    "trigger": "own Command phase, with a DG WARLORD on the battlefield",
-    "effect": "approximation: the simulator hard-codes Contagion Range at 6\" inside `_contagion_round_for` / `_is_near_enemy_dg_model`, so the +3\" buff is set on `Army.plaguesurge_active` for the round but isn't consumed by any active code path yet. CP is spent and the StratagemFired event fires so the AI's CP accounting stays honest; the actual buff is informational pending a contagion-range refactor",
+    "quoted_text": "Until the start of your next Command phase, add 3\" to the Contagion Range of models from your army.",
+    "trigger": "Your Command phase; your DEATH GUARD WARLORD that is on the battlefield",
+    "effect": "Adds 3 inches to the Contagion Range for the round (base 3 inches, becomes 6 inches with Plaguesurge active). Wave 235: Army.plaguesurge_active is now consumed by _run_battleshock_phase and _apply_shadow_in_the_warp_forced_tests; both read the flag and pass contagion_range=6.0 instead of the base 3.0 to _battleshock_test_squad. The flag resets to False at the start of each Command phase in _reset_round_state.",
     "scope": "phase-gated",
-    "approximation": true
+    "approximation": false
   },
   "Stratagem.Leechspore Eruption": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
@@ -215,11 +214,11 @@
     "approximation": true
   },
   "Stratagem.Desecration of Worlds": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Grand-Coven",
     "rule_name": "Desecration of Worlds (Grand Coven Stratagem)",
-    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool refused verbatim reproduction on copyright grounds; source URL is the canonical reference.) When: your Command phase. Effect: select one objective marker your army controls within range of a friendly Thousand Sons Psyker unit; that objective marker remains under your control until your opponent controls it at the start or end of any turn.",
-    "trigger": "your Command phase; the army controls at least one objective marker within range of a friendly Thousand Sons PSYKER unit",
-    "effect": "(approximation) the simulator spends 1 CP and emits a StratagemFired event but does NOT flip any objective into the sticky_owner table — the sticky-objective code path is profile-keyed (`UnitProfile.sticky_objective`) and not stratagem-keyed. Net mechanical outcome is a CP tax. TODO: extend `_sticky_owner` to accept a stratagem-driven per-objective flag. Name + CP cost (1) confirmed against Wahapedia.",
+    "quoted_text": "That objective marker remains under your control until your opponent's Level of Control over that objective marker is greater than yours at the end of a phase.",
+    "trigger": "Your Command phase; one THOUSAND SONS PSYKER unit from your army within range of an objective marker you control",
+    "effect": "Grants sticky ownership of the targeted objective. Wave 235: writes _sticky_owner[obj_idx] = army.name for every objective within the control radius of a friendly Thousand Sons PSYKER unit. The sticky flag is cleared by _score_objectives if the opponent seizes the marker. APPROXIMATION: applies to all PSYKER-held objectives rather than one player-chosen target.",
     "scope": "phase-gated",
     "approximation": true
   },
@@ -395,9 +394,9 @@
   "Stratagem.Vigilance Eternal": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
     "rule_name": "Vigilance Eternal (Shield Host Stratagem)",
-    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: your Movement phase, on a friendly ADEPTUS CUSTODES BATTLELINE unit within range of an objective marker you control. Effect: that objective marker remains under your control until your opponent controls it at the start or end of any phase (sticky-objective).",
-    "trigger": "your Movement phase, on a friendly Adeptus Custodes BATTLELINE unit on an objective",
-    "effect": "(APPROXIMATION) SwegHammer's sticky-objective hook is faction-detachment-gated (Worldblight / Desecration of Worlds) rather than per-stratagem-fire. This dispatcher is catalogued-but-no-op — no CP spent, no transient effect applied. Catalogued so the auditor sees the citation and the AI heuristic can be tightened in a follow-up. Name + CP cost (1) per Goonhammer 10e codex review.",
+    "quoted_text": "That objective marker remains under your control even if you have no models within range of it, until your opponent controls it at the start or end of any turn.",
+    "trigger": "Your Movement phase; one ADEPTUS CUSTODES BATTLELINE unit (excluding ANATHEMA PSYKANA units) within range of an objective marker you control",
+    "effect": "Grants sticky ownership of the targeted objective. Wave 235: writes _sticky_owner[obj_idx] = army.name for every objective within the control radius of a friendly Adeptus Custodes BATTLELINE (non-ANATHEMA PSYKANA) unit via _try_vigilance_eternal. APPROXIMATION: dispatcher fires at round-start rather than Movement phase; applies to all eligible BATTLELINE-held objectives rather than one player-chosen target.",
     "scope": "phase-gated",
     "approximation": true
   },
@@ -475,9 +474,9 @@
   "Stratagem.Adaptive Strategy": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
     "rule_name": "Adaptive Strategy (Gladius Task Force Stratagem)",
-    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer Gladius Task Force review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: the start of your Command phase, on an ADEPTUS ASTARTES unit. Effect: until the end of the turn, that unit gains the rules of one Combat Doctrine of your choice (Devastator, Tactical, or Assault) regardless of which doctrine your army is currently in.",
-    "trigger": "start of your Command phase, on a friendly Adeptus Astartes unit",
-    "effect": "(APPROXIMATION — SC5-9 corrected) Per the iter-9 May 2026 audit, `simulator.combat_doctrines` is utility-only (Devastator: shoot after Advance / Tactical: shoot + charge after Fall Back / Assault: charge after Advance) — there is no +1-to-wound in the corrected Doctrine rules. Adaptive Strategy therefore has nothing to grant via a +1-to-wound proxy. The pre-SC5-9 implementation fired `transient_plus_one_to_wound_melee` on the highest-DPA Marine melee unit on the now-disproven premise that Assault Doctrine carries +1-to-wound-melee, double-counting a fabricated wound buff on top of the corrected Doctrines and contributing to the +17.5pt Adeptus Astartes over-model outlier vs Warp Friends. SwegHammer has no per-unit doctrine state, so the canonical doctrine-override effect is not faithfully modellable; the stratagem is now recorded as an APPROXIMATION no-op (CP cost still paid, StratagemFired event still emitted so AI scheduler / CP economy see it) until per-unit doctrine state lands. Name + CP cost (1) per iter-12 Gladius parity fix; effect corrected per SC5-9.",
+    "quoted_text": "Select the Devastator Doctrine, Tactical Doctrine or Assault Doctrine. Until the start of your next Command phase, that Combat Doctrine is active for that unit instead of any other Combat Doctrine that is active for your army, even if you have already selected that doctrine this battle.",
+    "trigger": "Your Command phase; one ADEPTUS ASTARTES unit from your army",
+    "effect": "(NO COMMAND POINT SPEND - wave 235 stop-the-spend correction) The real rule is a per-unit Combat Doctrine override. SwegHammer models Combat Doctrines as utility-only flags with no per-unit doctrine state. There is nothing to grant, so the dispatcher call was removed entirely from the Shield Host dispatcher block; no command points are spent. The method _try_adaptive_strategy exists as a documented stub pending per-unit doctrine state implementation.",
     "scope": "phase-gated",
     "approximation": true
   },
@@ -520,9 +519,9 @@
   "Stratagem.Apoplectic Frenzy": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Berzerker-Warband",
     "rule_name": "Apoplectic Frenzy (Berzerker Warband Stratagem)",
-    "quoted_text": "(Paraphrase — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer World Eaters detachment focus + Frontline Gaming Berzerker Warband breakdown.) When: your Fight phase. Target: one WORLD EATERS unit from your army that has not been selected to fight this phase. Effect: until end of phase, melee weapons equipped by models in your unit have the [LETHAL HITS] ability.",
-    "trigger": "own Fight phase, on a friendly WORLD EATERS unit selected to fight",
-    "effect": "(APPROXIMATION) Routed through transient_plus_one_to_wound_melee on the highest-DPA WORLD EATERS unit. LETHAL HITS auto-wounds on a crit-to-hit; +1 to wound is a direction-correct offensive uplift via an existing transient flag. ST-1 in parallel adds a proper transient_lethal_hits_melee flag — this stratagem will rewire onto it then. ST-2 wave 3 of sim-calibration-6 (WE was -9.9 pts at N=40 in wave 2). 1 CP.",
+    "quoted_text": "WHEN: Your Movement phase, just after a KHORNE BERZERKERS unit from your army is selected to Advance. TARGET: That KHORNE BERZERKERS unit. EFFECT: Until the end of the turn, your unit is eligible to declare a charge in a turn in which it Advanced.",
+    "trigger": "own Movement phase, just after a KHORNE BERZERKERS unit from your army is selected to Advance",
+    "effect": "(APPROXIMATION in targeting and timing, not effect) Sets transient_charge_after_advance on the highest-damage-per-attack WORLD EATERS unit; Battle._do_charge consumes it as an exemption from the advance-charge lockout (the transient analogue of Murderer's Cowl), cleared at round start. The KHORNE BERZERKERS datasheet keyword is not in the sim's keyword surface, so targeting uses the faction filter; the round-start stratagem dispatcher collapses the in-phase 'just after selected to Advance' timing to a start-of-round grant. Verbatim text fetched live from Wahapedia 2026-06-11 — replaces a fabricated [LETHAL HITS] paraphrase written during a Wahapedia outage (wave 235 correction). 1 CP.",
     "scope": "phase-gated",
     "approximation": true
   },

@@ -22,12 +22,11 @@ from code.units import UnitProfile
 # expected boolean / int field that should be set to a non-default value).
 _NEW_DETACHMENTS = (
     # (key, faction, attribute, expected value)
-    # SC5-4 (2026-05-21): Hallowed Martyrs' real 'Blood of Martyrs' rule is
-    # gated on attacker unit being Below Starting Strength / Half-strength —
-    # not modellable as a passive flag. The previous `plus_one_to_wound=True`
-    # proxy was a strict over-buff and has been removed. Only the infantry
-    # composition preference is retained.
-    ("hallowed_martyrs",       "Adepta Sororitas",       "preferred_composition", "infantry"),
+    # wave 234 (2026-06-10): 'The Blood of Martyrs' rule is now implemented
+    # faithfully damage-gated on the squad substrate. soror_blood_of_martyrs=True
+    # enables the +1 Hit (below Starting Strength) and +1 Wound (below Half-
+    # strength) gates in Unit.attack. Verify the flag is active.
+    ("hallowed_martyrs",       "Adepta Sororitas",       "soror_blood_of_martyrs", True),
     # iter-8 fix: Shield Host swapped the defensive `plus_one_save`
     # approximation for the real Rendax Ka'tah / Martial Mastery melee AP+1
     # buff (`melee_ap_plus_one`). CUSTODES-KATAH-V1: the fabricated
@@ -177,6 +176,52 @@ class ArmyResolveDetachmentTests(unittest.TestCase):
         army.add_unit(self._profile("T'au Empire"))
         det = army.resolve_detachment()
         self.assertIs(det, explicit)
+
+
+class AnnihilationLegionFabricationTests(unittest.TestCase):
+    """Regression tests for the wave-235 removal of the fabricated 'Hardened Killers'
+    rule from the Necrons Annihilation Legion detachment.
+
+    The previous notes block attributed a rule named 'Hardened Killers' to this
+    detachment, with a verbatim quote that does not exist in the Necrons codex on
+    Wahapedia. The accompanying reroll_wound_ones=True flag has been removed.
+    The real rule 'Annihilation Protocol' requires new machinery not yet present
+    and is left unmodelled. The detachment remains a no-flag variety pick."""
+
+    def test_annihilation_legion_is_registered(self):
+        self.assertIn("annihilation_legion", DETACHMENTS)
+
+    def test_reroll_wound_ones_is_false(self):
+        """Fabricated flag removed — must be False."""
+        det = DETACHMENTS["annihilation_legion"]
+        self.assertFalse(
+            det.reroll_wound_ones,
+            "reroll_wound_ones must be False: fabricated 'Hardened Killers' rule removed.",
+        )
+
+    def test_no_offensive_flag_set(self):
+        """No offensive buff may fire on this detachment — it is a no-flag variety pick."""
+        det = DETACHMENTS["annihilation_legion"]
+        offensive_flags = (
+            "reroll_hit_ones", "reroll_wound_ones", "plus_one_to_hit",
+            "plus_one_to_wound", "bonus_to_hit_when_led", "vehicles_reroll_hit_ones",
+            "canoptek_plus_one_to_wound", "plague_marines_plus_one_to_wound",
+            "melee_sustained_hits_army_wide", "relentless_onslaught",
+            "am_born_soldiers_lethal_hits", "all_is_dust", "bold_gallantry",
+            "bondsman_enabled", "dread_tyrants_aura", "soror_blood_of_martyrs",
+        )
+        for flag in offensive_flags:
+            self.assertFalse(
+                getattr(det, flag, False),
+                f"Annihilation Legion must not set {flag}; fabrication removed.",
+            )
+
+    def test_annihilation_legion_is_necrons_variety_pick(self):
+        """The detachment stays in the Necrons picker pool as a variety pick."""
+        self.assertIn("annihilation_legion", FACTION_DETACHMENTS.get("Necrons", ()))
+        det = DETACHMENTS["annihilation_legion"]
+        self.assertEqual(det.faction, "Necrons")
+        self.assertEqual(det.preferred_composition, "balanced")
 
 
 class CompositionSignatureTests(unittest.TestCase):

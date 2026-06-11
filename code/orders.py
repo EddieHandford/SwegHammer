@@ -51,14 +51,14 @@ Effect routing (APPROXIMATION where noted):
       payoff via a single existing transient flag — same direction
       (more landed melee damage), comparable magnitude on a 4+ wound.
       Notes per CLAUDE.md §10 in `data/rule_citations.d/astra_militarum.json`.
-    * First Rank, Fire! Second Rank, Fire! — `transient_plus_one_to_hit_shooting`
-      on target unit. APPROXIMATION: codex effect is +1 Attack on Rapid
-      Fire weapons (a per-weapon attack-count uplift). SwegHammer has no
-      transient attack-count buff, so the value is routed through +1 to
-      hit shooting — same direction (more landed hits on shooting),
-      magnitude is comparable on a Lasgun (1A) target where +1 hit on
-      RF 1 closes a 4+ to a 3+, matching the doubled shot count's
-      expected hits.
+    * First Rank, Fire! Second Rank, Fire! — `transient_frfsrf_active`
+      on target unit. Faithful mapping: codex text "Improve the Attacks
+      characteristic of Rapid Fire weapons equipped by models in this
+      unit by 1." The flag gates a +1 n_attacks uplift in
+      Unit.compute_expected_kills for every weapon profile that has
+      rapid_fire > 0, unconditionally at all ranges (the rule has no
+      range condition). Cited as
+      `Order.First Rank, Fire! Second Rank, Fire!`.
     * Take Cover! — `transient_plus_one_save` on target unit. Direct
       mapping; codex effect is "+1 to save (cannot improve better than
       3+)" which lines up exactly with our +1-save flag (the 3+ cap is
@@ -147,6 +147,76 @@ AM_OFFICER_NAMES: frozenset = frozenset({
     "Front-line Commander [Crucible]",
 })
 
+# Per-datasheet Order count overrides. Officers with a non-default (non-1)
+# Order count per their datasheet's Orders profile get an entry here.
+# Default is 1 per the Voice of Command army rule: "Each OFFICER's datasheet
+# will specify how many Orders it can issue in a battle round" — the baseline
+# for every officer not listed here is 1 Order per round as documented in
+# dispatch_orders below.
+#
+# NOTE on target-type eligibility (OUT OF SCOPE, wave 236+):
+# The codex restricts each Officer to a specific set of target keywords
+# (REGIMENT, SQUADRON, TITANIC). Per-Officer target-type enforcement is a
+# separate queued item; for now the dispatcher uses the army-wide target
+# pool (AM BATTLELINE INFANTRY ± SQUADRON via Flexible Command). The
+# comments below record the codex-verbatim target types for when that
+# enforcement is built.
+#
+# Lord Solar Leontus: "This OFFICER can issue up to 3 Orders to: REGIMENT
+# units, SQUADRON units, TITANIC units." — BSData Library Astra Militarum
+# cat.gz (unit id a9d-55c1-3d24-fa25, Orders profile id 4768-11ce-3c8b-3ce4),
+# cross-checked Wahapedia https://wahapedia.ru/wh40k10ed/factions/
+# astra-militarum/Lord-Solar-Leontus (both sources verbatim-identical, no
+# conflict). Cited as simulator.voice_of_command_orders in
+# data/rule_citations.d/astra_militarum.json.
+# Target types: REGIMENT, SQUADRON, TITANIC.
+#
+# Ursula Creed: "This OFFICER can issue up to 3 Orders to REGIMENT units."
+# — BSData Library Astra Militarum cat.gz (unit id b6b2-9971-ec0c-349e,
+# Orders profile id 85b7-65b8-1961-50ee). Cited as
+# simulator.officer_order_counts.Ursula_Creed in
+# data/rule_citations.d/astra_militarum.json.
+# Target types: REGIMENT only.
+#
+# Lord Marshal Dreir: "This OFFICER can issue up to 3 Orders to REGIMENT
+# units" — BSData Library Astra Militarum cat.gz (unit id
+# 9033-d07c-3e1c-f6f0, Orders profile id c4eb-5868-02ac-efe3). Cited as
+# simulator.officer_order_counts.Lord_Marshal_Dreir in
+# data/rule_citations.d/astra_militarum.json.
+# Target types: REGIMENT only.
+#
+# Front-line Commander [Crucible]: "This OFFICER can issue up to 2 Orders
+# to REGIMENT units." — BSData Library Astra Militarum cat.gz (unit id
+# 4fc5-184d-b305-3551, Orders profile id 467f-baf9-5dfd-0f3f). Cited as
+# simulator.officer_order_counts.Front_line_Commander_Crucible in
+# data/rule_citations.d/astra_militarum.json.
+# Target types: REGIMENT only.
+#
+# Officers at count == 1 (the default) are NOT listed here:
+#   Cadian Castellan, Cadian Command Squad, Militarum Tempestus Command Squad,
+#   Krieg Command Squad, Catachan Command Squad, Leman Russ Commander,
+#   Rogal Dorn Commander, Sentinel Commander [Crucible] (1 Order to SQUADRON).
+OFFICER_ORDER_COUNTS: dict = {
+    "Lord Solar Leontus": 3,   # targets: REGIMENT, SQUADRON, TITANIC
+    "Ursula Creed": 3,          # targets: REGIMENT only
+    "Lord Marshal Dreir": 3,    # targets: REGIMENT only
+    "Front-line Commander [Crucible]": 2,  # targets: REGIMENT only
+}
+
+# Import-time validation: every key in OFFICER_ORDER_COUNTS must name a
+# datasheet in AM_OFFICER_NAMES. A key that isn't in the allowlist means
+# either the allowlist was updated without updating this dict, or the dict
+# was seeded with a typo. Fail loud per CLAUDE.md §13.
+for _k in OFFICER_ORDER_COUNTS:
+    if _k not in AM_OFFICER_NAMES:
+        raise ValueError(
+            f"OFFICER_ORDER_COUNTS contains key {_k!r} which is not in "
+            f"AM_OFFICER_NAMES. Either add the officer to AM_OFFICER_NAMES "
+            f"(if it is a real OFFICER datasheet) or remove the entry from "
+            f"OFFICER_ORDER_COUNTS. (code/orders.py import-time validation)"
+        )
+del _k  # don't leak the loop variable into module namespace
+
 
 def _distance(a: Tuple[float, float], b: Tuple[float, float]) -> float:
     dx = a[0] - b[0]
@@ -231,9 +301,13 @@ def _apply_order(target: "Unit", order: str) -> None:
     elif order == ORDER_FIX_BAYONETS:
         target.transient_plus_one_to_wound_melee = True
     elif order == ORDER_FRFSRF:
-        # APPROXIMATION: +1 Attack on Rapid Fire weapons → +1 to hit
-        # shooting (same single-flag transient slot as Take Aim!).
-        target.transient_plus_one_to_hit_shooting = True
+        # Faithful mapping: "Improve the Attacks characteristic of Rapid
+        # Fire weapons equipped by models in this unit by 1." — sets
+        # transient_frfsrf_active; the attack-count uplift is applied in
+        # Unit.compute_expected_kills for any weapon with rapid_fire > 0,
+        # unconditionally at all ranges (no range condition in the rule
+        # text). Cited: `Order.First Rank, Fire! Second Rank, Fire!`
+        target.transient_frfsrf_active = True
     elif order == ORDER_TAKE_COVER:
         target.transient_plus_one_save = True
     # Unknown Order — silent no-op so a stale order string in the AI
@@ -376,40 +450,55 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
 
     ordered_uids: set = set()
     for officer in officers:
-        # Find eligible targets within 6" of this Officer.
-        in_aura = [
-            t for t in targets
-            if t.uid not in ordered_uids
-            and _distance(officer.position, t.position) <= OFFICER_AURA_RANGE
-        ]
-        if not in_aura:
-            continue
+        officer_name = officer.profile.name or ""
+        # Each Officer issues up to OFFICER_ORDER_COUNTS.get(officer_name, 1)
+        # Orders per Command phase. The default of 1 is the explicit modelled
+        # rule: "If your Army Faction is ASTRA MILITARUM, OFFICER models with
+        # this ability can issue Orders. Each OFFICER's datasheet will specify
+        # how many Orders it can issue in a battle round and which units are
+        # eligible to receive those Orders." (Voice of Command, Wahapedia
+        # https://wahapedia.ru/wh40k10ed/factions/astra-militarum/). Officers
+        # without an OFFICER_ORDER_COUNTS entry issue exactly 1 Order per that
+        # army rule; the .get default is an explicit documented-legitimate value,
+        # not a silent fallback (CLAUDE.md §13).
+        orders_this_officer = OFFICER_ORDER_COUNTS.get(officer_name, 1)
 
-        # Greedy: prioritise the target whose chosen Order has the
-        # highest expected swing (cost × applicability). We use a coarse
-        # heuristic — pick the highest-DPA target in aura, then assign
-        # the best Order for that target. This biases toward
-        # FRFSRF on big Lasgun blocks (their DPA dominates) which
-        # matches real-meta usage.
-        def _target_priority(u: "Unit") -> float:
-            try:
-                cost = float(u.profile.points_cost)
-            except Exception:
-                cost = 0.0
-            dpa = _unit_ranged_dpa(u) + _unit_melee_dpa(u)
-            return cost + dpa * 10.0
+        for _ in range(orders_this_officer):
+            # Find eligible targets within 6" of this Officer.
+            in_aura = [
+                t for t in targets
+                if t.uid not in ordered_uids
+                and _distance(officer.position, t.position) <= OFFICER_AURA_RANGE
+            ]
+            if not in_aura:
+                break  # no more unordered targets in aura — stop early
 
-        target = max(in_aura, key=_target_priority)
-        order = _pick_order_for_target(target)
-        _apply_order(target, order)
-        ordered_uids.add(target.uid)
-        issued.append((officer.profile.name, target.profile.name, order))
+            # Greedy: prioritise the target whose chosen Order has the
+            # highest expected swing (cost × applicability). We use a coarse
+            # heuristic — pick the highest-DPA target in aura, then assign
+            # the best Order for that target. This biases toward
+            # FRFSRF on big Lasgun blocks (their DPA dominates) which
+            # matches real-meta usage.
+            def _target_priority(u: "Unit") -> float:
+                try:
+                    cost = float(u.profile.points_cost)
+                except Exception:
+                    cost = 0.0
+                dpa = _unit_ranged_dpa(u) + _unit_melee_dpa(u)
+                return cost + dpa * 10.0
+
+            target = max(in_aura, key=_target_priority)
+            order = _pick_order_for_target(target)
+            _apply_order(target, order)
+            ordered_uids.add(target.uid)
+            issued.append((officer.profile.name, target.profile.name, order))
 
     return issued
 
 
 __all__ = [
     "AM_OFFICER_NAMES",
+    "OFFICER_ORDER_COUNTS",
     "OFFICER_AURA_RANGE",
     "ORDER_TAKE_AIM",
     "ORDER_FIX_BAYONETS",

@@ -495,3 +495,64 @@ class PerAttackInvulnParseTests(unittest.TestCase):
     def test_no_invuln(self):
         self.assertEqual(_parse_invuln_per_attack(""), (7, 7))
         self.assertEqual(_parse_invuln_per_attack("This model has the Stealth ability."), (7, 7))
+
+    # ------------------------------------------------------------------
+    # "invulnerable save of X+" phrasing (post-of form).
+    # These were silently broken before the _INVULN_PER_ATTACK_RE fix:
+    # the regex only matched digit-first phrasing, so Terminator-armour
+    # units and most Adepta Sororitas units returned (7, 7) for the
+    # per-attack fields even though their legacy invuln_save field was
+    # correct (parsed by _INVULN_DESC_POST_RE).
+    # ------------------------------------------------------------------
+
+    def test_post_of_form_unconditional(self):
+        # "invulnerable save of 4+" -> both attack types get 4.
+        self.assertEqual(
+            _parse_invuln_per_attack("This model has an invulnerable save of 4+."),
+            (4, 4),
+        )
+        self.assertEqual(
+            _parse_invuln_per_attack("Models in this unit have an Invulnerable save of 6+."),
+            (6, 6),
+        )
+
+    def test_post_of_form_ranged_only(self):
+        # Ion Shield phrasing using the post-of form: melee should remain 7.
+        self.assertEqual(
+            _parse_invuln_per_attack(
+                "This model has an invulnerable save of 5+ against ranged attacks."
+            ),
+            (7, 5),
+        )
+
+    def test_post_of_form_melee_only(self):
+        self.assertEqual(
+            _parse_invuln_per_attack(
+                "This model has an invulnerable save of 4+ against melee attacks."
+            ),
+            (4, 7),
+        )
+
+    def test_post_of_form_mixed_unconditional_and_melee_improvement(self):
+        # Unconditional 6+ base via post-of form, then 4+ melee-only improvement.
+        desc = (
+            "This unit has an invulnerable save of 6+. "
+            "This unit has an invulnerable save of 4+ against melee attacks."
+        )
+        self.assertEqual(_parse_invuln_per_attack(desc), (4, 6))
+
+    def test_bare_digit_form_unconditional(self):
+        # BSData "Invulnerable Save" profiles often store only the bare save digit
+        # in their Description characteristic (e.g. "4+"), relying on the profile
+        # name for context.  Black Templars Terminator Squad, Adeptus Mechanicus
+        # Onager Dunecrawler, and most Dark Angels named characters use this shape.
+        # A bare digit with no text qualifier is unconditional.
+        self.assertEqual(_parse_invuln_per_attack("4+"), (4, 4))
+        self.assertEqual(_parse_invuln_per_attack("5+"), (5, 5))
+        self.assertEqual(_parse_invuln_per_attack("6+"), (6, 6))
+        # Bare digit only fires when NO other phrasing matched; ensure it does not
+        # interfere with a full-text description that also happens to end in "4+".
+        self.assertEqual(
+            _parse_invuln_per_attack("This model has a 4+ invulnerable save."),
+            (4, 4),
+        )

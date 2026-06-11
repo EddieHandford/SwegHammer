@@ -17,11 +17,42 @@
   },
   "simulator.harbingers_of_dread": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-knights/",
-    "rule_name": "Harbingers of Dread (Dread abilities: Deathly Terror + Doom)",
-    "quoted_text": "If your Army Faction is CHAOS KNIGHTS, the following rules apply. The Deathly Terror ability is active for your army from the start of the battle. At the start of the first battle round, after selecting one or more Dread abilities to be active for your army, you can select one additional Dread ability to be active for your army (this additional Dread ability cannot be randomly selected). Deathly Terror (Aura): While an enemy unit is within 9\" of this model, worsen the Leadership characteristic of models in that unit by 1. Doom: Each time this model makes an attack, if the target of that attack is Battle-shocked, add 1 to the Wound roll.",
-    "trigger": "Attacker's army faction is Chaos Knights. Deathly Terror fires every Battle-shock test: any enemy unit within 9\" of any alive Chaos Knights model worsens its Leadership by 1 for the test. Doom fires per attack: target is currently Battle-shocked (read via Unit.is_currently_battle_shocked(round_num)) AND attacker is Chaos Knights.",
-    "effect": "(APPROXIMATION) Two of the six Dread abilities are modelled. Deathly Terror is always-on per the rule (+1 to the Battle-shock test target, i.e. -1 Ld), applied in code/simulator.py:_run_battleshock_phase as the harbinger_penalty. Doom is taken as the 'one additional Dread ability' the rule lets the player pick at the start of R1 (+1 to the Wound roll vs a battle-shocked target), applied in code/units.py:Unit.attack as wound_mod_delta += 1. The remaining Dreads (Despair, Darkness, Dismay, Delirium, Dominion) are NOT modelled because (a) they either repeat the Ld-debuff machinery Deathly Terror already triggers (Despair stacks the same effect; the simulator clamps cumulative Ld penalties below the natural Ld floor anyway), (b) require a Battle-shock-step opponent-Command-phase trigger the activation loop does not break out (Dismay), (c) are gated on Below Half-strength testing-side state that the existing battleshock loop already half-handles (Delirium would add D3 MWs on a failure within 9\" — left out so the implementation under-shoots rather than over-shoots), or (d) modify aura range (Dominion). The two modelled abilities together capture the meta-relevant headline effects of the rule: pressure on enemy battleshock tests and a wound-roll punish on units that fail them. The R1/R3/R5 'select one additional Dread' rotation is collapsed to a single static pick (Doom) at battle start.",
-    "scope": "army-wide",
-    "approximation": true
+    "rule_name": "Harbingers of Dread — Deathly Terror (always-on) and Doom (R1 Dread pick)",
+    "quoted_text": "If your Army Faction is CHAOS KNIGHTS, each model from your army with this ability gains Dread abilities, depending which are active for your army. The Deathly Terror ability is active for your army from the start of the battle. In addition, at the start of the first, third and fifth battle rounds, you can either select one of the other Dread abilities or randomly select two Dread abilities to apply by rolling two D6 and applying the results rolled, from those numbered 1-6 below. N/A - Deathly Terror (Aura): While an enemy unit is within 9\" of this model, worsen the Leadership characteristic of models in that unit by 1. 2 - Doom: Each time this model makes an attack, if the target is Battle-shocked, add 1 to the Wound roll.",
+    "trigger": "Attacker's army faction is Chaos Knights. Deathly Terror fires every Battle-shock test: any enemy unit within 9\" of any alive Chaos Knights model worsens its Leadership by 1 for the test (always-on, no gate). Doom fires per attack: target is currently Battle-shocked (read via Unit.is_currently_battle_shocked(round_num)) AND attacker is Chaos Knights (no gate — Doom modelled as the default R1 pick; suppressed when SWEG_HARBINGERS=1 in favour of Despair as R1 pick).",
+    "effect": "Deathly Terror: +1 to the Battle-shock test target (harbinger_penalty) in code/simulator.py _run_battleshock_phase. Doom: wound_mod_delta += 1 in code/units.py Unit.attack when target is Battle-shocked. The R1/R3/R5 'select one additional Dread' rotation is collapsed to a static pick (Doom) at battle start. Under SWEG_HARBINGERS the remaining Dreads (Despair, Darkness, Dismay, Delirium) are also enabled — see simulator.harbingers_of_dread_despair, simulator.harbingers_of_dread_darkness, simulator.harbingers_of_dread_dismay, simulator.harbingers_of_dread_delirium.",
+    "scope": "army-wide"
+  },
+  "simulator.harbingers_of_dread_despair": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-knights/",
+    "rule_name": "Harbingers of Dread — Despair (Dread ability 1, gated SWEG_HARBINGERS)",
+    "quoted_text": "1 - Despair (Aura): While an enemy unit is within 9\" of this model, worsen the Leadership characteristic of models in that unit by 1. This is cumulative with the Deathly Terror ability (see above).",
+    "trigger": "Enemy unit is within 9\" of any alive Chaos Knights model AND SWEG_HARBINGERS=1. Modelled as active from the start of Round 1 (the rule allows picking one additional Dread at the start of Round 1; Despair is the conventional competitive choice).",
+    "effect": "despair_penalty = 1 added to the Battle-shock test target in code/simulator.py _run_battleshock_phase, stacking with the always-on harbinger_penalty (Deathly Terror) to give a combined Ld -2 within 9\" of a Chaos Knights model.",
+    "scope": "army-wide"
+  },
+  "simulator.harbingers_of_dread_darkness": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-knights/",
+    "rule_name": "Harbingers of Dread — Darkness (Dread ability 3, gated SWEG_HARBINGERS)",
+    "quoted_text": "3 - Darkness: Each time an attack is made against this model, if the attacking model's unit is Battle-shocked or more than 18\" away, subtract 1 from the Hit roll.",
+    "trigger": "The TARGET of the attack is a Chaos Knights model AND (the attacker's unit is currently Battle-shocked OR the distance to the target is greater than 18\") AND SWEG_HARBINGERS=1. Modelled as active for the whole game (the rule allows a Dread pick each odd round; Darkness is collapsed to a standing effect under the gate for simplicity).",
+    "effect": "hit_mod_delta -= 1 in code/units.py Unit.attack when the target is Chaos Knights and the attacker is Battle-shocked or beyond 18\". Subject to the standard ±1 Hit modifier cap.",
+    "scope": "army-wide"
+  },
+  "simulator.harbingers_of_dread_dismay": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-knights/",
+    "rule_name": "Harbingers of Dread — Dismay (Dread ability 4, gated SWEG_HARBINGERS)",
+    "quoted_text": "4 - Dismay (Aura): In the Battle-shock step of your opponent's Command phase, for each enemy unit that is below its Starting Strength and within 9\" of this model, that enemy unit must take a Battle-shock test.",
+    "trigger": "During the Battle-shock phase, a multi-model enemy squad has lost at least one model (below Starting Strength but not necessarily below Half-Strength) AND at least one member of that squad is within 9\" of an alive Chaos Knights model AND SWEG_HARBINGERS=1. Single-model units are never below Starting Strength per 10e core and are unaffected.",
+    "effect": "In code/simulator.py _run_battleshock_phase, the eligibility gate for the per-squad test loop is expanded: multi-model squads that are below Starting Strength and within 9\" of a harbinger_source are forced to test even if not yet below Half-Strength (the existing Half-Strength path is unchanged). A squad already below Half-Strength enters via the normal path; Dismay only adds the intermediate (below-starting, not-below-half) cohort.",
+    "scope": "army-wide"
+  },
+  "simulator.harbingers_of_dread_delirium": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-knights/",
+    "rule_name": "Harbingers of Dread — Delirium (Dread ability 5, gated SWEG_HARBINGERS)",
+    "quoted_text": "5 - Delirium (Aura): While an enemy unit that is Below Half-strength is within 9\" of this model, each time that model fails a Battle-shock test, it suffers D3 mortal wounds.",
+    "trigger": "Enemy squad has just FAILED a Battle-shock test AND the squad is Below Half-Strength AND the squad representative is within 9\" of an alive Chaos Knights model AND SWEG_HARBINGERS=1. Modelled as active for the whole game (collapsed from R5 pick for simplicity).",
+    "effect": "After marking the squad as Battle-shocked in code/simulator.py _run_battleshock_phase, if the squad is Below Half-Strength and _harbinger_in_range, D3 mortal wounds are applied to the squad representative (same convention as Shadow of Chaos MWs). The Below Half-Strength check for multi-model squads uses alive_count < start_count / 2.0; for single-model units it uses rep.current_health < rep.profile.health / 2.0.",
+    "scope": "army-wide"
   }
 }

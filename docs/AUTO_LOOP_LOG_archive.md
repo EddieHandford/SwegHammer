@@ -1,3 +1,152 @@
+## Wave 203 (2026-06-06) — The Ritual built + a measurement CONFOUND caught & fixed: the CLEAN deck = gated 4.89 (−0.30 vs baseline). Avenue 1 is a faithful WIN after all (was hidden by the confound)
+
+Bounded avenue 1 (watchdog steer): WebFetch-classified the 6 unmodelled primaries (action = The Ritual + Unexploded
+Ordnance; pure hold = Linchpin / Hidden Supplies / Supply Drop). Built **The Ritual** (commit, cited
+`simulator.primary_the_ritual`): 5 VP per No Man's Land marker controlled (cap 15), home markers score 0 — its place-marker
+Action is a noted omission (fixed sim objectives). All-Ritual upper bound was the best yet (gated 4.77) via **over-shooter
+compression** (No-Man's-Land-only punishes camping melee armies), not IK-cracking.
+
+Then the 5-mission deck came back BYTE-IDENTICAL to the 4-mission deck — a **measurement confound** I'd introduced:
+`_pick_rotation_map` keys the map on `s % 5` and the mission key was `pair_seed % 10 == s % 10`, so (5 | 10) every mission
+was LOCKED to one of the five maps; The Ritual only drew the all-No-Man's-Land map, where it equals Take and Hold. **Fixed**
+(commit): decode faction indices into the mission key so the draw is independent of `s % 5` — verified every mission spans all
+5 maps at the exact 60/10/10/10/10.
+
+**Clean decoupled 5-mission deck (N=80): gated 4.89 — a real −0.30 vs the 5.19 baseline.** The confound had HIDDEN the
+rotation's genuine benefit: over-shooters compress toward target (Emperor's Children 7.63→4.79, Thousand Sons 5.11→3.25,
+Sororitas 2.44→1.15) AND IK is net-DOWN (70.4 / gated 19.70 vs 71.5 / 20.84) — so Purge's re-inflation is outweighed and the
+basis of the (b)-don't-flip ruling is gone. Avenue 1 is a faithful net-positive after all. **Recommended (routed): FLIP
+SWEG_PRIMARY_DECK default-ON** (real CA-2025-26 distribution as the production frame, retires the wave-187 all-Take-and-Hold
+unfaithfulness, re-bases the headline to ~4.89), skip Unexploded Ordnance (diminishing/complex), then avenue 2. Tests green,
+audit clean, cli 0.
+
+## Wave 202 (2026-06-05) — FAIR avenue-1 measurement COMPLETE (Terraform added): 4-mission deck = gated 5.19 (baseline). Scoring rotation is faithfully DONE + metric-neutral by construction → decisive lever is avenue 2 (selective displacement)
+
+Watchdog asked for a FAIR avenue-1 ceiling: keep the Burn (affirmed, default-ON for the Scorched mission), keep the deck
+built+gated (NOT flipped — Purge over-inflates IK), and MODEL TERRAFORM, then re-measure the deck. Done:
+- **Burn default-ON for the Scorched mission** (commit, SWEG_SCORCHED_BURN=0 disables for A/B; inert in the default eval).
+- **Terraform primary + Terraform Action** (commit `a87dd21`, cited `simulator.primary_terraform`): 4 VP/controlled marker
+  (cap 12) + 1 VP/marker terraformed by you. The Action mirrors the Burn infra + the `_unit_can_perform_action` contract
+  (STARTS on range, COMPLETES on control — WebFetch-verified verbatim). Emergent displacement: a Knight's all-productive
+  units terraform ~0, a body army's spare bodies do.
+- **All-Terraform upper bound (N=80): IK 71.7→63.6% (gated ~21→12.96, −8) and AM 24.9→32.4 / AdMech 26.8→29.5** — the
+  mechanism cracks IK AND lifts the under-pole, the right direction. But it ALSO lifts the over-shooters (WE 15.70, EC 9.40,
+  Sororitas) because it's a blanket forward-aggression reward → headline ~neutral (5.28).
+- **4-mission deck re-measure (TaH 70% / Purge 10% / Scorched 10% / Terraform 10%, N=80): gated 5.19 = the baseline.** IK
+  71.5% (20.84), unchanged. The 1/10 crack dilutes ~10× and Purge re-inflates IK.
+
+**Verdict — avenue 1 is faithfully DONE and metric-neutral BY CONSTRUCTION:** a primary-SCORING lever is a blanket
+forward-aggression reward; it cannot distinguish the durable Knight we want DOWN from the aggressive melee armies we want
+HELD. Three of the ten real CA-2025-26 primaries now score their real rule; all kept (faithful, gated). The decisive lever
+is **avenue 2 — selective displacement (maneuver/board-control AI that pushes/removes the un-removable Knight off markers)**,
+the user's reserved decide-point (escalated via the watchdog). Tests green, audit clean, cli 0.
+
+## Wave 201 (2026-06-05) — AVENUE 1 (mission/scoring displacement) MEASURED → metric-NEUTRAL; the displacement lever is Avenue 2 (maneuver), not the scoring deck
+
+User greenlit the displacement re-model via 3 avenues (measured/bounded). Avenue 1 = mission/scoring pressure. Built the
+**Scorched Earth Burn (Raze) Action** (env-gated `SWEG_SCORCHED_BURN`, commits `62232a1`/`72e3cca`): a controlling unit
+Burns a No Man's Land / enemy-DZ marker from round 2, removing it for 5/10 VP — the faithful CA-2025-26 rule (WebFetch-
+verified; the reach-vs-CONTROL check caught a flashy-but-unfaithful first build). Refinements: BURN_CAP 2→1 ("ONE unit")
++ round≥2 gate. **All-Scorched upper bound (N=80): IK 71.7→60.7%, gated 20.99→10.00 — the Burn DISPLACES the Knight.**
+Then built the **deck-weighted rotation** (`SWEG_PRIMARY_DECK`, commit `fdba060`): each game draws one primary from the real
+10-card pack (verified 80% Take-and-Hold / 10% Purge / 10% Scorched; 7 unmodelled cards fall to Take-and-Hold).
+
+**Deck-weighted A/B (N=80): gated 5.27 vs the 5.19 baseline = NEUTRAL (+0.08, within noise).** Decomposition: deck IK 72.4%
+is *above* the Take-and-Hold baseline because **1/10 Purge games push IK to ~90%** (kill-weighted, IK out-kills body armies
+on unit-count — a FAITHFUL Purge model, 4/4/4/4 cap 12), which out-weighs the 1/10 Scorched crack. The Scorched horde
+over-flood diluted out correctly (Tyranids 11.50→4.09, Orks 7.04→1.77). WebFetch-verified the two remaining anti-hold
+candidates are NOT levers: **Terraform** is Take-and-Hold-with-a-+1-bonus (IK fine), **The Ritual** scores No Man's Land
+markers only (rewards mobile-durable IK pushing forward, would *inflate* it). **Verdict: the real deck has no scoring formula
+that cracks IK except the Burn, and at 1/10 it's too dilute — Avenue 1 (scoring) is ~tapped at neutral.** The displacement
+the user is after is physical: Avenue 2 (maneuver/board-control AI), applicable every game. Deck + Burn kept GATED (faithful
+substrate, not a headline win); avenue-pivot routed to the watchdog. Tests green, audit clean, cli 0.
+
+## Wave 193 (2026-06-05) — FREE-CONTEST extension LANDED default-ON (headline 5.52→5.19): a spare in-range gunline contests a winnable enemy marker WHILE still shooting (zero shot-cost) — recovered the shooty factions the pure contest over-corrected; the over-pole PLATEAUED (IK ~21) → PIVOT to the over-shooter cluster next
+
+Watchdog steer: continue the over-pole via the contest. Wave-193 INSTRUMENT (diag_ocflip free-contest decomposition, commit 03f3503):
+of the reachable opponent OC on the still-flippable Knight markers (now 23% with the contest on, down from 35%), **86% is shooty units
+that could shoot FROM the marker** (a zero-cost contest), 14% melee, **0% would lose their shots**. The existing #12 OBJECTIVE-AWARE
+REPOSITION already free-contests but only to a unit's SINGLE best objective, so a winnable enemy marker that loses the distance-
+competition to a closer hold stays uncontested.
+
+**Built the free-contest extension (gated SWEG_FREECONTEST, commit 2c9ef19):** a SPARE in-range SHOOTY/HEAVY unit redirects onto a
+WINNABLE (bracket-aware effective-OC) + REACHABLE + SHOOTABLE enemy marker even when not its single best, with JUST-ENOUGH (skip a
+marker we already winnably contest) + AFFORDABLE (the pre-existing hold-check keeps marginal holders). N=80 A/B → KEEP + FLIP
+default-ON (dad5ac3):
+| | gated MAE | Imperial Knights | in-band |
+|---|---|---|---|
+| baseline (wave 192 contest) | 5.52 | 71.9% / 21.19 | 1-2/22 |
+| + SWEG_FREECONTEST | **5.19** | 71.7% / 20.99 | **4/22** |
+
+**Value-pull tell PASSED decisively** (the decider): NO shooty faction cratered — the factions the PURE contest had over-corrected
+RECOVERED toward target (Aeldari 38.6→44.0 in band, T'au 47.9→51.4 in band, Necrons 49.9→51.1 in band) because their in-range
+gunlines now contest WHILE still shooting (faithful — a real mobile gunline does this). So the −0.33 headline is the shooty factions'
+faithful objective-game recovery, zero shot-cost. **BUT Imperial Knights barely moved (21.19→20.99): the over-pole has PLATEAUED on
+the contest family** (damaged-bracket → contest → free-contest, the full arc 25.63→20.99). New baseline gated **5.19**.
+
+→ PER THE WATCHDOG'S STANDING PLATEAU→PIVOT PLAN: the contest is near its over-pole ceiling. NEXT AXIS = the OVER-SHOOTER CLUSTER
+(Thousand Sons 67.7 / Emperor's Children 66.1 / World Eaters 60.7 / Custodes / Sororitas / Votann / Drukhari all systematically over —
+a separate elite/aggressive over-modeling residual the TSons diagnosis opened). Instrument-first WHY they're over (combat output vs
+list). The under-side (AM 13.9 / AdMech 11.6 gated) is untouched by the contest (gunlines, no spare bodies) — a separate
+durable-shooty-vehicle axis for later.
+
+## Wave 192 (2026-06-05) — BALANCED OBJECTIVE-CONTEST AI lever LANDED default-ON: the FIRST lever in many waves to move the over-pole DOWN (IK gated 25.63→21.19, −4.44) — faithfully, via a balanced contest (over-flood tell PASSED), headline 5.71→5.52
+
+The wave-191 damaged-OC generalization gave the opponent a real way to flip the Knight without killing it (a chipped Knight is OC 5,
+not 10). The wave-192 OC-flip INSTRUMENT (scripts/diag_ocflip.py, gated read-only, commit acf6cd3) localized the over-hold as a
+GENERAL AI-not-contesting gap: of 650 obj-rounds a big Knight/Titanic controls a marker, the opponent had reachable nearby OC to flip
+228 (35%) but never committed bodies; the damaged-only slice is tiny (12). Watchdog greenlit the BALANCED contest lever plan-first
+(docs/OC_CONTEST_LEVER_PLAN.md, acf3b41) with the wave-95 Stage-E over-flood rail front-and-centre.
+
+**Built (gated SWEG_CONTEST, commit 6e155dc) — refines the EXISTING STEAL value in pick_move_intent, not a new flood system:** an
+enemy-held marker's steal value is made WINNABLE + bracket-aware (×1.7 only when our potential EFFECTIVE OC > enemy EFFECTIVE OC
+there — new `_effective_oc_value` / `_effective_oc_on_objective` helpers, since raw `_oc_on_objective` misses the bracket; ×0.3 if
+unwinnable even by committing this body; ×0.6 JUST-ENOUGH no-pile-on once we already win it). The AFFORDABLE guard is the pre-existing
+hold-check — a marginal friendly-marker holder holds and never reaches the contest, so only SPARE bodies contest. Mechanism (diag):
+flippable-but-uncontested 34%→27%.
+
+**N=80 A/B → KEEP + FLIP default-ON (2ef7c4c), per the watchdog keep-if-faithful decider:**
+| | gated MAE | Imperial Knights | Chaos Knights |
+|---|---|---|---|
+| baseline (wave 191) | 5.71 | 76.3% / 25.63 | 6.42 |
+| SWEG_CONTEST=1 | **5.52** | **71.9% / 21.19 (−4.44)** | **1.29 (in band)** |
+
+**The over-flood TELL PASSED** (the decider): the contesting under-shooters HELD or improved — Astra Militarum 28.7→28.6, AdMech
+28.1→28.8, Necrons 46.3→49.9 (toward its 53.5 target) — so IK fell via a BALANCED contest (spare bodies flip winnable markers), NOT a
+Stage-E cheap-OC flood (which would crater the contesters' own win rate; it regressed to 6.50 in wave 95). Even-handed side-effect:
+Aeldari (+3.2→−2.9) and Chaos Daemons (−1.1→−5.8) fall too because THEIR big holders (Wraithknight, Greater Daemon) now get contested —
+faithful, though they overshoot target (a TUNING note: the ×1.7 boost may be slightly hot for those; candidate ×1.5 follow-up, NOT a
+reject). New baseline gated **5.52**. The over-pole is finally reachable by faithful objective-game fidelity — the user's "keep hunting,
+77% is an unfaithful mechanism not a floor" ruling vindicated.
+
+## Wave 191 (2026-06-05) — keyword instrument REFUTED + the DAMAGED-BRACKET GENERALIZATION LANDED default-ON (even-handed, metric-neutral 5.76→5.71): the real per-datasheet "Damaged" bracket now degrades ALL 260 big models, not just the 6 Knight datasheets
+
+Watchdog priority #1 (keyword instrument) REFUTED: anti-tank keyword coverage (Lethal/Sustained/Devastating/Heavy/Melta) is at
+PARITY-or-above BSData on catalogue weapons (catalogue 4/18/14/11/22% vs BSData 2/5/9/12/15%), the mechanics fire in attack(), the
+mapper extracts them — so "the opponents' guns are too weak" is false. That closes the anti-tank STRENGTH axis (commit 445638b).
+
+Then built the watchdog-greenlit #77 DAMAGED-BRACKET GENERALIZATION (docs/DAMAGED_BRACKET_GENERALIZATION_PLAN.md), 5 stages:
+- **S1 (a51f9e4)** mapper `extract_damaged_bracket` parses the 10e "Damaged: 1-X Wounds Remaining" ability → 4 flat parsed.json
+  fields (threshold, oc/hit/attacks penalty), Hit-regex anchored on "this model makes an attack" (excludes the defensive −1-to-be-hit).
+- **S1 FIX (c2a9639)** — the pre-flip Knight-coverage check (watchdog's "verify before flip" rule) CAUGHT A REAL BUG: only 1 of 42
+  Knights extracted, because the mainline Knights reference a SHARED Damaged profile in a linked Library, not inline. The first A/B
+  (5.95) was INVALID (Knights silently lost their penalty → IK spuriously 27.48). Fixed via `_gather_damaged_profiles` resolving
+  infoLink/entryLink targetIds through the registry. Knights 1→42 (0 missing); total bracketed units 72→260; strictly additive,
+  deterministic.
+- **S2 (112c1bf)** plumbed to UnitProfile (flat ints, hashable). **S3+4 (5f47b3c)** data-driven `_effective_oc` + `attack()` gated
+  SWEG_DMGBRACKET; citation `simulator.damaged_bracket` (verbatim Stormsurge + Knight) + registered.
+- **S5 FLIP (adb3000)** — the corrected N=80 A/B was METRIC-NEUTRAL (gated **5.76 → 5.71**, IK 25.52 → 25.63 unchanged, Chaos Knights
+  improved) and strictly more faithful, so per the watchdog flip criterion (faithfulness + correct extraction, NOT metric direction)
+  SWEG_DMGBRACKET is now DEFAULT-ON and the Knight-only SWEG_DMGOC/SWEG_DMGHIT heuristic is RETIRED. The default sim now degrades the
+  Objective Control + Hit roll of every model with a real bracket (Stormsurge, Custodes/World Eaters dreadnoughts, AdMech/Necron
+  vehicles, all Knights). Data-driven Knight values reproduce the retired heuristic exactly. **New baseline: gated 5.71.**
+
+NET: removed a known metric-favorable bias (Knight-only damaged nerf) for an even-handed faithful rule, at neutral metric cost. The
+over-pole is UNMOVED (IK still ~25.6 gated) — confirming again the Knight over-rate is NOT a combat/durability mechanic. Watchdog's
+named next live axis: the user's OC-FLIP over-HOLD idea (collapse the Knight's objective by reducing its effective OC below
+threshold + contesting bodies, no kill needed) — and the generalized damaged-OC bracket is now a faithful substrate for it (a damaged
+Knight's OC really does drop). NEXT.
+
 ## Wave 190 (2026-06-05) — anti-tank STRENGTH (squad-size) REFUTED, de-confounded: maxing opponent anti-tank made IK WORSE, not better. The over-pole's whole "kill/contest the Knight harder" axis is now exhausted → widen
 
 The watchdog's compound over-pole picture (wave 189) needed the anti-tank STRENGTH half. **Instrument:** the curated archetype SEED
@@ -7434,3 +7583,205 @@ Wave 56 confirmed the wave-55 process note. AM-AUDIT-V1's prediction
 Future wave dispatches should require this format and reject agents
 that only report random_fill DPP or local per-unit analytics.
 
+
+## Wave 232 (2026-06-10) — five verified gates flipped DEFAULT-ON + weapon-keyword parity (ungated) + clean N=80 re-anchor: NEW STANDING FRAME gated 5.79 (was 5.99)
+
+Hygiene-and-flip wave. Two code deliverables plus the serial A/B queue and the re-anchor:
+
+**1. Weapon-keyword parity for non-primary profiles (`dc4f63c`, ungated — a mapper data-correctness fix, verifier PASS).**
+The mapper only carried `indirect_fire` / `one_shot` / `hazardous` / `precision` onto the PRIMARY weapon profile; secondary
+and extra-melee profiles silently dropped them. Fixed: 21 profiles gained indirect_fire, 55 one_shot, 29 hazardous,
+5 precision across 523 multi-profile units; parsed.json regenerated deterministically. Ungated default-config change →
+all prior anchors invalidated as pairing bases; a fresh full-default N=40 run (gated 6.34) served as the OFF anchor for
+every A/B below.
+
+**2. Serial A/B queue (paired/Common-Random-Numbers where valid; N=40 vs the fresh OFF anchor) — all five gates adjudicated KEEP:**
+| gate | aggregate gated MAE delta | decisive movers | note |
+|---|---|---|---|
+| `SWEG_TANKSHOCK_DICE` (Tank Shock rolls Toughness-many D6, 5+ = 1 mortal wound, cap 6) | −0.13 | Astra Militarum +0.61 toward target (decisive) | replaces the flat-2 proxy |
+| `SWEG_ROLLOFF_ONCE` (first-turn roll-off once per battle, not per round) | −0.36 | — (aggregate compare; gate re-randomizes the stream so pairing is invalid) | retires a fake free-double-turn mechanic |
+| `SWEG_SITW_TEST` (Shadow in the Warp forces Battle-shock tests) | −0.06 | Tyranids +2.11 toward target | cross-faction "movers" in the scoped run were re-randomization artifacts (gate adds dice draws), not effects |
+| `SWEG_HARBINGERS` (Chaos Knights Harbingers of Dread Dread abilities) | −0.21 | **Chaos Knights +7.42 toward target (decisive, 200 flips)** | the biggest single-faction win of the wave |
+| `SWEG_SOROR_ABILITIES` (Sororitas character abilities) | flip per the wave-231 N=80 evidence (+0.81 faithful) | Adepta Sororitas | that commit's own message deferred the flip to this re-anchor |
+
+**3. The flip (`f35346c`):** 10 environment-read sites across `simulator.py` / `units.py` / `leaders.py` changed from
+default `"0"` to default `"1"` (`=0` stays the explicit escape hatch), ~16 comment/docstring sites + 5 citation prose
+sites updated, 5 test files converted (OFF tests now set `"0"` explicitly; unset-parity tests assert unset == explicit
+`"1"`). Full suite 1304 passed / 1 skipped / 1 xfailed, audit clean, `run.py --cli` exit 0. (Box note: the full pytest
+sweep needs `PYTHONHASHSEED=0` preset on this Windows machine, same as the evals — without it the suite produces empty
+output with exit 0.)
+
+**4. Clean full N=80 re-anchor at the new defaults: gated MAE 5.99 → 5.79 (raw 9.20, 4/22 in band).
+NEW STANDING ANCHOR: `data/_anchor_wave232_n80_log.json`.** Movers vs the wave-228 frame: Chaos Knights −9.0 → −5.1
+(Harbingers, now gated 1.81), Adepta Sororitas −15.3 → −13.5, Emperor's Children +15.2 → +11.6, T'au +10.6 → +9.4,
+Death Guard +8.7 → +7.5. Worsened: **Imperial Knights +17.2 → +20.2** (banked structural) and **Adeptus Mechanicus
+−4.8 → −8.2** — both plausibly the ungated keyword-parity redistribution (one_shot added to 55 profiles cuts their
+output); the Adeptus Mechanicus move is flagged for a scoped follow-up diagnostic. Tests green, audit clean, cli 0.
+
+## Wave 233 (2026-06-10) — post-merge N=80 re-anchor (NEW FRAME gated 5.74, surface reshuffle) + Adeptus Mechanicus diagnostic closed + keyword-parity COMPLETION kept + displacement substrate GREENLIT
+
+**1. Mandatory fresh full N=80 re-anchor on the post-merge catalogue (pull request #65's 38-unit disable + six
+archetype seeds re-priced canonical): gated MAE 5.79 → 5.74** (raw 8.93, 5/22 in band). **NEW STANDING ANCHOR:
+`data/_anchor_wave233_n80_log.json`.** Big surface RESHUFFLE from the re-priced seeds (Carnifexes 90, Ironstrider
+Ballistarii 85, Sydonian Dragoons 65 — previously over-priced Lanchester-derived, starving their lists):
+**Tyranids flipped −13.0 → +7.7 OVER** and **Adeptus Mechanicus −8.2 → +14.6 OVER**; Chaos Daemons into band.
+Under-pole now: Chaos Space Marines −17.0 (g14.5), Astra Militarum −16.5 (g13.3), Adepta Sororitas −16.5 (g12.8).
+Over-pole: Imperial Knights +15.9 (g13.0, banked structural), Adeptus Mechanicus +14.6 (g10.4), Genestealer +13.1,
+Necrons +12.8, Orks +11.3, Aeldari +11.0.
+
+**2. Adeptus Mechanicus wave-232 worsening (−4.8 → −8.2) diagnostic CLOSED with ZERO evals.** Per-gate paired
+decomposition on the existing wave-232 logs accounts for the full −3.4 as faithful opponent buffs (Shadow in the
+Warp −20 win-rate points in the Tyranids matchup ≈ −1.0 overall; roll-off-once −1.2; Tank Shock −0.6; Sororitas
+−0.5; harbingers 0). The one-shot-parity hypothesis was FALSIFIED by audit: Adeptus Mechanicus has zero `one_shot`
+assignments, and all 55 one-shot gains are genuine (Hunter-killer missiles ×48, Seeker missiles ×5, Hekaton
+warhead ×1). The post-merge frame then superseded the question entirely (Adeptus Mechanicus is now +14.6 OVER —
+the pre-merge under-read was dominated by its over-priced seed units).
+
+**3. Keyword-parity COMPLETION (`8e8a060`) adjudicated KEEP.** Secondary-profile `one_shot` / `hazardous` /
+`indirect_fire` / `precision` now flow end-to-end (mapper → loader → UnitProfile + sec_swap + per-model secondary
+reset; 15/34/8/11 changed units; extra-melee serializer gained one_shot+hazardous), clearing the wave-232 backlog
+items (sec_swap keyword inheritance, extra-melee serializer drops). 11 new tests; full suite **1315 passed / 1
+skipped / 1 xfailed** (the earlier "2 timing failures" were CPU-contention flakes — suite green on the
+uncontended box). Paired N=40 vs the wave-233 anchor: aggregate −0.08, decisive movers **Genestealer Cults −0.55
+and Imperial Knights −0.33, both over-pole moving TOWARD target**, nothing cratered. Faithful data-correctness →
+KEEP.
+
+**4. Displacement substrate GREENLIT (user-gated → authorized).** The user greenlit the avenue-2 build contingent
+on a final-pass review against the rules and online strategy advice. Both reviews completed: the strategy review
+confirmed every plan assumption and added two amendments (Stage 2 must evaluate the swarm contest against the
+FULL stacked Objective Control of the defending cluster, not the lone holder; Battle-shocked units trivially pass
+the Stage 1 no-control-consequence test, scoring at the end of each player's own Command phase); the rules review
+confirmed six of seven axes and found one real contradiction — **FLY does NOT bypass the Fall Back shoot/charge
+lockout** (it exempts only Desperate Escape tests) — plus a Stage 3 precision (consolidation's objective-marker
+fallback fires only on cleared positions). All amendments folded into `docs/DISPLACEMENT_SUBSTRATE_PLAN.md`
+(`601fc42`) with a six-item ranked future-candidates section, including the NEW visual-diagnostic finding:
+late-game markers sit at 0/0 Objective Control — empty — and no unit ever re-tasks to claim the free victory
+points. Visual diagnostic script `scripts/diag_render_displacement.py` committed (renders confirm: Knights
+blob-hold their markers; body armies scatter midfield off-marker). Meta-signatures research captured in
+`docs/REAL_META_SIGNATURES.md` (real reference values: mean primary ≈29 victory points, going-first win rate
+≈49–52%, mean secondary ≈22.7; per-marker control data does NOT exist publicly — Stage 0 will be its first
+measurement).
+
+**In-flight (wave 234):** Stage 0 `SWEG_DISPLACE_INSTR` fight-outcome instrument (Opus worktree build) +
+`scripts/diag_signatures.py` game-shape harness (Sonnet) + under-pole / over-pole deep-research agents to
+harvest into the ranked diagnostic queue.
+
+## Wave 234 (2026-06-11) — N=80 re-anchor gated 6.02 (7/22 in band, poles deepened) + Blood of Martyrs landed + ten stale price fixes + structural-debt review + queue-debt sweep + Ed's 23 issues triaged
+
+**1. Fresh full N=80 re-anchor on HEAD `31ba197`: gated MAE 6.02** (raw 8.96, **7/22 in band** — up from
+5/22). **NEW STANDING ANCHOR: `data/_anchor_wave234_n80_log.json`.** The wave folded in `d66ca44` (ten stale
+`points_override` entries corrected — Ed-mistake-class pricing review) and `31ba197` (Adepta Sororitas
+Hallowed Martyrs: The Blood of Martyrs detachment rule), both re-pricing/capability changes, so this is a
+frame re-base, not a single-mechanic verdict. Surface reshuffle vs wave 233: the middle improved — Adeptus
+Mechanicus +14.6 → +10.6 (g6.41), Genestealer Cults +13.1 → +10.2 (g5.57), Orks +11.3 → +6.6 (g3.66),
+Tyranids +7.7 → +6.9 (g3.11); World Eaters, Emperor's Children, Grey Knights, Drukhari, Chaos Daemons,
+Thousand Sons, Leagues of Votann all in band — but **the poles deepened**:
+- **Under-pole:** Chaos Space Marines −19.3 (g16.83), Adepta Sororitas −18.8 (g15.00 — worse despite Blood
+  of Martyrs landing), Astra Militarum −17.7 (g14.49, banked structural — displacement).
+- **Over-pole:** Aeldari +16.7 (g13.63, NEW top over), Necrons +16.4 (g13.14), Adeptus Custodes +15.8
+  (g13.16), Imperial Knights +15.7 (g12.74, banked structural — displacement).
+
+**2. Structural-errors review (user-directed) → `docs/STRUCTURAL_DEBT_REVIEW.md`.** Five-surface audit of
+the early approximation era (detachment flags, stratagem dispatchers, leader abilities, secondaries/orders,
+simulator gates). Headline finds: five command-point-sink stratagems (army pays, zero effect), five leader
+fabrications (Necron Overlord/Trazyn `plus_one_to_hit`, Chronomancer/Plasmancer `fnp=5`, Chaos Lord
+`plus_one_to_wound`), the Battle Focus token cadence wrong (flat 4 at battle start vs per-battle-round
+scaled grant), Warhost Martial Grace magnitude wrong, plus a catalogued mobility-mechanic-erasure class
+tagged to the displacement substrate. Orchestrator cross-verified the Necron leader cluster against the
+BSData cache verbatim before any dispatch; live Wahapedia fetch resolved the two open conflicts
+(ANNIHILATION_LEGION `reroll_wound_ones` = FABRICATION with a fabricated inline quote; Battle Focus =
+per-round grant, Incursion 2 / Strike Force 4 / Onslaught 6).
+
+**3. Queued-never-executed sweep (user-directed) → `docs/QUEUE_DEBT_SWEEP.md`.** Both halves complete:
+17-row memory/log-derived table + the docs-layer NE-1..NE-19 / SB-1..SB-6 actionable table with
+cross-references. This is now the ranked dispatch source for fix waves.
+
+**4. Ed's 23 GitHub issues triaged conventionally (user-directed).** All bodies snapshot to
+`data/_ed_issues_snapshot.json`; two read-only code-state verification agents grounded every disposition;
+comments posted on all 23. Closed: #40 (fixed by Ed's own `693751a` on main). Close via pull request 66
+closing keywords at the pending body rewrite: #43 #50 #54 #60 #62. Re-scoped and kept open: #61
+(pooled-health remnants in ancillary simulator paths), #44 (Battle Focus manoeuvre coverage), #52
+(terrain-wall tunnelling → displacement substrate). Framing comments posted where the
+2026-06-02 printed-points ruling superseded issue premises (#43 #44 #45 #47). Holds: #46 #48 #49 #51.
+Feature requests parked: #55 (first pick for a quiet window) #56 #57 #58 #59. Docs: #63 standing; #53
+fulfilled this close (BASELINE.md catalogue count regenerated 1384, date-stamped — the per-unit table the
+issue references was removed in the 2026-05 docs reorganisation; noted on the issue).
+
+**5. Stage 0 displacement instrument + game-shape harness landed earlier in the wave** (`c33d8ab` instrument
+build; `scripts/diag_signatures.py` + `data/wf_wave234_signatures_full.txt` game-shape snapshot: sim mean
+primary ≈ 29.6 victory points vs real ≈ 29 — primary track in range; going-first and secondary spreads
+captured for the multi-metric review). Stage 0 run + verdict still pending (SB-1).
+
+**In-flight (wave 235, the overnight fix cluster) — progress as of 2026-06-11 overnight:** four of the
+five fixes are LANDED on the branch and pushed (head `aa8211c`): Battle Focus per-round cadence
+(`ecc925f`), Annihilation Legion fabrication removal (`d89ab89`), command-point-sink stratagem batch
+(`d8e0aed`), Necron leader fabrications (`79546fb` — Overlord/Trazyn hit auras and
+Chronomancer/Plasmancer feel-no-pains removed; Plasmancer's real Harbinger of Destruction parked, needs a
+ranged-critical-threshold aura field; one stale Overlord test repurposed as a fabrication-removal
+regression pin, `aa8211c`). Full suite 1377 green, citation audit clean, command-line demo clean at that
+head. **Pull request 66 rewritten** (goal-first body, waves 232–235, closing keywords for #43 #50 #54 #60
+#62 verified) and **issue #53 closed**. **Stage 0 displacement instrument RUN + VERDICT: GO** — addressable
+pool 10–25 primary victory points per game per side, over-pole dominant, Imperial Knights signature 24.25
+uncontested-hold vs 0.75 tarpit confirms the swarm hypothesis (full table in
+`docs/DISPLACEMENT_SUBSTRATE_PLAN.md` §5; raw records `data/wf_wave235_displace_instr_stage0.txt`). The
+World Eaters Apoplectic Frenzy rewire was re-dispatched (the first agent was lost to a context compaction)
+and is in flight. Remaining for the wave close: Apoplectic cherry-pick + full suite, full-cluster N=80
+re-anchor, pull request 66 number refresh; then the queue continues (NE-2 First Rank Fire, NE-9 Lord Solar
+orders, NE-6 Conquering Tyrant, torrent-over-cannon override batch, hygiene batch incl. #61, displacement
+Stage 1).
+
+## Wave 235 (2026-06-11) — overnight fix cluster LANDED (five structural-debt fixes + Apoplectic Frenzy corrected) + Stage 0 displacement GO + N=80 re-anchor gated 5.96. NEW STANDING FRAME.
+
+**1. The full overnight fix cluster is landed and anchored.** Seven fidelity commits closed the wave:
+Battle Focus per-round cadence (`ecc925f`), Annihilation Legion fabrication removal (`d89ab89`),
+command-point-sink stratagem batch (`d8e0aed` — Adaptive Strategy / Plaguesurge / Desecration of Worlds /
+Vigilance Eternal now carry their real effects), Necron leader fabrications removed (`79546fb` + `aa8211c`
+— Overlord/Trazyn hit auras, Chronomancer/Plasmancer feel-no-pains; Plasmancer's real Harbinger of
+Destruction parked pending a ranged-critical-threshold aura field), **Apoplectic Frenzy corrected**
+(`1321799` — the fabricated melee-buff paraphrase replaced by the verbatim advance-and-charge rule via a
+new `transient_charge_after_advance` flag in the existing advance-lockout exemption chain; 8 new
+regression tests), and **NE-6 Conquering Tyrant scope** (`05c080f` — full hit re-roll when a character
+leads, re-roll-ones otherwise, the two-branch codex rule).
+
+**2. Fresh full N=80 re-anchor on HEAD `05c080f`: gated MAE 6.02 → 5.96** (raw 8.99, 5/22 in band —
+World Eaters g0.50 and Emperor's Children g0.18 slipped just outside, both near-zero). **NEW STANDING
+ANCHOR: `data/_anchor_wave235_n80_log.json`.** Fidelity fixes trended the right factions toward target:
+Necrons +16.4 → +14.8 (g13.14 → g11.61), Aeldari +16.7 → +16.0 (g13.63 → g12.86), Imperial Knights
++15.7 → +14.8 (g12.74 → g11.87). **Chaos Space Marines worsened to −20.3 (g17.84, NEW top under)** — the
+command-point-sink batch gave its opponents' factions real effects too; Chaos Space Marines is now the
+single deepest residual and the next diagnostic target (Pactbound Zealots no-op shell is the named queue
+item). Astra Militarum −17.9 (g14.69) and Adepta Sororitas −19.1 (g15.31) hold the rest of the under-pole;
+Adeptus Custodes +16.0 (g13.34) now tops the over-pole.
+
+**3. Stage 0 displacement instrument RUN + VERDICT: GO.** Addressable pool 10–25 primary victory points
+per game per side, over-pole dominant; the Imperial Knights signature (24.25 uncontested-hold vs 0.75
+tarpit) confirms the swarm hypothesis. Full table `docs/DISPLACEMENT_SUBSTRATE_PLAN.md` §5, raw records
+`data/wf_wave235_displace_instr_stage0.txt`. Displacement Stage 1 (`SWEG_DISPLACE_FALLBACK`,
+fall-back-only-when-wasted rails) is now unblocked.
+
+**4. Wave-236 queue work cherry-picked after the anchor** (post-anchor, so the 5.96 frame predates them):
+**NE-2 First Rank, Fire! Second Rank, Fire!** (`ea46aef` — the wrong-stat plus-one-to-hit proxy replaced
+by the faithful +1 Attacks on rapid-fire weapons at all ranges via `transient_frfsrf_active`; citation
+flipped to approximation false; 281-line test file), **Farseer Branching Fates removal** (`d29fcee` —
+the always-on `reroll_wound_ones` aura had no codex support; the real rule is once-per-phase
+set-one-roll-to-6, no simulator field exists; removal on the Autarch/Avatar iter21 standard; Aeldari is
+the top over-pole so this is suppressive AND faithful), **Chaos Lord Lord of Chaos removal** (`2e7643b` —
+`plus_one_to_wound` was a flavour proxy for a once-per-battle-round stratagem command-point discount;
+host routing also corrected from the dormant traitor-guardsmen key to Legionaries + Chosen per BSData).
+All two-source verified (Wahapedia + BSData v10.6.0 ability ids in the commit messages). Full suite
+**1411 passed / 1 skipped / 1 xfailed**, citation audit clean, command-line demo exit 0 at `2e7643b`.
+**Anchor caveat: the three wave-236 commits change behaviour (Astra Militarum, Aeldari), so the next
+keep/reject comparison must re-anchor rather than reuse `_anchor_wave235_n80_log.json` as an OFF arm.**
+
+**In-flight (wave 236):** NE-9 Lord Solar order count (unblocked by NE-2 landing — resolve the exact
+order count from Wahapedia + BSData, stop on conflict), then the queue: Chaos Space Marines −20.3
+diagnostic (Pactbound Zealots H1#6), torrent-over-cannon override batch, hygiene batch (issue #61
+pooled-health remnants, `cult_ambush_pending` clear, NE-16 citation filing, reserves off-by-one,
+Punisher override #104), SWEG_FIGHTALT paired re-test, Battle Focus manoeuvre coverage (#44),
+displacement Stage 1. Parked for a wave boundary: merge `origin/main` (pull request 67) + the Warp
+Friends target refresh decision; Plasmancer Harbinger of Destruction rebuild; mapper extract_fnp
+structural fix.
+
+
+---
+*Older waves archived to `docs/AUTO_LOOP_LOG_archive.md`. Decision index: `docs/DECISION_LEDGER.md`.*
