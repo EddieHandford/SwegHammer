@@ -78,6 +78,15 @@ class CatalogEntry:
     csm_despoilers: bool = False
     # CSM Possessed "Unholy Bloodshed" (override-only). Set via overrides.json.
     csm_unholy_bloodshed: bool = False
+    # Adepta Sororitas Retributor Squad datasheet ability "Storm of Retribution"
+    # (unconditional half, override-only). BSData v10.6.0 id 8eef-f65c-7895-183f:
+    # "Each time a model in this unit makes a ranged attack, re-roll a Hit roll of 1
+    # and re-roll a Wound roll of 1." Ranged-only; applies via att_reroll_hit_ones +
+    # att_reroll_wound_ones in Unit.attack when mode != "melee". The escalating
+    # half (+1 to Hit and +1 to Wound when attacking an enemy that killed a friendly
+    # Adepta Sororitas unit) is a follow-up code build. Cited as
+    # `simulator.storm_of_retribution`.
+    storm_of_retribution: bool = False
     rapid_fire: int = 0
     melta: int = 0
     ignores_cover: bool = False
@@ -291,6 +300,7 @@ class CatalogEntry:
             veterans_of_the_long_war=bool(d.get("veterans_of_the_long_war", False)),
             csm_despoilers=bool(d.get("csm_despoilers", False)),
             csm_unholy_bloodshed=bool(d.get("csm_unholy_bloodshed", False)),
+            storm_of_retribution=bool(d.get("storm_of_retribution", False)),
             rapid_fire=int(d.get("rapid_fire", 0)),
             melta=int(d.get("melta", 0)),
             ignores_cover=bool(d.get("ignores_cover", False)),
@@ -533,6 +543,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "veterans_of_the_long_war": override.get("veterans_of_the_long_war", base.veterans_of_the_long_war),
         "csm_despoilers": override.get("csm_despoilers", base.csm_despoilers),
         "csm_unholy_bloodshed": override.get("csm_unholy_bloodshed", base.csm_unholy_bloodshed),
+        "storm_of_retribution": override.get("storm_of_retribution", base.storm_of_retribution),
         "rapid_fire": override.get("rapid_fire", base.rapid_fire),
         "melta": override.get("melta", base.melta),
         "ignores_cover": override.get("ignores_cover", base.ignores_cover),

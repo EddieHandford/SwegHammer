@@ -475,6 +475,16 @@ class UnitProfile:
     # transient_devastating_wounds grant (once-per-battle guarded), gated
     # SWEG_CSM_ABILITIES. Cited simulator.csm_unholy_bloodshed.
     csm_unholy_bloodshed: bool = False
+    # Adepta Sororitas Retributor Squad datasheet ability "Storm of Retribution"
+    # (unconditional half, override-only). BSData v10.6.0 id 8eef-f65c-7895-183f:
+    # "Each time a model in this unit makes a ranged attack, re-roll a Hit roll of 1
+    # and re-roll a Wound roll of 1." Applied in Unit.attack when mode != "melee" by
+    # setting att_reroll_hit_ones=True and att_reroll_wound_ones=True. Ranged-only;
+    # the melee guard ensures it never fires in the Fight phase. Set via
+    # overrides.json on adepta_sororitas_retributor_squad. The escalating half
+    # (+1 to Hit/Wound vs an enemy that killed a friendly Adepta Sororitas unit)
+    # is a follow-up code build. Cited as `simulator.storm_of_retribution`.
+    storm_of_retribution: bool = False
     # CSM Forgefiend datasheet ability "Daemonic Ordnance" (10e): each time
     # this model is selected to shoot, it can use this ability. If it does,
     # until the end of the phase, its ranged weapons have the [DEVASTATING
@@ -3263,6 +3273,18 @@ class Unit:
                 if getattr(target, "on_objective", False):
                     att_reroll_all_wounds = True
 
+            # Adepta Sororitas Retributor Squad datasheet ability "Storm of
+            # Retribution" (unconditional half). BSData v10.6.0 id
+            # 8eef-f65c-7895-183f verbatim: "Each time a model in this unit
+            # makes a ranged attack, re-roll a Hit roll of 1 and re-roll a
+            # Wound roll of 1." Ranged-only — the `mode != "melee"` guard
+            # matches the codex wording. Composes with detachment-side and
+            # leader-side re-roll-ones via OR (one re-roll per die). Cited as
+            # `simulator.storm_of_retribution`.
+            if mode != "melee" and getattr(p, "storm_of_retribution", False):
+                att_reroll_hit_ones = True
+                att_reroll_wound_ones = True
+
             # Drukhari Power From Pain (10e codex, current Wahapedia text):
             # the army rule does NOT grant passive LETHAL HITS from holding a
             # Pain Token. Tokens accrue into a pool and can be SPENT to
@@ -4697,6 +4719,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             veterans_of_the_long_war=entry.veterans_of_the_long_war,
             csm_despoilers=entry.csm_despoilers,
             csm_unholy_bloodshed=entry.csm_unholy_bloodshed,
+            storm_of_retribution=getattr(entry, "storm_of_retribution", False),
             rapid_fire=entry.rapid_fire,
             melta=entry.melta,
             ignores_cover=entry.ignores_cover,
