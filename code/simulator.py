@@ -864,32 +864,18 @@ class Battle:
     # ------------------------------------------------------------------
 
     def run(self) -> BattleResult:
-        # APPROXIMATION: Battle Focus modelled as a flat 4-token pool spent only on Star Engines / [ASSAULT].
-        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/
-        # Real rule: per-round token refresh + 6 named Agile Manoeuvres (Star Engines, Wraithwalk,
-        # Lightning-Fast Reactions, etc.). We conflate the whole bundle into a single shoot-after-Advance
-        # spend, omitting the other 5 named manoeuvres entirely.
-        # Battle Focus tokens (Aeldari ASURYANI rule): 4 at Strike Force,
-        # the default battle size for this simulator. We hand the tokens
-        # out to any army that contains at least one ASURYANI unit — the
-        # rule is faction-wide, not detachment-gated.
-        # Warhost detachment rule "Martial Grace" (#197) grants +1 token
-        # at start of each battle round; since SwegHammer's Battle Focus
-        # model is a flat once-at-start pool rather than a per-round
-        # refresh, we collapse the +1/round buff into +1 to the starting
-        # pool (over 5 rounds the codex hands out +5, but the simulator
-        # only spends tokens on the rarely-triggered shoot-after-Advance
-        # path; +1 to the pool is a clean single-bump approximation).
-        # Gates on Detachment.martial_grace via resolve_detachment so the
-        # bump fires only when Warhost is the active detachment.
-        for army in (self.a, self.b):
-            if any("ASURYANI" in (u.profile.unit_keywords or ())
-                   for u in army.units):
-                base_tokens = 4
-                det = army.resolve_detachment() if hasattr(army, "resolve_detachment") else None
-                if det is not None and getattr(det, "martial_grace", False):
-                    base_tokens += 1
-                army.battle_focus_tokens = base_tokens
+        # Battle Focus tokens (Aeldari ASURYANI army rule, 10e). The token
+        # pool is now granted PER BATTLE ROUND in _run_round, not once here.
+        # Tokens accumulate (additive carryover — the Wahapedia rule says
+        # "you receive" per round; it does not say unspent tokens are discarded,
+        # so we carry over). Amounts are battle-size-dependent (see
+        # _grant_battle_focus_tokens). Army.battle_focus_tokens starts at 0
+        # (set in Army.__init__) and is never written here; the first grant
+        # fires at the start of Round 1 in _run_round.
+        # Cited as `simulator.battle_focus`.
+        # NOTE: the other five named Agile Manoeuvres (Swift as the Wind,
+        # Flitting Shadows, Sudden Strike, Opportunity Seized, Fade Back) are
+        # not modelled — only Star Engines (shoot after Advance) consumes tokens.
 
         # Strands of Fate (Aeldari army rule, 10e). At the start of the
         # first battle round, before the first turn begins, the AELDARI
@@ -8770,6 +8756,58 @@ class Battle:
                     harbinger_sources=harbinger_sources,
                 )
 
+    def _grant_battle_focus_tokens(self, army: "Army") -> None:
+        """Grant Battle Focus tokens at the start of a battle round.
+
+        Wahapedia (https://wahapedia.ru/wh40k10ed/factions/aeldari/#Battle-Focus):
+        "At the start of the battle round, you receive a number of Battle Focus
+        tokens based on the battle size, as shown in the table below."
+        Table: Incursion 2 | Strike Force 4 | Onslaught 6.
+
+        The Warhost detachment rule Martial Grace adds a further +1 token each
+        round (https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost):
+        "At the start of the battle round, you receive 1 additional Battle Focus
+        token."
+
+        Tokens are ADDITIVE — "you receive" is accumulation language; the rule
+        text does not say unspent tokens are discarded at round end, so carryover
+        is preserved. Only armies containing at least one ASURYANI unit receive
+        tokens (the rule is faction-wide, not detachment-gated for the base grant).
+
+        Battle size is derived from army.starting_points, which is set before the
+        round loop by Battle.run. If starting_points is 0 (unset), this raises
+        rather than silently defaulting to a wrong value (CLAUDE.md rule 13).
+        Thresholds follow the 10e points-bracket convention:
+          ≤ 1000 pts → Incursion  → 2 tokens/round
+          ≤ 2000 pts → Strike Force → 4 tokens/round (evaluation default)
+          >  2000 pts → Onslaught  → 6 tokens/round
+        """
+        if not any("ASURYANI" in (u.profile.unit_keywords or ())
+                   for u in army.units):
+            return
+
+        pts = army.starting_points
+        if pts <= 0:
+            raise RuntimeError(
+                f"_grant_battle_focus_tokens: army '{army.name}' has "
+                f"starting_points={pts!r} (not yet set). Battle.run must "
+                f"populate army.starting_points before the round loop. "
+                f"This is a programming error — do not silently default."
+            )
+
+        if pts <= 1000:
+            base_tokens = 2      # Incursion
+        elif pts <= 2000:
+            base_tokens = 4      # Strike Force (evaluation default at 2000 pts)
+        else:
+            base_tokens = 6      # Onslaught
+
+        det = army.resolve_detachment() if hasattr(army, "resolve_detachment") else None
+        if det is not None and getattr(det, "martial_grace", False):
+            base_tokens += 1     # Warhost Martial Grace: +1 per round
+
+        army.battle_focus_tokens += base_tokens
+
     def _run_round(self, round_num: int) -> None:
         if self.verbose:
             print(f"\n--- Round {round_num} ---")
@@ -8798,6 +8836,17 @@ class Battle:
         # the preceding battle round's fighting. No-op when the gate is off.
         if self._displace is not None:
             self._displace.end_round()
+
+        # Battle Focus tokens (Aeldari ASURYANI army rule, 10e). Grant is per
+        # battle round ("at the start of the battle round") and is ADDITIVE —
+        # the Wahapedia rule says "you receive"; it does not say unspent tokens
+        # are discarded, so carryover is preserved. The base grant is derived
+        # from battle size via army.starting_points (see
+        # _battle_focus_tokens_for_army). Warhost Martial Grace adds a further
+        # +1 per round on top. Cited as `simulator.battle_focus` and
+        # `WARHOST.martial_grace`.
+        for army in (self.a, self.b):
+            self._grant_battle_focus_tokens(army)
 
         # SOROR-DIAG-4 / SOROR-ACTS-OF-FAITH-V1 — reset each Sororitas unit's
         # per-round Acts of Faith budget. Two-level reset:

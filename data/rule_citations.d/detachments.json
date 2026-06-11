@@ -66,7 +66,7 @@
     "rule_name": "Martial Grace",
     "quoted_text": "At the start of the battle round, you receive 1 additional Battle Focus token. Each time a unit from your army performs the Swift as the Wind Agile Manoeuvre, until the end of the phase, add an additional 1\" to the Move characteristic of models in that unit. Each time a unit from your army performs an Agile Manoeuvre that involves rolling a D6, add 1 to the result.",
     "trigger": "start of each battle round, while the Warhost detachment is active and the army contains at least one ASURYANI unit",
-    "effect": "Battle Focus token starting pool is bumped from 4 to 5 when the Warhost detachment is active (approximation: SwegHammer's Battle Focus model is a flat once-at-start pool rather than a per-round +1 refresh, so we collapse the round-by-round bump into a single +1 to the starting pool). The Swift-as-the-Wind +1\" Move and the +1-to-D6 Agile-Manoeuvre boon are APPROXIMATED away — the grid-free movement model can't usefully consume per-phase +1\" / +1-to-d6 buffs. Renamed from BATTLE_HOST.reroll_hit_ones in #197 to use the real Martial Grace rule",
+    "effect": "+1 Battle Focus token at the start of each battle round, stacking on top of the battle-size base grant in Battle._grant_battle_focus_tokens (wave 235: corrected from a single +1 to the starting pool to a per-round +1, matching the verbatim 'at the start of the battle round' trigger). The Swift-as-the-Wind +1\" Move leg and the +1-to-D6 Agile-Manoeuvre boon are NOT MODELLED — the movement model has no per-phase +1\" / +1-to-d6 infrastructure for Agile Manoeuvres other than Star Engines; these two legs remain queued as unmodelled Agile Manoeuvre work.",
     "scope": "army-wide",
     "approximation": true
   },
