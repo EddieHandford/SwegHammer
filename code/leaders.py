@@ -864,8 +864,27 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           reroll_hit_ones=True,
                                           plus_one_to_wound_melee_only=True,
                                           host_keys=_CSM_APOSTLE_HOSTS)),
-    ("Chaos Lord",         LeaderAbility(name="Lord of Hosts",              aura_range=6.0, plus_one_to_wound=True,
-                                          host_keys=("chaos_space_marines_traitor_guardsmen_squad",))),
+    # Chaos Lord — Lord of Chaos is a once-per-battle-round Stratagem
+    # command-point-discount ability (Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Chaos-Lord;
+    # BSData v10.6.0, Chaos - Chaos Space Marines.cat.gz, ability id
+    # 73e9-284e-fd62-4056: "Once per battle round, one unit from your army
+    # with this ability can use it when its unit is targeted with a Stratagem.
+    # If it does, reduce the CP cost of that use of that Stratagem by 1CP.").
+    # There is NO offensive aura component — plus_one_to_wound=True was a
+    # flavour proxy with no codex support (two-source fabrication verified,
+    # docs/STRUCTURAL_DEBT_REVIEW.md surface 2 line 104). wave 236 drops the
+    # proxy on the same standard as Autarch "Path of Command" (iter21) and
+    # Shield-Captain "Master of the Stances" (CUSTODES-AUDIT). Entry retained
+    # with corrected host_keys (BSData Leader text: "CHOSEN / LEGIONARIES").
+    # Note: this flag fires on near-dormant units (prior host was
+    # chaos_space_marines_traitor_guardsmen_squad, absent from archetype
+    # lists), so the metric impact is near-neutral — this is a fidelity
+    # correction, not a metric knob. Will return as a Stratagem CP-discount
+    # once per-character command-point-reduction hooks are added.
+    ("Chaos Lord",         LeaderAbility(name="Lord of Hosts",              aura_range=6.0,
+                                          host_keys=("chaos_space_marines_legionaries",
+                                                     "chaos_space_marines_chosen"))),
     # Abaddon the Despoiler: the Warmaster ability "Paragon of Hatred" (Aura)
     # is the competitively dominant pick. BSData v10.6.0 (Chaos - Chaos Space
     # Marines.cat.gz, ability id 8b8a-6967-9f60-3de0, typeName "Warmaster"):

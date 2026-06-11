@@ -353,8 +353,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Chaos-Lord",
     "rule_name": "Lord of Chaos",
     "quoted_text": "Once per battle round, one unit from your army with this ability can use it when its unit is targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP.",
-    "trigger": "attacker's unit is led by a Chaos Lord in aura range",
-    "effect": "+1 to Wound in aura range (approximation; the real Lord of Chaos is a once-per-round Stratagem CP discount, which the simulator does not model — +1-to-wound is a flavour proxy for the Chaos Lord as offensive melee commander)",
+    "trigger": "Chaos Lord is alive and a friendly Chaos Space Marines unit is targeted with a Stratagem (NOT modelled — the simulator has no per-character Stratagem command-point-discount hook)",
+    "effect": "No buff. wave 236 fab audit: Lord of Chaos is a once-per-battle-round Stratagem command-point-discount ability — identical in pattern to Autarch 'Path of Command' (iter21 drop) and Shield-Captain 'Master of the Stances' (CUSTODES-AUDIT drop). Neither carries an offensive aura. BSData v10.6.0 (Chaos - Chaos Space Marines.cat.gz, ability id 73e9-284e-fd62-4056) confirms the verbatim text above. The previous plus_one_to_wound=True flag was a flavour proxy with no codex support (two-source fabrication verified, docs/STRUCTURAL_DEBT_REVIEW.md surface 2 line 104). Proxy removed on the same standard. Host routing corrected from the dormant chaos_space_marines_traitor_guardsmen_squad to chaos_space_marines_legionaries + chaos_space_marines_chosen per BSData Leader text. The flag was near-dormant (fired on absent units), so metric impact is near-neutral — this is a fidelity correction. Registry entry retained; will return as a command-point-discount Warlord ability once per-character Stratagem discounts are added.",
     "scope": "unit-led"
   },
 

@@ -208,7 +208,12 @@ class ExpandedRegistryTests(unittest.TestCase):
         # against the led unit; FNP 5+ is our defensive proxy.
         ("Sorcerer",                "fnp"),
         ("Dark Apostle",            "reroll_hit_ones"),
-        ("Chaos Lord",              "plus_one_to_wound"),
+        # Chaos Lord plus_one_to_wound removed in wave 236 (Lord of Chaos is a
+        # once-per-battle-round Stratagem command-point-discount, not a wound-roll
+        # aura). Absence locked in ChaosLordLordOfChaosRemovalTests in
+        # tests/test_leader_fabrications_wave236.py.
+        # Registry entry retained; assert the structural no-op (aura_range still 6.0).
+        ("Chaos Lord",              "aura_range"),
         # Adeptus Custodes
         # CUSTODES-AUDIT (claude/sim-calibration-6): Shield-Captain's
         # reroll_hit_ones proxy was removed — "Master of the Stances" is a
