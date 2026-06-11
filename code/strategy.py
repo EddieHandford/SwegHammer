@@ -1853,10 +1853,13 @@ def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, fl
 # this code does not re-derive them, it only reads the unit/board state to
 # decide whether choosing FALL_BACK is worth that already-modelled cost.
 #
-# Default OFF: when SWEG_DISPLACE_FALLBACK is unset, `_displace_fallback_enabled()`
-# returns False and the legacy branch runs unchanged (byte-identical OFF path).
+# Default ON (adopted wave 236): the eighty-battle paired comparison against
+# the wave-236 anchor improved the gated headline (6.03 -> 5.96) with decisive
+# movers toward target (Aeldari -1.74, Chaos Knights +1.66), so the narrowed
+# Fall Back is the production default. Set SWEG_DISPLACE_FALLBACK=0 to revert
+# to the legacy eager Fall Back (the else-branch is kept byte-identical).
 def _displace_fallback_enabled() -> bool:
-    return __import__("os").environ.get("SWEG_DISPLACE_FALLBACK", "0") == "1"
+    return __import__("os").environ.get("SWEG_DISPLACE_FALLBACK", "1") == "1"
 
 
 def _displace_unit_effective_oc(unit, cur_round: int) -> int:

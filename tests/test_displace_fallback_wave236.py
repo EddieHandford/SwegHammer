@@ -6,8 +6,9 @@ shooting next round. That is too eager: a durable out-fighter sitting on a
 contested objective marker should DIE ON THE MARKER (the faithful competitive
 tarpit) rather than cede the objective by retreating.
 
-The `SWEG_DISPLACE_FALLBACK` gate (default OFF) narrows the legacy Fall Back to
-fire ONLY when the unit is genuinely WASTED — all three conditions must hold:
+The `SWEG_DISPLACE_FALLBACK` gate (default ON since wave 236) narrows the
+legacy Fall Back to fire ONLY when the unit is genuinely WASTED — all three
+conditions must hold:
 
   1. No control consequence — its presence changes no marker outcome at the
      current / next scoring check (it cannot hold, cannot flip to contested, and
@@ -137,7 +138,12 @@ def _empty_map() -> Map:
 # OFF path byte-identical
 # ---------------------------------------------------------------------------
 class GateOffByteIdenticalTests(unittest.TestCase):
-    """With SWEG_DISPLACE_FALLBACK unset, the legacy eager Fall Back is unchanged."""
+    """With SWEG_DISPLACE_FALLBACK=0, the legacy eager Fall Back is unchanged.
+
+    The gate defaults ON since wave 236 (adopted after the paired eighty-battle
+    comparison), so the legacy path is now reached by setting the variable to
+    "0" explicitly rather than by leaving it unset.
+    """
 
     def test_off_path_falls_back_like_legacy(self):
         # SHOOTY unit pinned by a token melee enemy, FAR from any objective.
@@ -148,9 +154,7 @@ class GateOffByteIdenticalTests(unittest.TestCase):
         map_ = _empty_map()
         _set_round(friendly, enemy)
 
-        env = dict(os.environ)
-        env.pop("SWEG_DISPLACE_FALLBACK", None)
-        with mock.patch.dict(os.environ, env, clear=True):
+        with mock.patch.dict(os.environ, {"SWEG_DISPLACE_FALLBACK": "0"}):
             _, intent = pick_move_intent(friendly.units[0], friendly, enemy, map_)
         self.assertEqual(intent, "FALL_BACK")
 
