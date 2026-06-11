@@ -11968,11 +11968,30 @@ class Battle:
         # fires if it would flip fail -> success (greedy heuristic).
         # Cited as `simulator.strands_of_fate`. Wahapedia:
         # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+        #
+        # Squad multi-spend guard (FATE-CHARGE-V1): the real rule allows ONE
+        # substitution per unit per charge roll — "one charge roll" means the
+        # shared 2D6 the whole squad makes together. The simulator models each
+        # squad member as a separate Unit so every member independently enters
+        # this block. Without a gate, a five-model squad making a failed charge
+        # would call pop_fate_die_meeting five times — one per model — draining
+        # up to five Fate dice for a single squad charge. The fix mirrors the
+        # fate_advance / fate_hit / fate_save pattern: mark the squad's budget
+        # the moment we enter the substitution branch, so squad-mates skip it.
+        # We mark BEFORE the pop so that a failed search (no die high enough,
+        # pop returns None) still consumes the squad's one allowed attempt —
+        # the squad made its charge roll, it was allowed one substitution, it
+        # found none, the roll stays failed for every member.
+        # Key: squad_id (int, when >= 0) or profile name (str) — identical to
+        # the fate_advance / fate_hit / fate_save keying (task #28 re-key).
+        _fate_chg_key = sid if sid >= 0 else attacker.profile.name
         if (
             roll < dist
             and attacker.profile.faction == "Aeldari"
             and attacker_army.has_fate_dice()
+            and attacker_army.unit_budget_available("fate_charge", _fate_chg_key)
         ):
+            attacker_army.mark_unit_budget("fate_charge", _fate_chg_key)
             lower = min(d1, d2)
             needed = int(dist) - (roll - lower)   # the die value we need
             sub = attacker_army.pop_fate_die_meeting(max(1, needed))
