@@ -36,9 +36,36 @@ with no re-run, per the no-redundant-evaluations rule.
 created: "Stage 1 completion" (#44, #52, #61, #63 — definition of done: gated mean absolute error
 below the per-faction noise floor) and "Post-convergence (Stage 2 and held work)".
 
+**6. User-directed display work (same wave, display-only).** Three requests from the user's live
+replay session, all built and visually verified: (a) the Streamlit army table now shows composition
+in the natural reading order ("2 × 10 = 20" — two squads of ten models, twenty models total);
+(b) the replay renderer gained a full victory-point display — running score in the title bar and
+legend, per-objective holder tint with the holder's army colour and a white outline (user-confirmed
+direction), objective markers resized to their physical forty-millimetre footprint (the old
+three-and-a-half-inch diamond out-sized its own control ring and read as a giant stacked unit),
+a per-frame scoring flash showing the points awarded and both sides' objective control, and an
+end-of-round banner showing each army's secondary victory points (the only place secondary points
+are observable in the event stream); (c) `event_description` and the title now carry the running
+total. All reconstruction is event-stream-pure — legacy logs still scrub.
+
+**7. Collision report from the same session: ROOT CAUSE FOUND.** The user's screenshot showed
+overlapping bases and "units leaving objectives". New audit `scripts/diag_overlap_audit.py`
+(registered in the toolbox) measured both failure modes on the screenshot matchup: REAL overlap
+(80–114 live incidents per game; deploy already 21–36; tanks 2.2–3.0 inches deep; cross-army
+charge cases) and REPLAY drift (27–42 units per game up to 9.99 inches between live and
+event-reconstructed positions — the "leaving objectives" was the replay drawing stale positions).
+One root cause explains both: `_do_charge` (code/simulator.py:11763-11772) places the charger one
+inch from the target's CENTER with no collision-legality check and assigns the position without
+emitting a movement event. Deployment placement also never consults collision. Fix split per the
+telemetry precedent: the silent-position-assignment emission sweep is telemetry-only (UnitActivated
+precedent, byte-identical) → dispatched now; charge-end placement legality (one inch from base
+EDGE, collision-legal) and deployment spacing are behaviour-changing calibration levers → queued
+gated + paired for wave 240.
+
 **IN FLIGHT at last update:** Chaos Space Marines archetype reshape build agent (frame change on
-land → fresh anchor). **NEXT:** Sororitas F5 Bringers of Flame ASSAULT leg; Aeldari issue #44
-scoped diagnostic; modularization Stage B on its own branch off main.
+land → fresh anchor); movement-event emission sweep agent. **NEXT:** wave-240 gated collision
+levers (charge-end placement legality, deployment spacing); Sororitas F5 Bringers of Flame ASSAULT
+leg; Aeldari issue #44 scoped diagnostic; modularization Stage B on its own branch off main.
 
 ## Wave 238 (2026-06-11) — re-anchor on the defender-allocation frame: NEW STANDING FRAME gated MAE 5.83 + displacement Stage 2 recovered, verified, harvested (paired A/B in flight) + simulator modularization Stage A pull request 71 opened.
 

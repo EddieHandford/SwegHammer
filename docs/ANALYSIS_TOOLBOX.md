@@ -13,6 +13,7 @@ pull request that creates it.
 |---|---|
 | `scripts/diag_render_displacement.py` | Board renders at three game phases for four matchups plus scoring tails. Standing question: "what is wrong with this board state?" |
 | `scripts/diag_render_collision.py` | The original collision-era renderer; before/after renders are the visual anti-regression check for movement changes. |
+| `scripts/diag_overlap_audit.py` | Answers "is rendered stacking real or a replay artifact?" — pairwise live-position overlap audit at deploy and every round end using the collision predicate's own radius, plus live-versus-event-replayed position drift per unit. Found the charge-move double bug (placement with no collision check, position assigned with no movement event). |
 
 ## 2. Game-shape signatures (second axis of truth beyond win rates)
 

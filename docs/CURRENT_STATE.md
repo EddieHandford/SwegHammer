@@ -9,7 +9,8 @@
 - **UNDER-pole:** Chaos Space Marines −19.3 (g16.8, archetype reshape IN BUILD), Astra Militarum −18.0 (g14.8, BANKED structural), Adepta Sororitas −17.8 (g14.0, findings F5/F3/F4/F7/F6 queued).
 - **OVER-pole:** Adeptus Custodes +15.6 (g13.0), Imperial Knights +15.5 (g12.5), Aeldari +15.4 (g12.3, issue #44 diagnostic queued wave 240), Necrons +12.5 (g9.3), Adeptus Mechanicus +13.3 (g9.1).
 - **In band (5):** Thousand Sons, Leagues of Votann, Chaos Daemons, Grey Knights, Drukhari.
-**NEXT:** (1) Chaos Space Marines archetype reshape lands (frame change → fresh anchor); (2) Sororitas F5 Bringers of Flame ASSAULT leg; (3) Aeldari #44 scoped diagnostic; modularization Stage B build (own branch off main) when a slot frees.
+**Late-wave additions (user session):** replay renderer victory-point display + army-table composition column built and verified (display-only); collision root cause FOUND by new `scripts/diag_overlap_audit.py` — `_do_charge` (code/simulator.py:11763-11772) places chargers one inch from target CENTER with no collision check and no movement event (REAL overlap 80–114/game + REPLAY drift up to 9.99 inches); deployment also skips collision. Movement-event emission sweep (telemetry-only) dispatched; behaviour-changing halves queued wave 240.
+**NEXT:** (1) Chaos Space Marines archetype reshape lands (frame change → fresh anchor); (2) wave-240 gated collision levers: charge-end placement legality (one inch from base EDGE, collision-legal via `_collision_kwargs(attacker, allow_engagement=True)`) + deployment collision spacing, both gated + paired A/B; (3) Sororitas F5 Bringers of Flame ASSAULT leg; (4) Aeldari #44 scoped diagnostic; modularization Stage B build (own branch off main) when a slot frees.
 
 ---
 
