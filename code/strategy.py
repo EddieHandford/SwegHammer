@@ -1832,6 +1832,178 @@ def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, fl
     return None
 
 
+# ---------------------------------------------------------------------------
+# Displacement substrate Stage 1 — Fall-Back-only-when-wasted AI (SWEG_DISPLACE_FALLBACK)
+# ---------------------------------------------------------------------------
+# Avenue-2 displacement plan, Stage 1 (docs/DISPLACEMENT_SUBSTRATE_PLAN.md §5).
+# The legacy Fall Back branch (below, in pick_move_intent) disengages ANY
+# eligible SHOOTY/HEAVY unit caught in Engagement Range so it can resume
+# shooting. That is too eager: a durable out-fighter sitting on a contested
+# marker should DIE ON THE MARKER (the faithful tarpit) rather than cede the
+# objective by retreating. This gate narrows the legacy Fall Back to fire ONLY
+# when the unit is genuinely WASTED — all three conditions below must hold.
+#
+# This is an AI-piloting heuristic, NOT a 10e rule, so it carries no rule
+# citation of its own (same class as the kite / tarpit / synapse biases). It
+# does, however, PRICE two cited core mechanics that the simulator already
+# implements when it executes a FALL_BACK intent: the Fall Back shoot/charge
+# lockout (`simulator.fall_back`, no FLY exemption) and the Desperate Escape
+# test (`simulator.desperate_escape`, TITANIC/FLY exempt). The wording of those
+# mechanics is taken verbatim from data/rule_citations.d/core_fall_back.json —
+# this code does not re-derive them, it only reads the unit/board state to
+# decide whether choosing FALL_BACK is worth that already-modelled cost.
+#
+# Default OFF: when SWEG_DISPLACE_FALLBACK is unset, `_displace_fallback_enabled()`
+# returns False and the legacy branch runs unchanged (byte-identical OFF path).
+def _displace_fallback_enabled() -> bool:
+    return __import__("os").environ.get("SWEG_DISPLACE_FALLBACK", "0") == "1"
+
+
+def _displace_unit_effective_oc(unit, cur_round: int) -> int:
+    """This unit's effective Objective Control right now, for the wasted-check.
+
+    Mirrors the scorer: a Battle-shocked model contributes 0 Objective Control
+    (10e: a Battle-shocked unit has OC 0 until the start of its next Command
+    phase — verified the ONLY mechanic that zeroes OC), and a model in its
+    Damaged bracket contributes its reduced OC (bracket-aware, like
+    `_effective_oc_value`). The unit reference exposes its live battle via the
+    army back-reference; `cur_round` is the round used to evaluate Battle-shock.
+    """
+    if unit.is_currently_battle_shocked(cur_round):
+        return 0
+    return _effective_oc_value(unit)
+
+
+def _displace_no_control_consequence(
+    unit, friendly_alive, enemy_alive, objectives, cur_round,
+) -> bool:
+    """Condition 1 — the unit's presence changes NO marker outcome.
+
+    For every objective the unit currently sits on (within control_radius), the
+    unit "matters" iff its Objective Control is the swing that keeps the enemy
+    from controlling the marker: with the unit on it our side is at-least-tied
+    (we hold, or we flip the marker to contested, or we deny the enemy's score
+    by standing), but WITHOUT the unit the enemy strictly controls. The 10e
+    scorer awards a marker only to STRICTLY greater Objective Control, so a tie
+    denies the enemy (`simulator.objective_control_strictly_greater`); that is
+    why "our_with >= their AND our_without < their" captures hold, flip-to-
+    contested, and deny-by-standing in one test.
+
+    Returns True iff the unit matters at NO marker (safe to fall back on
+    condition 1). A Battle-shocked unit has effective Objective Control 0, so
+    `our_with == our_without` at every marker → it is never the swing → it
+    trivially passes (returns True), exactly as the plan specifies.
+    """
+    own_oc = _displace_unit_effective_oc(unit, cur_round)
+    for obj in objectives:
+        ox, oy = obj.x, obj.y
+        if _dist(unit.position, (ox, oy)) > obj.control_radius:
+            continue
+        # Effective friendly / enemy Objective Control credited at this marker,
+        # bracket-aware and Battle-shock-aware, mirroring the scorer's contest.
+        our_with = 0
+        for f in friendly_alive:
+            if _dist(f.position, (ox, oy)) <= obj.control_radius:
+                our_with += _displace_unit_effective_oc(f, cur_round)
+        their = 0
+        for e in enemy_alive:
+            if _dist(e.position, (ox, oy)) <= obj.control_radius:
+                their += _displace_unit_effective_oc(e, cur_round)
+        our_without = our_with - own_oc
+        # The unit is the swing keeping the enemy off the marker: with it we are
+        # at least tied, without it the enemy controls outright. That single
+        # test covers hold (our_with > their), flip-to-contested (our_with ==
+        # their), and deny-by-standing (the enemy would otherwise control).
+        if our_with >= their and our_without < their:
+            return False  # presence changes the marker outcome → NOT wasted
+    return True
+
+
+def _displace_likely_destroyed_if_stays(unit, engaged_enemies) -> bool:
+    """Sub-test for conditions 2 and 3: will the unit be destroyed in place?
+
+    Sums the expected melee wounds the enemies in Engagement Range deal this
+    round (the same `_kill_potential_wounds` math the charge picker uses) and
+    compares to the unit's remaining health. True iff it meets or exceeds — the
+    unit dies where it stands if it does not move. Pure universal stats, no
+    faction conditional.
+    """
+    our_profile = _score_profile(unit)
+    incoming = 0.0
+    for e in engaged_enemies:
+        incoming += _kill_potential_wounds(_score_profile(e), our_profile)
+    return incoming >= max(1.0, unit.current_health)
+
+
+def _displace_staying_costs_for_nothing(unit, engaged_enemies) -> bool:
+    """Condition 2 — staying costs material for nothing.
+
+    Two ways the unit is being wasted by staying locked in Engagement Range:
+      (a) likely destroyed — it dies in place this round
+          (`_displace_likely_destroyed_if_stays`); or
+      (b) its shooting is forfeited while it contributes nothing positionally —
+          condition 1 has already established it changes no marker outcome, and
+          a SHOOTY/HEAVY platform pinned in melee cannot fire, so simply being
+          stuck there wastes its whole activation.
+
+    Either arm suffices. The caller only reaches this for a fall-back-eligible
+    (SHOOTY/HEAVY, non-melee-class) unit that is in Engagement Range, so its main
+    weapon system is its guns and those are forfeited while it stays locked. With
+    condition 1 (no control consequence) verified separately by the caller, arm
+    (b) is always satisfied for such a unit — so this condition is structurally
+    met whenever the unit is genuinely a pinned, marker-irrelevant gun platform.
+    Arm (a) is still evaluated because it feeds condition 3's net-of-cost test.
+    """
+    if _displace_likely_destroyed_if_stays(unit, engaged_enemies):
+        return True   # (a) dies in place
+    return True       # (b) pinned gun platform contributing nothing positionally
+
+
+def _displace_fall_back_buys_something(unit, enemies, engaged_enemies, map_) -> bool:
+    """Condition 3 — falling back buys something real, NET of the move's cost.
+
+    The Fall Back move is only worth it if the preserved unit can actually be
+    used afterwards. Both already-modelled, already-cited core costs are priced
+    here (this helper reads them, it does NOT re-derive them):
+
+      * Shoot/charge lockout (`simulator.fall_back`): the unit cannot shoot or
+        declare a charge the turn it Falls Back, with NO FLY exemption. So the
+        "use" it buys is NEXT round's shooting, which is only real if there is a
+        destination that actually breaks engagement. No clear destination → the
+        move buys nothing (it would just re-pin) → return False, the unit stays.
+
+      * Desperate Escape (`simulator.desperate_escape`): a non-TITANIC, non-FLY
+        unit that Falls Back through enemy models (or while Battle-shocked) rolls
+        1D6 per model, one model destroyed per 1-2. Modelled one-Unit-per-model,
+        a bad roll zeroes this unit. The retreat must cross an enemy to fire the
+        test; we approximate that as "surrounded on the way out" — strictly more
+        engaging enemies than the two flanks of a clean away-vector, i.e. three
+        or more enemies in Engagement Range, where the unit cannot leave without
+        moving over one. When the test fires AND the unit would survive staying
+        anyway (it is NOT likely-destroyed-in-place), trading a ~1/3 chance of
+        self-destruction for next round's shooting is a bad deal — the cost eats
+        the benefit — so the unit stays (return False). If it is likely destroyed
+        by staying, a 2/3 escape survival strictly beats certain death, so the
+        move still buys preservation (the Desperate Escape arm does not block).
+
+    Returns True iff the Fall Back has a clear destination AND is not made
+    net-negative by the Desperate Escape cost.
+    """
+    fall_back_pos = _pick_fall_back_destination(unit, enemies, map_)
+    if fall_back_pos is None:
+        return False  # nowhere to go that breaks engagement — re-pin, no gain
+    p = unit.profile
+    # Desperate Escape exposure (TITANIC / FLY skip the test entirely — never
+    # blocked by this arm). The test fires only if the retreat must cross an
+    # enemy; "surrounded" (3+ enemies in Engagement Range) is the proxy for that.
+    if not (p.titanic or p.fly) and len(engaged_enemies) >= 3:
+        if not _displace_likely_destroyed_if_stays(unit, engaged_enemies):
+            # Survives by staying; a ~1/3 self-destruction on the way out to buy
+            # only next round's shooting is net-negative → stay and stay useful.
+            return False
+    return True
+
+
 _PLAN_LEFT = "LEFT_FLANK"
 _PLAN_RIGHT = "RIGHT_FLANK"
 _PLAN_MID = "MID_PUSH"
@@ -2281,9 +2453,37 @@ def pick_move_intent(
             for e in enemies
         )
         if in_engagement and enemies:
-            fall_back_pos = _pick_fall_back_destination(unit, enemies, map_)
-            if fall_back_pos is not None:
-                return fall_back_pos, _FALL_BACK_INTENT
+            # Displacement Stage 1 (SWEG_DISPLACE_FALLBACK): narrow the legacy
+            # eager Fall Back to fire ONLY when the unit is genuinely WASTED —
+            # all three conditions must hold (no control consequence, staying
+            # costs material for nothing, falling back buys something real net of
+            # the move's cost). A unit that can still hold or contest a marker
+            # STAYS and dies on it (the faithful tarpit). OFF path is the legacy
+            # branch verbatim — byte-identical. See the helper block above and
+            # docs/DISPLACEMENT_SUBSTRATE_PLAN.md §5 Stage 1.
+            if _displace_fallback_enabled():
+                _f_alive = friendly.alive_units
+                _e_alive = enemy.alive_units
+                _objectives = map_.objectives
+                _engaged = [
+                    e for e in _e_alive
+                    if _dist(unit.position, e.position) <= _ENGAGEMENT_RANGE
+                ]
+                if (
+                    _displace_no_control_consequence(
+                        unit, _f_alive, _e_alive, _objectives, cur_round)
+                    and _displace_staying_costs_for_nothing(unit, _engaged)
+                    and _displace_fall_back_buys_something(
+                        unit, enemies, _engaged, map_)
+                ):
+                    fall_back_pos = _pick_fall_back_destination(
+                        unit, enemies, map_)
+                    if fall_back_pos is not None:
+                        return fall_back_pos, _FALL_BACK_INTENT
+            else:
+                fall_back_pos = _pick_fall_back_destination(unit, enemies, map_)
+                if fall_back_pos is not None:
+                    return fall_back_pos, _FALL_BACK_INTENT
 
     # Precompute OC sums for all objectives — _oc_on_objective iterates
     # alive_units per call. our_oc is always fresh (friendly units may have

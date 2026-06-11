@@ -113,6 +113,22 @@ A/B is faithful-and-not-cratering. Render per the standing visual diagnostic on 
   is the only mechanic that zeroes it), so an engaged contester on a marker is still contesting. Handles the under-pole (genuinely wasted defenders cede markers the durable winner then takes) without
   clearing contesting bodies off the Knight's marker — the over-pole fix belongs to Stage 2, not to Stage 1
   fall-backs. Gate `SWEG_DISPLACE_FALLBACK`. Extends `SWEG_KITE`.
+
+  **Stage 1 BUILT (2026-06-11, gated default-OFF, awaiting the orchestrator's A/B).** The
+  Fall-Back-only-when-wasted decision sits at the existing eager Fall Back branch in
+  `code.strategy.pick_move_intent` (the SHOOTY/HEAVY in-engagement disengage). When
+  `SWEG_DISPLACE_FALLBACK=1`, that branch now fires only when all three conditions hold, evaluated
+  by three new helpers in `code/strategy.py`: `_displace_no_control_consequence` (condition 1 —
+  the unit is the swing keeping the enemy off no marker; a Battle-shocked unit at Objective Control
+  0 trivially passes), `_displace_staying_costs_for_nothing` (condition 2 — likely destroyed in
+  place, or a pinned gun platform whose shooting is forfeited for nothing positional), and
+  `_displace_fall_back_buys_something` (condition 3 — a clear destination exists AND the Desperate
+  Escape cost does not make the move net-negative; TITANIC/FLY skip the Desperate Escape arm). The
+  OFF path is the legacy two-line branch verbatim — byte-identical. New tests:
+  `tests/test_displace_fallback_wave236.py` (gate-OFF byte-identical; each condition blocks
+  individually; the tarpit rail — a losing unit on a marker stays; Desperate Escape priced into
+  condition 3). No new rule citation — this is an AI-piloting heuristic that PRICES the already-cited
+  `simulator.fall_back` lockout and `simulator.desperate_escape` test, it does not add a rule.
 - **Stage 2 — Charge-to-contest the durable holder.** AI directs affordable bodies to charge a marker held by a
   concentrated durable unit (the Knight), putting models in engagement range to contest/tarpit its Objective
   Control. Faithful (real hordes swarm Knights). Reduces the Imperial Knights over-hold. Gate
