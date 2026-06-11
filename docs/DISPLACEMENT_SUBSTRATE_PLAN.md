@@ -114,6 +114,16 @@ A/B is faithful-and-not-cratering. Render per the standing visual diagnostic on 
   clearing contesting bodies off the Knight's marker — the over-pole fix belongs to Stage 2, not to Stage 1
   fall-backs. Gate `SWEG_DISPLACE_FALLBACK`. Extends `SWEG_KITE`.
 
+  **Stage 1 ADOPTED AS DEFAULT (2026-06-11, wave 236).** The eighty-battle paired comparison
+  against the wave-236 anchor improved the gated headline (6.03 → 5.96, paired delta −0.07) with
+  decisive per-faction movers whose ninety-five percent confidence intervals exclude zero: Aeldari
+  −1.74 toward target, Chaos Knights +1.66 toward target, Leagues of Votann +1.42 (stays in band),
+  against Imperial Knights +1.36 and Chaos Daemons −1.94 wrong-direction. Net improvement on a
+  faithful piloting heuristic with the user-ruled stay-on-the-marker rails →
+  `SWEG_DISPLACE_FALLBACK` default flipped to on (set `SWEG_DISPLACE_FALLBACK=0` to revert; the
+  legacy eager Fall Back else-branch is kept byte-identical). On arm:
+  `data/wf_wave236_displace_on_n80.txt`. Build details below.
+
   **Stage 1 BUILT (2026-06-11, gated default-OFF, awaiting the orchestrator's A/B).** The
   Fall-Back-only-when-wasted decision sits at the existing eager Fall Back branch in
   `code.strategy.pick_move_intent` (the SHOOTY/HEAVY in-engagement disengage). When
