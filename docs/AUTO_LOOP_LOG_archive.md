@@ -7859,3 +7859,41 @@ logs (301 files) moved to gitignored `data/eval_archive/`; tracked stale logs de
 **The pull-request-67 archetype change makes every existing anchor stale â€” a fresh N=80 re-anchor on
 the new branch is mandatory before any keep/reject decision.** Displacement Stage 2 build still in
 flight in its worktree; harvests onto the new branch when it reports.
+
+## Wave 238 (2026-06-11) — re-anchor on the defender-allocation frame: NEW STANDING FRAME gated MAE 5.83 + displacement Stage 2 recovered, verified, harvested (paired A/B in flight) + simulator modularization Stage A pull request 71 opened.
+
+**1. Upstream pickup (procedure §H, first live exercise).** Ed merged pull request 69 (defender wound
+allocation — the defending player allocates wounds, scoring candidates by on-objective / distance /
+health, `SWEG_DEFENDER_ALLOC` default-ON) and pull request 70 (follow-up: wounds reach out-of-range
+models, finish wounded models first, plus a 188-line test file). Both are behaviour-changing, so both
+in-flight anchors were killed stale-on-arrival and the merges folded at wave boundaries (`8e81bde`,
+`0550475`), each validated with the full suite before relaunch.
+
+**2. Fresh full N=80 re-anchor on `0550475`: gated MAE 5.83** (raw 8.78, 5/22 in band).
+**NEW STANDING ANCHOR: `data/_anchor_sc7c_n80_log.json`** (record `data/_anchor_sc7c_n80.txt`). Against
+the wave-237 frame (5.71 on `4f9cce3`) the headline moved +0.12 — re-base churn on a frame change, not a
+keep/reject signal. The shape moved the right way for the defender-allocation mechanic: the over-pole
+softened (Adeptus Custodes +17.7 → +15.6 g12.98, Necrons +15.2 → +12.5 g9.26, Imperial Knights
++16.0 → +15.4 g12.48) — consistent with defenders now protecting objective-holders — while the
+under-pole deepened slightly (Chaos Space Marines −18.0 → −19.3 g16.82) and Aeldari (+15.4 g12.33) /
+Adeptus Mechanicus (+13.3 g9.12) worsened. In band (5): Thousand Sons, Leagues of Votann, Chaos
+Daemons, Grey Knights, Drukhari (Death Guard g1.72 and Chaos Knights g1.42 close behind).
+
+**3. Displacement Stage 2 recovered and harvested.** The build agent died mid-task leaving uncommitted
+work in its worktree; a recovery agent preserved it (`475c3c8`, 222 lines in `code/strategy.py` + a
+330-line test file), and a continuation agent verified the build complete against all rails: the
+`SWEG_DISPLACE_SWARM` gate (default-OFF) reads in exactly one place and the unset path is byte-identical;
+the contest decision sums the FULL CLUSTER's stacked objective control on both sides; a unit that cannot
+at least tie the defending cluster contributes zero contest value (no-suicidal-feed); the score injection
+mirrors the tarpit-pin pattern. Six tests green. Cherry-picked onto the calibration branch as `724252e`;
+full suite + citation audit + demo validation, then the paired eighty-battle A/B
+(`SWEG_DISPLACE_SWARM=1` versus the 5.83 anchor) — RESULT (early wave 239): gated 5.83 → 5.90
+(+0.07), a **wash missing its target**. Adeptus Custodes −0.05 (flat) and Imperial Knights +0.83
+(wrong direction) — the two factions the mechanic was built for did not move toward target — while
+the decisive movers were elsewhere: Adeptus Astartes −1.06 toward target, Astra Militarum −0.83 and
+Chaos Knights −1.21 away. Roughly one hundred flipped games concentrated in body-army factions: the
+mechanic fires but churns outcomes rather than converting the over-hold. **PARKED default-OFF** per
+the displacement plan — code and tests kept (`724252e`); re-test candidate once the Chaos Space
+Marines archetype reshape changes body-army composition.
+
+**4. Simulator modularization Stage A shipped for review.** On the user's explicit go, pull request 71
