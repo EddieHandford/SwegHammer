@@ -997,11 +997,14 @@ class HostKeysGatingTests(unittest.TestCase):
             "Typhus FNP must NOT leak onto a non-host bystander — this "
             "is the iter22 structural bug fix")
 
-    def test_overlord_plus_one_to_hit_only_to_warriors(self):
-        # Necron Overlord host_keys = warriors / immortals / lychguard.
-        # A C'tan Shard or Lokhust Heavy Destroyer in range must NOT
-        # receive +1-to-hit (those datasheets can't be led at all per the
-        # 10e Overlord datasheet's LEADER block).
+    def test_overlord_grants_no_plus_one_to_hit(self):
+        # Wave 235: the Overlord's plus_one_to_hit was a fabrication. The
+        # real "My Will Be Done" is a once-per-round free-Stratagem ability
+        # (a command-point discount), not a hit aura. The fabricated flag
+        # was removed; this test is repurposed as a regression pin against
+        # re-adding it (same pattern as test_dominus_aura_only_to_skitarii
+        # below). See tests/test_necron_leaders_wave235.py for the full
+        # removal coverage.
         leader = self._character("Overlord")
         warriors = self._non_character("Necron Warriors")   # legal host
         ctan = self._non_character("C'tan Shard of the Nightbringer")  # not in host_keys
@@ -1012,10 +1015,12 @@ class HostKeysGatingTests(unittest.TestCase):
         )
         warriors_buffs = effective_buffs(army.units[0])
         ctan_buffs = effective_buffs(army.units[1])
-        self.assertTrue(warriors_buffs["plus_one_to_hit"],
-            "Overlord My Will Be Done must reach Necron Warriors")
+        self.assertFalse(warriors_buffs["plus_one_to_hit"],
+            "Overlord must NOT grant +1-to-hit — My Will Be Done is a "
+            "free-Stratagem ability, not a hit aura (wave 235 fabrication "
+            "removal)")
         self.assertFalse(ctan_buffs["plus_one_to_hit"],
-            "Overlord aura must NOT reach a non-leadable C'tan Shard")
+            "Overlord must NOT buff a non-leadable C'tan Shard")
 
     def test_dominus_aura_only_to_skitarii(self):
         # ADMECH-DIAG-3 (2026-05-26): Dominus reroll_hit_ones was a fabrication;
