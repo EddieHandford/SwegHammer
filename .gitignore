@@ -32,3 +32,6 @@ LOOP_QA.md
 # Cached primary-source rule text for reference (copyright GW/Wahapedia; not for commit)
 data/reference/
 LOOP_QA_ARCHIVE.md
+
+# Local archive of historical evaluation logs and diagnostic renders (kept out of the repository)
+data/eval_archive/

@@ -48,6 +48,36 @@ Daemons, Grey Knights, Drukhari (World Eaters g0.53, Emperor's Children g0.38 ju
 anti-tank weapon-election corrections landed as ATK-BIAS-1 entries in a prior wave (briefing-drafter
 verified by direct file inspection). Queue item retired.
 
+**Wave-238 diagnostic result (Chaos Space Marines mark-grants, read-only, landed early):** REDIRECT —
+do NOT build Pactbound Zealots per-mark infrastructure as the next Chaos Space Marines lever. Grounding:
+(a) no mark keywords exist anywhere in the data layer (all 21 archetype units unmarked; mapper does not
+extract the BSData categoryLink mark keywords); (b) the per-mark grants fire ONLY during a successful
+Dark Pact (BSData rule id `009d-9d09-08c7-82e5` verbatim — "Each time a unit with one of these keywords
+gains a weapon ability as the result of a Dark Pact and does not fail the resulting Leadership test"),
+and Khorne/Tzeentch grants are fully redundant with the Dark Pacts Lethal Hits the simulator already
+applies — net uplift estimate 1–4 points against a −18.0 residual; (c) the loss-mode probe (24 games,
+6 hardest opponents) shows Chaos Space Marines lose **69% by OUT-POSITIONING** (alive at game end,
+lost on victory points; mean end survival 39%) and only 31% dead-by-combat — the same low-model-count
+off-marker signature as Imperial Knights / Daemons. The Chaos Space Marines under-pole is therefore the
+POSITIONAL class, not an output gap: the named levers are the displacement substrate's own-marker
+direction (mass/re-task-to-empty-markers, ranked in `docs/DISPLACEMENT_SUBSTRATE_PLAN.md` future
+candidates), not marks. Mark build anchors recorded in the diagnostic report should marks ever be wanted
+for completeness (BSData profile ids f5e9/8ea6/5c9d/68fd/642a).
+
+**BRANCH TRANSITION (2026-06-11 ~09:50):** Ed merged pull request 66 into `main` (merge `808f299`,
+which also brought in pull request 67's five archetype unit replacements — the parked frame-changing
+merge, now resolved). Old branch `claude/sim-calibration-6` deleted local + origin; clean branch
+**`claude/sim-calibration-7`** created off `origin/main`. Three completed worktree builds harvested
+onto it: Blood Surge squad-level sibling-death trigger (`a9cc9ee`, issue #61 — also fixed a
+chip-damage false trigger and an alive-check early-return that suppressed the surge on real model
+death), officer Order target-type eligibility (`9a5bd4e` — plus BSData-sourced corrections: Cadian
+Castellan two Orders, Leman Russ / Rogal Dorn Commanders two Orders to SQUADRON), Adepta Sororitas
+Acts of Faith per-phase (`620a586`, `SWEG_AOF_PER_PHASE` default-off pending paired A/B). Stale eval
+logs (301 files) moved to gitignored `data/eval_archive/`; tracked stale logs deleted from the index.
+**The pull-request-67 archetype change makes every existing anchor stale — a fresh N=80 re-anchor on
+the new branch is mandatory before any keep/reject decision.** Displacement Stage 2 build still in
+flight in its worktree; harvests onto the new branch when it reports.
+
 **In-flight (wave 237):** three worktree builds dispatched — **displacement Stage 2**
 (`SWEG_DISPLACE_SWARM`, charge-to-contest with the full-cluster stacked-Objective-Control rail,
 default-off pending its own paired A/B vs the 5.71 anchor), **officer Order target-type eligibility**
