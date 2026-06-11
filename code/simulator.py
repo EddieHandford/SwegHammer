@@ -11023,6 +11023,40 @@ class Battle:
             committed[target.uid] = committed.get(target.uid, 0.0) + \
                 self._ranged_expected_wounds(p, target)
 
+    def _defender_alloc_model(self, candidates: list) -> "Unit":
+        """Defender wound-allocation heuristic (SWEG_DEFENDER_ALLOC).
+
+        From a list of alive models in the same squad, pick the one the
+        defending player would sacrifice first. Removes trailing models
+        (furthest from any objective) before models holding objectives.
+        Among equally-positioned candidates, prefers the more-wounded model
+        (finish it off sooner rather than accumulating multiple partial
+        kills). Cited as `simulator.defender_allocation`.
+        """
+        if not candidates:
+            return None
+        objectives = self.map.objectives
+        if not objectives:
+            return candidates[0]
+
+        def _score(u):
+            min_dist = min(
+                _distance(u.position, (obj.x, obj.y))
+                for obj in objectives
+            )
+            on_obj = any(
+                _distance(u.position, (obj.x, obj.y)) <= obj.control_radius
+                for obj in objectives
+            )
+            hp_frac = u.current_health / (u.profile.health or 1.0)
+            # min() picks the lowest score: on_obj=0 < 1 so off-obj models
+            # are picked first; -min_dist makes far/trailing models score
+            # lower (picked first); hp_frac breaks ties toward the
+            # more-wounded model.
+            return (int(on_obj), -min_dist, hp_frac)
+
+        return min(candidates, key=_score)
+
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         # Pariah Nexus action lockout (10e core, wave 74): a unit performing an
         # action (e.g. Cleanse) cannot shoot this turn. Cited as
@@ -11364,6 +11398,25 @@ class Battle:
                 ),
             )
 
+        # Defender allocation (SWEG_DEFENDER_ALLOC, default ON): the
+        # attacker's heuristics above identify which squad to target; within
+        # that squad the defending player picks which model absorbs the first
+        # wound — removing trailing models before models holding objectives.
+        # The same heuristic is passed as alloc_next_fn into Unit.attack so
+        # it also governs sibling selection when a model dies mid-sequence.
+        # Cited as `simulator.defender_allocation`.
+        _alloc_fn = None
+        if __import__("os").environ.get("SWEG_DEFENDER_ALLOC", "1") != "0":
+            _sid = getattr(shoot_target, "squad_id", -1)
+            if _sid >= 0:
+                _squad_pool = [
+                    u for u in pool
+                    if getattr(u, "squad_id", -1) == _sid and u.is_alive
+                ]
+                if _squad_pool:
+                    shoot_target = self._defender_alloc_model(_squad_pool)
+            _alloc_fn = self._defender_alloc_model
+
         # Go To Ground (10e core stratagem, env-gated SWEG_GTG): the defender may
         # spend 1 Command Point, just after this target was selected, to give the
         # targeted INFANTRY unit a 6++ invuln + Benefit of Cover until end of
@@ -11408,7 +11461,8 @@ class Battle:
         # model destruction event on the defender (Khorne Berzerkers only).
         # See `simulator.blood_surge` in rule_citations.json.
         _blood_surge_health_before = shoot_target.current_health
-        dmg = attacker.attack(shoot_target, distance=distance, has_los=has_los)
+        dmg = attacker.attack(shoot_target, distance=distance, has_los=has_los,
+                              alloc_next_fn=_alloc_fn)
         # Firing Deck X (10e core, TRANSPORT keyword). If the attacker is a
         # TRANSPORT with embarked passengers and firing_deck > 0, up to X
         # passenger weapons also fire this Shooting phase. Cited as
@@ -11421,6 +11475,7 @@ class Battle:
         ):
             dmg += self._apply_firing_deck(
                 attacker, shoot_target, attacker_army, defender_army,
+                alloc_next_fn=_alloc_fn,
             )
         shoot_target.in_cover = saved_cover
         shoot_target.in_heavy_cover = saved_heavy
@@ -13062,6 +13117,7 @@ class Battle:
     def _apply_firing_deck(
         self, transport: "Unit", target: "Unit",
         attacker_army: Army, defender_army: Army,
+        alloc_next_fn=None,
     ) -> float:
         """Firing Deck X (10e core).
 
@@ -13110,6 +13166,7 @@ class Battle:
             )
             total += passenger.attack(
                 target, distance=distance, has_los=has_los,
+                alloc_next_fn=alloc_next_fn,
             )
         return total
 

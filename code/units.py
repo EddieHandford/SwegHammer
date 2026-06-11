@@ -1375,6 +1375,7 @@ class Unit:
         is_charging: bool = False,
         has_los: bool = True,
         overwatch: bool = False,
+        alloc_next_fn=None,
     ) -> float:
         """
         Full stochastic 10e attack sequence. For each of `attacks` shots:
@@ -3632,11 +3633,16 @@ class Unit:
                          and getattr(u, "embarked_in", None) is None]
                         if tgt_army is not None else []
                     )
-                for u in _alloc_siblings:
-                    if u.is_alive:
-                        _alloc_model = u
-                        return u
-                return None  # whole unit destroyed — remaining damage lost
+                alive = [u for u in _alloc_siblings if u.is_alive]
+                if not alive:
+                    return None  # whole unit destroyed — remaining damage lost
+                # Defender picks which model absorbs the next wound. When
+                # alloc_next_fn is supplied (SWEG_DEFENDER_ALLOC), use the
+                # defender heuristic; otherwise fall back to list order.
+                # Cited as `simulator.defender_allocation`.
+                next_u = alloc_next_fn(alive) if alloc_next_fn is not None else alive[0]
+                _alloc_model = next_u
+                return next_u
 
             for _ in range(n_attacks):
                 # PER-MODEL-LOADOUTS (Stage 4) — roll this shot's Damage. When the
