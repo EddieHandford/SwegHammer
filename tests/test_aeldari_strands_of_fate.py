@@ -521,13 +521,22 @@ class StrandsOfFateChargeSquadGateTests(unittest.TestCase):
         # The cache must hold the substituted pair, not the natural (3, 3).
         sid = a_army.units[0].squad_id
         self.assertEqual(battle._squad_charge_roll[sid], (3, 6))
-        # And the WHOLE squad must be in engagement range of the target —
-        # the charge move parks a successful charger within ~1 inch.
-        in_engagement = [
-            u for u in a_army.units
-            if ((u.position[0] - target.position[0]) ** 2
-                + (u.position[1] - target.position[1]) ** 2) ** 0.5 <= 2.0
-        ]
+        # And the WHOLE squad must be in engagement range of the target.
+        # Engagement is measured base-edge to base-edge (within 1"), which is
+        # placement-path agnostic: the default base-edge placement (gate
+        # SWEG_CHARGE_BASEEDGE, default-ON since wave 240) ends the charger
+        # with a base-edge gap of at most 1", and the legacy centre-1"
+        # placement ends even closer. A raw centre-distance threshold would
+        # falsely fail under the base-edge default.
+        from code.sim.geometry import _bc_model_radius_in
+        r_t = _bc_model_radius_in(target.profile)
+        in_engagement = []
+        for u in a_army.units:
+            centre_dist = ((u.position[0] - target.position[0]) ** 2
+                           + (u.position[1] - target.position[1]) ** 2) ** 0.5
+            gap = centre_dist - (_bc_model_radius_in(u.profile) + r_t)
+            if gap <= 1.0 + 1e-6:
+                in_engagement.append(u)
         self.assertEqual(
             len(in_engagement), 5,
             f"Expected all 5 squad-mates to complete the charge on the "
