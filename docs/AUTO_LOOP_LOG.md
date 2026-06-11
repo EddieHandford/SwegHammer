@@ -58,8 +58,16 @@ signature) 49 → 7 — the fix does exactly what it was built to do. Per the fi
 authorization (headline rising is expected and authorised for faithful mechanics; this fixes the
 user-flagged collision bug), the gate is NOT discarded on the screen verdict: the adoption call
 moves to an N=80 confirm of the actual adoption configuration (both collision gates together)
-after the remaining screens. `SWEG_DEPLOY_COLLISION=1` N=40 full-matrix screen NOW IN FLIGHT;
-then `SWEG_BOF_ASSAULT=1` Sororitas-scoped; then the combined collision N=80 confirm.
+after the remaining screens.
+
+**`SWEG_DEPLOY_COLLISION=1` N=40 screen DONE: RIGHT-DIRECTION WIN — matched-subset gated
+5.95 → 5.79 (−0.15), both decisive movers deep-pole factions moving toward target: Astra
+Militarum +8.25 (second-deepest under-pole) and Imperial Knights −5.75 (over-pole).** This is
+the avenue-2 physical-board-control prediction landing exactly as forecast — deployment spacing
+spreads body armies honestly and stops Knight stacking. Flip counts ~250-300 per faction
+(deployment touches every game) so most other movers stay inside wide confidence intervals at
+N=40. `SWEG_BOF_ASSAULT=1` Sororitas-scoped N=80 NOW IN FLIGHT (scoped is ~11× cheaper, so
+straight to confirm-grade N); then the combined collision N=80 confirm.
 
 **IN FLIGHT:** Sororitas-scoped N=80 re-anchor run; Aeldari over-pole diagnostic agent (re-dispatch);
 movement-event emission sweep agent (briefed against `1fb141e` — its commit will need a cherry-pick
