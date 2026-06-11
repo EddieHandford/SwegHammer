@@ -56,9 +56,9 @@
     "rule_name": "First Rank, Fire! Second Rank, Fire! (Astra Militarum Order)",
     "quoted_text": "Improve the Attacks characteristic of Rapid Fire weapons equipped by models in this unit by 1.",
     "trigger": "Order issued by an AM OFFICER during the Command phase to an eligible BATTLELINE INFANTRY target within 6\"",
-    "effect": "(APPROXIMATION) routes the offensive payoff through `Unit.transient_plus_one_to_hit_shooting` on the target for the round — codex effect is +1 Attack on Rapid Fire weapons (a per-weapon attack-count uplift), but SwegHammer has no transient attack-count flag and the BSData parser locks weapon attacks at mapper time. Same direction (more landed ranged hits); magnitude comparable on a Lasgun (Rapid Fire 1, BS 4+) target where the +1 attack roughly doubles shots and our +1 to hit closes the 4+ to 3+. The AI picks FRFSRF as the canonical Lasgun-block Order — any BATTLELINE INFANTRY with real ranged DPA (>= 0.5) qualifies",
+    "effect": "FAITHFUL MAPPING (wave 236 NE-2): sets `Unit.transient_frfsrf_active` on the target for the round. The codex text has no range condition; Unit.compute_expected_kills reads the flag and adds +1 to n_attacks for every weapon profile with rapid_fire > 0, unconditionally at all ranges (the existing half-range Rapid Fire X bonus at line ~2010 is separate and unchanged). Cross-checked: Wahapedia AM faction page + BSData Library cat.gz both carry the verbatim text above. The AI picks FRFSRF as the canonical Lasgun-block Order — any BATTLELINE INFANTRY with real ranged DPA (>= 0.5) qualifies.",
     "scope": "phase-gated",
-    "approximation": true
+    "approximation": false
   },
 
   "Order.Take Cover!": {

@@ -912,6 +912,13 @@ class Unit:
         # Saim-Hann (Aeldari):
         #   transient_halve_damage — Spirit Stones. Defender buff: each per-shot
         #       damage is halved (rounded up) for the round.
+        # Astra Militarum (Voice of Command Order):
+        #   transient_frfsrf_active — First Rank, Fire! Second Rank, Fire! Order
+        #       (AM Order). While True, weapons with rapid_fire > 0 gain +1 to
+        #       their Attacks characteristic (unconditional, any range). Set by
+        #       `orders._apply_order`; cleared with all other transient flags.
+        #       Cited as `Order.First Rank, Fire! Second Rank, Fire!`.
+        "transient_frfsrf_active",
         "transient_plus_one_to_wound_shooting",
         "transient_invuln_4",
         "transient_minus_one_damage_taken",
@@ -1129,6 +1136,9 @@ class Unit:
         # Awakened Dynasty (Necrons) per-round stratagem flags.
         self.transient_fnp_5: bool = False
         self.transient_plus_one_to_hit_shooting: bool = False
+        # First Rank, Fire! Second Rank, Fire! (AM Order): +1 Attacks for
+        # Rapid Fire weapons (unconditional, any range). Cleared per round.
+        self.transient_frfsrf_active: bool = False
         # Saim-Hann (Aeldari) per-round stratagem flag.
         self.transient_halve_damage: bool = False
         # Awakened Dynasty (Necrons) Protocol of the Undying Legions: integer
@@ -1879,6 +1889,18 @@ class Unit:
                 _dmg_dice = p.damage_dice
                 _dmg_dice_mean = per_shot_dmg
                 n_attacks = max(1, int(p.attacks))
+                # FRFSRF: "First Rank, Fire! Second Rank, Fire!" Order
+                # (Astra Militarum Voice of Command). Verbatim rule text:
+                # "Improve the Attacks characteristic of Rapid Fire weapons
+                # equipped by models in this unit by 1." — no range condition,
+                # so the +1 applies at all ranges. The half-range Rapid Fire X
+                # bonus (line ~2010) is separate and unchanged.
+                # Cited: `Order.First Rank, Fire! Second Rank, Fire!`
+                if (
+                    getattr(self, "transient_frfsrf_active", False)
+                    and int(p.rapid_fire) > 0
+                ):
+                    n_attacks += 1
                 hit_target = None     # set below
                 strength = p.strength
                 ap = p.ap

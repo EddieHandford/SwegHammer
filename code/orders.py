@@ -51,14 +51,14 @@ Effect routing (APPROXIMATION where noted):
       payoff via a single existing transient flag — same direction
       (more landed melee damage), comparable magnitude on a 4+ wound.
       Notes per CLAUDE.md §10 in `data/rule_citations.d/astra_militarum.json`.
-    * First Rank, Fire! Second Rank, Fire! — `transient_plus_one_to_hit_shooting`
-      on target unit. APPROXIMATION: codex effect is +1 Attack on Rapid
-      Fire weapons (a per-weapon attack-count uplift). SwegHammer has no
-      transient attack-count buff, so the value is routed through +1 to
-      hit shooting — same direction (more landed hits on shooting),
-      magnitude is comparable on a Lasgun (1A) target where +1 hit on
-      RF 1 closes a 4+ to a 3+, matching the doubled shot count's
-      expected hits.
+    * First Rank, Fire! Second Rank, Fire! — `transient_frfsrf_active`
+      on target unit. Faithful mapping: codex text "Improve the Attacks
+      characteristic of Rapid Fire weapons equipped by models in this
+      unit by 1." The flag gates a +1 n_attacks uplift in
+      Unit.compute_expected_kills for every weapon profile that has
+      rapid_fire > 0, unconditionally at all ranges (the rule has no
+      range condition). Cited as
+      `Order.First Rank, Fire! Second Rank, Fire!`.
     * Take Cover! — `transient_plus_one_save` on target unit. Direct
       mapping; codex effect is "+1 to save (cannot improve better than
       3+)" which lines up exactly with our +1-save flag (the 3+ cap is
@@ -231,9 +231,13 @@ def _apply_order(target: "Unit", order: str) -> None:
     elif order == ORDER_FIX_BAYONETS:
         target.transient_plus_one_to_wound_melee = True
     elif order == ORDER_FRFSRF:
-        # APPROXIMATION: +1 Attack on Rapid Fire weapons → +1 to hit
-        # shooting (same single-flag transient slot as Take Aim!).
-        target.transient_plus_one_to_hit_shooting = True
+        # Faithful mapping: "Improve the Attacks characteristic of Rapid
+        # Fire weapons equipped by models in this unit by 1." — sets
+        # transient_frfsrf_active; the attack-count uplift is applied in
+        # Unit.compute_expected_kills for any weapon with rapid_fire > 0,
+        # unconditionally at all ranges (no range condition in the rule
+        # text). Cited: `Order.First Rank, Fire! Second Rank, Fire!`
+        target.transient_frfsrf_active = True
     elif order == ORDER_TAKE_COVER:
         target.transient_plus_one_save = True
     # Unknown Order — silent no-op so a stale order string in the AI

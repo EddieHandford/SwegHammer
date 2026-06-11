@@ -3431,6 +3431,8 @@ class Battle:
             u.go_to_ground_active = False
             u.transient_fnp_5 = False
             u.transient_plus_one_to_hit_shooting = False
+            # First Rank, Fire! Second Rank, Fire! (AM Order) per-round flag.
+            u.transient_frfsrf_active = False
             u.transient_halve_damage = False
             u.transient_undying_legions_pulse = 0
             # ST-1 proper-keyword transient flags.
