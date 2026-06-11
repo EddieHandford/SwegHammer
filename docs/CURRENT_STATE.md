@@ -1,6 +1,15 @@
 # SwegHammer calibration — current state
 
-**BRANCH `claude/sim-calibration-7` (2026-06-11) — started clean off `origin/main` after Ed merged pull request 66; harvested Blood Surge (`a9cc9ee`), officer Order eligibility (`9a5bd4e`), Acts of Faith per-phase (`620a586`, `SWEG_AOF_PER_PHASE` default-off). Ed's defender-allocation pull requests 69+70 folded per procedure §H (`8e81bde`, `0550475`). Re-anchor DONE (wave 238 below). Checkpoint pending with the user: branch past size caps with no open pull request.**
+**BRANCH `claude/sim-calibration-7` (2026-06-11) — started clean off `origin/main` after Ed merged pull request 66; harvested Blood Surge (`a9cc9ee`), officer Order eligibility (`9a5bd4e`), Acts of Faith per-phase (`620a586`). Ed's defender-allocation pull requests 69+70 folded per procedure §H (`8e81bde`, `0550475`); modularization Stage A merge folded at the wave-239 boundary (fingerprint-proven identical pre/post on this branch). Checkpoint pending with the user: branch past size caps with no open pull request.**
+
+---
+
+**WAVE 239 (2026-06-11, in progress) — Acts of Faith per-phase ADOPTED AS DEFAULT (metric-neutral, fidelity-first) + modularization Stage A folded with fingerprint proof + NEW STANDING ANCHOR gated 5.85 at zero eval cost. Chaos Space Marines archetype reshape still in build.**
+**Acts of Faith per-phase (`SWEG_AOF_PER_PHASE`) measured and adopted default-ON** (`7834b75`): N=80 paired vs the 5.83 anchor came back **metric-neutral** (headline +0.03; Adepta Sororitas −0.62 inside the ±0.90 confidence interval, 31 flips; every other faction byte-flat) — the expected +2-4 uplift did NOT materialize, but the per-phase grant is the verbatim codex rule and the conservative cap's justification died with the invulnerable-save mapper fix, so it adopts on the fidelity-first precedent (conditional invulnerable saves). Legacy path behind `=0`. **Stage A fold:** Ed merged pull request 71; `origin/main` folded at the wave boundary, and the motion-proof fingerprint run on THIS branch's tree pre- and post-merge is identical (`45df5b56…`) — behaviour unchanged, anchor survives. Full suite 1500 green on the merged tree, demo exit 0. **NEW STANDING ANCHOR: `data/_anchor_sc7d_n80_log.json` (gated 5.85, raw 8.81, 5/22 in band)** — the Acts-of-Faith ON arm promoted directly (its config equals the new production default exactly; zero new battles). GitHub hygiene on the user's direction: Stage-2-function issues relabelled + `blocked` (#45-#49, #51), milestones "Stage 1 completion" (#44/#52/#61/#63) and "Post-convergence" created. **Residual surface (sim vs real, gated points):**
+- **UNDER-pole:** Chaos Space Marines −19.3 (g16.8, archetype reshape IN BUILD), Astra Militarum −18.0 (g14.8, BANKED structural), Adepta Sororitas −17.8 (g14.0, findings F5/F3/F4/F7/F6 queued).
+- **OVER-pole:** Adeptus Custodes +15.6 (g13.0), Imperial Knights +15.5 (g12.5), Aeldari +15.4 (g12.3, issue #44 diagnostic queued wave 240), Necrons +12.5 (g9.3), Adeptus Mechanicus +13.3 (g9.1).
+- **In band (5):** Thousand Sons, Leagues of Votann, Chaos Daemons, Grey Knights, Drukhari.
+**NEXT:** (1) Chaos Space Marines archetype reshape lands (frame change → fresh anchor); (2) Sororitas F5 Bringers of Flame ASSAULT leg; (3) Aeldari #44 scoped diagnostic; modularization Stage B build (own branch off main) when a slot frees.
 
 ---
 

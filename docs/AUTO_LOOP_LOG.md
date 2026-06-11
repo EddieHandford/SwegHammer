@@ -4,6 +4,42 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 239 (2026-06-11, in progress) — Acts of Faith per-phase adopted as default + Stage A folded with on-branch fingerprint proof + anchor promoted at zero evaluation cost.
+
+**1. Displacement Stage 2 verdict recorded** (`b0b36c6`): wash missing its target, parked default-off
+— full detail in the wave-238 block below and the decision ledger.
+
+**2. Acts of Faith per-phase adopted as production default** (`7834b75`). The N=80 paired A/B versus
+the 5.83 anchor measured metric-neutral: headline +0.03, Adepta Sororitas −0.62 inside the ±0.90
+confidence interval (31 flips), every other faction byte-flat. The expected +2-4 uplift did not
+materialize — but the per-phase grant is the verbatim codex rule, the conservative cap's historical
+justification (the +14.39 over-performance) was attributed to the since-fixed invulnerable-save
+mapper bug, and the fidelity-first precedent (conditional invulnerable saves, kept default-on as
+metric-neutral fidelity) applies directly. Legacy per-round path kept behind `=0`; gate-off tests
+opt out explicitly.
+
+**3. Modularization Stage A folded with an on-branch behaviour proof** (merge commit, procedure §H).
+Ed merged pull request 71; because the calibration branch has diverged ~2,400 lines from main, the
+main-side fingerprint proof does not automatically transfer — so the motion-proof harness was run on
+THIS branch's tree immediately before and after the merge: fingerprint identical both sides
+(`45df5b56…`). The fold is behaviour-neutral here too; the standing anchor survives. Full suite
+1500 green on the merged tree, demonstration battle exit 0.
+
+**4. Standing anchor promoted at zero evaluation cost.** With the default flipped, the production
+configuration now equals the Acts-of-Faith ON arm exactly, and the Stage A fold is proven
+behaviour-neutral — so the ON-arm log was promoted directly to
+**NEW STANDING ANCHOR `data/_anchor_sc7d_n80_log.json` (gated 5.85, raw 8.81, 5/22 in band)**
+with no re-run, per the no-redundant-evaluations rule.
+
+**5. GitHub hygiene on the user's direction.** Stage-2-function issues relabelled (`stage-2` +
+`blocked`: #45-#49, #51, each with a comment naming its unblock condition) and two milestones
+created: "Stage 1 completion" (#44, #52, #61, #63 — definition of done: gated mean absolute error
+below the per-faction noise floor) and "Post-convergence (Stage 2 and held work)".
+
+**IN FLIGHT at last update:** Chaos Space Marines archetype reshape build agent (frame change on
+land → fresh anchor). **NEXT:** Sororitas F5 Bringers of Flame ASSAULT leg; Aeldari issue #44
+scoped diagnostic; modularization Stage B on its own branch off main.
+
 ## Wave 238 (2026-06-11) — re-anchor on the defender-allocation frame: NEW STANDING FRAME gated MAE 5.83 + displacement Stage 2 recovered, verified, harvested (paired A/B in flight) + simulator modularization Stage A pull request 71 opened.
 
 **1. Upstream pickup (procedure §H, first live exercise).** Ed merged pull request 69 (defender wound
