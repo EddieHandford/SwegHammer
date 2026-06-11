@@ -587,6 +587,17 @@ class UnitProfile:
     # devastating-wounds bypass path and the failed-save path). Cited as
     # `UnitProfile.necrodermis`.
     necrodermis: bool = False
+    # ADEPTA SORORITAS — Righteous Paragons (Paragon Warsuits datasheet
+    # ability, 10e). Wahapedia verbatim: "Each time a model in this unit
+    # makes an attack that targets a MONSTER or VEHICLE unit, add 1 to
+    # the Hit roll and add 1 to the Wound roll." Attacker-side +1 to Hit
+    # and +1 to Wound gated on: (a) attacker carries this flag (set on
+    # the Paragon Warsuits UnitProfile via overrides.json), (b) the
+    # target has the MONSTER or VEHICLE keyword in its unit_keywords.
+    # The bonus applies to all attacks (both ranged and melee) this unit
+    # makes against qualifying targets. Cited as
+    # `simulator.righteous_paragons`.
+    righteous_paragons: bool = False
     # MAP-4 — per-unit Reanimation Protocols eligibility flag.
     # 10e Necron datasheets all CARRY the "Reanimation Protocols" ability, but
     # the ability text excludes CHARACTER / MONSTER / VEHICLE models from
@@ -2506,6 +2517,22 @@ class Unit:
                 and self.transient_plus_one_to_hit_shooting
             ):
                 hit_mod_delta += 1
+
+            # ---- Righteous Paragons (Paragon Warsuits datasheet ability,
+            # 10e Adepta Sororitas codex). Wahapedia verbatim: "Each time a
+            # model in this unit makes an attack that targets a MONSTER or
+            # VEHICLE unit, add 1 to the Hit roll and add 1 to the Wound
+            # roll." Two-way gate:
+            #   1. attacker carries the `righteous_paragons` flag (set on the
+            #      Paragon Warsuits UnitProfile via overrides.json),
+            #   2. target has MONSTER or VEHICLE in its unit_keywords.
+            # Applies to both ranged and melee attacks; no phase restriction
+            # in the rule text. Cited as `simulator.righteous_paragons`.
+            if p.righteous_paragons:
+                _rp_tgt_kws = set(target.profile.unit_keywords or ())
+                if "MONSTER" in _rp_tgt_kws or "VEHICLE" in _rp_tgt_kws:
+                    hit_mod_delta += 1
+                    wound_mod_delta += 1
 
             # ---- Death Guard Contagions of Nurgle (army rule, 10e) — Round 1
             # DROPPED (iter-4): the Round-1 Virulent Rot (-1 T) branch was the
@@ -4750,6 +4777,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             murderers_cowl=entry.murderers_cowl,
             gloam_rot=entry.gloam_rot,
             necrodermis=entry.necrodermis,
+            righteous_paragons=entry.righteous_paragons,
             reanimates_with_army=entry.reanimates_with_army,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,

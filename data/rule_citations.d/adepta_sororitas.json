@@ -47,5 +47,14 @@
     "effect": "(approximation) reroll_hit_ones=True + reroll_wound_ones=True — re-rolls natural 1s on both Hit and Wound rolls. The codex grants full re-roll of any failure (not just 1s); SwegHammer's LeaderAbility schema has no full-reroll-distinct-from-reroll-1s field. Direction-correct; strictly weaker than the codex. BSData v10.6.0 ability id 5e86-cb68-9205-16c4.",
     "scope": "unit-led",
     "approximation": "true"
+  },
+
+  "simulator.righteous_paragons": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Paragon-Warsuits",
+    "rule_name": "Righteous Paragons",
+    "quoted_text": "Each time a model in this unit makes an attack that targets a MONSTER or VEHICLE unit, add 1 to the Hit roll and add 1 to the Wound roll.",
+    "trigger": "attacker is a Paragon Warsuits model (righteous_paragons=True set via data/overrides.json) and the target unit has the MONSTER or VEHICLE keyword in its unit_keywords",
+    "effect": "+1 to the Hit roll (hit_mod_delta += 1) and +1 to the Wound roll (wound_mod_delta += 1); both composed through the 10e ±1 modifier clamp. Applies to all attacks (ranged and melee) against qualifying targets.",
+    "scope": "keyword-gated"
   }
 }

@@ -154,6 +154,12 @@ class CatalogEntry:
     # subtract 1 from the Wound roll." Set per-unit via overrides.json.
     # Cited as `simulator.gloam_rot`.
     gloam_rot: bool = False
+    # ADEPTA SORORITAS — Righteous Paragons (Paragon Warsuits datasheet
+    # ability). Wahapedia verbatim: "Each time a model in this unit makes
+    # an attack that targets a MONSTER or VEHICLE unit, add 1 to the Hit
+    # roll and add 1 to the Wound roll." Set per-unit via overrides.json.
+    # Cited as `simulator.righteous_paragons`.
+    righteous_paragons: bool = False
     # NECRONS-CTAN — Necrodermis (C'tan datasheet ability). Halves the
     # Damage characteristic of each allocated attack (rounding up); D1
     # attacks deal 0 damage. Set per-unit via overrides.json (the BSData
@@ -330,6 +336,7 @@ class CatalogEntry:
             resolute_will=bool(d.get("resolute_will", False)),
             murderers_cowl=bool(d.get("murderers_cowl", False)),
             gloam_rot=bool(d.get("gloam_rot", False)),
+            righteous_paragons=bool(d.get("righteous_paragons", False)),
             necrodermis=bool(d.get("necrodermis", False)),
             reanimates_with_army=bool(d.get("reanimates_with_army", False)),
             unit_keywords=list(d.get("unit_keywords") or []),
@@ -573,6 +580,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "resolute_will": override.get("resolute_will", base.resolute_will),
         "murderers_cowl": override.get("murderers_cowl", base.murderers_cowl),
         "gloam_rot": override.get("gloam_rot", base.gloam_rot),
+        "righteous_paragons": override.get("righteous_paragons", base.righteous_paragons),
         "necrodermis": override.get("necrodermis", base.necrodermis),
         "reanimates_with_army": override.get("reanimates_with_army", base.reanimates_with_army),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),

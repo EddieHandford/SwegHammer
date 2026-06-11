@@ -606,6 +606,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # self-revive on 2+ when Celestine is destroyed. Gated SWEG_SOROR_ABILITIES.
     # Cited in data/rule_citations.d/adepta_sororitas.json.
     "simulator.celestine_miraculous_intervention",
+    # Sororitas — Paragon Warsuits "Righteous Paragons" datasheet ability (10e).
+    # +1 to the Hit roll and +1 to the Wound roll when the target has the MONSTER
+    # or VEHICLE keyword. Attacker-side gate in Unit.attack; flag set per-unit via
+    # data/overrides.json (righteous_paragons=True). Cited in
+    # data/rule_citations.d/adepta_sororitas.json.
+    "simulator.righteous_paragons",
     # Wave 221 — Chaos Daemons Daemonic Incursion "Warp Rifts" (env-gated
     # SWEG_WARP_RIFTS). Reduces Deep Strike minimum gap from 9" to 6" for
     # Chaos Daemons units arriving under the Daemonic Incursion detachment.

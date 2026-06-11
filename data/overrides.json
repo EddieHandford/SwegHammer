@@ -1378,6 +1378,10 @@
       "invuln_save": 4,
       "notes": "iter22 invuln long-tail sweep: Canoness with Jump Pack has 4++ invulnerable save (Rosarius) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Canoness-with-Jump-Pack"
     },
+    "adepta_sororitas_paragon_warsuits": {
+      "righteous_paragons": true,
+      "notes": "SOROR-F4: Righteous Paragons datasheet ability (Paragon Warsuits, 10e Adepta Sororitas codex). Wahapedia verbatim: 'Each time a model in this unit makes an attack that targets a MONSTER or VEHICLE unit, add 1 to the Hit roll and add 1 to the Wound roll.' Implemented as a per-unit flag (righteous_paragons=true) read in Unit.attack to apply +1 hit_mod_delta and +1 wound_mod_delta when the target carries the MONSTER or VEHICLE keyword. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Paragon-Warsuits. Cited as simulator.righteous_paragons."
+    },
     "adepta_sororitas_castigator": {
       "secondary_weapon": "",
       "secondary_attacks": 0,
