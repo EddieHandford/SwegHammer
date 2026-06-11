@@ -66,8 +66,27 @@ Militarum +8.25 (second-deepest under-pole) and Imperial Knights −5.75 (over-p
 the avenue-2 physical-board-control prediction landing exactly as forecast — deployment spacing
 spreads body armies honestly and stops Knight stacking. Flip counts ~250-300 per faction
 (deployment touches every game) so most other movers stay inside wide confidence intervals at
-N=40. `SWEG_BOF_ASSAULT=1` Sororitas-scoped N=80 NOW IN FLIGHT (scoped is ~11× cheaper, so
-straight to confirm-grade N); then the combined collision N=80 confirm.
+N=40.
+
+**5. Bringers of Flame [ASSAULT] leg ADOPTED AS DEFAULT — gated 5.08, best ever (`e5d523d`).**
+The Sororitas-scoped N=80 paired A/B measured **Adepta Sororitas +16.19 decisive toward target**
+(364 flips, confidence interval ±2.60): sim 35.0 → 51.2 versus a real target of ~52.8, moving the
+faction from third-deepest under-pole to inside the noise band. Headline gated mean absolute
+error **5.75 → 5.08**. Scoped self-check held (flips only in Sororitas-involving cells); the
+other factions' small decisive DOWNs are their Sororitas matchups. The rule is the verbatim
+cited Fervent Purgation grant, and the detachment picker only rolls Bringers of Flame in half
+of Sororitas games — a real rule firing where it really applies, not a knob. Default flipped
+ON (`SWEG_BOF_ASSAULT=0` = legacy path; gate-off tests opt out explicitly, the Acts-of-Faith
+adoption pattern). Full suite 1536 green, citation audit clean, demonstration battle exit 0.
+**NEW STANDING ANCHOR `data/_anchor_sc8b_n80_log.json` (gated 5.08)**, minted by merging the
+scoped cells; self-check reproduces the scoped report exactly.
+
+**6. Combined-collision N=80 confirm IN FLIGHT** (`SWEG_CHARGE_BASEEDGE=1 SWEG_DEPLOY_COLLISION=1`
+versus the 5.08 anchor) — the adoption-configuration measurement for the collision pair: the
+deploy half screened as a right-direction win, the charge half as a faithful-but-headline-costly
+fix; the pair decision is made on this confirm. Held builds (Strands one-substitution, Yncarne
+on-kill heal, Aeldari archetype reshape, Chaos Space Marines reshape) land after the collision
+decision, then the Aeldari bundle measures Aeldari-scoped.
 
 **IN FLIGHT:** Sororitas-scoped N=80 re-anchor run; Aeldari over-pole diagnostic agent (re-dispatch);
 movement-event emission sweep agent (briefed against `1fb141e` — its commit will need a cherry-pick
