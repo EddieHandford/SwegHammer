@@ -11104,34 +11104,48 @@ class Battle:
     def _defender_alloc_model(self, candidates: list) -> "Unit":
         """Defender wound-allocation heuristic (SWEG_DEFENDER_ALLOC).
 
-        From a list of alive models in the same squad, pick the one the
-        defending player would sacrifice first. Removes trailing models
-        (furthest from any objective) before models holding objectives.
-        Among equally-positioned candidates, prefers the more-wounded model
-        (finish it off sooner rather than accumulating multiple partial
-        kills). Cited as `simulator.defender_allocation`.
+        From a list of alive models in the same squad, pick the one the next
+        wound is allocated to. Order of priority (cited as
+        `simulator.defender_allocation`):
+
+        1. ALREADY-WOUNDED models first. 10e mandates this: once a model has
+           lost any wounds it MUST keep absorbing attacks until it is
+           destroyed — the defender cannot spread damage to dodge a kill.
+           This holds even if that model stands on an objective and even if
+           it is out of the firing unit's range (allocation ignores the
+           individual model's range once the unit is a legal target).
+        2. Among FRESH (full-health) models, the defender sacrifices trailing
+           bodies first: models NOT on an objective before models holding one,
+           and within that the furthest from any objective.
+
+        Among equally-ranked candidates the more-wounded model is taken first
+        so casualties consolidate rather than leaving many part-wounded models.
         """
         if not candidates:
             return None
         objectives = self.map.objectives
-        if not objectives:
-            return candidates[0]
 
         def _score(u):
-            min_dist = min(
-                _distance(u.position, (obj.x, obj.y))
-                for obj in objectives
-            )
-            on_obj = any(
-                _distance(u.position, (obj.x, obj.y)) <= obj.control_radius
-                for obj in objectives
-            )
             hp_frac = u.current_health / (u.profile.health or 1.0)
-            # min() picks the lowest score: on_obj=0 < 1 so off-obj models
-            # are picked first; -min_dist makes far/trailing models score
-            # lower (picked first); hp_frac breaks ties toward the
-            # more-wounded model.
-            return (int(on_obj), -min_dist, hp_frac)
+            # 10e mandatory continuation: a model that has already lost wounds
+            # sorts ahead of every full-health model (0 before 1).
+            already_wounded = 0 if hp_frac < 1.0 - 1e-9 else 1
+            if objectives:
+                min_dist = min(
+                    _distance(u.position, (obj.x, obj.y))
+                    for obj in objectives
+                )
+                on_obj = 1 if any(
+                    _distance(u.position, (obj.x, obj.y)) <= obj.control_radius
+                    for obj in objectives
+                ) else 0
+            else:
+                min_dist = 0.0
+                on_obj = 0
+            # min() picks the lowest score: wounded first (mandatory), then
+            # off-objective (on_obj=0 < 1), then furthest/trailing
+            # (-min_dist), then the more-wounded model breaks remaining ties.
+            return (already_wounded, on_obj, -min_dist, hp_frac)
 
         return min(candidates, key=_score)
 
@@ -11476,21 +11490,37 @@ class Battle:
                 ),
             )
 
-        # Defender allocation (SWEG_DEFENDER_ALLOC, default ON): the
-        # attacker's heuristics above identify which squad to target; within
-        # that squad the defending player picks which model absorbs the first
-        # wound — removing trailing models before models holding objectives.
-        # The same heuristic is passed as alloc_next_fn into Unit.attack so
-        # it also governs sibling selection when a model dies mid-sequence.
-        # Cited as `simulator.defender_allocation`.
+        # math_target: the IN-RANGE model the attacker's heuristics measured
+        # to. Range, line-of-sight and cover are computed against this model
+        # for the to-hit math (Rapid Fire / Melta half-range bonuses, the -1
+        # for shooting blind), because 10e measures weapon range to the
+        # nearest visible model of the target unit. It stays in range even
+        # when the defender allocates the wounds to a different model below.
+        math_target = shoot_target
+
+        # Defender allocation (SWEG_DEFENDER_ALLOC, default ON): the attacker's
+        # heuristics above identify which squad to target; the DEFENDING player
+        # then picks which model in that squad absorbs the wounds. Per 10e this
+        # choice ranges over the WHOLE unit, not just the models in the firing
+        # unit's range — once one model makes the unit a legal target, wounds
+        # may be allocated to any model in it (an already-wounded model that is
+        # itself out of range still soaks first). So the candidate pool is built
+        # from the target's whole alive squad via its army_ref, NOT from the
+        # range-filtered `pool`. The same heuristic is passed as alloc_next_fn
+        # into Unit.attack so it also governs sibling selection when a model
+        # dies mid-sequence. Cited as `simulator.defender_allocation`.
         _alloc_fn = None
         if __import__("os").environ.get("SWEG_DEFENDER_ALLOC", "1") != "0":
             _sid = getattr(shoot_target, "squad_id", -1)
             if _sid >= 0:
-                _squad_pool = [
-                    u for u in pool
-                    if getattr(u, "squad_id", -1) == _sid and u.is_alive
-                ]
+                _tgt_army = getattr(shoot_target, "army_ref", None)
+                _squad_pool = (
+                    [u for u in _tgt_army.units
+                     if getattr(u, "squad_id", -1) == _sid
+                     and u.is_alive
+                     and getattr(u, "embarked_in", None) is None]
+                    if _tgt_army is not None else []
+                )
                 if _squad_pool:
                     shoot_target = self._defender_alloc_model(_squad_pool)
             _alloc_fn = self._defender_alloc_model
@@ -11508,9 +11538,14 @@ class Battle:
         # the in_cover flag). There is no terrain -1-to-hit any more; the
         # in_heavy_cover flag is retained for compatibility but no longer
         # changes the Hit roll.
+        # Cover is read from the terrain under the IN-RANGE model the attacker
+        # measured to (math_target), but the resulting Benefit-of-Cover flag is
+        # set on the model that will actually absorb the wounds (shoot_target),
+        # because Unit.attack reads the flag off its `target` argument. When no
+        # defender re-allocation happened the two are the same model.
         saved_cover = shoot_target.in_cover
         saved_heavy = shoot_target.in_heavy_cover
-        cover_type = self.map.cover_at(shoot_target.position)
+        cover_type = self.map.cover_at(math_target.position)
         if cover_type in (
             TerrainType.LIGHT_COVER, TerrainType.HEAVY_COVER, TerrainType.RUIN,
         ):
@@ -11522,11 +11557,13 @@ class Battle:
         if getattr(shoot_target, "go_to_ground_active", False):
             shoot_target.in_cover = True
 
-        distance = _distance(attacker.position, shoot_target.position)
+        # Distance and line-of-sight for the to-hit math use math_target (the
+        # in-range model), never the possibly-out-of-range allocation target.
+        distance = _distance(attacker.position, math_target.position)
         has_los = self.map.has_line_of_sight(
-            attacker.position, shoot_target.position,
+            attacker.position, math_target.position,
             attacker_keywords=attacker.profile.unit_keywords or (),
-            target_keywords=shoot_target.profile.unit_keywords or (),
+            target_keywords=math_target.profile.unit_keywords or (),
         )
         # Daemonic Ordnance (Forgefiend datasheet ability): opt-in per-activation
         # shooting buff. Called after target selection so the heuristic can

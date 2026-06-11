@@ -85,6 +85,27 @@ a volley was dumped into a single model and the overkill was wasted, which
 heavily under-rated high-volume anti-horde firepower (Knights) and over-rated
 multi-model armies (Drukhari, Tyranids).
 
+**Which model the wounds land on is the defender's choice** (gate
+`SWEG_DEFENDER_ALLOC`, default-ON). The attacker's targeting heuristics pick
+*which enemy unit* to fire at and measure range / line-of-sight / cover to the
+nearest in-range model of it; the *defending* player then chooses *which model*
+of that unit absorbs the wounds, exactly as in 10e. `Battle._defender_alloc_model`
+ranks the unit's models so that (1) an already-wounded model is taken first —
+10e's mandatory-continuation rule forces the defender to finish a model that has
+lost wounds before any other, even one standing on an objective, and even if that
+model is itself out of the firing unit's range (once one model makes the unit a
+legal target, wounds may be allocated to any model in it); and (2) among
+full-health models the defender sacrifices trailing bodies — off-objective and
+furthest out — before models holding an objective. This lets a defender leave a
+body on the marker and feed casualties from the back, the real reason wound
+allocation is a player decision. The picker is passed into `Unit.attack` as
+`alloc_next_fn` so it also governs the spillover pointer when a model dies
+mid-sequence. Because the allocation target can differ from the in-range model
+used for the to-hit math, the two are tracked separately (`math_target` vs
+`shoot_target`) in `Battle._do_shoot`. Cited as `simulator.defender_allocation`.
+Setting `SWEG_DEFENDER_ALLOC=0` reverts to the older behaviour where the attacker
+piled fire onto the lowest-health model it could see.
+
 **Mortal wounds** follow the opposite spill rule and are handled separately by
 `Battle._apply_mortal_wounds`: excess mortal-wound damage is **not** lost on a
 model's death — it keeps allocating to the next model of the same unit until all
