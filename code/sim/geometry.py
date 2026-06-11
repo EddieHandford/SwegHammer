@@ -349,6 +349,38 @@ def _move_toward(
     return best
 
 
+def _charge_path_screen_gap(charger_pos, end_pos, charger_radius,
+                             screen_pos, screen_radius) -> float:
+    """Point-to-segment distance from a non-target enemy's centre to the straight
+    path from *charger_pos* to *end_pos*, minus both base radii.
+
+    Used by the charge-path legality filter (gate SWEG_CHARGE_PATH): a non-FLY
+    charger's move is path-blocked by a screening enemy if this value is < 1.0
+    (i.e. any part of the charger's base would pass within Engagement Range of
+    the screen's base during the move).  Pure geometry, no RNG.
+
+    The point-to-segment formula clamps the foot of the perpendicular to the
+    segment end points so a screen that sits off to one side of the line
+    extension is measured correctly to whichever end-point of the path it is
+    nearest to.  Pure + deterministic."""
+    sx, sy = charger_pos
+    ex, ey = end_pos
+    ox, oy = screen_pos
+    vx, vy = ex - sx, ey - sy
+    seg2 = vx * vx + vy * vy
+    if seg2 == 0.0:
+        # Charger is not moving; use direct centre distance.
+        d = ((ox - sx) ** 2 + (oy - sy) ** 2) ** 0.5
+    else:
+        # t = clamped projection of screen centre onto segment [0,1].
+        t = ((ox - sx) * vx + (oy - sy) * vy) / seg2
+        t = max(0.0, min(1.0, t))
+        px = sx + t * vx
+        py = sy + t * vy
+        d = ((ox - px) ** 2 + (oy - py) ** 2) ** 0.5
+    return d - (charger_radius + screen_radius)
+
+
 def _er_gap(pos_a, profile_a, pos_b, profile_b) -> float:
     """Engagement-Range distance between two models, in inches.
 

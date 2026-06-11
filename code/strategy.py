@@ -35,7 +35,7 @@ from typing import Dict, Optional, Tuple
 from .detachments import effective_move
 from .map import _terrain_epoch
 from .roles import classify
-from .sim.geometry import _er_gap
+from .sim.geometry import _bc_model_radius_in, _charge_path_screen_gap, _er_gap
 from .units import save_probability, wound_probability
 
 
@@ -1665,6 +1665,16 @@ def pick_charge_target(attacker, enemy):
     # the gap -> required-move conversion below, which must not fire on the
     # legacy path (where the required move IS the centre distance).
     base_edge = os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1"
+    # Gate SWEG_CHARGE_PATH (default OFF): exclude charge candidates whose
+    # straight-line move would require an illegal charge path (10e core rule:
+    # "Without moving within Engagement Range of any enemy units that were not
+    # a target of the charge"). Cited `simulator.charge_path_non_target`.
+    charge_path = os.environ.get("SWEG_CHARGE_PATH", "0") == "1"
+    # Whether the attacker has the FLY keyword: FLY models may move over enemy
+    # models during a charge move and are exempt from the PATH check (part a),
+    # but the END SPOT check (part b) applies to all chargers.
+    attacker_fly = "FLY" in (attacker.profile.unit_keywords or ())
+    r_attacker = _bc_model_radius_in(attacker.profile) if charge_path else 0.0
 
     candidates = []
     for e in alive_enemies:
@@ -1800,6 +1810,62 @@ def pick_charge_target(attacker, enemy):
         # path and for every non-qualifying candidate, so the OFF path is
         # byte-identical.
         score += displace_contest_value
+
+        # SWEG_CHARGE_PATH — charge-path legality filter (cited
+        # `simulator.charge_path_non_target`). Pure geometry, zero RNG.
+        if charge_path:
+            # Approximate charge end spot: the point at base-edge gap 1.0"
+            # from the candidate along the approach line. This mirrors the
+            # intent of `_charge_baseedge_end` (code/simulator.py ~12121) at
+            # strategy-evaluation time, without importing the simulator.
+            # Approximation comment: we compute the exact approach direction
+            # (charger centre -> target centre) and place the end spot so the
+            # charger base edge is 1.0" from the target base edge. This may
+            # differ from the final collision-resolved placement by up to one
+            # base radius in dense packing, but is accurate for sparse/open
+            # screening scenarios and deterministic (no RNG).
+            ax, ay = attacker.position
+            ex_c, ey_c = e.position
+            r_target = _bc_model_radius_in(e.profile)
+            dx_c = ex_c - ax
+            dy_c = ey_c - ay
+            dist_c = (dx_c * dx_c + dy_c * dy_c) ** 0.5
+            if dist_c > 1e-9:
+                # End spot: charger centre positioned so base-edge gap == 1.0"
+                end_dist = r_attacker + r_target + 1.0
+                end_x = ex_c - (dx_c / dist_c) * end_dist
+                end_y = ey_c - (dy_c / dist_c) * end_dist
+            else:
+                end_x, end_y = ax, ay
+            end_pos = (end_x, end_y)
+
+            _path_blocked = False
+            for screen in alive_enemies:
+                if screen is e:
+                    continue   # the charge candidate is never a screen of itself
+                r_screen = _bc_model_radius_in(screen.profile)
+                # (b) END-SPOT check (all chargers, including FLY): if the
+                # approximate end spot is within Engagement Range of a
+                # non-target enemy, exclude this candidate.
+                end_gap = _er_gap(end_pos, attacker.profile,
+                                  screen.position, screen.profile)
+                if end_gap <= 1.0:
+                    _path_blocked = True
+                    break
+                # (a) PATH check (non-FLY only): if the straight-line path
+                # from the charger's current position to the end spot passes
+                # within Engagement Range of a non-target enemy base, exclude
+                # this candidate.
+                if not attacker_fly:
+                    path_gap = _charge_path_screen_gap(
+                        attacker.position, end_pos,
+                        r_attacker, screen.position, r_screen)
+                    if path_gap < 1.0:
+                        _path_blocked = True
+                        break
+            if _path_blocked:
+                continue   # illegal path — skip, screen remains a valid candidate
+
         candidates.append((score, d, e))
 
     if not candidates:
