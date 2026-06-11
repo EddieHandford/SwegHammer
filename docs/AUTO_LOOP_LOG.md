@@ -50,13 +50,23 @@ build; `scripts/diag_signatures.py` + `data/wf_wave234_signatures_full.txt` game
 primary ≈ 29.6 victory points vs real ≈ 29 — primary track in range; going-first and secondary spreads
 captured for the multi-metric review). Stage 0 run + verdict still pending (SB-1).
 
-**In-flight (wave 235, the overnight fix cluster):** five worktree fix agents off this frame — Necron
-leader fabrications (Overlord/Trazyn/Chronomancer/Plasmancer), Battle Focus cadence (landed `10bda6a`,
-adjudicated KEEP), Annihilation Legion fabrication (landed `a82c029`, adjudicated KEEP), command-point-sink
-stratagem batch (Adaptive Strategy / Plaguesurge / Desecration of Worlds / Vigilance Eternal), World Eaters
-Apoplectic Frenzy rewire to true Lethal Hits. Cherry-pick + full suite + N=80 re-anchor next; then the
-queue continues (NE-2 First Rank Fire, NE-9 Lord Solar orders, NE-6 Conquering Tyrant, torrent-over-cannon
-override batch, hygiene batch incl. #61).
+**In-flight (wave 235, the overnight fix cluster) — progress as of 2026-06-11 overnight:** four of the
+five fixes are LANDED on the branch and pushed (head `aa8211c`): Battle Focus per-round cadence
+(`ecc925f`), Annihilation Legion fabrication removal (`d89ab89`), command-point-sink stratagem batch
+(`d8e0aed`), Necron leader fabrications (`79546fb` — Overlord/Trazyn hit auras and
+Chronomancer/Plasmancer feel-no-pains removed; Plasmancer's real Harbinger of Destruction parked, needs a
+ranged-critical-threshold aura field; one stale Overlord test repurposed as a fabrication-removal
+regression pin, `aa8211c`). Full suite 1377 green, citation audit clean, command-line demo clean at that
+head. **Pull request 66 rewritten** (goal-first body, waves 232–235, closing keywords for #43 #50 #54 #60
+#62 verified) and **issue #53 closed**. **Stage 0 displacement instrument RUN + VERDICT: GO** — addressable
+pool 10–25 primary victory points per game per side, over-pole dominant, Imperial Knights signature 24.25
+uncontested-hold vs 0.75 tarpit confirms the swarm hypothesis (full table in
+`docs/DISPLACEMENT_SUBSTRATE_PLAN.md` §5; raw records `data/wf_wave235_displace_instr_stage0.txt`). The
+World Eaters Apoplectic Frenzy rewire was re-dispatched (the first agent was lost to a context compaction)
+and is in flight. Remaining for the wave close: Apoplectic cherry-pick + full suite, full-cluster N=80
+re-anchor, pull request 66 number refresh; then the queue continues (NE-2 First Rank Fire, NE-9 Lord Solar
+orders, NE-6 Conquering Tyrant, torrent-over-cannon override batch, hygiene batch incl. #61, displacement
+Stage 1).
 
 
 ---

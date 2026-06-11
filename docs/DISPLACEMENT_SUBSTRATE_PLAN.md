@@ -69,6 +69,29 @@ A/B is faithful-and-not-cratering. Render per the standing visual diagnostic on 
   outcome). Sum the displacement-addressable victory points per game. This is the ceiling estimate the scoring
   proxy could not give — it reads real fights, not a shortcut. Gate `SWEG_DISPLACE_INSTR`. Deliverable: a
   per-faction "displacement-addressable VP" number to size the prize honestly.
+
+  **Stage 0 RESULT (2026-06-11, 40 games — 4 matchups both orders × seeds 3–7, 2000 points): GO.**
+  Per-faction mean victory points per game (under-pole = out-fought loser survived-and-held; over-pole =
+  uncontested hold the opponent never contested; tarpit = out-fought loser held while *engaged*, the faithful
+  outcome that is NOT addressable):
+
+  | Faction | under-pole | over-pole | tarpit |
+  |---|---|---|---|
+  | Adeptus Astartes | 6.50 | 25.00 | 9.50 |
+  | Adeptus Mechanicus | 6.00 | 10.50 | 13.00 |
+  | Astra Militarum | 4.00 | 12.50 | 3.50 |
+  | Chaos Space Marines | 6.00 | 23.50 | 7.00 |
+  | Imperial Knights (20 games) | 6.00 | 24.25 | 0.75 |
+  | Orks | 9.00 | 11.50 | 13.50 |
+  | Tyranids | 13.00 | 9.50 | 13.50 |
+
+  Verdict: the addressable pool is large — 10 to 25 primary victory points per game per side against a mean
+  primary haul of roughly 29.6 — and the **over-pole dominates**. The Imperial Knights signature (24.25
+  uncontested-hold against only 0.75 tarpit) directly confirms the hypothesis: the Knight parks on a marker and
+  the body army never plays the contest game back, so Stage 2 (swarm charge-to-contest) carries most of the
+  over-pole prize. Astra Militarum's own under-pole is small (4.00), so its calibration gain rides on the
+  matchup differentials — both banked poles point toward-target. Raw per-game records:
+  `data/wf_wave235_displace_instr_stage0.txt`. Stage 1 is next, one stage per wave.
 - **Stage 1 — Fall-Back-only-when-wasted AI.** (Trigger re-specified per the user's 2026-06-10 steer.) A unit
   falls back ONLY when it is being *wasted* — all three conditions must hold: (1) **no control consequence** —
   its presence changes no marker's outcome at the current or next scoring check (it cannot hold, cannot flip the
