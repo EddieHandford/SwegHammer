@@ -495,6 +495,46 @@ class StrandsOfFateChargeSquadGateTests(unittest.TestCase):
             "and squad-mates must not retry."
         )
 
+    def test_squadmates_charge_on_substituted_roll(self):
+        """FATE-CHARGE-V2 write-back: when the first model's substitution
+        flips the squad's shared charge roll to a success, every squad-mate
+        must read the SUBSTITUTED pair from the cache and complete the charge
+        too. Without the write-back the budget gate alone produces a split
+        squad — one model in engagement, four left behind on a roll the rule
+        just flipped — which the real one-roll-per-unit rule cannot produce."""
+        battle, a_army, b_army = self._make_battle_with_squad(squad_size=5,
+                                                              dist_to_target=9.0)
+        a_army.fate_dice = [6, 6, 6, 6, 6]
+        initial_pool_size = len(a_army.fate_dice)
+        target = b_army.units[0]
+
+        # Natural 3+3=6 fails at dist=9; substituting a 6 for the lower 3
+        # gives 3+6=9 >= 9 — success. Model 0 is the farthest (9.0"); every
+        # squad-mate is closer, so the substituted roll reaches all of them.
+        with unittest.mock.patch("random.randint", return_value=3):
+            battle._squad_charge_roll = {}
+            for u in list(a_army.units):
+                battle._do_charge(u, a_army, b_army)
+
+        # Still exactly one die spent (the gate half).
+        self.assertEqual(initial_pool_size - len(a_army.fate_dice), 1)
+        # The cache must hold the substituted pair, not the natural (3, 3).
+        sid = a_army.units[0].squad_id
+        self.assertEqual(battle._squad_charge_roll[sid], (3, 6))
+        # And the WHOLE squad must be in engagement range of the target —
+        # the charge move parks a successful charger within ~1 inch.
+        in_engagement = [
+            u for u in a_army.units
+            if ((u.position[0] - target.position[0]) ** 2
+                + (u.position[1] - target.position[1]) ** 2) ** 0.5 <= 2.0
+        ]
+        self.assertEqual(
+            len(in_engagement), 5,
+            f"Expected all 5 squad-mates to complete the charge on the "
+            f"substituted shared roll, but only {len(in_engagement)} are in "
+            f"engagement range — the squad split."
+        )
+
     def test_no_fate_die_spent_when_natural_charge_succeeds(self):
         """When the natural 2D6 charge roll already meets the distance, no
         Fate die is spent (the substitution block is not entered)."""

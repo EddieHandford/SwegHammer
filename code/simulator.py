@@ -11997,6 +11997,17 @@ class Battle:
             sub = attacker_army.pop_fate_die_meeting(max(1, needed))
             if sub is not None:
                 roll = roll - lower + sub
+                # FATE-CHARGE-V2 write-back: the substitution changes the
+                # UNIT's single shared charge roll, so squad-mates must read
+                # the substituted pair from the cache, not the natural one.
+                # Without this, only the model that spent the Fate die
+                # completes the charge while the rest of the squad fails the
+                # very roll the rule just flipped — a split squad the real
+                # rule cannot produce. The budget gate above stops the
+                # over-spend; this write-back keeps the squad together. The
+                # two are complements, not alternatives.
+                if sid >= 0:
+                    self._squad_charge_roll[sid] = (max(d1, d2), sub)
         succeeded = (roll >= dist)
         if not succeeded:
             self._emit(UnitCharged(
