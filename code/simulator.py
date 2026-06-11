@@ -4637,14 +4637,25 @@ class Battle:
         self._set_transient_squad(attacker, "transient_assault_this_round")
 
     def _try_protocol_conquering_tyrant(self, army: Army, opponent: Army) -> None:
-        """Protocol of the Conquering Tyrant (Awakened Dynasty, 1 CP):
-        re-roll Hit rolls of 1 within half range on a NECRONS unit's
-        shoot (full re-roll if led). APPROXIMATION: the simulator's
-        `transient_reroll_hits_shooting` flag triggers a full hit
-        re-roll, not just 1s — direction-correct but slightly more
-        generous than the unled stratagem. Range gate is dropped because
-        the simulator already computes half-range mechanics per shot
-        and the AI only fires this when there's a meaningful shooter.
+        """Protocol of the Conquering Tyrant (Awakened Dynasty, 1 CP).
+
+        Two-branch rule (verbatim Wahapedia):
+          Unled: each time a model makes an attack that targets a unit
+                 within half range, re-roll a Hit roll of 1.
+                 → sets `transient_reroll_hits_shooting` (re-roll 1s only
+                   in shooting; see units.py att_reroll_hit_ones branch).
+          Led  : if a NECRONS CHARACTER is leading your unit, you can
+                 re-roll the Hit roll for that attack instead (full re-roll).
+                 → sets `transient_reroll_all_hits` (full hit re-roll;
+                   see units.py att_reroll_all_hits branch).
+
+        APPROXIMATION (half-range scope): the codex gates both branches on
+        attacks targeting a unit within half range. The simulator has no
+        per-shot range-check hook inside Unit.attack, so the re-roll flag
+        applies to all ranged attacks regardless of range — slightly more
+        generous than the raw rule. Documented in the citation entry;
+        approximation: true is retained until a half-range gate is added.
+
         Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty
         """
         attacker = self._highest_dpa_unit(
@@ -4662,7 +4673,12 @@ class Battle:
             return
         if not self._fire_stratagem(army, PROTOCOL_OF_THE_CONQUERING_TYRANT):
             return
-        self._set_transient_squad(attacker, "transient_reroll_hits_shooting")
+        if self._is_led_unit(attacker):
+            # Led branch: full hit re-roll (CHARACTER is leading the unit).
+            self._set_transient_squad(attacker, "transient_reroll_all_hits")
+        else:
+            # Unled branch: re-roll hit rolls of 1 only.
+            self._set_transient_squad(attacker, "transient_reroll_hits_shooting")
 
     # ----- War Horde (Orks) per-stratagem dispatchers (iter-1 B1) --------
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde

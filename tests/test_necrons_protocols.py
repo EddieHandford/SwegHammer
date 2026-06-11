@@ -222,12 +222,20 @@ class ProtocolDispatcherTests(unittest.TestCase):
         ))
 
     def test_conquering_tyrant_sets_reroll_hits_shooting(self):
+        """Unled attacker (no CHARACTER in the army) must set the re-roll-1s
+        flag and must NOT set the full-re-roll flag (wave 236 two-branch fix)."""
         battle, a, b = self._make_battle()
         battle._assign_uids()
+        # Confirm no CHARACTER is present so _is_led_unit returns False for all units.
+        for u in a.units:
+            self.assertNotIn("CHARACTER", u.profile.unit_keywords or ())
         battle._try_protocol_conquering_tyrant(a, b)
         self.assertTrue(any(
             u.transient_reroll_hits_shooting for u in a.units
-        ))
+        ), "unled branch must set transient_reroll_hits_shooting")
+        self.assertFalse(any(
+            getattr(u, "transient_reroll_all_hits", False) for u in a.units
+        ), "unled branch must NOT set transient_reroll_all_hits")
 
     def test_undying_legions_sets_pulse_on_wounded_unit(self):
         battle, a, b = self._make_battle()
