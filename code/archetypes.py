@@ -154,102 +154,77 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "Aeldari": {
-        # iter17 — Aeldari Battle Host overshoot trim. iter15 (c35790e)
-        # wired Yvraine + Yncarne datasheet abilities (revive_destroyed=2,
-        # heal_per_round=2, +1-to-hit aura), and at N=40 archetype eval
-        # Aeldari shot from 42.5% to 55.6% sim vs 44.4% real (+11.2pt
-        # over). Two-pronged fix here:
+        # wave-240 list-realism reshape (docs/AELDARI_LIST_REALISM_SPEC.md).
+        # The previous iter17 template was built around Yncarne + Avatar of
+        # Khaine + Wraithguard — a Wraith-heavy list that does not match
+        # confirmed May 2026 tournament play. The reshape replaces it with
+        # the Phoenix Lord + Aspect Warrior spine that actually won
+        # competitive events.
         #
-        # 1. Drop Yvraine from the template. Real-meta May 2026 Aeldari
-        #    Warhost (NOT Ynnari Devoted-of-Ynnead) lists are anchored on
-        #    Avatar of Khaine + Farseer + Aspect Warriors. Yvraine is an
-        #    Ynnari-detachment centerpiece; her Word-of-the-Phoenix revival
-        #    (D3+1 Bodyguard models / round on a 2+) compounds with
-        #    Yncarne's Ethereal-Form heal under our round-end pipeline,
-        #    and the simulator can't model the Ynnari-detachment gate that
-        #    bounds her in real play. The brief explicitly suggested
-        #    "dropping one" of the EPIC HERO pair — Yvraine is the cheaper
-        #    drop (100pt vs Yncarne's 260pt) and the less iconic Aeldari
-        #    Warhost anchor (Yncarne stays as the flagship MONSTER + the
-        #    +1-to-hit aura proxy for Inevitable Death threat-mobility).
+        # Two strongest sources (six total in the spec):
+        #   - Grimhammer Tactics: Top 10 Competitive Lists August 2025
+        #     https://grimhammertactics.com/top-10-competitive-warhammer-40k-lists-august-2025/
+        #     (Brad Chester, Salt City Grand Tournament IV, 7-0 first place;
+        #     Fuegan + Jain Zar + Lhykhis + Warp Spiders x2 + Fire Dragons x2
+        #     + Dark Reapers x2 + Howling Banshees x2 + Wave Serpent + Rangers
+        #     + Swooping Hawks x2 + Corsair Voidreavers x2)
+        #   - Spikeybits: Top Unbeatable Army Lists — Nova Open 2025
+        #     https://spikeybits.com/top-40k-unbeatable-army-lists-nova-open-gt/
+        #     (Folger Pyles, 1st place, Warhost; Fuegan + Jain Zar + Lhykhis +
+        #     Maugan Ra + Eldrad + Warp Spiders x3 + Fire Dragons + Dark Reapers
+        #     + Howling Banshees + Swooping Hawks x3 + Wave Serpent + Corsair
+        #     Voidreavers x3 + Rangers + Falcon)
         #
-        # 2. Add Avatar of Khaine to the template. The Avatar is the
-        #    canonical Warhost MONSTER CHARACTER centerpiece — Wahapedia
-        #    datasheet (https://wahapedia.ru/wh40k10ed/factions/aeldari/
-        #    Avatar-of-Khaine) shows it as a 280pt EPIC HERO MONSTER with
-        #    Daemonic, Deep Strike, and Khaine-blessed melee. Real-meta
-        #    Warhost lists almost universally field 1 Avatar (Goonhammer
-        #    "Aeldari Warhost detachment focus" May 2026; Stat Check
-        #    Aeldari aggregate). With Yncarne ALSO on the roster, the EPIC
-        #    HERO 1-per-army cap is naturally respected (each EH datasheet
-        #    is unique). At 280pt + Yncarne 260pt = 540pt of EH MONSTERs
-        #    the seed walk fits comfortably inside the 600pt slice (0.3
-        #    SEED_FRACTION at 2000pt) AND the 450pt slice at 1500pt thanks
-        #    to the (-template_count, -squad_cost) sort placing both EH
-        #    MONSTERs ahead of cheaper chaff. At smaller budgets only one
-        #    of the pair will fit and the cheaper Yncarne (260pt) wins the
-        #    cost tiebreak vs Avatar (280pt) at the same count=2 sort tier
-        #    — meaning if only one EH-MONSTER fits, it's Yncarne (which
-        #    still carries the Ethereal Form heal + +1-to-hit aura).
+        # The Yncarne has zero appearances in any confirmed Warhost or Aspect
+        # Host tournament list; it belongs to the Devoted of Ynnead detachment.
+        # The Avatar of Khaine likewise has zero appearances across all six
+        # confirmed lists, including Warhost lists where it theoretically belongs.
+        # Both are removed from the template (see spec section 2 and 4 for the
+        # full evidence record).
         #
-        # 3. Replace Dire Avengers with Guardian Defenders (BATTLELINE).
-        #    Dire Avengers are an ELITE Aspect Warrior squad at 19pt/model;
-        #    Guardian Defenders are the BATTLELINE chaff that real-meta
-        #    Warhost lists use to claim objectives (100pt/squad of 10,
-        #    Asuryani BATTLELINE INFANTRY). The BATTLELINE cap in
-        #    _random_fill admits 2 squads total when count=1 in template.
-        #
-        # 4. Keep Wraithguard at count=2 plus add Wraithblades at count=1.
-        #    Real-meta Warhost lists run a bodyguard brick of Wraithguard
-        #    AND occasionally Wraithblades for melee. count=2 sort-hint on
-        #    Wraithguard ensures it lands ahead of count=1 entries in the
-        #    seed walk; the iter17 first cut dropped it to count=1 and the
-        #    archetype eval pulled Aeldari to 40% (-4.4pt under real),
-        #    overshooting. Restoring Wraithguard count=2 keeps it as the
-        #    archetype's durable shooting spine. The non-BATTLELINE
-        #    Wraithguard isn't governed by the BATTLELINE cap so multi-
-        #    squad stacks are possible at high budgets; this is intended
-        #    given the real-meta Wraithguard density.
-        #
-        # 5. Drop Falcon. The Falcon is a 644pt squad (1 model min) — the
-        #    most expensive single-squad entry in the Aeldari catalogue.
-        #    It crowds out the seed at low budgets and inflates the army's
-        #    durability score under the simulator's vehicle wound model.
-        #    Real-meta Warhost lists rarely run Falcons in addition to
-        #    Wave Serpents; Wave Serpent remains as the TRANSPORT chassis.
-        #
-        # Sort-hint count rationale (iter17 final):
-        #   * Yncarne count=4 (highest) — at 1000pt eval budget (300pt
-        #     seed slice) only ONE EH MONSTER fits, so the sort tiebreak
-        #     matters. Yncarne (260pt, +1-to-hit aura + heal_per_round=2)
-        #     is a stronger anchor than Avatar (280pt, reroll_hit_ones)
-        #     because the +1-to-hit aura compounds with both melee and
-        #     ranged attacks while reroll-1s only rescues a fraction of
-        #     misses. With count=4 Yncarne wins the seed tiebreak even
-        #     when Avatar is more expensive, and Yncarne seeds first.
-        #   * Avatar count=3 — at 2000pt budget (600pt seed) BOTH EH
-        #     MONSTERS fit (Yncarne 260 + Avatar 280 = 540). count=3
-        #     keeps Avatar ahead of count=2 Wraithguard in the sort.
-        #   * Wraithguard count=2 — the durable shooting brick of real-
-        #     meta Warhost. At 2000pt seed walk after Yncarne+Avatar
-        #     (540pt) only 60pt remain — Wraithguard (241pt) overflows,
-        #     so it doesn't seed at 2000pt either. random_fill picks it
-        #     up when budget allows; count=2 retained for the sort
-        #     consistency at intermediate (1500pt) budgets where only
-        #     ONE EH MONSTER fits.
+        # Sort-hint count rationale:
+        #   * Phoenix Lords count=3 — at the 1000pt eval budget (300pt seed
+        #     slice) a single Phoenix Lord (120-135pt) fits in the seed walk
+        #     ahead of any count=2 entry. At 2000pt (600pt seed) all three
+        #     fit alongside one Wave Serpent (125pt) before the slice fills.
+        #   * Warp Spiders count=3 — 6/6 confirmed lists run 2-3 squads;
+        #     the highest Aspect presence across all evidence. count=3 seeds
+        #     Warp Spiders ahead of count=2 Aspect Warriors in the sort.
+        #   * Fire Dragons / Dark Reapers / Howling Banshees / Swooping Hawks /
+        #     Wave Serpent count=2 — 4-6/6 list appearances each; count=2
+        #     seeds all five ahead of count=1 filler entries.
+        #   * Autarch / Corsair Voidreavers / Rangers count=1-2 — support
+        #     characters and cheap battleline filler; lower sort priority
+        #     so they fill remaining budget after Aspect Warriors seed.
         #
         # Reference: https://wahapedia.ru/wh40k10ed/factions/aeldari/
-        "Battle Host": {
-            "aeldari_ynnari_the_yncarne": 4,
-            "aeldari_craftworlds_avatar_of_khaine": 3,
-            "aeldari_craftworlds_wraithguard": 2,
-            "aeldari_craftworlds_farseer": 1,
-            "aeldari_craftworlds_spiritseer": 1,
-            "aeldari_craftworlds_wraithblades": 1,
-            "aeldari_craftworlds_guardian_defenders": 1,
-            "aeldari_craftworlds_fire_dragons": 1,
+        "Warhost": {
+            # Phoenix Lords — the competitive backbone. Fuegan + Jain Zar +
+            # Lhykhis appear in 4-5 of 6 confirmed tournament lists.
+            # count=3 ensures one seeds at every budget tier.
+            "aeldari_craftworlds_fuegan": 3,           # leads Fire Dragons; anti-tank anchor
+            "aeldari_craftworlds_jain_zar": 3,         # leads Howling Banshees; melee pressure
+            "aeldari_craftworlds_lhykhis": 3,          # leads Warp Spiders; mobility
+
+            # Support character — Autarch is the generic officer filler in 3/6 lists.
+            "aeldari_craftworlds_autarch": 2,
+
+            # Aspect Warriors — universal in all 6 confirmed lists.
+            "aeldari_craftworlds_warp_spiders": 3,      # 2-3 squads in every list; high mobility
+            "aeldari_craftworlds_fire_dragons": 2,      # 2 squads in every list; anti-tank
+            "aeldari_craftworlds_dark_reapers": 2,      # 1-2 squads; long-range firepower
+            "aeldari_craftworlds_howling_banshees": 2,  # 1-2 squads; melee pressure
+            "aeldari_craftworlds_swooping_hawks": 2,    # 2-3 squads; fast objective control
+
+            # Dedicated transport — universal in all 6 lists.
+            "aeldari_craftworlds_wave_serpent": 2,      # primary transport for Fire Dragons
+
+            # Battleline filler — Corsair Voidreavers appear as cheap
+            # battleline in 4/6 lists.
+            "aeldari_craftworlds_corsair_voidreavers": 1,
+
+            # Objective holders — Rangers appear in 5/6 lists.
             "aeldari_craftworlds_rangers": 1,
-            "aeldari_craftworlds_wave_serpent": 1,
         },
     },
     "Tyranids": {
@@ -818,49 +793,94 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
     # remaining seed budget is filled by `_random_fill` with same-faction
     # picks. Detachment names match the registry where one exists.
     "Chaos Space Marines": {
-        # Pactbound Zealots is the vanilla Chaos Space Marines Dark Pacts
-        # detachment — Legionaries-backbone with character support, elite
-        # melee, Obliterator firepower and a daemon-engine/vehicle core.
-        # Rebuilt after the wave-145 faction-misassignment fix: the generic
-        # Heretic Astartes datasheets (Legionaries, Chosen, Havocs, Chaos
-        # Lord, Chaos Terminators, Possessed, Dark Apostle, Master of
-        # Possession, etc.) were being mis-filed under faction "Chaos
-        # Daemons" because BSData's Chaos Daemons catalogue imports them as
-        # allies and the mapper credited the first importer. They are now
-        # correctly homed to the CSM codex, so the old workaround (a
-        # cult-marine soup of Khorne Berzerkers + Plague + Rubric + Noise
-        # Marines, which in 10e actually belong to the standalone World
-        # Eaters / Death Guard / Thousand Sons / Emperor's Children codices)
-        # is replaced with a faithful Legionaries-based list.
+        # wave 239 — FX-ALL stub (21 unit types, all count=1 except Legionaries)
+        # retired and replaced with the real May 2026 competitive Pactbound
+        # Zealots backbone. The stub's 0.3-seed walk placed ~2 units then
+        # random-filled from 18 leftovers, building a different incoherent army
+        # every game — the signature of an army-construction problem, not a
+        # missing mechanic (wave 238 re-diagnosis, FACTION_RESIDUAL_ANALYSIS.md).
+        # The Chaos Daemons conversion from the same stub class to tight mono-god
+        # templates moved that faction from -9.7 to -0.4; the same approach is
+        # applied here.
+        #
+        # SOURCES (cross-checked against two independent sources per standing
+        # rule — verified 2026-06-11):
+        #
+        # Source 1 — Spikey Bits, "Undefeated Warhammer Open UK Games Expo Army
+        #   Lists: Chaos Space Marines Take 1st + 2nd"
+        #   https://spikeybits.com/undefeated-warhammer-open-uk-games-expo-army-lists/
+        #   Mani Cheema 1st place (8-0): Abaddon + Huron Blackheart + Vashtorr
+        #   the Arkifane + 2x Cultist Mob (Nurgle) + 1x Legionaries (Slaanesh)
+        #   + Chaos Rhino + Chaos Bikers + 1x Chosen + 3x Defilers (Nurgle) +
+        #   Masters of the Maelstrom + Red Corsairs Raiders.
+        #   Innes Wilson 2nd place: same Defiler triple core, Abaddon + Vashtorr,
+        #   Traitor Enforcers instead of Legionaries (not in catalogue — omitted).
+        #
+        # Source 2 — Grimhammer Tactics, "40K Faction Focus: Competitive Chaos
+        #   Space Marine Lists in 2025"
+        #   https://grimhammertactics.com/40k-faction-focus-competitive-chaos-space-marine-lists-in-2025/
+        #   Confirms: Vashtorr (daemon-engine strength aura), Forgefiend (Nurgle
+        #   marked with ectoplasma cannons, "powerhouse damage dealers"), Chaos
+        #   Predator Destructor, Possessed, Lord Discordant on Helstalker. Defiler
+        #   is described as the new Pactbound engine since the datasheet refresh.
+        #
+        # REAL-META SHAPE: Abaddon + Vashtorr + Huron triple-character anchor,
+        # three Defilers as the damage spine (Mark of Nurgle, ectoplasma /
+        # lascannon config), two Cultist Mob screens for marker presence,
+        # one Legionaries squad for the BATTLELINE Dark Pacts conduit, Chosen
+        # for close-range firepower, Chaos Bikers for fast objective pressure,
+        # Chaos Rhino transport, and a Forgefiend for sustained ranged firepower.
+        # 10 unit types (down from 21), concentrated count-anchors on Defiler=3
+        # and Cultist Mob=2 to drive seeding coherence.
+        #
+        # SEED WALK at 1000pt (SEED_FRACTION=0.3 = 300pt slice):
+        # Sort order (-template_count, -squad_cost):
+        #   Defiler=3   (250pt) -> 250pt — 1 Defiler seeds
+        #   Cultist Mob=2 (50pt) -> 300pt — Cultist Mob seeds
+        #   All count=1 entries overflow the 300pt budget after Defiler
+        # CHARACTER guarantee: cheapest CHARACTER in template is Dark Apostle
+        # (65pt) — lands within the 1.5x seed-budget overflow (450pt cap).
+        # Random fill at remaining ~700pt then adds Abaddon (270pt, EPIC HERO
+        # cap: 1 per army), Vashtorr (175pt, EPIC HERO MONSTER cap: 1 per
+        # army), Huron (120pt, EPIC HERO cap), Legionaries (BATTLELINE fill),
+        # Chosen, Chaos Bikers, Forgefiend, and a second Defiler (fill cap =
+        # template_count=3 so up to 3 Defilers total at 2000pt budgets — the
+        # real triple-Defiler shape emerges naturally at full-sized eval).
         "Pactbound Zealots": {
-            # BATTLELINE backbone — Legionaries are the Dark Pacts engine
-            # (multiple squads), screened by a cheap Cultist Mob.
-            "chaos_space_marines_legionaries": 3,
-            "chaos_space_marines_cultist_mob": 1,
-            # CHARACTERS — Abaddon warlord + Chaos Lord (leads Legionaries)
-            # + Dark Apostle (Dark Pacts re-rolls) + Master of Possession.
+            # Daemon-engine spine — Defiler is the real-meta damage chassis;
+            # count=3 ensures it wins the (-count, -cost) seed sort and one
+            # Defiler always seeds at 1000pt. Random fill adds up to 2 more
+            # (fill cap = template_count) so the triple-Defiler shape emerges
+            # at 2000pt budgets.
+            "chaos_space_marines_defiler": 3,
+            # BATTLELINE screens — two Cultist Mob squads for marker presence
+            # and objective control; count=2 places them second in the seed sort
+            # after the Defiler. Legionaries=1 retains the Dark Pacts BATTLELINE
+            # conduit (single squad — the real-meta carries 1 not 3).
+            "chaos_space_marines_cultist_mob": 2,
+            "chaos_space_marines_legionaries": 1,
+            # EPIC HERO characters — Abaddon warlord (hit-roll re-roll aura
+            # within 6" + 4++ Chosen), Vashtorr (daemon-vehicle strength aura,
+            # MONSTER), Huron Blackheart (all-comers character support). All
+            # three confirmed in the Mani Cheema 8-0 1st-place list. EPIC HERO
+            # 1-per-army cap in _random_fill is respected for each.
             "chaos_space_marines_abaddon_the_despoiler": 1,
-            "chaos_space_marines_chaos_lord": 1,
+            "chaos_space_marines_vashtorr_the_arkifane": 1,
+            "chaos_space_marines_huron_blackheart": 1,
+            # Support CHARACTER — Dark Apostle seeds via the CHARACTER guarantee
+            # even when over the seed-budget slice (cheapest CHARACTER at 65pt).
+            # Provides Dark Pacts re-roll support.
             "chaos_space_marines_dark_apostle": 1,
-            "chaos_space_marines_master_of_possession": 1,
-            # Elite / melee.
+            # Elite and fast attack — Chosen (close-range firepower, Abaddon
+            # pairing), Chaos Bikers (fast objective pressure per Cheema's list).
             "chaos_space_marines_chosen": 1,
-            "chaos_space_marines_chaos_terminator_squad": 1,
-            "chaos_space_marines_possessed": 1,
-            "chaos_space_marines_raptors": 1,
-            # Firepower.
-            "chaos_space_marines_obliterators": 1,
-            "chaos_space_marines_havocs": 1,
-            # Daemon engines / vehicles.
-            "chaos_space_marines_forgefiend": 1,
-            "chaos_space_marines_maulerfiend": 1,
-            "chaos_space_marines_helbrute": 1,
-            "chaos_space_marines_chaos_predator_destructor": 1,
-            "chaos_space_marines_venomcrawler": 1,
-            "chaos_space_marines_lord_discordant_on_helstalker": 1,
+            "chaos_space_marines_chaos_bikers": 1,
+            # Transport and shooty vehicle — Chaos Rhino in Cheema's 1st-place
+            # list; Forgefiend (source 2: Nurgle-marked ectoplasma cannons,
+            # "powerhouse damage dealer", the known under-valued durable shooty
+            # vehicle class per FACTION_RESIDUAL_ANALYSIS.md list-realism note).
             "chaos_space_marines_chaos_rhino": 1,
-            "chaos_space_marines_heretic_astartes_daemon_prince_with_wings": 1,
-            "chaos_space_marines_chaos_spawn": 1,
+            "chaos_space_marines_forgefiend": 1,
         },
     },
     "World Eaters": {

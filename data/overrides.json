@@ -1378,6 +1378,10 @@
       "invuln_save": 4,
       "notes": "iter22 invuln long-tail sweep: Canoness with Jump Pack has 4++ invulnerable save (Rosarius) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Canoness-with-Jump-Pack"
     },
+    "adepta_sororitas_paragon_warsuits": {
+      "righteous_paragons": true,
+      "notes": "SOROR-F4: Righteous Paragons datasheet ability (Paragon Warsuits, 10e Adepta Sororitas codex). Wahapedia verbatim: 'Each time a model in this unit makes an attack that targets a MONSTER or VEHICLE unit, add 1 to the Hit roll and add 1 to the Wound roll.' Implemented as a per-unit flag (righteous_paragons=true) read in Unit.attack to apply +1 hit_mod_delta and +1 wound_mod_delta when the target carries the MONSTER or VEHICLE keyword. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Paragon-Warsuits. Cited as simulator.righteous_paragons."
+    },
     "adepta_sororitas_castigator": {
       "secondary_weapon": "",
       "secondary_attacks": 0,
@@ -1484,6 +1488,10 @@
       "torrent": true,
       "ignores_cover": false,
       "notes": "SOROR-SANCTIFIERS: Per SOROR-FAB-AUDIT follow-up #1, Sanctifiers primary was mis-mapped as A=3 S=5 AP-1 hit_prob=0.944 (composite/Null-mace AP leak). Real per Wahapedia is Ministorum hand flamer: A=D6 S=4 AP=0 D=1 Torrent. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/"
+    },
+    "adepta_sororitas_retributor_squad": {
+      "storm_of_retribution": true,
+      "notes": "SOROR-UNDERPOLE-F3: Retributor Squad datasheet ability 'Storm of Retribution' (unconditional half). BSData v10.6.0 Imperium - Adepta Sororitas.cat.gz, ability id 8eef-f65c-7895-183f, verbatim: 'Each time a model in this unit makes a ranged attack, re-roll a Hit roll of 1 and re-roll a Wound roll of 1. If such an attack targets an enemy unit that has destroyed one or more Adepta Sororitas units from your army during the battle, add 1 to the Hit roll and add 1 to the Wound roll as well.' storm_of_retribution=true enables att_reroll_hit_ones + att_reroll_wound_ones for ranged attacks only (mode != melee). The escalating half (+1 to Hit and +1 to Wound when attacking an enemy that killed a friendly Adepta Sororitas unit) is a follow-up code build. Cited simulator.storm_of_retribution. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Retributor-Squad"
     },
     "dark_angels_azrael": {
       "invuln_save": 4,

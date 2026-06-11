@@ -475,6 +475,16 @@ class UnitProfile:
     # transient_devastating_wounds grant (once-per-battle guarded), gated
     # SWEG_CSM_ABILITIES. Cited simulator.csm_unholy_bloodshed.
     csm_unholy_bloodshed: bool = False
+    # Adepta Sororitas Retributor Squad datasheet ability "Storm of Retribution"
+    # (unconditional half, override-only). BSData v10.6.0 id 8eef-f65c-7895-183f:
+    # "Each time a model in this unit makes a ranged attack, re-roll a Hit roll of 1
+    # and re-roll a Wound roll of 1." Applied in Unit.attack when mode != "melee" by
+    # setting att_reroll_hit_ones=True and att_reroll_wound_ones=True. Ranged-only;
+    # the melee guard ensures it never fires in the Fight phase. Set via
+    # overrides.json on adepta_sororitas_retributor_squad. The escalating half
+    # (+1 to Hit/Wound vs an enemy that killed a friendly Adepta Sororitas unit)
+    # is a follow-up code build. Cited as `simulator.storm_of_retribution`.
+    storm_of_retribution: bool = False
     # CSM Forgefiend datasheet ability "Daemonic Ordnance" (10e): each time
     # this model is selected to shoot, it can use this ability. If it does,
     # until the end of the phase, its ranged weapons have the [DEVASTATING
@@ -577,6 +587,17 @@ class UnitProfile:
     # devastating-wounds bypass path and the failed-save path). Cited as
     # `UnitProfile.necrodermis`.
     necrodermis: bool = False
+    # ADEPTA SORORITAS — Righteous Paragons (Paragon Warsuits datasheet
+    # ability, 10e). Wahapedia verbatim: "Each time a model in this unit
+    # makes an attack that targets a MONSTER or VEHICLE unit, add 1 to
+    # the Hit roll and add 1 to the Wound roll." Attacker-side +1 to Hit
+    # and +1 to Wound gated on: (a) attacker carries this flag (set on
+    # the Paragon Warsuits UnitProfile via overrides.json), (b) the
+    # target has the MONSTER or VEHICLE keyword in its unit_keywords.
+    # The bonus applies to all attacks (both ranged and melee) this unit
+    # makes against qualifying targets. Cited as
+    # `simulator.righteous_paragons`.
+    righteous_paragons: bool = False
     # MAP-4 — per-unit Reanimation Protocols eligibility flag.
     # 10e Necron datasheets all CARRY the "Reanimation Protocols" ability, but
     # the ability text excludes CHARACTER / MONSTER / VEHICLE models from
@@ -2497,6 +2518,22 @@ class Unit:
             ):
                 hit_mod_delta += 1
 
+            # ---- Righteous Paragons (Paragon Warsuits datasheet ability,
+            # 10e Adepta Sororitas codex). Wahapedia verbatim: "Each time a
+            # model in this unit makes an attack that targets a MONSTER or
+            # VEHICLE unit, add 1 to the Hit roll and add 1 to the Wound
+            # roll." Two-way gate:
+            #   1. attacker carries the `righteous_paragons` flag (set on the
+            #      Paragon Warsuits UnitProfile via overrides.json),
+            #   2. target has MONSTER or VEHICLE in its unit_keywords.
+            # Applies to both ranged and melee attacks; no phase restriction
+            # in the rule text. Cited as `simulator.righteous_paragons`.
+            if p.righteous_paragons:
+                _rp_tgt_kws = set(target.profile.unit_keywords or ())
+                if "MONSTER" in _rp_tgt_kws or "VEHICLE" in _rp_tgt_kws:
+                    hit_mod_delta += 1
+                    wound_mod_delta += 1
+
             # ---- Death Guard Contagions of Nurgle (army rule, 10e) — Round 1
             # DROPPED (iter-4): the Round-1 Virulent Rot (-1 T) branch was the
             # launch-index wording. The current 10e codex replaces it with
@@ -3262,6 +3299,18 @@ class Unit:
                 att_reroll_wound_ones = True
                 if getattr(target, "on_objective", False):
                     att_reroll_all_wounds = True
+
+            # Adepta Sororitas Retributor Squad datasheet ability "Storm of
+            # Retribution" (unconditional half). BSData v10.6.0 id
+            # 8eef-f65c-7895-183f verbatim: "Each time a model in this unit
+            # makes a ranged attack, re-roll a Hit roll of 1 and re-roll a
+            # Wound roll of 1." Ranged-only — the `mode != "melee"` guard
+            # matches the codex wording. Composes with detachment-side and
+            # leader-side re-roll-ones via OR (one re-roll per die). Cited as
+            # `simulator.storm_of_retribution`.
+            if mode != "melee" and getattr(p, "storm_of_retribution", False):
+                att_reroll_hit_ones = True
+                att_reroll_wound_ones = True
 
             # Drukhari Power From Pain (10e codex, current Wahapedia text):
             # the army rule does NOT grant passive LETHAL HITS from holding a
@@ -4697,6 +4746,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             veterans_of_the_long_war=entry.veterans_of_the_long_war,
             csm_despoilers=entry.csm_despoilers,
             csm_unholy_bloodshed=entry.csm_unholy_bloodshed,
+            storm_of_retribution=entry.storm_of_retribution,
             rapid_fire=entry.rapid_fire,
             melta=entry.melta,
             ignores_cover=entry.ignores_cover,
@@ -4727,6 +4777,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             murderers_cowl=entry.murderers_cowl,
             gloam_rot=entry.gloam_rot,
             necrodermis=entry.necrodermis,
+            righteous_paragons=entry.righteous_paragons,
             reanimates_with_army=entry.reanimates_with_army,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,

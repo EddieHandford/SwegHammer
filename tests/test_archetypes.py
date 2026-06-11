@@ -122,24 +122,24 @@ class ArchetypeAnchorSeedingTests(unittest.TestCase):
                 f"seed={seed}: TSON archetype missing Rubric Marines, got {sorted(names)}",
             )
 
-    def test_aeldari_archetype_includes_wraith_or_falcon(self):
-        """Aeldari Battle Host at 1000 pts must produce at least one heavy
-        anchor — Wraithguard, Wraithblades, Wave Serpent, Yncarne, or
-        Avatar of Khaine. These are the expensive units the cheapest-first
-        bug used to drop.
+    def test_aeldari_archetype_includes_phoenix_lords(self):
+        """Aeldari Warhost at 1000 pts must produce at least Fuegan and
+        Lhykhis — the two Phoenix Lords that reliably seed at the 1000pt
+        budget. These are the expensive anchor units the cheapest-first
+        regression used to drop.
 
-        Yncarne (260pt EPIC HERO monster) was added in iter13 and persists
-        through the iter17 trim. Avatar of Khaine (280pt EPIC HERO MONSTER)
-        was added in iter17 as the canonical Warhost centerpiece (replacing
-        the dropped Yvraine). Either one is a sufficient heavy anchor at
-        the 1000pt seed slice (300pt) where they dominate the seed walk;
-        the test accepts any of the listed anchors."""
+        wave-240 list-realism reshape (docs/AELDARI_LIST_REALISM_SPEC.md)
+        replaced the Yncarne / Avatar of Khaine / Wraithguard template with
+        the Phoenix Lord + Aspect Warrior spine. At 1000pt the seed budget
+        is 300pt (SEED_FRACTION = 0.3). Template sort order is
+        (-count, -squad_cost): Lhykhis (count=3, 135pt) seeds first at 135pt,
+        Fuegan (count=3, 120pt) seeds next at 255pt. Jain Zar (count=3,
+        120pt) cannot fit (255 + 120 = 375 > 300). So the non-vacuous
+        anchor set at seeds 0-4 is {Fuegan, Lhykhis}: any seed that lacks
+        both of them has regressed to cheapest-first ordering."""
         anchor_keys = [
-            "aeldari_craftworlds_wraithguard",
-            "aeldari_craftworlds_wraithblades",
-            "aeldari_craftworlds_wave_serpent",
-            "aeldari_craftworlds_avatar_of_khaine",
-            "aeldari_ynnari_the_yncarne",
+            "aeldari_craftworlds_fuegan",   # count=3, 120pt — seeds second
+            "aeldari_craftworlds_lhykhis",  # count=3, 135pt — seeds first
         ]
         anchor_names = {
             UNIT_CATALOG[k].name for k in anchor_keys if k in UNIT_CATALOG
@@ -150,10 +150,11 @@ class ArchetypeAnchorSeedingTests(unittest.TestCase):
                 "A", "Aeldari", 1000.0, rng=rng, use_archetype=True,
             )
             names = {u.profile.name for u in army.units}
-            self.assertTrue(
+            self.assertEqual(
                 names & anchor_names,
-                f"seed={seed}: Aeldari archetype missing all heavy anchors "
-                f"({anchor_names}), got {sorted(names)}",
+                anchor_names,
+                f"seed={seed}: Aeldari archetype missing Phoenix Lord anchors "
+                f"(expected both of {anchor_names}), got {sorted(names)}",
             )
 
 

@@ -127,6 +127,13 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # `HALLOWED_MARTYRS.soror_blood_of_martyrs` in
     # data/rule_citations.d/detachments.json.
     ("soror_blood_of_martyrs", False),
+    # Adepta Sororitas Bringers of Flame — Fervent Purgation [ASSAULT] leg.
+    # All Adepta Sororitas ranged weapons gain [ASSAULT] (unconditional, no
+    # round gate). Read by simulator._do_shoot Advance-lockout; gated
+    # SWEG_BOF_ASSAULT (default OFF). Cited as
+    # `BRINGERS_OF_FLAME.army_wide_assault` in
+    # data/rule_citations.d/detachments.json.
+    ("army_wide_assault", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
@@ -207,6 +214,21 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # SWEG_COLLISION friendly-pass-through / enemy-path-cap in `_move_toward`
     # (`_enemy_path_cap_t`), fixing the friend-blind self-jam.
     "simulator.collision_friendly_passthrough",
+    # 10e core "Charge Move" + "Measuring Distances" — a charge move must end
+    # within Engagement Range of every target, and Engagement Range (like all
+    # distances) is measured between the CLOSEST POINTS OF THE BASES. Gated
+    # SWEG_CHARGE_BASEEDGE base-edge charge-end placement in `_charge_baseedge_end`
+    # / `_do_charge` (fixes the deep base interpenetration of big-based charge
+    # targets the legacy centre-to-centre placement caused).
+    "simulator.charge_end_base_to_base",
+    # The MEASUREMENT half of the same rule (wave 241): the same gate controls
+    # how the Engagement Range distance is MEASURED everywhere — fight
+    # eligibility, the shooting melee-lock, Fall Back crossing, the charge-roll
+    # requirement (`_er_gap` in code/sim/geometry.py and every caller).
+    # Placement (`simulator.charge_end_base_to_base` above) and measurement
+    # are two halves of one rule; shipping placement alone structurally
+    # disabled melee under the adopted default.
+    "simulator.engagement_range_base_edge",
     "simulator.battle_focus",
     # Aeldari army rule (10e). Strands of Fate — 6D6 rolled at start of
     # battle into Army.fate_dice; each die later substituted for one d6
@@ -592,6 +614,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # self-revive on 2+ when Celestine is destroyed. Gated SWEG_SOROR_ABILITIES.
     # Cited in data/rule_citations.d/adepta_sororitas.json.
     "simulator.celestine_miraculous_intervention",
+    # Sororitas — Paragon Warsuits "Righteous Paragons" datasheet ability (10e).
+    # +1 to the Hit roll and +1 to the Wound roll when the target has the MONSTER
+    # or VEHICLE keyword. Attacker-side gate in Unit.attack; flag set per-unit via
+    # data/overrides.json (righteous_paragons=True). Cited in
+    # data/rule_citations.d/adepta_sororitas.json.
+    "simulator.righteous_paragons",
     # Wave 221 — Chaos Daemons Daemonic Incursion "Warp Rifts" (env-gated
     # SWEG_WARP_RIFTS). Reduces Deep Strike minimum gap from 9" to 6" for
     # Chaos Daemons units arriving under the Daemonic Incursion detachment.

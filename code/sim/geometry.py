@@ -349,6 +349,30 @@ def _move_toward(
     return best
 
 
+def _er_gap(pos_a, profile_a, pos_b, profile_b) -> float:
+    """Engagement-Range distance between two models, in inches.
+
+    Under SWEG_CHARGE_BASEEDGE (default ON since wave 240) this is the
+    base-edge GAP — centre distance minus both models' base radii — per the
+    10e core rule that Engagement Range, like every distance, is measured
+    between the CLOSEST POINTS of the bases (the same measurement the gated
+    charge-end placement `_charge_baseedge_end` and the collision predicate
+    `_collision_pos_legal` already use). Cited as
+    `simulator.engagement_range_base_edge`.
+
+    A tiny epsilon (1e-9) is shaved off the gate-ON result so a charger
+    parked at EXACTLY one inch of base-edge gap by `_charge_baseedge_end`
+    still counts as engaged despite the cos/sin position-reconstruction
+    float error. Gate OFF returns the legacy centre-to-centre distance
+    unchanged — every `_er_gap(...) <= threshold` call site is byte-identical
+    to its previous `_distance(...) <= threshold` form."""
+    d = _distance(pos_a, pos_b)
+    if __import__("os").environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1":
+        d -= (_bc_model_radius_in(profile_a) + _bc_model_radius_in(profile_b)
+              + 1e-9)
+    return d
+
+
 def _bc_model_radius_in(profile) -> float:
     """Base-footprint radius in INCHES for a model (read-only instrument helper).
     NOTE: deliberately NOT lru_cache'd — UnitProfile is a large frozen dataclass

@@ -154,9 +154,12 @@ def _vehicle_shoots_after_advance(detachment, vehicle_profile):
     battle._deploy_armies()
     atk = a.units[0]
     tgt = b.units[0]
-    # Place adjacent so the target is in range and visible.
+    # Place close so the target is in range and visible, but outside the
+    # wave-241 base-edge Engagement Range (3.0 inches centre = gap 1.74
+    # inches) — otherwise the shooting melee-lock, not the Advance lockout,
+    # decides the outcome for non-VEHICLE attackers such as MOUNTED.
     atk.position = (10.0, 10.0)
-    tgt.position = (12.0, 10.0)
+    tgt.position = (13.0, 10.0)
     tgt.current_health = tgt.profile.health
     # Mark the attacker as having Advanced this round (the lockout trigger).
     battle._advanced_this_round = {atk.uid}

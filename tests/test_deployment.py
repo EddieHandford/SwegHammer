@@ -367,8 +367,20 @@ class IntelligentDeploymentTests(unittest.TestCase):
     def test_off_is_byte_identical_to_single_line(self):
         # Build two identical army pairs; deploy one with the gate OFF and one
         # via the legacy single _deploy_line call directly. Positions must match.
+        # SWEG_DEPLOY_COLLISION is pinned OFF for the full-pipeline arm: the
+        # hand-built reference below calls _deploy_line directly and so never
+        # runs the (default-ON since wave 240) post-placement collision
+        # relaxation — this test isolates the SWEG_DEPLOY identity only.
         a1, b1 = self._mixed_armies()
-        battle_off = _deploy_with_gate(a1, b1, gate_on=False)
+        prev_coll = os.environ.get("SWEG_DEPLOY_COLLISION")
+        os.environ["SWEG_DEPLOY_COLLISION"] = "0"
+        try:
+            battle_off = _deploy_with_gate(a1, b1, gate_on=False)
+        finally:
+            if prev_coll is None:
+                os.environ.pop("SWEG_DEPLOY_COLLISION", None)
+            else:
+                os.environ["SWEG_DEPLOY_COLLISION"] = prev_coll
 
         a2, b2 = self._mixed_armies()
         battle_ref = Battle(a2, b2)

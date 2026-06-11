@@ -44,7 +44,10 @@ Board control (`diag_boardcontrol`, `diag_ocflip`, `diag_reach`, `diag_contest_f
 kill chain (`diag_overshooter`, `diag_underoutput`, `diag_durability`, `diag_knight_survival`),
 scoring (`diag_secondary_breakdown`, `diag_tacdeck_achieve`, `diag_overscore`),
 list realism (`diag_list_realism`, `diag_am_composition`, `diag_antitank_pick`),
-mechanics (`diag_battleshock`, `diag_tarpit_fires`, `diag_scout_presence`),
+mechanics (`diag_battleshock`, `diag_tarpit_fires`, `diag_scout_presence`,
+`diag_fightgate_check` — does a successful charge ever produce a melee swing
+under the current gates? caught the wave-240 placement/measurement split that
+structurally disabled melee),
 umbrella (`diag_multimetric`). Reuse before writing a new one.
 
 ## 6. Ground truth and audits

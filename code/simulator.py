@@ -169,10 +169,26 @@ from .sim.geometry import (  # noqa: F401  (re-exported for the public surface)
     _OccupantGrid,
     _collision_pos_legal,
     _enemy_path_cap_t,
+    _er_gap,
     _fan_to_goal,
     _move_toward,
     _bc_model_radius_in,
 )
+
+
+def _er_gap_units(a, b) -> float:
+    """Engagement-Range distance between two Unit instances (inches).
+
+    Thin wrapper over `code.sim.geometry._er_gap`: base-edge gap when
+    SWEG_CHARGE_BASEEDGE is on (default since wave 240), legacy
+    centre-to-centre distance when it is off (byte-identical). Every
+    Engagement-Range test in this module routes through here so engagement
+    is measured the same way the gated charge-end placement parks the
+    charger — the wave-241 fix for the fight gate that never fired (a
+    base-edge charge ends ~2.26" centre-to-centre for two 32mm bases, which
+    a centre-based `<= 1.0` gate can never see). Cited as
+    `simulator.engagement_range_base_edge`."""
+    return _er_gap(a.position, a.profile, b.position, b.profile)
 
 
 @dataclass(frozen=True)
@@ -1434,7 +1450,7 @@ class Battle:
             if dx * dx + dy * dy > _burn_r2:
                 continue
             engaged = any(
-                (u.position[0] - h.position[0]) ** 2 + (u.position[1] - h.position[1]) ** 2 <= 1.0
+                _er_gap_units(u, h) <= 1.0
                 for h in holder.alive_units
             )
             if not engaged:
@@ -2317,7 +2333,7 @@ class Battle:
                 return False
         # Not in melee with any enemy.
         for e in other.alive_units:
-            if _distance(unit.position, e.position) <= self._DEDICATION_ENGAGE_RANGE:
+            if _er_gap_units(unit, e) <= self._DEDICATION_ENGAGE_RANGE:
                 return False
         # Not a productive shooter with a target in range.
         p = unit.profile
@@ -2438,7 +2454,7 @@ class Battle:
         complete an Action this turn (10e: a unit within Engagement Range
         cannot perform an Action)."""
         for e in other.alive_units:
-            if _distance(unit.position, e.position) <= self._DEDICATION_ENGAGE_RANGE:
+            if _er_gap_units(unit, e) <= self._DEDICATION_ENGAGE_RANGE:
                 return True
         return False
 
@@ -7004,6 +7020,7 @@ class Battle:
         army.cult_ambush_resurgence_points -= 3
         revived.current_health = revived.profile.health
         revived.position = landing_pos
+        self._emit(UnitDeepStrike(unit_uid=revived.uid, position=landing_pos))
         revived.cult_ambush_revived = True
         # Reset transient combat flags that may have stuck on death.
         revived.moved_this_round = True   # skips movement sub-phase
@@ -7384,6 +7401,17 @@ class Battle:
         for u in b_infil:
             self._emit(UnitInfiltrated(unit_uid=u.uid, position=u.position))
 
+        # DEPLOY-COLLISION relaxation (env-gated SWEG_DEPLOY_COLLISION, default
+        # ON since wave 240 — adopted with SWEG_CHARGE_BASEEDGE as the collision
+        # pair on the metric-neutral N=80 paired confirm (gated 5.08 -> 5.13,
+        # in-band 5/22 -> 8/22, seed-5 overlap incidents 217 -> 53, cross-army
+        # 49 -> 2). Set =0 to restore the legacy overlapping deployment. After
+        # all lines have been placed, push overlapping bases apart so no two
+        # models' bases interpenetrate at BattleStarted. Pure deterministic
+        # geometry — zero extra RNG draws. See _relax_deployment_collision.
+        if __import__("os").environ.get("SWEG_DEPLOY_COLLISION", "1") == "1":
+            self._relax_deployment_collision()
+
         # Synchronise embarked passenger positions to their (now deployed)
         # transport's position. The pre-embark pass set passenger.position
         # to the transport's pre-deploy position; after _deploy_line moves
@@ -7393,6 +7421,119 @@ class Battle:
             for u in army.units:
                 if u.embarked_in is not None:
                     u.position = u.embarked_in.position
+
+    def _relax_deployment_collision(self) -> int:
+        """SWEG_DEPLOY_COLLISION: push overlapping bases apart after initial
+        placement so no two models interpenetrate at BattleStarted.
+
+        Algorithm (pure-deterministic, zero RNG):
+          1. Collect all on-board non-passenger units in FIXED army/unit order
+             (Army A first, then Army B, each in army.units list order).
+          2. Iterate up to MAX_PASSES times:
+             for each ordered pair (i, j) where j > i:
+               if their bases overlap, push unit j directly away from unit i
+               along the centre-to-centre line by just enough to clear
+               (min-separation = r_i + r_j + EPSILON_IN), then clamp j's
+               new position inside the map and, for non-infiltrators, inside
+               their army's deployment zone.
+          3. Stop early when no overlap remains; return residual overlap count
+             (0 if fully resolved within the cap).
+
+        Infiltrators deploy forward of their own zone, so only map bounds are
+        enforced for them. Standard and screen units are clamped to their zone.
+
+        This is a physical-representation fidelity aid (no 10e game rule
+        mandates base-gap at deployment; bases touching is fine in the physical
+        game). No citation entry is added — this extends the existing
+        SWEG_COLLISION substrate (data/rule_citations.d/keywords_and_mechanics.json
+        simulator.collision_friendly_passthrough) without introducing a new 10e
+        rule gate.
+        """
+        MAX_PASSES = 50
+        EPSILON_IN = 0.01   # small gap beyond touching to confirm clearance
+
+        dz = self.map.deployment_width
+        map_w = self.map.width
+        map_h = self.map.height
+
+        # Collect on-board non-passengers in fixed deterministic order.
+        ordered: list = []
+        for army in (self.a, self.b):
+            for u in army.units:
+                if u.embarked_in is None:
+                    ordered.append(u)
+
+        def _clamp(u, x: float, y: float):
+            """Clamp (x, y) inside map bounds and, for non-infiltrators,
+            inside the army's deployment zone. Returns clamped (x, y)."""
+            r = _bc_model_radius_in(u.profile)
+            # Map bounds (leave a base-radius margin so the base sits on-table).
+            x = min(max(x, r), map_w - r)
+            y = min(max(y, r), map_h - r)
+            # Deployment zone (non-infiltrators only; infiltrators deploy forward
+            # of their zone by design so only map bounds apply to them).
+            if not (u.profile.infiltrator or False):
+                own_a = (getattr(u, "army_ref", None) is self.a)
+                if own_a:
+                    # Army A deploys low-y (y <= dz).
+                    y = min(y, dz - r)
+                    y = max(y, r)
+                else:
+                    # Army B deploys high-y (y >= map_h - dz).
+                    y = max(y, map_h - dz + r)
+                    y = min(y, map_h - r)
+            return x, y
+
+        residual = 0
+        for _pass in range(MAX_PASSES):
+            moved = False
+            for i in range(len(ordered)):
+                u_i = ordered[i]
+                xi, yi = u_i.position
+                ri = _bc_model_radius_in(u_i.profile)
+                for j in range(i + 1, len(ordered)):
+                    u_j = ordered[j]
+                    xj, yj = u_j.position
+                    rj = _bc_model_radius_in(u_j.profile)
+                    min_sep = ri + rj + EPSILON_IN
+                    dx = xj - xi
+                    dy = yj - yi
+                    dist2 = dx * dx + dy * dy
+                    min_sep2 = min_sep * min_sep
+                    if dist2 >= min_sep2:
+                        continue
+                    # Bases overlap: push unit j directly away from unit i.
+                    dist = dist2 ** 0.5
+                    if dist < 1e-9:
+                        # Coincident centres — push along +x axis (deterministic).
+                        dx, dy = 1.0, 0.0
+                        dist = 1.0
+                    push = min_sep - dist   # positive: how much to push j away
+                    nx = xj + (dx / dist) * push
+                    ny = yj + (dy / dist) * push
+                    nx, ny = _clamp(u_j, nx, ny)
+                    u_j.position = (nx, ny)
+                    moved = True
+            if not moved:
+                residual = 0
+                break
+        else:
+            # Cap reached — count any remaining overlaps.
+            residual = 0
+            for i in range(len(ordered)):
+                u_i = ordered[i]
+                xi, yi = u_i.position
+                ri = _bc_model_radius_in(u_i.profile)
+                for j in range(i + 1, len(ordered)):
+                    u_j = ordered[j]
+                    xj, yj = u_j.position
+                    rj = _bc_model_radius_in(u_j.profile)
+                    dx = xj - xi
+                    dy = yj - yi
+                    dist2 = dx * dx + dy * dy
+                    if dist2 < (ri + rj) ** 2:
+                        residual += 1
+        return residual
 
     def _split_screen_back(self, units):
         """Split standard on-board `units` into (screen, back) groups by role.
@@ -7770,6 +7911,7 @@ class Battle:
                 # eventual disembark have a real position to work from.
                 for passenger in list(getattr(u, "passengers", [])):
                     passenger.position = pos
+                    self._emit(UnitDeepStrike(unit_uid=passenger.uid, position=pos))
                     army._add_live_unit(passenger)
                     self._fresh_arrivals.add(passenger.uid)
             # Passengers whose transport stayed in reserves stay in reserves
@@ -9797,7 +9939,7 @@ class Battle:
                 continue
             in_engagement = [
                 e for e in other.alive_units
-                if _distance(src.position, e.position) <= 1.0
+                if _er_gap_units(src, e) <= 1.0
             ]
             if not in_engagement:
                 continue
@@ -9824,31 +9966,51 @@ class Battle:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _fall_back_crosses_enemy(old_pos, new_pos, defender_army) -> bool:
+    def _fall_back_crosses_enemy(old_pos, new_pos, defender_army,
+                                 mover_profile=None) -> bool:
         """Approximate the 10e "a model moves over/through an enemy model" half
         of the Desperate Escape trigger. Returns True if any enemy model lies
-        within Engagement Range (1") of the fall-back path segment old_pos ->
-        new_pos AND is more than 1" from old_pos — i.e. an enemy AHEAD in the
-        path, not the one the unit is disengaging from at the start. Used by the
-        Fall Back branch of `_do_move`. See docs/CORE_RULES_AUDIT.md #2."""
+        within Engagement Range of the fall-back path segment old_pos ->
+        new_pos AND is outside Engagement Range of old_pos — i.e. an enemy
+        AHEAD in the path, not the one the unit is disengaging from at the
+        start. Used by the Fall Back branch of `_do_move`. See
+        docs/CORE_RULES_AUDIT.md #2.
+
+        Under SWEG_CHARGE_BASEEDGE (default ON since wave 240) Engagement
+        Range is measured base-edge to base-edge, so the per-enemy threshold
+        widens from 1" of the path line to 1" + mover_radius + enemy_radius —
+        a Knight falling back over a horde genuinely crosses bases the
+        centre-line test missed. Gate OFF (or no `mover_profile` passed) keeps
+        the legacy centre-based 1" threshold byte-identically. Cited as
+        `simulator.engagement_range_base_edge`."""
         ox, oy = old_pos
         nx, ny = new_pos
         dx, dy = nx - ox, ny - oy
         seg_len_sq = dx * dx + dy * dy
         if seg_len_sq <= 1e-9:
             return False
+        base_edge = (
+            mover_profile is not None
+            and os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1"
+        )
+        r_mover = _bc_model_radius_in(mover_profile) if base_edge else 0.0
         for e in defender_army.alive_units:
             if getattr(e, "embarked_in", None) is not None:
                 continue
             ex, ey = e.position
-            # Skip the enemy being disengaged from (within 1" of the start).
-            if (ex - ox) ** 2 + (ey - oy) ** 2 <= 1.0:
+            rr = 1.0 + r_mover + (
+                _bc_model_radius_in(e.profile) if base_edge else 0.0
+            )
+            rr_sq = rr * rr
+            # Skip the enemy being disengaged from (within Engagement Range
+            # of the start).
+            if (ex - ox) ** 2 + (ey - oy) ** 2 <= rr_sq:
                 continue
             # Point-to-segment distance from the enemy to the fall-back path.
             t = ((ex - ox) * dx + (ey - oy) * dy) / seg_len_sq
             t = max(0.0, min(1.0, t))
             px, py = ox + t * dx, oy + t * dy
-            if (ex - px) ** 2 + (ey - py) ** 2 <= 1.0:
+            if (ex - px) ** 2 + (ey - py) ** 2 <= rr_sq:
                 return True
         return False
 
@@ -9993,7 +10155,13 @@ class Battle:
             ny = max(0.0, min(self.map.height, fy + side * py * step))
             if self.map.is_blocked((nx, ny)):
                 continue
+            _lane_old_pos = f.position
             f.position = (nx, ny)
+            self._emit(UnitMoved(
+                unit_uid=f.uid,
+                from_pos=_lane_old_pos,
+                to_pos=(nx, ny),
+            ))
 
     def _ring_slots(self, obj, n: int) -> list:
         """Reusable coordination primitive (avenue-2 note A): `n` DISTINCT positions in
@@ -10214,6 +10382,7 @@ class Battle:
                 _shocked = attacker.is_currently_battle_shocked(self._current_round)
                 _crosses = self._fall_back_crosses_enemy(
                     old_pos, new_pos, defender_army,
+                    mover_profile=attacker.profile,
                 )
                 if (_shocked or _crosses) and random.randint(1, 6) <= 2:
                     attacker.current_health = 0.0
@@ -10853,6 +11022,24 @@ class Battle:
                 and ("VEHICLE" in kw or "MOUNTED" in kw)
                 and "TITANIC" not in kw
             )
+            # Bringers of Flame (Adepta Sororitas detachment) — Fervent
+            # Purgation [ASSAULT] leg (BSData v10.6.0, Imperium - Adepta
+            # Sororitas.cat.gz verbatim): "Ranged weapons equipped by ADEPTA
+            # SORORITAS models from your army have the [ASSAULT] ability."
+            # No round gate; no token spend; applies to every Sororitas ranged
+            # weapon unconditionally when the army is Bringers of Flame.
+            # Gated SWEG_BOF_ASSAULT (default ON since wave 240 — the
+            # Sororitas-scoped N=80 paired A/B measured +16.19 toward the
+            # real target, moving the faction from third-deepest under-pole
+            # to inside the noise band; the rule is verbatim-cited).
+            # SWEG_BOF_ASSAULT=0 restores the legacy no-[ASSAULT] path.
+            # Cited as `BRINGERS_OF_FLAME.army_wide_assault`.
+            bof_assault_window = (
+                os.environ.get("SWEG_BOF_ASSAULT", "1") != "0"
+                and det is not None
+                and getattr(det, "army_wide_assault", False)
+                and (attacker.profile.faction or "") == "Adepta Sororitas"
+            )
             if attacker.transient_assault_this_round:
                 pass   # stratagem already paid for; no token spend
             elif montka_assault_window:
@@ -10862,6 +11049,9 @@ class Battle:
             elif relentless_onslaught_assault_window:
                 pass   # Relentless Onslaught grants [ASSAULT] to NECRONS
                        # VEHICLE / MOUNTED (non-TITANIC) ranged weapons
+            elif bof_assault_window:
+                pass   # Bringers of Flame Fervent Purgation: [ASSAULT]
+                       # army-wide on all Adepta Sororitas ranged weapons
             elif self._gladius_active_doctrine(attacker, attacker_army) == "Devastator":
                 pass   # Devastator Doctrine grants shoot-after-Advance, free
             elif ("ASURYANI" in kw and "VEHICLE" in kw) and attacker_army.battle_focus_tokens > 0:
@@ -10885,7 +11075,7 @@ class Battle:
         kw = attacker.profile.unit_keywords or ()
         big_guns_eligible = "VEHICLE" in kw or "MONSTER" in kw
         in_engagement = any(
-            _distance(attacker.position, e.position) <= 1.0
+            _er_gap_units(attacker, e) <= 1.0
             for e in defender_army.alive_units
         )
         # SCREENING / melee-avoidance instrument (#86, gated SWEG_SHOOTLOSS_INSTR,
@@ -10965,14 +11155,14 @@ class Battle:
         if in_engagement:
             candidates = [
                 u for u in candidates
-                if _distance(attacker.position, u.position) <= 1.0
+                if _er_gap_units(attacker, u) <= 1.0
             ]
         # CORE-RULES-AUDIT (2026-05-31): a Blast weapon cannot target a unit
         # that is within Engagement Range of the bearer. See #5.
         if attacker.profile.blast:
             candidates = [
                 u for u in candidates
-                if _distance(attacker.position, u.position) > 1.0
+                if _er_gap_units(attacker, u) > 1.0
             ]
         if not candidates:
             return
@@ -11249,6 +11439,12 @@ class Battle:
             # alive_units; revival re-adds the unit before the phase ends).
             from code.leaders import maybe_apply_celestine_revival
             maybe_apply_celestine_revival(defender_army, shoot_target, random)
+            # AELDARI-YNCARNE — Ethereal Form: each time The Yncarne destroys
+            # an enemy unit it regains up to D3 lost wounds. Fires on the
+            # KILLER being the Yncarne, not on any enemy dying anywhere.
+            # Cited as `LeaderAbility.Ethereal Form`.
+            from code.leaders import maybe_apply_yncarne_heal
+            maybe_apply_yncarne_heal(attacker, attacker_army, random)
             # Deadly Demise (10e core): the destroyed unit may detonate.
             self._maybe_apply_deadly_demise(shoot_target)
 
@@ -11376,9 +11572,14 @@ class Battle:
         # positions after coherency drift).
         ref_pos = _surge_squad[0].position
         nearest = min(enemy_pool, key=lambda e: _distance(ref_pos, e.position))
-        gap = _distance(ref_pos, nearest.position)
+        # Engagement-Range distance (base-edge gap when SWEG_CHARGE_BASEEDGE
+        # is on, legacy centre distance when off — `_er_gap`). The travel
+        # arithmetic below is identical either way because the radii term is
+        # constant along the approach line.
+        gap = _er_gap(ref_pos, _surge_squad[0].profile,
+                      nearest.position, nearest.profile)
         if gap <= 0:
-            return  # already co-located, nothing to do
+            return  # already co-located / in base contact, nothing to do
 
         surge_roll = random.randint(1, 6) + 2   # D6 + 2
         # "finish as close as possible" -> if we can reach engagement
@@ -11395,6 +11596,12 @@ class Battle:
             new_pos = _move_toward(old_pos, nearest.position, travel, self.map,
                                    **self._collision_kwargs(_surging_model, allow_engagement=True))
             _surging_model.position = new_pos
+            if new_pos != old_pos:
+                self._emit(UnitMoved(
+                    unit_uid=_surging_model.uid,
+                    from_pos=old_pos,
+                    to_pos=new_pos,
+                ))
             if self.verbose:
                 print(
                     f"  [Blood Surge] {_surging_model.profile.name} ({_surging_model.uid}) "
@@ -11652,6 +11859,90 @@ class Battle:
             )
             self._maybe_apply_deadly_demise(target)
 
+    def _charge_baseedge_end(self, attacker, target):
+        """Base-edge charge-end placement (env-gate SWEG_CHARGE_BASEEDGE, wave 240
+        lever 1). Return the end POSITION for a charger whose 2D6 has already
+        succeeded, so its BASE EDGE finishes within 1.0" of the target's base edge
+        rather than its CENTRE within 1.0" of the target's centre.
+
+        Real 10e: a charge move must end within Engagement Range of every target,
+        and Engagement Range — like all distances — is measured between the CLOSEST
+        POINTS OF THE BASES (cited `simulator.charge_end_base_to_base`). The legacy
+        centre-to-centre placement drives the charger 2-3" INTO a big-based target
+        (the proven base-overlap root cause in scripts/diag_overlap_audit.py).
+
+        Geometry: the contact (touching-bases) centre distance is
+        attacker_radius + target_radius; ending within 1.0" of base edge means a
+        centre distance of (1.0 + attacker_radius + target_radius). We aim for that
+        edge-contact-plus-1" distance along the same attacker->target line the
+        legacy path uses. The candidate is validated against the no-overlap
+        collision predicate (`_collision_pos_legal`, with allow_engagement=True so a
+        charge legitimately ending in Engagement Range is permitted) so the charger
+        never ends on top of another model. If the straight spot is illegal, search
+        deterministically around the target centre at the SAME base-edge distance
+        (fixed +/-10 deg steps out to +/-90 deg, nearest-first by rotation
+        magnitude). If NO legal spot exists at that distance, FALL BACK to the
+        legacy centre-1" placement — a successful charge must never be cancelled by
+        a placement failure (10e has no "charge fails because there's no room"
+        clause once the roll is made; the charger pushes to base contact). Pure +
+        deterministic geometry: NO RNG is consumed, so the gate-on arm draws no
+        extra random numbers and reruns are byte-identical."""
+        import math as _m
+        ax, ay = attacker.position
+        tx, ty = target.position
+        a_rad = _bc_model_radius_in(attacker.profile)
+        t_rad = _bc_model_radius_in(target.profile)
+        # Target centre distance whose base-edge gap is exactly 1.0".
+        target_center_dist = 1.0 + a_rad + t_rad
+
+        # Direction from target toward attacker (the approach bearing). If the
+        # charger sits exactly on the target centre (degenerate), stay put —
+        # there is no defined approach line to rotate around.
+        dx = ax - tx
+        dy = ay - ty
+        d = (dx * dx + dy * dy) ** 0.5
+        if d == 0.0:
+            return attacker.position
+        # Legacy centre-1" placement (used as the never-cancel fallback below),
+        # computed from the ACTUAL centre distance `d` — the caller's charge
+        # distance is the REQUIRED 2D6 move (base-edge measurement) under this
+        # gate, not the centre distance, so it cannot be used for this scale.
+        scale = max(0.0, (d - 1.0)) / d
+        legacy_pos = (ax + (tx - ax) * scale, ay + (ty - ay) * scale)
+        ux, uy = dx / d, dy / d   # unit vector target -> attacker
+        base_ang = _m.atan2(uy, ux)
+
+        kw = self._collision_kwargs(attacker, allow_engagement=True)
+        # _collision_kwargs returns {} when SWEG_COLLISION is off or the mover is
+        # not in either army — in that case there is no occupant data to validate
+        # against, so accept the direct base-edge spot (still strictly better than
+        # the deep-interpenetration legacy placement).
+        if not kw:
+            cand = (tx + ux * target_center_dist, ty + uy * target_center_dist)
+            return cand if not self.map.is_blocked(cand) else legacy_pos
+        mover_radius = kw["mover_radius"]
+        occupants = kw["occupants"]
+        mover_fly = kw["mover_fly"]
+
+        # Deterministic nearest-first angular search at the SAME base-edge
+        # distance: 0 deg (straight approach), then +/-10..+/-90 in fixed steps.
+        offsets = [0.0]
+        for deg in range(10, 91, 10):
+            offsets.append(float(deg))
+            offsets.append(float(-deg))
+        for off in offsets:
+            ang = base_ang + _m.radians(off)
+            cx = tx + _m.cos(ang) * target_center_dist
+            cy = ty + _m.sin(ang) * target_center_dist
+            cand = (cx, cy)
+            if self.map.is_blocked(cand):
+                continue
+            if _collision_pos_legal(cand, mover_radius, occupants, mover_fly):
+                return cand
+        # No legal base-edge spot anywhere around the target (fully surrounded):
+        # never cancel a successful charge — fall back to the legacy placement.
+        return legacy_pos
+
     def _do_charge(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         """2D6 charge vs the best target ≤12". On success, move into 1" engagement.
 
@@ -11659,6 +11950,15 @@ class Battle:
         weak in melee (gunlines / battlesuits) over near-but-resilient brick
         units, which is closer to real tournament melee play and brings the
         sim's over-rating of T'au / Astartes / Votann shooty factions down.
+
+        `dist` (the second value pick_charge_target returns, also emitted on
+        the UnitCharged event) is the number the 2D6 roll must meet: under
+        SWEG_CHARGE_BASEEDGE (default ON since wave 240) that is the move
+        needed to bring the bases within 1" of each other (base-edge gap
+        minus 1" — 10e measures every distance between the closest points of
+        the bases, cited `simulator.engagement_range_base_edge`); with the
+        gate off it is the legacy centre-to-centre distance, byte-identical
+        to the pre-gate behaviour.
         """
         # Pariah Nexus action lockout (10e core, wave 74): a unit performing an
         # action cannot declare a charge this turn. Cited as
@@ -11742,16 +12042,46 @@ class Battle:
         # fires if it would flip fail -> success (greedy heuristic).
         # Cited as `simulator.strands_of_fate`. Wahapedia:
         # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+        #
+        # Squad multi-spend guard (FATE-CHARGE-V1): the real rule allows ONE
+        # substitution per unit per charge roll — "one charge roll" means the
+        # shared 2D6 the whole squad makes together. The simulator models each
+        # squad member as a separate Unit so every member independently enters
+        # this block. Without a gate, a five-model squad making a failed charge
+        # would call pop_fate_die_meeting five times — one per model — draining
+        # up to five Fate dice for a single squad charge. The fix mirrors the
+        # fate_advance / fate_hit / fate_save pattern: mark the squad's budget
+        # the moment we enter the substitution branch, so squad-mates skip it.
+        # We mark BEFORE the pop so that a failed search (no die high enough,
+        # pop returns None) still consumes the squad's one allowed attempt —
+        # the squad made its charge roll, it was allowed one substitution, it
+        # found none, the roll stays failed for every member.
+        # Key: squad_id (int, when >= 0) or profile name (str) — identical to
+        # the fate_advance / fate_hit / fate_save keying (task #28 re-key).
+        _fate_chg_key = sid if sid >= 0 else attacker.profile.name
         if (
             roll < dist
             and attacker.profile.faction == "Aeldari"
             and attacker_army.has_fate_dice()
+            and attacker_army.unit_budget_available("fate_charge", _fate_chg_key)
         ):
+            attacker_army.mark_unit_budget("fate_charge", _fate_chg_key)
             lower = min(d1, d2)
             needed = int(dist) - (roll - lower)   # the die value we need
             sub = attacker_army.pop_fate_die_meeting(max(1, needed))
             if sub is not None:
                 roll = roll - lower + sub
+                # FATE-CHARGE-V2 write-back: the substitution changes the
+                # UNIT's single shared charge roll, so squad-mates must read
+                # the substituted pair from the cache, not the natural one.
+                # Without this, only the model that spent the Fate die
+                # completes the charge while the rest of the squad fails the
+                # very roll the rule just flipped — a split squad the real
+                # rule cannot produce. The budget gate above stops the
+                # over-spend; this write-back keeps the squad together. The
+                # two are complements, not alternatives.
+                if sid >= 0:
+                    self._squad_charge_roll[sid] = (max(d1, d2), sub)
         succeeded = (roll >= dist)
         if not succeeded:
             self._emit(UnitCharged(
@@ -11760,16 +12090,57 @@ class Battle:
             ))
             return
 
-        # Move to within 1" of target — engagement range
-        dx = target.position[0] - attacker.position[0]
-        dy = target.position[1] - attacker.position[1]
-        scale = max(0.0, (dist - 1.0)) / dist
-        new_pos = (
-            attacker.position[0] + dx * scale,
-            attacker.position[1] + dy * scale,
-        )
-        if not self.map.is_blocked(new_pos):
-            attacker.position = new_pos
+        # Move to within 1" of target — engagement range.
+        #
+        # Base-edge charge-end placement (env-gate SWEG_CHARGE_BASEEDGE, default
+        # ON since wave 240 — adopted with SWEG_DEPLOY_COLLISION as the collision
+        # pair on the metric-neutral N=80 paired confirm (gated 5.08 -> 5.13,
+        # in-band 5/22 -> 8/22, seed-5 overlap incidents 217 -> 53, cross-army
+        # 49 -> 2). Set =0 to restore the legacy centre-distance placement.
+        # Real 10e: a charge move ends within Engagement
+        # Range of every target, where Engagement Range and all distances are
+        # measured between the CLOSEST POINTS OF THE BASES, not between model
+        # centres. The legacy placement (the gate-OFF path below) parks the
+        # charger 1.0" from the target CENTRE, which drives the charger's base
+        # 2-3" INTO a big-based target (tank/monster) — the proven root cause of
+        # the real base overlap in scripts/diag_overlap_audit.py. The gated path
+        # instead stops the charger so its BASE EDGE is within 1.0" of the
+        # target's base edge, and validates the spot against the no-overlap
+        # collision predicate so the charger never ends on top of another model.
+        # Cited as `simulator.charge_end_base_to_base`.
+        #
+        # Read the gate ONCE here, exactly as SWEG_COLLISION is read at the top
+        # of `_collision_kwargs`. NO RNG is consumed on either path (the gated
+        # search is fixed-step deterministic geometry), so the gate-OFF arm stays
+        # byte-identical and even the gate-ON arm draws no extra random numbers.
+        # Telemetry (wave 239 movement-event sweep): the charge displacement
+        # must be emitted as a UnitMoved so the replay viewer never sees a
+        # silent position change — applied inside BOTH placement branches.
+        _charge_old_pos = attacker.position
+        if os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1":
+            new_pos = self._charge_baseedge_end(attacker, target)
+            if not self.map.is_blocked(new_pos):
+                attacker.position = new_pos
+                self._emit(UnitMoved(
+                    unit_uid=attacker.uid,
+                    from_pos=_charge_old_pos,
+                    to_pos=new_pos,
+                ))
+        else:
+            dx = target.position[0] - attacker.position[0]
+            dy = target.position[1] - attacker.position[1]
+            scale = max(0.0, (dist - 1.0)) / dist
+            new_pos = (
+                attacker.position[0] + dx * scale,
+                attacker.position[1] + dy * scale,
+            )
+            if not self.map.is_blocked(new_pos):
+                attacker.position = new_pos
+                self._emit(UnitMoved(
+                    unit_uid=attacker.uid,
+                    from_pos=_charge_old_pos,
+                    to_pos=new_pos,
+                ))
         self._charging_this_round.add(attacker.uid)
         self._emit(UnitCharged(
             unit_uid=attacker.uid, target_uid=target.uid,
@@ -11829,7 +12200,7 @@ class Battle:
             # in-range gate; pile-in then closes the residual gap).
             if u.uid in self._charging_this_round:
                 return True
-            return any(_distance(u.position, e.position) <= 1.0
+            return any(_er_gap_units(u, e) <= 1.0
                        for e in foe.alive_units)
 
         def _is_ff(u) -> bool:
@@ -11896,10 +12267,11 @@ class Battle:
         # the full melee profile.
         nearest_pre = min(
             alive_enemies,
-            key=lambda e: _distance(attacker.position, e.position),
+            key=lambda e: _er_gap_units(attacker, e),
         )
-        pre_engaged = _distance(attacker.position, nearest_pre.position) <= 1.0
+        pre_engaged = _er_gap_units(attacker, nearest_pre) <= 1.0
         is_charging_this_turn = attacker.uid in self._charging_this_round
+        _pile_old_pos = attacker.position
         if (
             (pre_engaged or is_charging_this_turn)
             and not self.map.is_blocked(attacker.position)
@@ -11910,6 +12282,12 @@ class Battle:
             )
             if not self.map.is_blocked(new_pos):
                 attacker.position = new_pos
+                if new_pos != _pile_old_pos:
+                    self._emit(UnitMoved(
+                        unit_uid=attacker.uid,
+                        from_pos=_pile_old_pos,
+                        to_pos=new_pos,
+                    ))
 
         # #C1 (auto-loop iter1): pick the engagement-range candidate with
         # the highest `_melee_target_score` rather than the geometrically
@@ -11921,7 +12299,7 @@ class Battle:
         # breaks the lock rather than the closest brick.
         in_range = [
             e for e in alive_enemies
-            if _distance(attacker.position, e.position) <= 1.0
+            if _er_gap_units(attacker, e) <= 1.0
         ]
         if not in_range:
             return
@@ -11958,6 +12336,9 @@ class Battle:
             # melee. Mirrors the shooting-kill hook above.
             from code.leaders import maybe_apply_celestine_revival
             maybe_apply_celestine_revival(defender_army, target, random)
+            # AELDARI-YNCARNE — Ethereal Form: melee kill site.
+            from code.leaders import maybe_apply_yncarne_heal
+            maybe_apply_yncarne_heal(attacker, attacker_army, random)
             self._maybe_apply_deadly_demise(target)
             # CSM-EYE-OF-GODS: Eye of the Gods (Pactbound Zealots, 1 CP).
             # End-of-Fight-phase reactive stratagem fired on the kill site.
@@ -11996,6 +12377,7 @@ class Battle:
         # primary objective. The "no enemies within 3" of the end position"
         # condition in the 10e rule text is trivially satisfied when the
         # entire defending force has been destroyed.
+        _consol_old_pos = attacker.position
         if attacker.is_alive and not self.map.is_blocked(attacker.position):
             remaining = defender_army.alive_units
             if remaining:
@@ -12011,6 +12393,12 @@ class Battle:
                 )
                 if not self.map.is_blocked(new_pos):
                     attacker.position = new_pos
+                    if new_pos != _consol_old_pos:
+                        self._emit(UnitMoved(
+                            unit_uid=attacker.uid,
+                            from_pos=_consol_old_pos,
+                            to_pos=new_pos,
+                        ))
             elif self.map.objectives:
                 # Objective path: combat cleared, no surviving enemies —
                 # move toward nearest objective marker if the move would
@@ -12030,6 +12418,12 @@ class Battle:
                     and _distance(move_end, obj_pos) <= nearest_obj.control_radius
                 ):
                     attacker.position = move_end
+                    if move_end != _consol_old_pos:
+                        self._emit(UnitMoved(
+                            unit_uid=attacker.uid,
+                            from_pos=_consol_old_pos,
+                            to_pos=move_end,
+                        ))
 
     # ------------------------------------------------------------------
     # Helpers
@@ -12712,7 +13106,13 @@ class Battle:
                 break
         if placed is None:
             placed = transport.position
+        _disembark_old_pos = passenger.position
         passenger.position = placed
+        self._emit(UnitMoved(
+            unit_uid=passenger.uid,
+            from_pos=_disembark_old_pos,
+            to_pos=placed,
+        ))
         passenger.embarked_in = None
         if passenger in transport.passengers:
             transport.passengers.remove(passenger)
@@ -13047,6 +13447,9 @@ class Battle:
             # Shock kill site.
             from code.leaders import maybe_apply_celestine_revival
             maybe_apply_celestine_revival(target_army, _m, random)
+            # AELDARI-YNCARNE — Ethereal Form: Tank Shock kill site.
+            from code.leaders import maybe_apply_yncarne_heal
+            maybe_apply_yncarne_heal(charger, charger_army, random)
             self._maybe_apply_deadly_demise(_m)
 
     # CORE-RULES-AUDIT (2026-05-31): _do_heroic_intervention REMOVED. Heroic
@@ -13076,7 +13479,7 @@ class Battle:
             u for u in loser_army.alive_units
             if u is not loser_unit
             and u.profile.melee_attacks > 0
-            and _distance(u.position, winner_unit.position) <= 1.0
+            and _er_gap_units(u, winner_unit) <= 1.0
         ]
         in_engagement = bool(candidates)
         ctx = {
@@ -13126,4 +13529,8 @@ class Battle:
             # Counter-Offensive kill site.
             from code.leaders import maybe_apply_celestine_revival
             maybe_apply_celestine_revival(winner_army, winner_unit, random)
+            # AELDARI-YNCARNE — Ethereal Form: Counter-Offensive kill site.
+            # The retaliator is the killer; loser_army is the retaliator's army.
+            from code.leaders import maybe_apply_yncarne_heal
+            maybe_apply_yncarne_heal(retaliator, loser_army, random)
             self._maybe_apply_deadly_demise(winner_unit)

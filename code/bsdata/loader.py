@@ -78,6 +78,15 @@ class CatalogEntry:
     csm_despoilers: bool = False
     # CSM Possessed "Unholy Bloodshed" (override-only). Set via overrides.json.
     csm_unholy_bloodshed: bool = False
+    # Adepta Sororitas Retributor Squad datasheet ability "Storm of Retribution"
+    # (unconditional half, override-only). BSData v10.6.0 id 8eef-f65c-7895-183f:
+    # "Each time a model in this unit makes a ranged attack, re-roll a Hit roll of 1
+    # and re-roll a Wound roll of 1." Ranged-only; applies via att_reroll_hit_ones +
+    # att_reroll_wound_ones in Unit.attack when mode != "melee". The escalating
+    # half (+1 to Hit and +1 to Wound when attacking an enemy that killed a friendly
+    # Adepta Sororitas unit) is a follow-up code build. Cited as
+    # `simulator.storm_of_retribution`.
+    storm_of_retribution: bool = False
     rapid_fire: int = 0
     melta: int = 0
     ignores_cover: bool = False
@@ -145,6 +154,12 @@ class CatalogEntry:
     # subtract 1 from the Wound roll." Set per-unit via overrides.json.
     # Cited as `simulator.gloam_rot`.
     gloam_rot: bool = False
+    # ADEPTA SORORITAS — Righteous Paragons (Paragon Warsuits datasheet
+    # ability). Wahapedia verbatim: "Each time a model in this unit makes
+    # an attack that targets a MONSTER or VEHICLE unit, add 1 to the Hit
+    # roll and add 1 to the Wound roll." Set per-unit via overrides.json.
+    # Cited as `simulator.righteous_paragons`.
+    righteous_paragons: bool = False
     # NECRONS-CTAN — Necrodermis (C'tan datasheet ability). Halves the
     # Damage characteristic of each allocated attack (rounding up); D1
     # attacks deal 0 damage. Set per-unit via overrides.json (the BSData
@@ -291,6 +306,7 @@ class CatalogEntry:
             veterans_of_the_long_war=bool(d.get("veterans_of_the_long_war", False)),
             csm_despoilers=bool(d.get("csm_despoilers", False)),
             csm_unholy_bloodshed=bool(d.get("csm_unholy_bloodshed", False)),
+            storm_of_retribution=bool(d.get("storm_of_retribution", False)),
             rapid_fire=int(d.get("rapid_fire", 0)),
             melta=int(d.get("melta", 0)),
             ignores_cover=bool(d.get("ignores_cover", False)),
@@ -320,6 +336,7 @@ class CatalogEntry:
             resolute_will=bool(d.get("resolute_will", False)),
             murderers_cowl=bool(d.get("murderers_cowl", False)),
             gloam_rot=bool(d.get("gloam_rot", False)),
+            righteous_paragons=bool(d.get("righteous_paragons", False)),
             necrodermis=bool(d.get("necrodermis", False)),
             reanimates_with_army=bool(d.get("reanimates_with_army", False)),
             unit_keywords=list(d.get("unit_keywords") or []),
@@ -533,6 +550,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "veterans_of_the_long_war": override.get("veterans_of_the_long_war", base.veterans_of_the_long_war),
         "csm_despoilers": override.get("csm_despoilers", base.csm_despoilers),
         "csm_unholy_bloodshed": override.get("csm_unholy_bloodshed", base.csm_unholy_bloodshed),
+        "storm_of_retribution": override.get("storm_of_retribution", base.storm_of_retribution),
         "rapid_fire": override.get("rapid_fire", base.rapid_fire),
         "melta": override.get("melta", base.melta),
         "ignores_cover": override.get("ignores_cover", base.ignores_cover),
@@ -562,6 +580,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "resolute_will": override.get("resolute_will", base.resolute_will),
         "murderers_cowl": override.get("murderers_cowl", base.murderers_cowl),
         "gloam_rot": override.get("gloam_rot", base.gloam_rot),
+        "righteous_paragons": override.get("righteous_paragons", base.righteous_paragons),
         "necrodermis": override.get("necrodermis", base.necrodermis),
         "reanimates_with_army": override.get("reanimates_with_army", base.reanimates_with_army),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),
