@@ -90,6 +90,31 @@ reminder turn.
 Mark in_progress only while you are actively working that iter; flip back
 to pending if you pause or pivot.
 
+## G. Toolbox sweep — analysis tools are part of the research process
+
+User directive (2026-06-10). The canonical inventory of every analysis tool the
+loop has built or discovered — visual renders, game-shape signatures, gated
+mechanic instruments, the paired-evaluation measurement stack, the one-question
+diagnostic scripts, ground-truth sources, and the event stream — lives in
+[`ANALYSIS_TOOLBOX.md`](ANALYSIS_TOOLBOX.md). Sweeping that list is a standing
+step of every research and diagnostic pass, not an optional extra:
+
+* **Every residual diagnosis, research briefing, and adjudication states which
+  toolbox sections were consulted and why each was used or skipped.** One line
+  per section is enough; the point is that the consideration happened, because
+  aggregate win rates hide what the visual and instrument tools catch (the
+  unit-stacking bug and the empty-marker gap were both found by renders, not
+  metrics).
+* **Before dispatching a build, corroborate the diagnosis with at least one
+  evidence source that is not a win rate** — a render, a signature, an
+  instrument readout, or an event-stream analysis. This is the practical
+  enforcement of the "ground claims in code, measure don't rule-read" rules.
+* **Research-agent briefings name the relevant tools** so the agent knows what
+  evidence already exists and does not re-derive or re-run it.
+* **A new diagnostic tool is registered in `ANALYSIS_TOOLBOX.md` in the same
+  pull request that creates it.** An unlisted tool is a tool the next wave
+  forgets.
+
 ## Cleanup routine
 
 Run `python scripts/loop_cleanup.py` at the end of each iter (or whenever
