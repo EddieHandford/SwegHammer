@@ -1,15 +1,20 @@
 """Deployment collision relaxation tests (SWEG_DEPLOY_COLLISION gate).
 
-Four test classes:
-  1. GateOffIdentityTests   — gate OFF produces byte-identical positions to the
-                              baseline (determinism check via two seeds).
-  2. GateOnNoOverlapTests   — gate ON: zero overlapping base pairs at
-                              BattleStarted for several seeds / faction matchups.
-  3. MapBoundsTests         — gate ON: all units stay inside map bounds after
-                              relaxation even when a dense deployment would push
-                              them out.
-  4. DeterminismTests       — gate ON: running the same seed twice gives
-                              identical positions (pure geometry, no RNG).
+Five test classes:
+  1. GateOffIdentityTests       — gate OFF produces byte-identical positions to
+                                  the baseline (determinism check via two seeds).
+  2. GateOnNoOverlapTests       — gate ON: zero overlapping base pairs at
+                                  BattleStarted for several seeds / matchups.
+  3. MapBoundsTests             — gate ON: all units stay inside map bounds
+                                  after relaxation even when a dense deployment
+                                  would push them out.
+  4. DeterminismTests           — gate ON: running the same seed twice gives
+                                  identical positions (pure geometry, no RNG);
+                                  forced overlaps actually move models.
+  5. RelaxationExerciseTests    — synthetically forced overlaps (coincident
+                                  centres, piled bases, partial penetration)
+                                  directly exercise the push-apart loop, which
+                                  the default deployment spacing never enters.
 
 The overlap check reuses the pairwise idiom from scripts/diag_overlap_audit.py:
   penetration = (r_i + r_j) - dist(i, j)  >  TOL_IN  =>  overlap
@@ -349,27 +354,32 @@ class DeterminismTests(unittest.TestCase):
         self.assertEqual(pos1, pos2,
             "Gate-ON deployment collision must be deterministic")
 
-    def test_gate_on_differs_from_gate_off_when_overlaps_present(self):
-        """When the default placement would produce overlaps, gate ON must
-        produce different positions from gate OFF (it actually moves models).
-        Use a large-base Knight army where overlaps are guaranteed."""
-        a_on = _knight_army("A", count=6)
-        b_on = _dense_army("B", size=4)
-        battle_on = _deploy_with_gate(a_on, b_on, gate_on=True, seed=5)
+    def test_relaxation_moves_models_when_overlaps_present(self):
+        """When the placement contains real overlaps, relaxation must actually
+        move models (positions differ pre/post) and resolve every overlap.
 
-        a_off = _knight_army("A", count=6)
-        b_off = _dense_army("B", size=4)
-        battle_off = _deploy_with_gate(a_off, b_off, gate_on=False, seed=5)
+        The overlap is forced synthetically: the default _deploy_line spacing
+        never produces overlaps for any army in this file (six Knights land
+        5.71 inches apart vs the 5.50-inch minimum separation), so a guarded
+        gate-on-vs-gate-off comparison would never execute its assertion."""
+        a = _knight_army("A", count=2)
+        b = _dense_army("B", size=4)
+        battle = _deploy_with_gate(a, b, gate_on=False, seed=5)
+        # Force a real overlap: stack the two Knights' centres coincident.
+        battle.a.units[1].position = battle.a.units[0].position
+        pre = {u.uid: u.position for u in _all_units(battle)}
+        self.assertGreater(_count_overlaps(_all_units(battle)), 0,
+            "Setup must create a real overlap before relaxation")
 
-        pos_on = {u.uid: u.position for u in _all_units(battle_on)}
-        pos_off = {u.uid: u.position for u in _all_units(battle_off)}
+        residual = battle._relax_deployment_collision()
+        post = {u.uid: u.position for u in _all_units(battle)}
 
-        # The gate-off placement has overlaps (Knights overlap on the default row).
-        off_overlaps = _count_overlaps(list(battle_off.a.units) + list(battle_off.b.units))
-        # Gate ON resolves those overlaps — positions must differ from gate OFF.
-        if off_overlaps > 0:
-            self.assertNotEqual(pos_on, pos_off,
-                "Gate-ON must move models when overlaps exist in the gate-OFF placement")
+        self.assertEqual(residual, 0,
+            "Relaxation must report zero residual overlaps")
+        self.assertEqual(_count_overlaps(_all_units(battle)), 0,
+            "Relaxation must leave zero overlapping pairs")
+        self.assertNotEqual(pre, post,
+            "Relaxation must move models when overlaps exist")
 
     def test_knight_army_deterministic(self):
         """Determinism check for large-base units where relaxation does real work."""
@@ -385,6 +395,104 @@ class DeterminismTests(unittest.TestCase):
 
         self.assertEqual(pos1, pos2,
             "Gate-ON Knight deployment must be deterministic across identical seeds")
+
+
+# ---------------------------------------------------------------------------
+# 5. Relaxation exercise — synthetically forced overlaps
+# ---------------------------------------------------------------------------
+
+class RelaxationExerciseTests(unittest.TestCase):
+    """Directly exercise _relax_deployment_collision's push-apart loop.
+
+    The default _deploy_line spacing produces zero overlaps for every army
+    built in this file (the cluster step exceeds the bases' minimum
+    separation), so the gate-on classes above validate the no-overlap
+    INVARIANT without ever entering the push-apart loop. These tests force
+    real overlaps synthetically — coincident centres (the deterministic
+    +x-axis push branch), piled small bases, and a partial penetration —
+    then call the relaxation directly and assert it resolves them."""
+
+    def _battle_with_forced_overlaps(self, seed: int = 0) -> Battle:
+        """Deploy gate-OFF, then synthetically stack units inside their own
+        deployment zones. Creates three distinct overlap shapes:
+          * two coincident large bases (Knights — exercises the dist<1e-9
+            deterministic +x push branch),
+          * four small bases piled on one point (multi-pass convergence),
+          * one partially penetrating pair in army B (the standard push)."""
+        a = Army("A")
+        a.add_unit(_knight_profile("Knight_0"))
+        a.add_unit(_knight_profile("Knight_1"))
+        a.add_squad(_basic_profile("Trooper", base_diameter_mm=25), size=6)
+        b = _dense_army("B", size=6)
+        battle = _deploy_with_gate(a, b, gate_on=False, seed=seed)
+        # Coincident Knights (large bases, centres identical).
+        battle.a.units[1].position = battle.a.units[0].position
+        # Pile of troopers (units 2..5 share one point).
+        troopers = list(battle.a.units)[2:6]
+        for t in troopers[1:]:
+            t.position = troopers[0].position
+        # Partial penetration in army B (0.3 inches apart, radii sum ~0.98).
+        b0, b1 = battle.b.units[0], battle.b.units[1]
+        x0, y0 = b0.position
+        b1.position = (x0 + 0.3, y0)
+        return battle
+
+    def test_relaxation_resolves_forced_overlaps(self):
+        battle = self._battle_with_forced_overlaps(seed=0)
+        pre = _count_overlaps(_all_units(battle))
+        self.assertGreater(pre, 0,
+            "Setup must create real overlaps before relaxation runs")
+        residual = battle._relax_deployment_collision()
+        self.assertEqual(residual, 0,
+            "Relaxation must resolve all forced overlaps within the pass cap")
+        self.assertEqual(_count_overlaps(_all_units(battle)), 0,
+            "No overlapping pairs may remain after relaxation")
+
+    def test_relaxation_respects_map_bounds_and_zones(self):
+        """Pushed-apart units must end inside map bounds, and non-infiltrators
+        inside their army's deployment zone."""
+        battle = self._battle_with_forced_overlaps(seed=1)
+        battle._relax_deployment_collision()
+        w = battle.map.width
+        h = battle.map.height
+        dz = battle.map.deployment_width
+        for u in _all_units(battle):
+            r = _bc_model_radius_in(u.profile)
+            x, y = u.position
+            self.assertGreaterEqual(x, r - TOL_IN,
+                f"{u.profile.name} x={x:.3f} below left edge after relaxation")
+            self.assertLessEqual(x, w - r + TOL_IN,
+                f"{u.profile.name} x={x:.3f} beyond right edge after relaxation")
+            self.assertGreaterEqual(y, r - TOL_IN,
+                f"{u.profile.name} y={y:.3f} below bottom edge after relaxation")
+            self.assertLessEqual(y, h - r + TOL_IN,
+                f"{u.profile.name} y={y:.3f} beyond top edge after relaxation")
+        for u in battle.a.units:
+            if u.embarked_in is not None or (u.profile.infiltrator or False):
+                continue
+            _, y = u.position
+            self.assertLessEqual(y, dz + TOL_IN,
+                f"Army A {u.profile.name} y={y:.3f} pushed outside zone [0, {dz}]")
+        for u in battle.b.units:
+            if u.embarked_in is not None or (u.profile.infiltrator or False):
+                continue
+            _, y = u.position
+            self.assertGreaterEqual(y, h - dz - TOL_IN,
+                f"Army B {u.profile.name} y={y:.3f} pushed outside zone [{h-dz}, {h}]")
+
+    def test_relaxation_is_deterministic(self):
+        """Same forced-overlap setup twice must relax to identical positions
+        (the loop is pure geometry over a fixed unit order — zero RNG)."""
+        b1 = self._battle_with_forced_overlaps(seed=42)
+        b1._relax_deployment_collision()
+        pos1 = {u.uid: u.position for u in _all_units(b1)}
+
+        b2 = self._battle_with_forced_overlaps(seed=42)
+        b2._relax_deployment_collision()
+        pos2 = {u.uid: u.position for u in _all_units(b2)}
+
+        self.assertEqual(pos1, pos2,
+            "Relaxation of identical forced overlaps must be deterministic")
 
 
 if __name__ == "__main__":

@@ -35,7 +35,7 @@
     "quoted_text": "Each time a model in this unit makes a ranged attack, re-roll a Hit roll of 1 and re-roll a Wound roll of 1. If such an attack targets an enemy unit that has destroyed one or more Adepta Sororitas units from your army during the battle, add 1 to the Hit roll and add 1 to the Wound roll as well.",
     "trigger": "Retributor Squad model makes a ranged attack (mode != melee); unconditional for the re-roll-ones half. BSData v10.6.0 Imperium - Adepta Sororitas.cat.gz, ability id 8eef-f65c-7895-183f.",
     "effect": "att_reroll_hit_ones=True and att_reroll_wound_ones=True for the ranged attack. APPROXIMATION: only the unconditional half is implemented; the escalating half (+1 to Hit and +1 to Wound when the target unit has destroyed one or more friendly Adepta Sororitas units) is a follow-up code build requiring a per-enemy kill-tracking gate.",
-    "scope": "unit-led",
+    "scope": "keyword-gated",
     "approximation": "true"
   },
 

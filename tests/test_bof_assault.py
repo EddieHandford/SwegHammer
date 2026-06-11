@@ -54,6 +54,25 @@ def _soror_bolter_profile() -> UnitProfile:
     )
 
 
+def _lethal_soror_profile() -> UnitProfile:
+    """A Sororitas attacker tuned so damage is effectively guaranteed against
+    _target_profile under any seed: 12 attacks at hit probability 1.0,
+    Strength 8 vs Toughness 4 (wounds on 2+), armour piercing -3 against a
+    4+ save (save needs 7+, impossible, no invulnerable). The chance of zero
+    damage is (1/6)^12 — the gate-on assertion can therefore demand a strict
+    health DROP rather than the tautological less-than-or-equal."""
+    return UnitProfile(
+        name="Retributor Lethal Proxy",
+        faction="Adepta Sororitas",
+        health=1, damage=1, hit_probability=1.0,
+        ap=-3, save=3, strength=8, toughness=3,
+        attacks=12, weapon_damage_per_shot=1.0, range_inches=24,
+        leadership=7, points_override=75.0,
+        unit_keywords=("INFANTRY",),
+        move=6.0,
+    )
+
+
 def _target_profile() -> UnitProfile:
     return UnitProfile(
         name="Target",
@@ -79,10 +98,12 @@ def _non_soror_profile() -> UnitProfile:
     )
 
 
-def _build_battle(soror_detachment=None, non_soror=False):
+def _build_battle(soror_detachment=None, non_soror=False, lethal=False):
     """Build a minimal two-army battle.
 
     If non_soror is True, the attacker is Chaos Space Marines, not Sororitas.
+    If lethal is True, the Sororitas attacker uses _lethal_soror_profile so a
+    successful shot is guaranteed to drop defender health (gate-on tests).
     soror_detachment: if given, force the Sororitas army's detachment to this
     instance by assigning it directly to Army.detachment.
     """
@@ -91,7 +112,7 @@ def _build_battle(soror_detachment=None, non_soror=False):
         a.add_unit(_non_soror_profile())
     else:
         a = Army("Sisters")
-        a.add_unit(_soror_bolter_profile())
+        a.add_unit(_lethal_soror_profile() if lethal else _soror_bolter_profile())
     b = Army("Enemy")
     b.add_unit(_target_profile())
     random.seed(42)
@@ -176,25 +197,28 @@ class BofAssaultGateOnTests(unittest.TestCase):
         os.environ.pop("SWEG_BOF_ASSAULT", None)
 
     def _assert_can_shoot_in_round(self, round_number: int):
-        """Helper: verify the attacker's shot is NOT blocked in the given round."""
-        battle, a, b = _build_battle(soror_detachment=BRINGERS_OF_FLAME)
+        """Helper: verify the attacker's shot is NOT blocked in the given round.
+
+        Uses the guaranteed-lethal attacker profile so that "the shot went
+        through" is observable as a strict defender health DROP. The Advance
+        lockout returns before any health change, so an unchanged defender
+        means the gate failed to open — assertLess discriminates the two
+        paths where the earlier less-than-or-equal check was a tautology."""
+        battle, a, b = _build_battle(
+            soror_detachment=BRINGERS_OF_FLAME, lethal=True)
         attacker = a.units[0]
         battle._advanced_this_round.add(attacker.uid)
         battle._current_round = round_number
         defender_before = b.units[0].current_health
         battle._do_shoot(attacker, a, b)
-        # The call must have proceeded to actual shooting code.  Defender HP
-        # may have dropped (damage landed) or stayed (all attacks missed/saved)
-        # but must never have INCREASED — which confirms the bail-out did not
-        # fire.  A strict assertLessEqual is the right check: the gate-off path
-        # returns immediately before any HP change; gate-on passes through and
-        # attempts fire.
-        self.assertLessEqual(
+        self.assertLess(
             b.units[0].current_health,
             defender_before,
-            f"Expected attacker to shoot in round {round_number} but gate "
-            f"appears to have returned early (defender HP unchanged at "
-            f"{b.units[0].current_health})",
+            f"Expected the Advanced Sororitas attacker to shoot and deal "
+            f"damage in round {round_number} (lethal profile: 12 attacks, "
+            f"hit 1.0, wound 2+, unsavable) but defender health is unchanged "
+            f"at {b.units[0].current_health} — the Advance lockout appears "
+            f"to have fired despite SWEG_BOF_ASSAULT=1 and Bringers of Flame",
         )
 
     def test_soror_can_shoot_after_advance_round_1(self):
