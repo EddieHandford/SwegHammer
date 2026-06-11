@@ -512,12 +512,83 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("adepta_sororitas_paragon_warsuits",))),
     # Necrons — named characters first so they win the substring match
     # before the generic "Overlord" entry below.
-    ("Trazyn the Infinite", LeaderAbility(name="Surreptitious Acquisition", aura_range=6.0, plus_one_to_hit=True,
+    #
+    # wave 235 fabrication removals (four entries):
+    #
+    # 1. Trazyn the Infinite `plus_one_to_hit` — REMOVED. The real datasheet
+    #    abilities are "Leader" / "Ancient Collector" (sticky objective:
+    #    "While this model is leading a unit, that unit counts as having at
+    #    least 5 models for the purposes of controlling objective markers.")
+    #    and "Surrogate Hosts" (resurrection: "Once per battle, if this
+    #    model is destroyed, roll one D6 at the end of the phase. On a 2+,
+    #    set this model back up anywhere on the battlefield that is not
+    #    within Engagement Range of any enemy models, with half its starting
+    #    wounds remaining."). Neither grants a to-hit aura. The
+    #    `cp_refund_per_battle=1` field models the Warlord-gated
+    #    "Surreptitious Acquisition" CP-steal ability (separately cited as
+    #    LeaderAbility.Surreptitious Acquisition and faithfully retained).
+    #    UNMODELLED REAL RULES: Ancient Collector (sticky objective count),
+    #    Surrogate Hosts (once-per-battle 2+ self-revive to half wounds) —
+    #    neither has a LeaderAbility flag equivalent; parking-lot until
+    #    objective-counting and per-character resurrection hooks land.
+    #    BSData v10.6.0 Necrons.cat.gz, Trazyn the Infinite profile, typeName
+    #    "Abilities": ids for Ancient Collector and Surrogate Hosts confirmed.
+    #
+    # 2. Overlord `plus_one_to_hit` — REMOVED. The real "My Will Be Done" is
+    #    "Once per battle round, one unit from your army with this ability
+    #    can use it when its unit is targeted with a Stratagem. If it does,
+    #    reduce the CP cost of that use of that Stratagem by 1CP." This is a
+    #    Stratagem CP-discount ability (same pattern as Space Marine Captain
+    #    "Rites of Battle" dropped in iter21, Autarch "Path of Command"
+    #    dropped in iter21, and Adeptus Custodes Shield-Captain "Strategic
+    #    Mastery" dropped in the custodes audit) — NOT a hit-roll aura.
+    #    UNMODELLED REAL RULE: My Will Be Done (once-per-round Stratagem
+    #    CP discount) — no per-character Stratagem-CP-discount hook exists.
+    #    BSData v10.6.0 Necrons.cat.gz, Overlord profile: ability text
+    #    confirmed verbatim via STRUCTURAL_DEBT_REVIEW.md orchestrator
+    #    cross-verification.
+    #
+    # 3. Chronomancer `fnp=5` — REMOVED. The real "Chronometron" is:
+    #    "In your Shooting phase, after this model's unit has shot, if it
+    #    is not within Engagement Range of any enemy units, that unit can
+    #    make a Normal move of up to 5\" as if it were your Movement phase.
+    #    If it does, until the end of the turn, that unit is not eligible to
+    #    declare a charge." This is a post-Shooting-phase movement ability,
+    #    not a feel no pain save. UNMODELLED REAL RULE: Chronometron (post-
+    #    shoot 5\" Normal move conditional on not being in Engagement Range)
+    #    — the simulator has no post-shooting-phase movement hook for led
+    #    units. Parking-lot until a Movement-phase trigger layer lands.
+    #    BSData v10.6.0 Necrons.cat.gz, Chronomancer profile: ability text
+    #    confirmed verbatim via STRUCTURAL_DEBT_REVIEW.md orchestrator
+    #    cross-verification.
+    #
+    # 4. Plasmancer `fnp=5` — REMOVED. The real "Harbinger of Destruction"
+    #    is: "While this model is leading a unit, each time a model in that
+    #    unit makes a ranged attack, a successful unmodified Hit roll of 5+
+    #    scores a Critical Hit." This is a ranged crit-hit-threshold lowering
+    #    ability (5+ instead of the canonical 6), not a feel no pain save.
+    #    FAITHFUL REBUILD ASSESSMENT: the existing `melee_crit_threshold`
+    #    variable in code/units.py (set up around line 3523) lowers the crit
+    #    threshold for melee only; the ranged crit path (line 3816) is
+    #    hard-coded to `unmodified_roll == 6` with no variable or leader-aura
+    #    hook. Wiring a ranged crit-on-5+ from a leader aura would require
+    #    (a) a new `ranged_crit_threshold_aura: int = 6` field on
+    #    LeaderAbility and (b) a new read of `att_buffs.get(...)` in the
+    #    ranged crit branch of code/units.py — NEW MACHINERY. Per the wave 235
+    #    briefing: removal only when new machinery is needed. UNMODELLED REAL
+    #    RULE: Harbinger of Destruction (ranged crit-hit threshold lowered to
+    #    5+ on the led unit) — parking-lot until a ranged-crit-threshold
+    #    leader-aura field is added. BSData v10.6.0 Necrons.cat.gz, Plasmancer
+    #    profile: "While this model is leading a unit, each time a model in
+    #    that unit makes a ranged attack, a successful unmodified Hit roll of
+    #    5+ scores a Critical Hit." Confirmed verbatim via STRUCTURAL_DEBT_REVIEW.md
+    #    orchestrator cross-verification.
+    ("Trazyn the Infinite", LeaderAbility(name="Surreptitious Acquisition", aura_range=6.0,
                                           cp_refund_per_battle=1,
                                           host_keys=_NECRON_HOSTS)),
-    ("Overlord",           LeaderAbility(name="My Will Be Done",            aura_range=6.0, plus_one_to_hit=True,  host_keys=_NECRON_HOSTS)),
-    ("Chronomancer",       LeaderAbility(name="Chronometron",               aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
-    ("Plasmancer",         LeaderAbility(name="Harbinger of Destruction",   aura_range=6.0, fnp=5,                 host_keys=("necrons_immortals", "necrons_necron_warriors"))),
+    ("Overlord",           LeaderAbility(name="My Will Be Done",            aura_range=6.0, host_keys=_NECRON_HOSTS)),
+    ("Chronomancer",       LeaderAbility(name="Chronometron",               aura_range=6.0, host_keys=_NECRON_HOSTS)),
+    ("Plasmancer",         LeaderAbility(name="Harbinger of Destruction",   aura_range=6.0, host_keys=("necrons_immortals", "necrons_necron_warriors"))),
     ("Technomancer",       LeaderAbility(name="Canoptek Cloak",             aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
     # Orks — "Might is Right" (Warboss, Warboss In Mega Armour). Real rule:
     # "While this model is leading a unit, each time a model in that unit makes
