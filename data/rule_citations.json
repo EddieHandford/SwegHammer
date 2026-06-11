@@ -89,12 +89,14 @@
     "trigger": "Drukhari army; one Combat Drug active army-wide at a time on every WYCH CULT unit"
   },
   "simulator.dark_pacts": {
-    "effect": "unit gains [LETHAL HITS] OR [SUSTAINED HITS 1] for the phase; on failed 2D6>=Ld test the unit suffers D3 mortal wounds",
-    "quoted_text": "Each time a unit with this ability is selected to shoot or fight, it can make a Dark Pact. If it does, it must first take a Leadership test before any effects of that Dark Pact are resolved; if that test is failed, that unit suffers D3 mortal wounds.",
+    "approximation": true,
+    "approximation_note": "Player choice [LETHAL HITS] vs [SUSTAINED HITS 1] collapsed to always-Lethal Hits (dominant pick against high-toughness targets; no target-context plumbing)",
+    "effect": "elected unit gains transient_lethal_hits ([LETHAL HITS]) for the phase; on failed 2D6>=Ld test the unit suffers D3 mortal wounds. CHOICE COLLAPSE: [SUSTAINED HITS 1] option not modelled — always grants [LETHAL HITS].",
+    "quoted_text": "If your Army Faction is Heretic Astartes, each time a unit with this ability is selected to shoot or fight, it can make a Dark Pact. If it does, it must first take a Leadership test before any effects of the Dark Pact are resolved; if that test is failed, that unit suffers D3 mortal wounds. Then, select one of the following abilities for that unit's weapons to gain until the end of the phase: [LETHAL HITS] / [SUSTAINED HITS 1]",
     "rule_name": "Dark Pacts",
     "scope": "army-wide",
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/",
-    "trigger": "attacker unit has CHAOS SPACE MARINES army-rule keyword AND is selected to attack"
+    "trigger": "attacker unit faction is Chaos Space Marines AND is selected to shoot or fight AND is the highest-DPA unit in the army this round AND DPA >= 6"
   },
   "simulator.fights_first_chargers": {
     "effect": "Within the active player's Fight phase pass (`_run_round_vanilla_turns`), units that charged this turn (uid in `_charging_this_round`) fight before units that did not. Implemented as a stable sort with key `0 if charging else 1` so non-charger relative order is preserved.",

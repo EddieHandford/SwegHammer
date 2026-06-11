@@ -6727,14 +6727,28 @@ class Battle:
         wounds." The unit then gains [LETHAL HITS] OR [SUSTAINED HITS 1]
         for the phase.
 
+        Verbatim BSData (Chaos - Chaos Space Marines.cat.gz, rule id
+        fd69-68cc-5d63-c84d): "If your Army Faction is Heretic Astartes,
+        each time a unit with this ability is selected to shoot or fight,
+        it can make a Dark Pact. If it does, it must first take a
+        Leadership test before any effects of the Dark Pact are resolved;
+        if that test is failed, that unit suffers D3 mortal wounds. Then,
+        select one of the following abilities for that unit's weapons to
+        gain until the end of the phase: [LETHAL HITS] / [SUSTAINED HITS 1]"
+
         Heuristic: only declare the pact when the elected attacker's base
         DPA is high enough that the offensive uplift clearly outweighs
         the D3 self-MW gamble. We elect the highest-DPA CSM unit per
         round and opt in iff its base DPA >= 6 (worth it on a marquee
         attacker like Terminators / Helbrute / Predator). The offensive
-        uplift uses the same `transient_plus_one_to_hit_shooting` /
-        `transient_plus_one_to_wound_melee` plumbing the rest of the
-        simulator already uses to approximate Lethal/Sustained Hits.
+        uplift grants `transient_lethal_hits` (the verbatim [LETHAL HITS]
+        keyword) rather than the old +1-to-hit / +1-to-wound proxy.
+
+        CHOICE COLLAPSE (wave 236 approximation): the rule offers [LETHAL
+        HITS] or [SUSTAINED HITS 1] at the player's choice per use. We
+        always grant [LETHAL HITS] — the competitively dominant pick
+        against high-toughness targets. No target-context plumbing is
+        built; this is a documented static approximation.
 
         Self-damage IS modelled: roll 2D6, on failure (sum < Ld) deal
         D3 mortal wounds via `receive_damage` (FNP-aware). Cited as
@@ -6776,11 +6790,13 @@ class Battle:
             # Grant the offensive uplift regardless of pass/fail (the
             # codex wording resolves the keyword grant whether or not
             # the Ld test passes; the test gates only the MW penalty).
-            self._set_transient_squad(attacker, "transient_plus_one_to_hit_shooting")
-            self._set_transient_squad(attacker, "transient_plus_one_to_wound_melee")
+            # Wave 236: verbatim [LETHAL HITS] grant replaces the old
+            # +1-to-hit / +1-to-wound proxy. CHOICE COLLAPSE: always
+            # grants [LETHAL HITS] (dominant pick; see docstring).
+            self._set_transient_squad(attacker, "transient_lethal_hits")
 
             # CSM datasheet abilities granted when a unit makes a Dark Pact.
-            # Both gated SWEG_CSM_ABILITIES (default-off). When ON, the base
+            # Gated SWEG_CSM_ABILITIES (default ON). When ON, the base
             # dark pacts uplift above still fires (backward-compat: OFF config
             # byte-identical to current behaviour).
             _csm_gate = __import__("os").environ.get("SWEG_CSM_ABILITIES", "1") != "0"
