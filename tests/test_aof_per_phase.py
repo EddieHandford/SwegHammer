@@ -6,13 +6,15 @@ https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/)
 
 Two tests:
 
-(a) Gate OFF (SWEG_AOF_PER_PHASE unset or "0"): legacy per-round behaviour is
-    byte-identical. A Sororitas unit that spends a Miracle die in the Shooting
-    phase (simulated as the first attack() call in a round) CANNOT spend again
-    in the Fight phase (simulated as a second attack() call in the same round).
-    This pins the existing behaviour so it cannot silently regress.
+(a) Gate OFF (SWEG_AOF_PER_PHASE="0" — explicit opt-out since the wave-239
+    default flip): legacy per-round behaviour is byte-identical. A Sororitas
+    unit that spends a Miracle die in the Shooting phase (simulated as the
+    first attack() call in a round) CANNOT spend again in the Fight phase
+    (simulated as a second attack() call in the same round). This pins the
+    legacy behaviour so it cannot silently regress.
 
-(b) Gate ON (SWEG_AOF_PER_PHASE="1"): codex-correct behaviour. The same unit
+(b) Gate ON (SWEG_AOF_PER_PHASE unset or "1" — the production default since
+    wave 239): codex-correct behaviour. The same unit
     CAN spend once in the Shooting phase AND once in the Fight phase. It cannot
     spend TWICE in the same phase (aof_used_this_phase blocks the second
     spend within one phase).
@@ -123,10 +125,11 @@ def _setup_units() -> tuple:
 class AoFPerPhaseGateOffTests(unittest.TestCase):
     """Gate OFF: spending in call 1 (Shooting phase) prevents spending in
     call 2 (Fight phase) in the same round.  aof_used_this_round is the active
-    flag.  Byte-identical to the behaviour before wave 238."""
+    flag.  Byte-identical to the behaviour before wave 238.  Since the
+    wave-239 default flip, the legacy path requires an explicit "0"."""
 
     def setUp(self):
-        os.environ.pop("SWEG_AOF_PER_PHASE", None)
+        os.environ["SWEG_AOF_PER_PHASE"] = "0"
 
     def tearDown(self):
         os.environ.pop("SWEG_AOF_PER_PHASE", None)
@@ -136,7 +139,7 @@ class AoFPerPhaseGateOffTests(unittest.TestCase):
         """Gate OFF: after one spend the round flag is True; a second attack()
         call in the same round must NOT spend again (aof_used_this_round blocks
         the squad-level budget is also exhausted, both layers checked)."""
-        os.environ.pop("SWEG_AOF_PER_PHASE", None)
+        os.environ["SWEG_AOF_PER_PHASE"] = "0"
         attacker, target, army = _setup_units()
 
         import random as _rng
@@ -179,7 +182,7 @@ class AoFPerPhaseGateOffTests(unittest.TestCase):
     def test_gate_off_phase_flag_not_used(self):
         """Gate OFF: aof_used_this_phase must remain False regardless of spends
         (the per-phase flag is not read or written on the legacy path)."""
-        os.environ.pop("SWEG_AOF_PER_PHASE", None)
+        os.environ["SWEG_AOF_PER_PHASE"] = "0"
         attacker, target, army = _setup_units()
 
         import random as _rng

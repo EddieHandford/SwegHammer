@@ -9117,11 +9117,13 @@ class Battle:
         # Acts of Faith budget. Two-level reset, two paths:
         #
         # (1) Per-instance flag:
-        #     Legacy path (SWEG_AOF_PER_PHASE unset/"0"): `aof_used_this_round`
+        #     Legacy path (SWEG_AOF_PER_PHASE="0"): `aof_used_this_round`
         #       reset here, once per round. Conservative under-approximation of
         #       the codex's "one per phase" literal. Cited as
         #       `simulator.acts_of_faith`.
-        #     Per-phase path (SWEG_AOF_PER_PHASE="1"): `aof_used_this_phase`
+        #     Per-phase path (SWEG_AOF_PER_PHASE unset/"1" — the production
+        #       default since wave 239; measured metric-neutral in the N=80
+        #       paired A/B and adopted on fidelity-first): `aof_used_this_phase`
         #       NOT reset here — reset twice per round (once before the Shooting
         #       phase, once before the Fight phase) in
         #       `_run_round_vanilla_turns` / `_run_round_alternating`. The
@@ -9151,7 +9153,7 @@ class Battle:
         #       key is removed from _unit_budget_used before each Shooting and
         #       Fight phase, while the other effect keys — Strands of Fate — are
         #       left intact for the round).
-        _aof_per_phase: bool = __import__("os").environ.get("SWEG_AOF_PER_PHASE") == "1"
+        _aof_per_phase: bool = __import__("os").environ.get("SWEG_AOF_PER_PHASE", "1") == "1"
         for army in (self.a, self.b):
             # Squad rebuild Stage C — reset the ONE generalized per-round
             # unit-budget, clearing every once-per-codex-unit-per-round effect
@@ -9809,7 +9811,7 @@ class Battle:
             # Approximate the per-phase rule by resetting the active pair's
             # phase flag immediately before each sub-phase block. Byte-identical
             # when the gate is off. Cited as `simulator.acts_of_faith`.
-            _aof_pp = __import__("os").environ.get("SWEG_AOF_PER_PHASE") == "1"
+            _aof_pp = __import__("os").environ.get("SWEG_AOF_PER_PHASE", "1") == "1"
 
             if self.rules.simultaneous_movement:
                 # Both units complete each sub-phase before either moves on
@@ -9883,7 +9885,7 @@ class Battle:
         from .leaders import bump_buffs_generation
         # SOROR-AOF-PER-PHASE: evaluated once per call, shared across all
         # per-turn phase blocks below. Byte-identical when gate is off.
-        _aof_per_phase: bool = __import__("os").environ.get("SWEG_AOF_PER_PHASE") == "1"
+        _aof_per_phase: bool = __import__("os").environ.get("SWEG_AOF_PER_PHASE", "1") == "1"
         for active, other in ((first, second), (second, first)):
             # Per-Command-phase primary scoring (wave 116, env-gated SWEG_CMDSCORE).
             # 10e scores Primary VP at the end of each player's Command phase —

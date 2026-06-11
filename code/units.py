@@ -1065,7 +1065,7 @@ class Unit:
         #
         # Two parallel flags support two paths (selected by SWEG_AOF_PER_PHASE):
         #
-        # Legacy path (SWEG_AOF_PER_PHASE unset / "0"): `aof_used_this_round`
+        # Legacy path (SWEG_AOF_PER_PHASE="0"): `aof_used_this_round`
         #   Prevents a single Unit instance from using Acts of Faith twice in
         #   the same round. Reset once per round in `Battle._run_round`.
         #   Conservative under-approximation of the codex's "one per phase"
@@ -1076,7 +1076,9 @@ class Unit:
         #   commit 299aefc), so the historical reason for the conservative cap
         #   is gone. Legacy path kept byte-identical when gate is OFF.
         #
-        # Per-phase path (SWEG_AOF_PER_PHASE="1"): `aof_used_this_phase`
+        # Per-phase path (SWEG_AOF_PER_PHASE unset/"1" — the production default
+        # since wave 239; metric-neutral in the N=80 paired A/B, adopted on
+        # fidelity-first): `aof_used_this_phase`
         #   Codex-correct: "each unit from your army with this ability can
         #   perform one Act of Faith per phase." (Wahapedia Adepta Sororitas
         #   army rule, https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/).
@@ -1237,9 +1239,10 @@ class Unit:
         self.battleshocked_until_round: int = 0
         # SOROR-DIAG-4: Acts of Faith budget flags. See __slots__ for full
         # rationale and citation linkage.
-        # Legacy path (gate OFF): reset once per round in Battle._run_round.
+        # Legacy path (SWEG_AOF_PER_PHASE="0"): reset once per round in
+        # Battle._run_round.
         self.aof_used_this_round: bool = False
-        # Per-phase path (SWEG_AOF_PER_PHASE="1"): reset at the start of the
+        # Per-phase path (unset/"1", the default): reset at the start of the
         # Shooting phase and again at the start of the Fight phase.
         self.aof_used_this_phase: bool = False
         # CSM-EYE-OF-GODS: persistent CHARACTER snowball flag. See __slots__
@@ -1437,18 +1440,18 @@ class Unit:
         # each call fresh. Now we read AND write a per-unit budget flag
         # (offensive side: `self`; defensive side: `target`) at each
         # substitution gate. Which flag is read/written depends on the gate:
-        #   Legacy (SWEG_AOF_PER_PHASE unset/"0"): `aof_used_this_round` —
+        #   Legacy (SWEG_AOF_PER_PHASE="0"): `aof_used_this_round` —
         #     reset once per round in `Battle._run_round`.
-        #   Per-phase (SWEG_AOF_PER_PHASE="1"): `aof_used_this_phase` —
+        #   Per-phase (unset/"1", the default): `aof_used_this_phase` —
         #     reset at the start of the Shooting phase and again at the start
         #     of the Fight phase in `Battle._run_round_vanilla_turns` (and
         #     before the paired sub-phase blocks in `_run_round_alternating`).
         # Cited as `simulator.acts_of_faith`.
         attack_aof_substitution_used = False
         # SOROR-AOF-PER-PHASE: which per-unit Acts of Faith budget flag to
-        # consult and set. When SWEG_AOF_PER_PHASE="1" the codex-correct
-        # per-phase flag is used; otherwise the legacy per-round flag.
-        _aof_per_phase: bool = __import__("os").environ.get("SWEG_AOF_PER_PHASE") == "1"
+        # consult and set. Unset/"1" (the default) uses the codex-correct
+        # per-phase flag; "0" reverts to the legacy per-round flag.
+        _aof_per_phase: bool = __import__("os").environ.get("SWEG_AOF_PER_PHASE", "1") == "1"
 
         # ---- Buff lookups (detachment + in-range leader auras) -------------
         # Attacker side: detachment passives + every in-range friendly leader
