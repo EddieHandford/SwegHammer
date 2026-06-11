@@ -106,6 +106,15 @@
     "trigger": "attacker faction is Adepta Sororitas AND the army's resolved detachment carries soror_blood_of_martyrs=True (Hallowed Martyrs detachment); below Starting Strength = alive squad members < starting count (single-model unit: current wounds < starting wounds); below Half-strength = alive members < starting count divided by 2 (single-model: current wounds < starting wounds divided by 2); applies to both ranged and melee attacks",
     "effect": "+1 to the Hit roll when below Starting Strength (routes through the 10e plus-or-minus-1 hit-modifier clamp); additionally +1 to the Wound roll when below Half-strength (routes through the 10e plus-or-minus-1 wound-modifier clamp). Verbatim rule text taken from BSData v10.6.0 cache (Imperium - Adepta Sororitas.cat.gz, rule id afa4-169c-3aaa-650) per CLAUDE.md rule 6; Wahapedia URL recorded for human verification. Gate implemented in Unit.attack via squad alive count vs _battle_ref._squad_start_count[(army.name, squad_id)] for multi-model squads and wound fraction for single-model units (mirrors the Delirium / battleshock single-model convention in simulator.py). wave 234 (2026-06-10).",
     "scope": "army-wide"
+  },
+
+  "BRINGERS_OF_FLAME.army_wide_assault": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Bringers-of-Flame",
+    "rule_name": "Fervent Purgation ([ASSAULT] leg)",
+    "quoted_text": "Ranged weapons equipped by ADEPTA SORORITAS models from your army have the [ASSAULT] ability, and each time an attack made with such a weapon targets a unit within 6\", add 1 to the Strength characteristic of that attack.",
+    "trigger": "any Adepta Sororitas unit in a Bringers of Flame army that Advanced in the current round and then attempts to shoot; no round gate, no token spend; the flag army_wide_assault=True on the resolved Detachment enables the window in simulator._do_shoot. Gated SWEG_BOF_ASSAULT (default OFF); the unset path returns before checking this flag, preserving byte-identical results when the gate is off. BSData v10.6.0 source (Imperium - Adepta Sororitas.cat.gz) corroborates the Wahapedia text verbatim.",
+    "effect": "simulator._do_shoot skips the Advance-then-no-shoot lockout for the attacker — mirrors the [ASSAULT] keyword grant on all Adepta Sororitas ranged weapons. Only the [ASSAULT] leg is modelled; the Strength+1 within 6 inches leg is a held follow-up requiring per-target range geometry in Unit.attack.",
+    "scope": "army-wide"
   }
 
 }

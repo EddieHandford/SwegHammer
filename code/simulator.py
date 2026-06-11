@@ -10973,6 +10973,20 @@ class Battle:
                 and ("VEHICLE" in kw or "MOUNTED" in kw)
                 and "TITANIC" not in kw
             )
+            # Bringers of Flame (Adepta Sororitas detachment) — Fervent
+            # Purgation [ASSAULT] leg (BSData v10.6.0, Imperium - Adepta
+            # Sororitas.cat.gz verbatim): "Ranged weapons equipped by ADEPTA
+            # SORORITAS models from your army have the [ASSAULT] ability."
+            # No round gate; no token spend; applies to every Sororitas ranged
+            # weapon unconditionally when the army is Bringers of Flame.
+            # Gated SWEG_BOF_ASSAULT (default OFF) — OFF path is byte-identical.
+            # Cited as `BRINGERS_OF_FLAME.army_wide_assault`.
+            bof_assault_window = (
+                os.environ.get("SWEG_BOF_ASSAULT", "0") != "0"
+                and det is not None
+                and getattr(det, "army_wide_assault", False)
+                and (attacker.profile.faction or "") == "Adepta Sororitas"
+            )
             if attacker.transient_assault_this_round:
                 pass   # stratagem already paid for; no token spend
             elif montka_assault_window:
@@ -10982,6 +10996,9 @@ class Battle:
             elif relentless_onslaught_assault_window:
                 pass   # Relentless Onslaught grants [ASSAULT] to NECRONS
                        # VEHICLE / MOUNTED (non-TITANIC) ranged weapons
+            elif bof_assault_window:
+                pass   # Bringers of Flame Fervent Purgation: [ASSAULT]
+                       # army-wide on all Adepta Sororitas ranged weapons
             elif self._gladius_active_doctrine(attacker, attacker_army) == "Devastator":
                 pass   # Devastator Doctrine grants shoot-after-Advance, free
             elif ("ASURYANI" in kw and "VEHICLE" in kw) and attacker_army.battle_focus_tokens > 0:

@@ -127,6 +127,13 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # `HALLOWED_MARTYRS.soror_blood_of_martyrs` in
     # data/rule_citations.d/detachments.json.
     ("soror_blood_of_martyrs", False),
+    # Adepta Sororitas Bringers of Flame — Fervent Purgation [ASSAULT] leg.
+    # All Adepta Sororitas ranged weapons gain [ASSAULT] (unconditional, no
+    # round gate). Read by simulator._do_shoot Advance-lockout; gated
+    # SWEG_BOF_ASSAULT (default OFF). Cited as
+    # `BRINGERS_OF_FLAME.army_wide_assault` in
+    # data/rule_citations.d/detachments.json.
+    ("army_wide_assault", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility

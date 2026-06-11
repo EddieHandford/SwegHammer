@@ -380,6 +380,24 @@ class Detachment:
     # Cited as `HALLOWED_MARTYRS.soror_blood_of_martyrs`.
     soror_blood_of_martyrs: bool = False
 
+    # Adepta Sororitas Bringers of Flame — Fervent Purgation [ASSAULT] leg
+    # (wave soror-f5-bof-assault). BSData v10.6.0 (Imperium - Adepta Sororitas
+    # .cat.gz) verbatim: "Ranged weapons equipped by ADEPTA SORORITAS models
+    # from your army have the [ASSAULT] ability, and each time an attack made
+    # with such a weapon targets a unit within 6\", add 1 to the Strength
+    # characteristic of that attack."
+    # THIS FLAG covers only the FIRST leg — the unconditional [ASSAULT] grant
+    # on all Adepta Sororitas ranged weapons. The Strength+1-within-six-inches
+    # leg is a held follow-up that requires per-target range geometry in
+    # Unit.attack and is not modelled here.
+    # When this flag is True AND the attacker's faction is "Adepta Sororitas"
+    # AND the attacker Advanced this round, `_do_shoot` skips the Advance-
+    # lockout — mirroring the [ASSAULT] keyword grant on all Sororitas ranged
+    # weapons. No round gate, no token spend (the rule is unconditional).
+    # Gated SWEG_BOF_ASSAULT (default OFF); the unset path is byte-identical.
+    # Cited as `BRINGERS_OF_FLAME.army_wide_assault`.
+    army_wide_assault: bool = False
+
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
     enemy_ld_penalty: int = 0            # -N to enemy Ld (higher target)
@@ -661,19 +679,16 @@ BRINGERS_OF_FLAME = Detachment(
         "SORORITAS models from your army have the [ASSAULT] ability, and "
         "each time an attack made with such a weapon targets a unit within "
         "6\\\", add 1 to the Strength characteristic of that attack.\" The "
-        "rule has TWO legs: an army-wide [ASSAULT] grant on ranged weapons "
-        "(no existing Detachment flag — the closest equivalent is "
-        "MONTKA.army_wide_assault_rounds_1_3 which is round-gated to 1-3 "
-        "and faction-gated to T'au, so re-using it would be fabrication), "
-        "and a range-gated S+1 within 6\" buff (no existing flag — would "
-        "need bespoke wiring with a per-target range check in Unit.attack). "
-        "Neither leg maps to an existing transient flag without fabrication; "
-        "per the project rule 'DO NOT FABRICATE proxy flags' the detachment "
-        "ships NO-FLAG + composition-preference only. Wahapedia: "
+        "rule has TWO legs: (1) an army-wide unconditional [ASSAULT] grant "
+        "on all Adepta Sororitas ranged weapons — wired as `army_wide_assault` "
+        "(Detachment flag, read by simulator._do_shoot, gated SWEG_BOF_ASSAULT "
+        "default-OFF); and (2) a range-gated S+1 within 6\" buff — requires "
+        "per-target range geometry in Unit.attack and is NOT YET modelled "
+        "(held follow-up). Wahapedia: "
         "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Bringers-of-Flame. "
-        "The detachment dilutes the average Sororitas WR via random "
-        "detachment-roll (was always-Hallowed-Martyrs, now 50/50 random)."
+        "Cited as BRINGERS_OF_FLAME.army_wide_assault."
     ),
+    army_wide_assault=True,
     preferred_composition="infantry",
 )
 
@@ -1871,11 +1886,10 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     # May 2026 meta). Lords of Dread and Houndpack Lance are not yet wired.
     "Chaos Knights":            ("iconoclast_fiefdom",),
     # DET-VARIETY-1 (2026-05-22): add Bringers of Flame as a Sororitas
-    # variant pick. Both ship no-flag (Hallowed Martyrs after SC5-4,
-    # Bringers of Flame because the codex Fervent Purgation rule does
-    # not map onto existing Detachment schema flags); the picker now
-    # randomly rolls between them, diluting the always-pick-one
-    # convergence that was driving Sororitas overperformance.
+    # variant pick. Hallowed Martyrs ships soror_blood_of_martyrs (wave 234).
+    # Bringers of Flame ships army_wide_assault (the [ASSAULT] leg of Fervent
+    # Purgation, gated SWEG_BOF_ASSAULT default-OFF); the Strength+1 leg is
+    # a held follow-up. The picker randomly rolls between them — 50/50.
     "Adepta Sororitas":         ("hallowed_martyrs", "bringers_of_flame"),
     "Adeptus Custodes":         ("shield_host", "auric_champions"),
     # DET-VARIETY-1 (2026-05-22): add Cohort Cybernetica as an AdMech
