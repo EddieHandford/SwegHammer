@@ -7384,6 +7384,13 @@ class Battle:
         for u in b_infil:
             self._emit(UnitInfiltrated(unit_uid=u.uid, position=u.position))
 
+        # DEPLOY-COLLISION relaxation (env-gated SWEG_DEPLOY_COLLISION, default
+        # OFF). After all lines have been placed, push overlapping bases apart so
+        # no two models' bases interpenetrate at BattleStarted. Pure deterministic
+        # geometry — zero extra RNG draws. See _relax_deployment_collision.
+        if __import__("os").environ.get("SWEG_DEPLOY_COLLISION", "0") == "1":
+            self._relax_deployment_collision()
+
         # Synchronise embarked passenger positions to their (now deployed)
         # transport's position. The pre-embark pass set passenger.position
         # to the transport's pre-deploy position; after _deploy_line moves
@@ -7393,6 +7400,119 @@ class Battle:
             for u in army.units:
                 if u.embarked_in is not None:
                     u.position = u.embarked_in.position
+
+    def _relax_deployment_collision(self) -> int:
+        """SWEG_DEPLOY_COLLISION: push overlapping bases apart after initial
+        placement so no two models interpenetrate at BattleStarted.
+
+        Algorithm (pure-deterministic, zero RNG):
+          1. Collect all on-board non-passenger units in FIXED army/unit order
+             (Army A first, then Army B, each in army.units list order).
+          2. Iterate up to MAX_PASSES times:
+             for each ordered pair (i, j) where j > i:
+               if their bases overlap, push unit j directly away from unit i
+               along the centre-to-centre line by just enough to clear
+               (min-separation = r_i + r_j + EPSILON_IN), then clamp j's
+               new position inside the map and, for non-infiltrators, inside
+               their army's deployment zone.
+          3. Stop early when no overlap remains; return residual overlap count
+             (0 if fully resolved within the cap).
+
+        Infiltrators deploy forward of their own zone, so only map bounds are
+        enforced for them. Standard and screen units are clamped to their zone.
+
+        This is a physical-representation fidelity aid (no 10e game rule
+        mandates base-gap at deployment; bases touching is fine in the physical
+        game). No citation entry is added — this extends the existing
+        SWEG_COLLISION substrate (data/rule_citations.d/keywords_and_mechanics.json
+        simulator.collision_friendly_passthrough) without introducing a new 10e
+        rule gate.
+        """
+        MAX_PASSES = 50
+        EPSILON_IN = 0.01   # small gap beyond touching to confirm clearance
+
+        dz = self.map.deployment_width
+        map_w = self.map.width
+        map_h = self.map.height
+
+        # Collect on-board non-passengers in fixed deterministic order.
+        ordered: list = []
+        for army in (self.a, self.b):
+            for u in army.units:
+                if u.embarked_in is None:
+                    ordered.append(u)
+
+        def _clamp(u, x: float, y: float):
+            """Clamp (x, y) inside map bounds and, for non-infiltrators,
+            inside the army's deployment zone. Returns clamped (x, y)."""
+            r = _bc_model_radius_in(u.profile)
+            # Map bounds (leave a base-radius margin so the base sits on-table).
+            x = min(max(x, r), map_w - r)
+            y = min(max(y, r), map_h - r)
+            # Deployment zone (non-infiltrators only; infiltrators deploy forward
+            # of their zone by design so only map bounds apply to them).
+            if not (u.profile.infiltrator or False):
+                own_a = (getattr(u, "army_ref", None) is self.a)
+                if own_a:
+                    # Army A deploys low-y (y <= dz).
+                    y = min(y, dz - r)
+                    y = max(y, r)
+                else:
+                    # Army B deploys high-y (y >= map_h - dz).
+                    y = max(y, map_h - dz + r)
+                    y = min(y, map_h - r)
+            return x, y
+
+        residual = 0
+        for _pass in range(MAX_PASSES):
+            moved = False
+            for i in range(len(ordered)):
+                u_i = ordered[i]
+                xi, yi = u_i.position
+                ri = _bc_model_radius_in(u_i.profile)
+                for j in range(i + 1, len(ordered)):
+                    u_j = ordered[j]
+                    xj, yj = u_j.position
+                    rj = _bc_model_radius_in(u_j.profile)
+                    min_sep = ri + rj + EPSILON_IN
+                    dx = xj - xi
+                    dy = yj - yi
+                    dist2 = dx * dx + dy * dy
+                    min_sep2 = min_sep * min_sep
+                    if dist2 >= min_sep2:
+                        continue
+                    # Bases overlap: push unit j directly away from unit i.
+                    dist = dist2 ** 0.5
+                    if dist < 1e-9:
+                        # Coincident centres — push along +x axis (deterministic).
+                        dx, dy = 1.0, 0.0
+                        dist = 1.0
+                    push = min_sep - dist   # positive: how much to push j away
+                    nx = xj + (dx / dist) * push
+                    ny = yj + (dy / dist) * push
+                    nx, ny = _clamp(u_j, nx, ny)
+                    u_j.position = (nx, ny)
+                    moved = True
+            if not moved:
+                residual = 0
+                break
+        else:
+            # Cap reached — count any remaining overlaps.
+            residual = 0
+            for i in range(len(ordered)):
+                u_i = ordered[i]
+                xi, yi = u_i.position
+                ri = _bc_model_radius_in(u_i.profile)
+                for j in range(i + 1, len(ordered)):
+                    u_j = ordered[j]
+                    xj, yj = u_j.position
+                    rj = _bc_model_radius_in(u_j.profile)
+                    dx = xj - xi
+                    dy = yj - yi
+                    dist2 = dx * dx + dy * dy
+                    if dist2 < (ri + rj) ** 2:
+                        residual += 1
+        return residual
 
     def _split_screen_back(self, units):
         """Split standard on-board `units` into (screen, back) groups by role.
