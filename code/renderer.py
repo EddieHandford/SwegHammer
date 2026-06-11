@@ -182,6 +182,38 @@ def _current_round(events: List, tick: int) -> int:
     return r
 
 
+def reconstruct_score(
+    events: List, tick: int,
+) -> Tuple[int, int, Dict[str, Optional[str]]]:
+    """Replay events[:tick+1] → (a_vp, b_vp, last_scorer_by_objective).
+
+    Victory points accumulate from per-marker ``ObjectiveScored`` events and
+    snap to the authoritative ``RoundEnded`` running totals as those pass —
+    the round totals fold in secondary-mission VP, which has no per-card
+    event in the stream yet. The snap uses ``max()`` rather than assignment
+    so legacy event logs (recorded before ``RoundEnded`` carried vp totals,
+    deserialising with the default 0/0) keep their accumulated counts: VP
+    never decreases, so max() is always the truer of the two.
+
+    ``last_scorer_by_objective`` maps objective name → army name of the most
+    recent scoring tick (None = contested at its last tick / never scored).
+    """
+    a_name, b_name = _army_names(events)
+    a_vp = b_vp = 0
+    last_scorer: Dict[str, Optional[str]] = {}
+    for ev in events[: tick + 1]:
+        if isinstance(ev, ObjectiveScored):
+            last_scorer[ev.objective_name] = ev.army_name
+            if ev.army_name == a_name:
+                a_vp += ev.vp_awarded
+            elif ev.army_name == b_name:
+                b_vp += ev.vp_awarded
+        elif isinstance(ev, RoundEnded):
+            a_vp = max(a_vp, ev.a_vp_total)
+            b_vp = max(b_vp, ev.b_vp_total)
+    return a_vp, b_vp, last_scorer
+
+
 def _army_names(events: List) -> tuple:
     for ev in events:
         if isinstance(ev, BattleStarted):
@@ -511,15 +543,33 @@ def render_frame(
             _plus(draw, cx, cy, 8, _rgba(COL_REANIMATE, 242))
 
     # --- Objective markers ---
+    # Marker + control ring tinted by the army that scored it at its LAST
+    # scoring tick (gold = never scored / contested at last tick), so "who is
+    # holding this marker" reads at a glance between scoring frames. The
+    # diamond is drawn at the physical 40mm marker footprint — the old 3.5"
+    # diamond out-sized its own 3" control ring and read as a giant unit.
+    a_vp, b_vp, last_scorer = reconstruct_score(events, end_idx)
+    obj_px: Dict[str, Tuple[int, int, int]] = {}   # name -> (cx, cy, ring_r_px)
     for obj in map_.objectives:
         cx, cy = to_px(obj.x, obj.y)
         r = max(3, int(obj.control_radius * scale))
+        obj_px[obj.name] = (cx, cy, r)
+        holder = last_scorer.get(obj.name)
+        col = (colour_a if holder == a_name
+               else colour_b if holder == b_name
+               else COL_OBJECTIVE)
         draw.ellipse([cx - r, cy - r, cx + r, cy + r],
-                     fill=None, outline=_rgba(COL_OBJECTIVE, 140), width=1)
-        dr = max(3, int(3.5 * scale))
+                     fill=None, outline=_rgba(col, 165),
+                     width=2 if holder else 1)
+        # Held markers fill solid in the holder's colour (white outline keeps
+        # them distinct from unit bases); unheld markers stay gold. At the
+        # physical footprint the diamond is small, so a gold outline on a
+        # held marker would drown the holder colour.
+        dr = max(5, int(_mm_to_inches(40) / 2 * scale))
         draw.polygon(
             [(cx, cy - dr), (cx + dr, cy), (cx, cy + dr), (cx - dr, cy)],
-            fill=_rgba(COL_OBJECTIVE, 191),
+            fill=_rgba(col, 240),
+            outline=_rgba("#ffffff" if holder else COL_OBJECTIVE, 220),
         )
 
     # Units — drawn at their real-world GW base footprint. The state dict
@@ -581,12 +631,51 @@ def render_frame(
             r = max(4, int(_mm_to_inches(32) / 2 * scale))
             _cross(draw, cx, cy, r, _rgba(COL_DEAD, 178))
 
-    # Army colour legend — reinforces which colour is which army; the name
-    # tags above identify the individual big units. Drawn as a small panel in
-    # the board's upper-left corner.
+    # --- Scoring flash: this frame IS a scoring tick ---
+    # ObjectiveScored events are boundary frames (one per marker), so when the
+    # scrubber lands on one we pulse the scored marker's control ring and tag
+    # it "+N VP" in the scoring army's colour ("contested" in grey when no one
+    # scores). This is the explicit when-and-how of every primary VP award.
+    font_flash = _load_font(10)
+    for ev in frame_events:
+        if not isinstance(ev, ObjectiveScored):
+            continue
+        hit = obj_px.get(ev.objective_name)
+        if hit is None:
+            # Synthetic/legacy log naming a marker not on this map — the
+            # renderer is display-only and must keep scrubbing old replays,
+            # so skip the highlight (the legend VP totals still update).
+            continue
+        fx, fy, fr = hit
+        if ev.army_name is None:
+            fcol = "#b0b0b0"
+            txt = f"contested  OC {ev.a_oc}–{ev.b_oc}"
+        else:
+            fcol = colour_a if ev.army_name == a_name else colour_b
+            txt = f"+{ev.vp_awarded} VP  (OC {ev.a_oc}–{ev.b_oc})"
+        draw.ellipse([fx - fr - 2, fy - fr - 2, fx + fr + 2, fy + fr + 2],
+                     fill=None, outline=_rgba(fcol, 255), width=3)
+        tb = font_flash.getbbox(txt)
+        tw, th = tb[2] - tb[0], tb[3] - tb[1]
+        ty = fy - fr - th - 8
+        draw.rectangle(
+            [fx - tw // 2 - 4, ty - 3, fx + tw // 2 + 4, ty + th + 3],
+            fill=_rgba("#0e1117", 200), outline=_rgba(fcol, 230), width=1,
+        )
+        _draw_text_centered(draw, fx, ty + th // 2, txt, font_flash,
+                            _rgba("#ffffff", 245))
+
+    # Army colour legend + running VP — reinforces which colour is which army
+    # and shows the live score (primary + secondary, reconstructed up to this
+    # frame). The name tags above identify the individual big units. Drawn as
+    # a small panel in the board's upper-left corner.
     if legend_armies:
         font_legend = _load_font(11)
-        rows = list(legend_armies.items())
+        vp_by_army = {a_name: a_vp, b_name: b_vp}
+        rows = [
+            (f"{nm} · {vp_by_army[nm]} VP" if nm in vp_by_army else nm, c)
+            for nm, c in legend_armies.items()
+        ]
         sw = 11          # colour-swatch size
         row_h = sw + 5
         label_w = 0
@@ -620,13 +709,45 @@ def render_frame(
     _draw_text_centered(draw, scx, sy0 - 8, '6"', _load_font(9),
                         _rgba("#ffffff", 235))
 
+    # Round-end banner — secondary-mission VP has no per-card event in the
+    # stream, so the award only becomes visible as the delta between the
+    # accumulated primary count and the authoritative RoundEnded totals.
+    # Surface that delta on the RoundEnded frame itself.
+    for ev in frame_events:
+        if isinstance(ev, RoundEnded):
+            pre_a, pre_b, _ls = (
+                reconstruct_score(events, start_idx - 1) if start_idx > 0
+                else (0, 0, {})
+            )
+            sec_a = max(0, ev.a_vp_total - pre_a)
+            sec_b = max(0, ev.b_vp_total - pre_b)
+            banner = (
+                f"End of round {ev.round_num} — secondary VP:  "
+                f"{a_name} +{sec_a}   {b_name} +{sec_b}"
+            )
+            font_banner = _load_font(10)
+            bb = font_banner.getbbox(banner)
+            bw, bh = bb[2] - bb[0], bb[3] - bb[1]
+            # Below the legend panel's vertical extent so the two never collide.
+            bcx, bcy = img_w // 2, y_off + 56
+            draw.rectangle(
+                [bcx - bw // 2 - 6, bcy - bh // 2 - 4,
+                 bcx + bw // 2 + 6, bcy + bh // 2 + 4],
+                fill=_rgba("#0e1117", 210), outline=_rgba(COL_OBJECTIVE, 220),
+                width=1,
+            )
+            _draw_text_centered(draw, bcx, bcy, banner, font_banner,
+                                _rgba("#ffffff", 245))
+            break
+
     # Title — show frame index (one per activation / boundary), not raw
-    # event index, so the slider value matches what the viewer sees.
+    # event index, so the slider value matches what the viewer sees. The
+    # running score rides in the title so it is visible on every frame.
     total_frames = max(0, len(frames) - 1)
     title = (
         f"Round {_current_round(events, end_idx)}  │  "
         f"Frame {frame if frames else 0}/{total_frames}  │  "
-        f"{a_name} vs {b_name}"
+        f"{a_name} {a_vp} – {b_vp} {b_name}"
     )
     _draw_text_centered(draw, img_w // 2, _TITLE_H_PX // 2, title,
                         font_title, (255, 255, 255, 255))
@@ -645,7 +766,8 @@ def event_description(event) -> str:
     if isinstance(event, RoundStarted):
         return f"--- Round {event.round_num} ---"
     if isinstance(event, RoundEnded):
-        return f"--- End of round {event.round_num} ---"
+        return (f"--- End of round {event.round_num} "
+                f"(VP {event.a_vp_total}–{event.b_vp_total}) ---")
     if isinstance(event, UnitActivated):
         return f"  Activate  {event.unit_uid} ({event.army_name})"
     if isinstance(event, UnitMoved):
