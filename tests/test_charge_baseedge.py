@@ -10,14 +10,16 @@ CENTRE, which drives the charger's base 2-3" INTO a big-based target (tank,
 monster, Knight) — the proven root cause of the real base overlap measured by
 scripts/diag_overlap_audit.py.
 
-The gate, default OFF, places the charger so its BASE EDGE finishes within 1.0"
+The gate (default ON since wave 240 — adopted with SWEG_DEPLOY_COLLISION as the
+collision pair on the metric-neutral N=80 paired confirm; set =0 for the legacy
+centre-distance path) places the charger so its BASE EDGE finishes within 1.0"
 of the target's base edge, validates the spot against the no-overlap collision
 predicate, and searches deterministically around the target for a legal spot
 when the straight approach is blocked, falling back to the legacy placement
 (never cancelling a successful charge) when fully surrounded.
 
 These tests cover:
-  * gate-off fixed-seed battle-outcome identity (default == explicit "0"),
+  * default fixed-seed battle-outcome identity (unset == explicit "1"),
   * gate-off charge placement is the exact legacy centre-1" formula,
   * gate-on the charger ends within 1" base-edge of its target and overlaps no
     other model,
@@ -180,11 +182,14 @@ def _reset_process_globals():
 # ---------------------------------------------------------------------------
 
 class GateOffIdentityTests(unittest.TestCase):
-    """With the gate unset (default) or explicitly "0", the simulator must
-    behave exactly as the legacy centre-to-centre placement."""
+    """With the gate explicitly "0" the simulator must behave exactly as the
+    legacy centre-to-centre placement; with the gate UNSET the default is now
+    the base-edge path (default ON since the wave-240 adoption)."""
 
     def setUp(self):
-        os.environ.pop("SWEG_CHARGE_BASEEDGE", None)
+        # Explicit opt-out: the gate is default-ON, so the legacy-path tests
+        # must set "0" themselves (mirrors tests/test_bof_assault.py).
+        os.environ["SWEG_CHARGE_BASEEDGE"] = "0"
         _reset_process_globals()
 
     def tearDown(self):
@@ -200,23 +205,24 @@ class GateOffIdentityTests(unittest.TestCase):
         res = battle.run()
         return (res.winner, res.rounds, res.a_vp, res.b_vp)
 
-    def test_default_unset_matches_explicit_off(self):
-        """Default (env unset) and SWEG_CHARGE_BASEEDGE=0 produce the identical
-        fixed-seed battle outcome — the OFF path runs the legacy branch."""
+    def test_default_unset_matches_explicit_on(self):
+        """Default (env unset) and SWEG_CHARGE_BASEEDGE=1 produce the identical
+        fixed-seed battle outcome — the gate is default-ON since the wave-240
+        adoption (unset now runs the base-edge branch)."""
         random.seed(12345)
         os.environ.pop("SWEG_CHARGE_BASEEDGE", None)
         unset_outcome = self._run_outcome()
 
         random.seed(12345)
-        os.environ["SWEG_CHARGE_BASEEDGE"] = "0"
-        off_outcome = self._run_outcome()
+        os.environ["SWEG_CHARGE_BASEEDGE"] = "1"
+        on_outcome = self._run_outcome()
 
-        self.assertEqual(unset_outcome, off_outcome)
+        self.assertEqual(unset_outcome, on_outcome)
 
     def test_gate_off_uses_legacy_centre_placement(self):
         """With the gate OFF, a successful charge ends with the charger's CENTRE
         exactly 1.0" from the target's CENTRE — the legacy formula, unchanged."""
-        os.environ.pop("SWEG_CHARGE_BASEEDGE", None)
+        os.environ["SWEG_CHARGE_BASEEDGE"] = "0"
         a = _make_army("A", _charger_profile(), [(20.0, 30.0)])
         b = _make_army("B", _small_target_profile(), [(24.0, 30.0)])
         battle = Battle(a, b, map_=_open_map())

@@ -7385,10 +7385,14 @@ class Battle:
             self._emit(UnitInfiltrated(unit_uid=u.uid, position=u.position))
 
         # DEPLOY-COLLISION relaxation (env-gated SWEG_DEPLOY_COLLISION, default
-        # OFF). After all lines have been placed, push overlapping bases apart so
-        # no two models' bases interpenetrate at BattleStarted. Pure deterministic
+        # ON since wave 240 — adopted with SWEG_CHARGE_BASEEDGE as the collision
+        # pair on the metric-neutral N=80 paired confirm (gated 5.08 -> 5.13,
+        # in-band 5/22 -> 8/22, seed-5 overlap incidents 217 -> 53, cross-army
+        # 49 -> 2). Set =0 to restore the legacy overlapping deployment. After
+        # all lines have been placed, push overlapping bases apart so no two
+        # models' bases interpenetrate at BattleStarted. Pure deterministic
         # geometry — zero extra RNG draws. See _relax_deployment_collision.
-        if __import__("os").environ.get("SWEG_DEPLOY_COLLISION", "0") == "1":
+        if __import__("os").environ.get("SWEG_DEPLOY_COLLISION", "1") == "1":
             self._relax_deployment_collision()
 
         # Synchronise embarked passenger positions to their (now deployed)
@@ -11985,7 +11989,11 @@ class Battle:
         # Move to within 1" of target — engagement range.
         #
         # Base-edge charge-end placement (env-gate SWEG_CHARGE_BASEEDGE, default
-        # OFF — wave 240 lever 1). Real 10e: a charge move ends within Engagement
+        # ON since wave 240 — adopted with SWEG_DEPLOY_COLLISION as the collision
+        # pair on the metric-neutral N=80 paired confirm (gated 5.08 -> 5.13,
+        # in-band 5/22 -> 8/22, seed-5 overlap incidents 217 -> 53, cross-army
+        # 49 -> 2). Set =0 to restore the legacy centre-distance placement.
+        # Real 10e: a charge move ends within Engagement
         # Range of every target, where Engagement Range and all distances are
         # measured between the CLOSEST POINTS OF THE BASES, not between model
         # centres. The legacy placement (the gate-OFF path below) parks the
@@ -12001,7 +12009,7 @@ class Battle:
         # of `_collision_kwargs`. NO RNG is consumed on either path (the gated
         # search is fixed-step deterministic geometry), so the gate-OFF arm stays
         # byte-identical and even the gate-ON arm draws no extra random numbers.
-        if os.environ.get("SWEG_CHARGE_BASEEDGE", "0") == "1":
+        if os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1":
             new_pos = self._charge_baseedge_end(attacker, target, dist)
             if not self.map.is_blocked(new_pos):
                 attacker.position = new_pos

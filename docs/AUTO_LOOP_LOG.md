@@ -109,12 +109,37 @@ hunk will conflict with the `1b04961` rewrite at cherry-pick (re-apply inside bo
 branches). **Aeldari archetype reshape build DISPATCHED** (worktree agent off `a9c0fee`): the
 spec's pre-build check is done — "Battle Host" is selected at runtime by `rng.choice`, so the
 key rename is runtime-safe; literal references confined to `tests/test_aeldari_warhost_template.py`
-and the `tests/test_archetypes.py` anchor test, both in the agent's scope.
+and the `tests/test_archetypes.py` anchor test, both in the agent's scope. **DELIVERED
+(`a7c98fc`):** "Battle Host" → "Warhost" with a Phoenix Lord trio template (Fuegan, Jain Zar,
+Lhykhis anchors plus Aspect/transport core), both test files rewritten, 1535 green in its
+worktree, demonstration battle exit 0 — queued for the harvest.
 
-**IN FLIGHT:** combined-collision N=80 confirm (healthy, ~12 workers since 18:08); Aeldari
-archetype reshape build agent; movement-event emission sweep cherry-pick pending harvest.
-Modularization Stage B complete on its own branch — awaiting the user's go to push and open
-its pull request.
+**8. COLLISION PAIR ADOPTED AS DEFAULT — both gates flipped ON.** The combined
+`SWEG_CHARGE_BASEEDGE=1 SWEG_DEPLOY_COLLISION=1` N=80 confirm versus the 5.08 anchor came back
+**metric-neutral: gated mean absolute error 5.08 → 5.13 (+0.04)** with twelve decisive movers
+that largely cancel, and the **in-band count rises 5/22 → 8/22** (World Eaters, Orks, and
+Emperor's Children enter the noise band). The deepest structural under-pole moves hard toward
+target: Astra Militarum gated 14.8 → 3.89 (+11.31 — the banked displacement diagnosis paying
+out through deployment spacing), Adeptus Custodes 13.0 → 8.63 (−4.30 toward). The cost
+concentrates on existing over-poles (Necrons 14.09, Adeptus Mechanicus 17.69, T'au 8.73) and
+Chaos Space Marines deepens to 21.28 (its archetype reshape is already built and queued).
+Physical corroboration on the exact adoption configuration (`diag_overlap_audit`, seed 5):
+live overlap incidents **217 → 53**, cross-army **49 → 2** — the user-flagged stacking bug is
+substantially closed; the residual same-army overlaps are pile-in/consolidate placement sites
+(a future lever). Faithful physical mechanic, headline-neutral, band-count up — fidelity-first
+adopts. Defaults flipped in `code/simulator.py` (both gates `"1"` unset; `=0` restores the
+legacy paths), the `simulator.charge_end_base_to_base` citation records the adoption
+measurement (the deployment relaxation intentionally carries no citation — physical-
+representation aid, documented in its docstring), and both gate test files moved to the
+explicit-opt-out pattern (the Bringers-of-Flame/Acts-of-Faith precedent). **NEW STANDING
+ANCHOR `data/_anchor_sc8c_n80_log.json` (gated 5.13, raw 8.03, 8/22 in band)** — the ON-arm
+log promoted directly at zero evaluation cost (config equality after the flip).
+
+**IN FLIGHT:** held-build harvest next (cherry-pick order: Strands `04c10f0`+`2cb9583`, Yncarne
+`59348ee`, Chaos Space Marines reshape `0fdb1eb`, Aeldari reshape `a7c98fc`, movement-event sweep
+`3774528` with the known charge-hunk conflict); the two reshapes are frame changes, so one fresh
+full N=80 re-anchor after the batch covers all five builds. Modularization Stage B complete on
+its own branch — awaiting the user's go to push and open its pull request.
 
 ## Wave 239 (2026-06-11, CLOSED) — Acts of Faith per-phase adopted as default + Stage A folded with on-branch fingerprint proof + anchor promoted at zero evaluation cost.
 

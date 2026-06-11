@@ -1,8 +1,10 @@
 """Deployment collision relaxation tests (SWEG_DEPLOY_COLLISION gate).
 
 Five test classes:
-  1. GateOffIdentityTests       — gate OFF produces byte-identical positions to
-                                  the baseline (determinism check via two seeds).
+  1. GateOffIdentityTests       — the unset default is byte-identical to the
+                                  explicit gate-ON arm (default ON since the
+                                  wave-240 adoption; explicit "0" keeps the
+                                  legacy overlapping deployment).
   2. GateOnNoOverlapTests       — gate ON: zero overlapping base pairs at
                                   BattleStarted for several seeds / matchups.
   3. MapBoundsTests             — gate ON: all units stay inside map bounds
@@ -131,12 +133,14 @@ def _all_units(battle: Battle) -> list:
 # ---------------------------------------------------------------------------
 
 class GateOffIdentityTests(unittest.TestCase):
-    """Gate OFF must produce byte-identical positions to the no-gate baseline."""
+    """Default-identity: the gate is default-ON since the wave-240 adoption, so
+    the UNSET baseline must be byte-identical to the explicit gate-ON arm. The
+    legacy overlapping deployment stays available behind an explicit "0"."""
 
-    def _positions_gate_off(self, seed: int) -> dict:
+    def _positions_gate(self, seed: int, *, gate_on: bool) -> dict:
         a = _dense_army("A", size=5)
         b = _dense_army("B", size=5)
-        battle = _deploy_with_gate(a, b, gate_on=False, seed=seed)
+        battle = _deploy_with_gate(a, b, gate_on=gate_on, seed=seed)
         return {u.uid: u.position for u in _all_units(battle)}
 
     def _positions_no_gate(self, seed: int) -> dict:
@@ -154,17 +158,19 @@ class GateOffIdentityTests(unittest.TestCase):
             if prev is not None:
                 os.environ["SWEG_DEPLOY_COLLISION"] = prev
 
-    def test_seed_0_gate_off_matches_baseline(self):
-        off = self._positions_gate_off(0)
+    def test_seed_0_unset_matches_explicit_on(self):
+        on = self._positions_gate(0, gate_on=True)
         ref = self._positions_no_gate(0)
-        self.assertEqual(off, ref,
-            "Gate-OFF positions must be byte-identical to the unset baseline")
+        self.assertEqual(on, ref,
+            "Unset (default) positions must be byte-identical to explicit "
+            "gate-ON — the gate is default-ON since the wave-240 adoption")
 
-    def test_seed_7_gate_off_matches_baseline(self):
-        off = self._positions_gate_off(7)
+    def test_seed_7_unset_matches_explicit_on(self):
+        on = self._positions_gate(7, gate_on=True)
         ref = self._positions_no_gate(7)
-        self.assertEqual(off, ref,
-            "Gate-OFF positions must be byte-identical to the unset baseline")
+        self.assertEqual(on, ref,
+            "Unset (default) positions must be byte-identical to explicit "
+            "gate-ON — the gate is default-ON since the wave-240 adoption")
 
 
 # ---------------------------------------------------------------------------
