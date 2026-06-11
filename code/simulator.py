@@ -3678,10 +3678,10 @@ class Battle:
                 self._try_archaeotech_munitions(army, opponent)
             if not self._strat_cap_reached(army) and "Avenge the Fallen" in strat_names:
                 self._try_avenge_the_fallen(army, opponent)
-            # Vigilance Eternal — catalogued in SHIELD_HOST_STRATAGEMS for the
-            # auditor + stratagems_for_army listing, but the dispatcher is a
-            # no-op APPROXIMATION (sticky-objective mechanism is per-detachment-
-            # flag-gated, not per-stratagem-fire).
+            # Vigilance Eternal — wired (wave 235): writes sticky ownership for
+            # objectives held by Adeptus Custodes BATTLELINE units.
+            if not self._strat_cap_reached(army) and "Vigilance Eternal" in strat_names:
+                self._try_vigilance_eternal(army, opponent)
 
             # ----- Needgaard Oathband (Leagues of Votann) — two verified stratagems
             # (VOTANN-DIAG-2: replaced five fabricated stratagems with real ones
@@ -3711,8 +3711,13 @@ class Battle:
                 self._try_only_in_death_does_duty_end(army, opponent)
             if not self._strat_cap_reached(army) and "Honour the Chapter" in strat_names:
                 self._try_honour_the_chapter(army, opponent)
-            if not self._strat_cap_reached(army) and "Adaptive Strategy" in strat_names:
-                self._try_adaptive_strategy(army, opponent)
+            # Adaptive Strategy — dispatcher removed (wave 235). The real rule
+            # is a per-unit Combat Doctrine override; SwegHammer has no per-unit
+            # doctrine state so the effect cannot be modelled. Spending 1 command
+            # point with zero game effect is worse than not firing at all; removed
+            # from the dispatcher block so it becomes a true catalogued no-op.
+            # See _try_adaptive_strategy docstring for the full rationale.
+            # (Line previously called: self._try_adaptive_strategy(army, opponent))
 
             # ----- Combined Arms (Astra Militarum) — six real strats (iter-14)
             # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
@@ -3990,11 +3995,17 @@ class Battle:
         army.putrid_detonation_armed = True
 
     def _try_plaguesurge(self, army: Army, opponent: Army) -> None:
-        """Plaguesurge (Virulent Vectorium, 2 CP): +3" to Contagion Range
-        until next Command phase. APPROXIMATION: contagion radius is hard-
-        coded at 6" elsewhere; the flag is set for the round but not
-        consumed yet. The CP spend still fires + emits the StratagemFired
-        event so the AI's CP accounting stays honest."""
+        """Plaguesurge (Virulent Vectorium, 2 command points). Real rule:
+        "Until the start of your next Command phase, add 3\" to the Contagion
+        Range of models from your army." (Epic Deed Stratagem.)
+        Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium
+
+        Wave 235 fix: the flag `Army.plaguesurge_active` is now consumed by
+        `_run_battleshock_phase` (and `_apply_shadow_in_the_warp_forced_tests`).
+        Both paths read the flag and pass `contagion_range = 3.0 + 3.0 = 6.0`
+        to `_battleshock_test_squad` instead of the base 3.0 for the round in
+        which this stratagem fires. The flag is reset to False at the start of
+        each Command phase by `_reset_round_state`, so it is round-scoped."""
         # Need a DG WARLORD on the battlefield to target.
         warlord = None
         for u in army.alive_units:
@@ -4942,6 +4953,46 @@ class Battle:
             return
         self._set_transient_squad(target, "transient_plus_one_to_wound_melee")
 
+    def _try_vigilance_eternal(self, army: Army, opponent: Army) -> None:
+        """Vigilance Eternal (Shield Host, 1 command point, Strategic Ploy).
+        Real rule: "That objective marker remains under your control even if
+        you have no models within range of it, until your opponent controls it
+        at the start or end of any turn."
+        Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
+        Target: one ADEPTUS CUSTODES BATTLELINE unit within range of an
+        objective marker the army controls (Movement phase).
+
+        Wave 235: implements the sticky-objective write using the same
+        `_sticky_owner` path as Desecration of Worlds and the Worldblight
+        detachment passive. The dispatcher fires at round-start (approximating
+        the Movement-phase timing); all objectives currently occupied by a
+        friendly Adeptus Custodes BATTLELINE unit are marked sticky for this
+        army. The sticky flag is naturally unwound by `_score_objectives` if
+        the opponent seizes the marker (line 1531-1535 in `_score_objectives`
+        clears `_sticky_owner` when the opponent's OC exceeds this army's).
+        """
+        ctx: dict = {}
+        if not should_fire_stratagem(army, VIGILANCE_ETERNAL, ctx):
+            return
+        if not self._fire_stratagem(army, VIGILANCE_ETERNAL):
+            return
+        # Write sticky ownership for every objective currently within range of
+        # a friendly Adeptus Custodes BATTLELINE unit.
+        for obj_idx, obj in enumerate(self.map.objectives):
+            r2 = obj.control_radius * obj.control_radius
+            for u in army.alive_units:
+                kw = u.profile.unit_keywords or ()
+                if (
+                    (u.profile.faction or "") == "Adeptus Custodes"
+                    and "BATTLELINE" in kw
+                    and "ANATHEMA PSYKANA" not in kw
+                ):
+                    dx = u.position[0] - obj.x
+                    dy = u.position[1] - obj.y
+                    if dx * dx + dy * dy <= r2:
+                        self._sticky_owner[obj_idx] = army.name
+                        break   # one BATTLELINE unit is sufficient per marker
+
     # ----- Needgaard Oathband (Leagues of Votann) — three real stratagems -----
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
     # VOTANN-DIAG-2 (2026-05-26): replaced five fabricated stratagems
@@ -5226,6 +5277,12 @@ class Battle:
         unit gains the rules of one Combat Doctrine of your choice
         (Devastator / Tactical / Assault) until end of turn, regardless
         of which doctrine the army is currently in.
+        Verbatim: "Select the Devastator Doctrine, Tactical Doctrine or
+        Assault Doctrine. Until the start of your next Command phase, that
+        Combat Doctrine is active for that unit instead of any other Combat
+        Doctrine that is active for your army, even if you have already
+        selected that doctrine this battle."
+        Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force
 
         SC5-9 audit: this stratagem previously fired
         `transient_plus_one_to_wound_melee = True` on the highest-DPA
@@ -5248,24 +5305,19 @@ class Battle:
 
         Honest model: per-unit doctrine override at the resolution
         SwegHammer carries is below modelling capability — there is no
-        per-unit doctrine state to flip. The stratagem is recorded as
-        an APPROXIMATION no-op until per-unit doctrine state lands.
-        Direction-correct: removes a fabricated buff; loses the
-        per-unit doctrine override (genuinely unmodellable today).
+        per-unit doctrine state to flip.
+
+        Wave 235 correction: the dispatcher was previously spending 1 command
+        point with zero game effect (spend-with-no-effect). The dispatcher
+        call has been removed from the Command-phase block entirely so no
+        command points are spent. This method is retained as a documented
+        stub. The stratagem remains catalogued in GLADIUS_TASK_FORCE_STRATAGEMS
+        for the auditor and AI scheduler. When per-unit doctrine state is
+        implemented, the dispatcher call and this method body can be restored
+        with a real effect.
         """
-        attacker = self._highest_dpa_marine(army)
-        if attacker is None:
-            return
-        ctx = {"attacker": attacker}
-        if not should_fire_stratagem(army, ADAPTIVE_STRATEGY, ctx):
-            return
-        if not self._fire_stratagem(army, ADAPTIVE_STRATEGY):
-            return
-        # SC5-9: no buff applied — see docstring. Spending the CP and
-        # emitting the StratagemFired event is retained so the CP
-        # economy and AI scheduler still see the activation, matching
-        # the real player paying 1 CP for a doctrine override that
-        # SwegHammer can't yet faithfully apply.
+        # No-op: dispatcher call removed (wave 235). See docstring.
+        return
 
     # ----- Combined Arms (Astra Militarum) — six real strats (iter-14) ------
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
@@ -6027,37 +6079,48 @@ class Battle:
         return  # APPROXIMATION: no-op until Kindred Sorcery is modelled
 
     def _try_desecration_of_worlds(self, army: Army, opponent: Army) -> None:
-        """Desecration of Worlds (Grand Coven, 1 CP). Real rule: an objective
-        marker controlled by a friendly Thousand Sons unit remains under
-        your control. SwegHammer already has a sticky-objective code path
-        (`_sticky_owner`) that the rule maps onto cleanly. We collapse
-        the per-objective targeting onto "every objective the TSons
-        currently control becomes sticky for this army". Strictly cannot
-        ENLARGE the holder's objective count beyond what they already
-        control — it just persists ownership against contest.
+        """Desecration of Worlds (Grand Coven, 1 command point). Real rule:
+        "That objective marker remains under your control until your opponent's
+        Level of Control over that objective marker is greater than yours at
+        the end of a phase."
+        Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Grand-Coven
+        Target: one THOUSAND SONS PSYKER unit within range of an objective
+        marker the army controls.
+
+        Wave 235 fix: the dispatcher now writes into `_sticky_owner` for every
+        objective where the Thousand Sons army currently has a Thousand Sons
+        PSYKER unit present. The real rule is single-target (one objective per
+        command-point spend); the simulator cannot interactively pick a target,
+        so we apply the flag to ALL objectives currently occupied by a friendly
+        PSYKER — a conservative over-approximation (maximally one more objective
+        than a canny human player would pick in any given round). Stickiness
+        already cooperates with `_score_objectives`'s clear-on-opponent-control
+        logic (line 1531-1535), so the write here is naturally unwound if the
+        opponent seizes the marker.
         """
-        # AI gate: only spend if we currently control at least one
-        # objective. Cheap to check; the per-objective ownership lives in
-        # self._sticky_owner already.
+        # AI gate: only spend from round 2 onwards when we actually have
+        # time to hold a stickied marker.
         ctx: dict = {}
         if not should_fire_stratagem(army, DESECRATION_OF_WORLDS, ctx):
             return
         if not self._fire_stratagem(army, DESECRATION_OF_WORLDS):
             return
-        # APPROXIMATION: stick every objective this army currently owns.
-        # Real rule is single-target; the simulator's _sticky_owner is keyed
-        # per-objective so stickiness compounds harmlessly with the existing
-        # sticky_objective profile flag path.
-        for idx, owner in list(self._sticky_owner.items()):
-            # No-op; sticky_owner already keyed when the unit claimed it.
-            pass
-        # We DO set a one-shot flag the simulator's objective resolver can
-        # consult — but the existing path is keyed off profile.sticky_objective
-        # which isn't a stratagem context. APPROXIMATION: the dispatcher
-        # currently spends CP and emits the event; the durable mechanical
-        # outcome is the StratagemFired record, not an objective flip.
-        # TODO: real effect is per-objective sticky ownership; current
-        # implementation only spends CP + emits event.
+        # Write sticky ownership for every objective that has at least one
+        # Thousand Sons PSYKER unit within range. The real rule's
+        # "within range" means within the objective's control radius (3"),
+        # matching the same radius used in _score_objectives.
+        for obj_idx, obj in enumerate(self.map.objectives):
+            r2 = obj.control_radius * obj.control_radius
+            for u in army.alive_units:
+                if (
+                    (u.profile.faction or "") == "Thousand Sons"
+                    and "PSYKER" in (u.profile.unit_keywords or ())
+                ):
+                    dx = u.position[0] - obj.x
+                    dy = u.position[1] - obj.y
+                    if dx * dx + dy * dy <= r2:
+                        self._sticky_owner[obj_idx] = army.name
+                        break   # one PSYKER is sufficient to anchor this marker
 
     def _try_arcane_focus(self, army: Army, opponent: Army) -> None:
         """Arcane Focus (Grand Coven, 1 CP). Real rule: after a Psychic test
@@ -8140,6 +8203,7 @@ class Battle:
         own_synapse,
         shadow_sources,
         contagion_sources,
+        contagion_range: float = 3.0,
         shadow_of_chaos_active: bool,
         cx: float,
         cy: float,
@@ -8232,7 +8296,7 @@ class Battle:
             contagion_sources
             and rep.profile.faction != "Death Guard"
             and any(
-                _distance(rep.position, s.position) <= 3.0
+                _distance(rep.position, s.position) <= contagion_range
                 for s in contagion_sources
             )
         ):
@@ -8487,6 +8551,10 @@ class Battle:
             ]
             if round_num == 2 else []
         )
+        # Plaguesurge range extension: the Death Guard player (here sitw_army
+        # in the edge-case path) may have spent Plaguesurge this Command phase.
+        _sitw_plaguesurge = getattr(sitw_army, "plaguesurge_active", False)
+        sitw_contagion_range = 3.0 + (3.0 if _sitw_plaguesurge else 0.0)
         # Shadow of Chaos: Chaos Daemons in the Tyranid army (edge case).
         shadow_of_chaos_active = any(
             s.profile.faction == "Chaos Daemons"
@@ -8513,6 +8581,7 @@ class Battle:
                 own_synapse=own_synapse,
                 shadow_sources=shadow_sources,
                 contagion_sources=contagion_sources,
+                contagion_range=sitw_contagion_range,
                 shadow_of_chaos_active=shadow_of_chaos_active,
                 cx=cx,
                 cy=cy,
@@ -8616,6 +8685,18 @@ class Battle:
                 ]
                 if round_num == 2 else []
             )
+            # Plaguesurge (Virulent Vectorium, 2 command points, wave 235):
+            # "Until the start of your next Command phase, add 3\" to the
+            # Contagion Range of models from your army."
+            # Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium
+            # Base contagion range for the Maladictive Pall Battle-shock
+            # penalty is 3". Plaguesurge extends it by 3" for the round,
+            # making it 6" whenever the Death Guard player fired it this
+            # Command phase. The flag is reset to False at the start of each
+            # Command phase in `_reset_round_state` so it only applies for
+            # the round in which it was spent.
+            _plaguesurge_active = getattr(opponent, "plaguesurge_active", False)
+            contagion_range = 3.0 + (3.0 if _plaguesurge_active else 0.0)
             # Shadow of Chaos (Chaos Daemons army rule, 10e). APPROXIMATION:
             # the real Shadow of Chaos covers the Daemons player's deployment
             # zone always plus contested portions of No Man's Land /
@@ -8750,6 +8831,7 @@ class Battle:
                     own_synapse=own_synapse,
                     shadow_sources=shadow_sources,
                     contagion_sources=contagion_sources,
+                    contagion_range=contagion_range,
                     shadow_of_chaos_active=shadow_of_chaos_active,
                     cx=cx,
                     cy=cy,

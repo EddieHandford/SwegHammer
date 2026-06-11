@@ -282,5 +282,83 @@ class DoomboltMortalWoundsTests(unittest.TestCase):
                          f"11+ Doombolt should deal D3+3 median = 5 MW, got {hp_lost}")
 
 
+# ---------------------------------------------------------------------------
+# Desecration of Worlds — sticky owner write (wave 235)
+# ---------------------------------------------------------------------------
+
+
+class DesecrationOfWorldsStickyTests(unittest.TestCase):
+    """Wave 235: Desecration of Worlds now writes _sticky_owner for objectives
+    within range of a Thousand Sons PSYKER unit, instead of spending command
+    points with no mechanical effect.
+
+    Wahapedia verbatim: 'That objective marker remains under your control until
+    your opponent's Level of Control over that objective marker is greater than
+    yours at the end of a phase.'
+    Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Grand-Coven
+    """
+
+    def _build_battle(self):
+        from code.detachments import GRAND_COVEN
+        from code.simulator import Battle
+        tson = Army("Thousand Sons", detachment=GRAND_COVEN)
+        tson.add_unit(_tson_psyker())
+        enemy = Army("Enemy")
+        enemy.add_unit(_dummy_target())
+        battle = Battle(tson, enemy)
+        battle._assign_uids()
+        tson._battle_ref = battle
+        enemy._battle_ref = battle
+        # Pre-set VP counters so _score_objectives doesn't crash if called.
+        battle._a_vp = 0
+        battle._b_vp = 0
+        return battle, tson, enemy
+
+    def test_desecration_writes_sticky_owner_for_psyker_on_objective(self):
+        """A Thousand Sons PSYKER unit on an objective marker must cause
+        _sticky_owner to record the Thousand Sons army's name for that
+        objective after Desecration of Worlds fires."""
+        random.seed(0)
+        battle, tson, enemy = self._build_battle()
+        if not battle.map.objectives:
+            self.skipTest("Map has no objectives")
+        obj = battle.map.objectives[0]
+        # Place the PSYKER on the objective.
+        tson.units[0].position = (obj.x, obj.y)
+        # Opponent is far away.
+        enemy.units[0].position = (obj.x + 50.0, obj.y + 50.0)
+        tson.command_points = 5
+        battle._current_round = 2
+        # Before firing: sticky_owner is empty.
+        self.assertIsNone(battle._sticky_owner.get(0))
+        battle._try_desecration_of_worlds(tson, enemy)
+        self.assertEqual(
+            battle._sticky_owner.get(0), tson.name,
+            "Desecration of Worlds must write sticky ownership for the PSYKER-held objective.",
+        )
+        self.assertEqual(tson.command_points, 4, "Desecration of Worlds must spend 1 command point.")
+
+    def test_desecration_no_write_when_psyker_off_objective(self):
+        """When no Thousand Sons PSYKER is within the control radius of any
+        objective, Desecration of Worlds must still spend command points
+        (the AI gate passes) but write nothing to _sticky_owner."""
+        random.seed(0)
+        battle, tson, enemy = self._build_battle()
+        if not battle.map.objectives:
+            self.skipTest("Map has no objectives")
+        obj = battle.map.objectives[0]
+        # Place the PSYKER far from all objectives.
+        tson.units[0].position = (obj.x + 50.0, obj.y + 50.0)
+        enemy.units[0].position = (obj.x + 60.0, obj.y + 60.0)
+        tson.command_points = 5
+        battle._current_round = 2
+        battle._try_desecration_of_worlds(tson, enemy)
+        # sticky_owner must stay empty — no PSYKER is on a marker.
+        self.assertIsNone(
+            battle._sticky_owner.get(0),
+            "No PSYKER on objective — _sticky_owner must stay empty.",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

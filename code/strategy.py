@@ -3463,12 +3463,16 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         return demise >= 2 and hp_frac > 0.3
 
     if name == "Plaguesurge":
-        # ctx expects {"target": Unit} (DG WARLORD). 2 CP for +3" Contagion
-        # Range is informational in the simulator today (no consumer yet),
-        # so the heuristic skips it unless CP is abundant — the AI shouldn't
-        # waste CP on a stratagem with no live effect.
+        # ctx expects {"target": Unit} (DG WARLORD). 2 command points to add
+        # +3" to Contagion Range for the round (wave 235: the flag is now
+        # consumed by the Battle-shock phase; range becomes 6" instead of 3").
+        # Fire from round 2 onwards (contagion sources only applied from R2)
+        # when CP is not critically low. Holding to CP >= 3 leaves headroom for
+        # reactive stratagems.
         cp = int(getattr(army, "command_points", 0) or 0)
-        return cp >= 5
+        battle = getattr(army, "_battle_ref", None)
+        round_num = getattr(battle, "_current_round", 0) if battle else 0
+        return round_num >= 2 and cp >= 3
 
     if name == "Leechspore Eruption":
         # ctx expects {"target": Unit, "enemy": Unit}. Fire when the DG
@@ -4228,8 +4232,16 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             return False
         return hp_frac > 0.2 and cost >= 80.0
 
-    # Vigilance Eternal — no-op dispatcher (sticky-objective is per-
-    # detachment-flag-gated, not per-stratagem-fire). No AI gate needed.
+    if name == "Vigilance Eternal":
+        # ctx: empty. 1 command point to mark objectives held by Adeptus
+        # Custodes BATTLELINE units as sticky. Fire from round 2 onwards
+        # (round 1 is the push; sticky ownership is most valuable once the
+        # army has planted flags and wants to hold them against contest).
+        # CP gate: 1 CP is cheap; hold back only when nearly dry.
+        battle = getattr(army, "_battle_ref", None)
+        round_num = getattr(battle, "_current_round", 0) if battle else 0
+        cp = int(getattr(army, "command_points", 0) or 0)
+        return round_num >= 2 and cp >= 2
 
     # ----- Oathband (Leagues of Votann) — six real stratagems (iter-9) ----
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
