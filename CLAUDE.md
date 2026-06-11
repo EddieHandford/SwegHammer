@@ -287,3 +287,43 @@ If a default genuinely is the right behaviour for a specific field — for
 instance, an optional override flag that means "leave the base stat alone" —
 that default must be set explicitly at the call site with a comment explaining
 why silence is acceptable there, never buried in a generic `.get(key, None)`.
+
+## 14. Keep pull requests small — one self-contained change, soft cap four hundred lines
+
+Reviewers on this project have flagged our pull requests as too large to
+review properly. The research agrees with them: the SmartBear study of code
+review at Cisco found defect-detection effectiveness drops sharply once a
+review exceeds roughly four hundred lines, and Google's engineering-practices
+guide treats around one hundred lines as a reasonable change and around one
+thousand as usually too large
+(https://google.github.io/eng-practices/review/developer/small-cls.html). A
+reviewer who cannot hold the whole diff in their head is approving on trust,
+not reviewing.
+
+The rule, for every pull request a Claude session opens:
+
+- **One self-contained change per pull request.** One mechanic, one bug fix,
+  one subsystem, one data batch. If the description needs the word "also",
+  it is two pull requests.
+- **Soft cap: four hundred changed lines** of hand-written diff (code, tests,
+  and documentation together). Past that, split before opening.
+- **Hard cap: one thousand changed lines.** Never open one this size without
+  agreeing it with the reviewer first.
+- **Generated files do not count** toward the caps —
+  `data/bsdata/parsed.json` regenerations, evaluation logs, lock files. List
+  them in the description as generated so the reviewer knows to skim them.
+- **Pure code-motion refactors are the one exemption.** A
+  move-code-without-changing-it pull request may exceed the caps, but it must
+  contain zero logic changes, move one subsystem only, and state its
+  behaviour-identity proof in the description (full test suite green plus a
+  fixed-seed demonstration-battle game-log byte-comparison before and after).
+- **The calibration loop's rolling branch must not grow unbounded.** When the
+  running branch reaches roughly fifteen wave commits, or its reviewable diff
+  against `main` passes roughly one thousand five hundred hand-written lines,
+  stop stacking: mark the pull request merge-ready for review and start the
+  next work on a fresh branch once it merges. This is the
+  `sim-calibration-6` to `sim-calibration-7` checkpoint pattern, made
+  standing.
+- **When a change genuinely cannot be small, stack it.** Split it into a
+  sequence of pull requests, each self-contained and reviewable alone, each
+  description naming the one before and after it.
