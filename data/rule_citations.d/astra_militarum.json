@@ -176,7 +176,7 @@
     "rule_name": "Leader (Cadian Castellan datasheet)",
     "quoted_text": "This model can be attached to the following units: **^^Cadian Shock Troops^^**, **^^Kasrkin^^**",
     "trigger": "Cadian Castellan is the leading CHARACTER for a Cadian Shock Troops or Kasrkin unit; the host squad is the Leader's bodyguard per the 10e Leader rule",
-    "effect": "Structural LeaderAbility registry entry (gated SWEG_OFFICER_FOLLOW). No offensive/defensive aura fields are set — the real 'Senior Officer' ability ([SUSTAINED HITS 1] on led unit's ranged weapons) is not expressible through the current LeaderAbility schema. The entry exists so lookup_ability resolves the Cadian Castellan cleanly per CLAUDE.md §13 and so the pick_move_intent officer-follow hook can identify host squads. BSData source: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id 2b49-4d03-aaf5-3532, Leader infoGroup profile id e668-97a7-2df8-6db3.",
+    "effect": "Structural LeaderAbility registry entry (gated SWEG_OFFICER_FOLLOW). The 'Senior Officer' ability ([SUSTAINED HITS 1] on led unit's ranged weapons) is now wired via sustained_hits_ranged=1 (gated SWEG_CASTELLAN_SH, default-off since wave 247). The entry also enables lookup_ability to resolve the Cadian Castellan cleanly per CLAUDE.md §13 and lets the pick_move_intent officer-follow hook identify host squads. BSData source: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id 2b49-4d03-aaf5-3532, Leader infoGroup profile id e668-97a7-2df8-6db3.",
     "scope": "unit-led"
   },
 
@@ -210,9 +210,9 @@
   "LeaderAbility.Senior Officer": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Castellan",
     "rule_name": "Senior Officer (Cadian Castellan Leader Ability)",
-    "quoted_text": "While this model is leading a unit, ranged weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
+    "quoted_text": "While this model is leading a unit, ranged weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability",
     "trigger": "Cadian Castellan is leading a Cadian Shock Troops or Kasrkin unit",
-    "effect": "Structural LeaderAbility registry entry only — [SUSTAINED HITS 1] on the led unit's ranged weapons is not expressible through the current LeaderAbility aura schema; the entry exists so lookup_ability resolves the Cadian Castellan cleanly (CLAUDE.md rule 13) and the officer-follow hook can identify host squads. BSData: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id 2b49-4d03-aaf5-3532.",
+    "effect": "Wired as sustained_hits_ranged=1 on the Cadian Castellan LeaderAbility entry (gated SWEG_CASTELLAN_SH, default-off since wave 247). When the gate is on, compute_army_buffs merges sustained_hits_ranged=1 into att_buffs via _merge_add; code/units.py (~line 3682) reads att_buffs['sustained_hits_ranged'] and adds it to effective_sustained_hits for ranged attacks made by the led unit. Gate-off value is 0, which the `if _aura_sh_r > 0` guard makes inert — byte-identical to pre-wave-247. BSData source: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id 2b49-4d03-aaf5-3532, Abilities profile id a7f5-adb8-d1c9-2a2d.",
     "scope": "unit-led"
   },
 
