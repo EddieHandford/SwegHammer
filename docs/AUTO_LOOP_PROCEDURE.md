@@ -241,5 +241,10 @@ windows, the same slot build agents use.
   the same wave-close commit — do not leave it default-off "in case".
   A parked lever (re-test planned) keeps its gate but gets a comment
   naming the parking decision and date.
-* Evaluation artifacts older than roughly twenty waves move to
-  `data/archive/`; they never accumulate in `docs/`.
+* Evaluation logs (`wf_wave*.log`, `wf_wave*.txt`, `wf_wave*.err`,
+  `wf_wave*.json`) older than the last twenty waves live in
+  `data/archive/`, not in `docs/` or the repository root. Move them
+  with `git mv` so the rename is tracked; a one-line `data/archive/README.md`
+  describes what lives there. Untracked artifacts that pre-date the
+  `data/` convention are moved on discovery; those already untracked
+  may be deleted rather than archived (they are not in git history).

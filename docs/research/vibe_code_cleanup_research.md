@@ -84,6 +84,7 @@ Cross-referencing with auto-memory: `SWEG_DISPLACE_FALLBACK` is adopted default-
    **DONE 2026-06-12** — commit `672d81a`, pull request 76 (`claude/cleanup-scripts-archive` off `main`). Forty files moved as pure renames (twenty-one `iter*`, two `auto_loop_iter1_*`, seventeen wave-tied `diag_*`); all eighteen `ANALYSIS_TOOLBOX.md`-registered diagnostics and seven standing tools kept live; demonstration battle clean, test suite green (one pre-existing timing failure on `main`), citation audit clean.
 
 4. **docs/wf_wave*.log archival policy (effort: low).** The ~100 `docs/wf_wave*.log` files pre-date the `data/` convention. Move them to `data/archive/` or delete (they are superseded by the corresponding `data/wf_*.txt` evals). Codify in `AUTO_LOOP_PROCEDURE.md`: eval logs older than the last 20 waves live in `data/archive/`, not `docs/`.
+   **DONE 2026-06-12** — commit `e1ff37b`, pull request 78 (`claude/cleanup-evallog-archive` off `main`). One tracked file moved (`docs/wf_wave44_tson_n40.log` → `data/archive/`; the original ~100 files were already untracked and had not accumulated in the repo); `data/archive/README.md` created; `docs/AUTO_LOOP_PROCEDURE.md` prevention bullet expanded with named file patterns and `git mv` requirement; demonstration battle clean (exit 0).
 
 5. **deptry dependency audit (effort: low).** Run `deptry .` against `requirements.txt` to surface any packages imported by removed experiment code but still listed as dependencies. Low risk; one-line removals from the requirements file.
 
