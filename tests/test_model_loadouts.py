@@ -35,6 +35,7 @@ from code.bsdata.mapper import PARSED_PATH, parse_dice_expr
 from code.units import (
     UNIT_CATALOG,
     _flatten_model_loadouts,
+    _loadout_entry_to_weapon_fields,
     _unflatten_model_loadouts,
 )
 
@@ -479,6 +480,120 @@ class ModelLoadoutStage3FiringTests(unittest.TestCase):
         army.add_squad(bare, 5)
         self.assertEqual(len(army.units), 5)
         self.assertTrue(all(u.profile is bare for u in army.units))
+
+
+class LoadoutFlagParityTests(unittest.TestCase):
+    """LOADOUT-FLAG-PARITY (wave 243) — the promoted primary ranged block must
+    carry the promoted weapon's `indirect_fire`, `one_shot` and `precision`
+    flags. Before the fix those three were silently dropped from the
+    `dataclasses.replace` field dict, so every per-model Unit kept whatever
+    the catalogue top-level (expected-value-picked) weapon had:
+
+      * the Wyvern's promoted quad stormshard mortar LOST Indirect Fire
+        (top-level weapon is the heavy bolter);
+      * a Rhino whose top-level weapon is the hunter-killer missile
+        (one_shot=True) fired its promoted storm bolter ONCE PER BATTLE.
+
+    Two flags are deliberately NOT copied, and these tests pin that too:
+
+      * `lance` — the top-level UnitProfile field is MELEE semantics ("+1 to
+        wound in melee if the unit charged"); the per-model ranged dicts all
+        carry lance=False, which would clobber a real melee-derived True.
+      * `hazardous` — choice-profile over-collection means a supercharge
+        profile still fires from extra_ranged_profiles, so clearing the
+        top-level flag would under-count real self-harm.
+    """
+
+    def setUp(self):
+        self._saved_env = os.environ.get("SWEG_PERMODEL")
+        os.environ["SWEG_PERMODEL"] = "1"
+
+    def tearDown(self):
+        if self._saved_env is None:
+            os.environ.pop("SWEG_PERMODEL", None)
+        else:
+            os.environ["SWEG_PERMODEL"] = self._saved_env
+
+    def _one(self, key):
+        from code.army import Army
+
+        prof = UNIT_CATALOG.get(key)
+        if prof is None:
+            self.skipTest(f"unit '{key}' missing from UNIT_CATALOG")
+        army = Army(name="test")
+        army.add_squad(prof, 1)
+        return army.units[0]
+
+    # (1) direct helper contract --------------------------------------------
+    def test_helper_copies_three_flags_and_omits_two(self):
+        """The field dict carries the promoted weapon's indirect_fire /
+        one_shot / precision, and contains NO `lance` or `hazardous` key at
+        all (so dataclasses.replace leaves the profile's existing values
+        untouched)."""
+        entry = {
+            "ranged": [{
+                "weapon": "Test mortar",
+                "attacks": 4, "weapon_damage_per_shot": 1.0,
+                "hit_probability": 0.5, "ap": 0, "strength": 5,
+                "range_inches": 48,
+                "indirect_fire": True, "one_shot": True, "precision": True,
+                "lance": False, "hazardous": False,
+            }],
+            "melee": [],
+        }
+        fields = _loadout_entry_to_weapon_fields(entry)
+        self.assertTrue(fields["indirect_fire"])
+        self.assertTrue(fields["one_shot"])
+        self.assertTrue(fields["precision"])
+        self.assertNotIn("lance", fields)
+        self.assertNotIn("hazardous", fields)
+
+    def test_helper_defaults_three_flags_false(self):
+        """A promoted weapon dict WITHOUT the flags yields explicit False —
+        the model must not inherit a stale top-level True (the Rhino bug)."""
+        entry = {
+            "ranged": [{
+                "weapon": "Storm bolter",
+                "attacks": 2, "weapon_damage_per_shot": 1.0,
+                "hit_probability": 2 / 3, "ap": 0, "strength": 4,
+                "range_inches": 24,
+            }],
+            "melee": [],
+        }
+        fields = _loadout_entry_to_weapon_fields(entry)
+        self.assertIs(fields["indirect_fire"], False)
+        self.assertIs(fields["one_shot"], False)
+        self.assertIs(fields["precision"], False)
+
+    # (2) catalogue integration — the motivating units -----------------------
+    def test_wyvern_promoted_mortar_keeps_indirect_fire(self):
+        """The Wyvern's per-model primary is the quad stormshard mortar and
+        it must carry Indirect Fire (the catalogue top-level weapon is the
+        heavy bolter, indirect_fire=False)."""
+        u = self._one("astra_militarum_wyvern")
+        self.assertIn("mortar", u.profile.weapon.lower())
+        self.assertTrue(u.profile.indirect_fire)
+
+    def test_rhino_storm_bolter_is_not_one_shot(self):
+        """The Rhino's catalogue top-level weapon is the hunter-killer
+        missile (one_shot=True); its promoted per-model storm bolter must NOT
+        inherit that flag — it fires every turn."""
+        u = self._one("space_marines_rhino")
+        self.assertIn("storm bolter", u.profile.weapon.lower())
+        self.assertFalse(u.profile.one_shot)
+
+    # (3) the deliberate exclusions, end to end ------------------------------
+    def test_melee_lance_survives_per_model_instantiation(self):
+        """A unit whose top-level lance=True (melee-derived) keeps it on every
+        per-model Unit even though its promoted RANGED weapon dict says
+        lance=False — the helper must not emit the key at all."""
+        key = "aeldari_craftworlds_prince_yriel"
+        prof = UNIT_CATALOG.get(key)
+        if prof is None:
+            self.skipTest(f"unit '{key}' missing from UNIT_CATALOG")
+        self.assertTrue(prof.lance, f"{key} no longer carries top-level lance")
+        u = self._one(key)
+        self.assertTrue(u.profile.lance)
 
 
 if __name__ == "__main__":

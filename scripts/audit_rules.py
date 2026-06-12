@@ -229,6 +229,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # are two halves of one rule; shipping placement alone structurally
     # disabled melee under the adopted default.
     "simulator.engagement_range_base_edge",
+    # 10e core "Charge Move" — a charge move must NOT move within Engagement
+    # Range of any non-target enemy unit. Gated SWEG_CHARGE_PATH (default ON
+    # since wave 242) in pick_charge_target (code/strategy.py): excludes candidates whose
+    # straight-line path (part a, non-FLY only) or approximate end spot (part b,
+    # all chargers) would cross or end within Engagement Range of a non-target.
+    # FLY chargers are exempt from the path half (they move over enemy models).
+    "simulator.charge_path_non_target",
     "simulator.battle_focus",
     # Aeldari army rule (10e). Strands of Fate — 6D6 rolled at start of
     # battle into Army.fate_dice; each die later substituted for one d6

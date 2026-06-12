@@ -312,7 +312,13 @@ def _officer_profile(name: str, faction: str = "Astra Militarum") -> UnitProfile
 
 
 def _regiment_target(name: str, idx: int) -> UnitProfile:
-    """An AM BATTLELINE INFANTRY target eligible to receive Orders."""
+    """An AM REGIMENT unit eligible to receive Orders.
+
+    Wave 243: uses the real REGIMENT keyword (from BSData categoryLinks) rather
+    than the old BATTLELINE+INFANTRY proxy. Units that carry "REGIMENT" are the
+    codex-eligible target for REGIMENT-targeting Officers (Ursula Creed, Cadian
+    Castellan, Command Squads, etc.).
+    """
     return UnitProfile(
         name=name,
         health=1,
@@ -328,7 +334,7 @@ def _regiment_target(name: str, idx: int) -> UnitProfile:
         rapid_fire=1,
         points_override=10.0 + idx,  # distinct point costs so priority ranking is stable
         faction="Astra Militarum",
-        unit_keywords=("INFANTRY", "BATTLELINE"),
+        unit_keywords=("INFANTRY", "REGIMENT"),
     )
 
 
@@ -659,8 +665,13 @@ class TestDefaultOfficerStillIssuesOne(unittest.TestCase):
 
 
 def _squadron_target(name: str, idx: int) -> UnitProfile:
-    """An AM BATTLELINE VEHICLE target (SQUADRON proxy) eligible to receive
-    Orders only from Officers whose target types include SQUADRON.
+    """An AM SQUADRON unit eligible to receive Orders only from Officers whose
+    target types include SQUADRON (Leman Russ Commander, Rogal Dorn Commander,
+    Sentinel Commander, Lord Solar Leontus).
+
+    Wave 243: uses the real SQUADRON keyword (from BSData categoryLinks) rather
+    than the old BATTLELINE+VEHICLE proxy. Units that carry "SQUADRON" are the
+    codex-eligible target for SQUADRON-targeting Officers.
     """
     return UnitProfile(
         name=name,
@@ -676,7 +687,7 @@ def _squadron_target(name: str, idx: int) -> UnitProfile:
         weapon_damage_per_shot=3.0,
         points_override=200.0 + idx,
         faction="Astra Militarum",
-        unit_keywords=("VEHICLE", "BATTLELINE"),
+        unit_keywords=("VEHICLE", "SQUADRON"),
     )
 
 

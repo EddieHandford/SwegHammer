@@ -4551,6 +4551,23 @@ def _loadout_entry_to_weapon_fields(entry: Dict[str, Any]) -> Dict[str, Any]:
             "torrent": bool(best.get("torrent", False)),
             "blast": bool(best.get("blast", False)),
             "pistol": bool(best.get("pistol", False)),
+            # LOADOUT-FLAG-PARITY (wave 243): these three were silently dropped
+            # from the promoted primary block, so the model kept whatever the
+            # catalogue top-level (expected-value-picked) weapon had — e.g. the
+            # Wyvern's promoted quad stormshard mortar lost Indirect Fire, and
+            # Rhinos whose hunter-killer missile set top-level one_shot=True
+            # fired their promoted storm bolter once per battle.
+            "indirect_fire": bool(best.get("indirect_fire", False)),
+            "one_shot": bool(best.get("one_shot", False)),
+            "precision": bool(best.get("precision", False)),
+            # Two flags are DELIBERATELY not copied (explicit-default rule):
+            # - lance: the top-level UnitProfile field is MELEE semantics
+            #   ("+1 to wound in melee if the unit charged"); every per-model
+            #   ranged dict carries lance=False, which would clobber a real
+            #   melee-derived True (Venatari lances, Achillus dreadspear).
+            # - hazardous: choice-profile over-collection means a supercharge
+            #   profile still fires from extra_ranged_profiles, so clearing
+            #   the top-level flag would under-count real self-harm.
             "anti_keywords": (
                 tuple(ak.items()) if isinstance(ak, dict) else tuple(ak or ())
             ),

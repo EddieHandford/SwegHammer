@@ -62,7 +62,7 @@ Effect routing (APPROXIMATION where noted):
     * Take Cover! — `transient_plus_one_save` on target unit. Direct
       mapping; codex effect is "+1 to save (cannot improve better than
       3+)" which lines up exactly with our +1-save flag (the 3+ cap is
-      a real-codex restriction that SwegHammer drops; AM BATTLELINE
+      a real-codex restriction that SwegHammer drops; AM REGIMENT
       saves are 5+/4+ so the cap rarely binds anyway).
 
 Eligibility:
@@ -75,14 +75,14 @@ Eligibility:
       this to multiple Officers via the simulator's command-phase
       stratagem dispatch (extra Officers are unaffected since each is
       already at the 1-cap default).
-    * Target: alive, non-Battle-shocked friendly BATTLELINE INFANTRY
-      with faction == "Astra Militarum", within 6" of the issuing
-      Officer. SwegHammer doesn't model the codex REGIMENT keyword
-      directly; we map REGIMENT → BATTLELINE INFANTRY (the codex
-      eligible-target set for Voice of Command). The Flexible Command
-      stratagem widens this to also include VEHICLE BATTLELINE for the
-      round (Leman Russ etc.) by setting `Army.orders_eligible_squadron
-      _this_round = True`.
+    * Target: alive, non-Battle-shocked friendly REGIMENT or SQUADRON
+      unit with faction == "Astra Militarum", within 6" of the issuing
+      Officer. The codex REGIMENT and SQUADRON keywords are now tracked
+      directly from BSData categoryLinks via the mapper's
+      `_TRACKED_UNIT_KEYWORDS` set — no proxy needed. The Flexible
+      Command stratagem widens the eligible set for the round (Leman
+      Russ etc.) by setting `Army.orders_eligible_squadron_this_round
+      = True`.
     * At most one Order per unit per round (subsequent Orders to the
       same unit are skipped — no Order stacking).
 
@@ -93,7 +93,7 @@ codex text is cited under `Order.<name>`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from .army import Army
@@ -111,11 +111,11 @@ OFFICER_AURA_RANGE: float = 6.0   # 10e canonical (Voice of Command)
 # Orders. Sourced from Wahapedia AM faction page
 # (https://wahapedia.ru/wh40k10ed/factions/astra-militarum/) by reading
 # each CHARACTER datasheet's keyword line. The OFFICER keyword is the
-# codex gate for issuing Orders; BSData v10.6.0's parsed unit_keywords
-# field does not preserve it (the bsdata mapper retains only INFANTRY /
-# VEHICLE / BATTLELINE / CHARACTER / EPIC HERO / PSYKER / MOUNTED /
-# WALKER / MONSTER), so the gate has to be applied via an allowlist of
-# unit catalogue keys.
+# codex gate for issuing Orders; BSData v10.6.0's parsed unit_keywords field
+# does not preserve the OFFICER keyword (the bsdata mapper retains only
+# INFANTRY / VEHICLE / BATTLELINE / CHARACTER / EPIC HERO / PSYKER / MOUNTED /
+# WALKER / MONSTER / SYNAPSE / TRANSPORT / REGIMENT / SQUADRON), so the gate
+# has to be applied via an allowlist of unit catalogue keys.
 #
 # Including a unit in this set requires that its Wahapedia datasheet
 # carry the OFFICER keyword on the printed faction-keyword line. Adding
@@ -154,8 +154,8 @@ AM_OFFICER_NAMES: frozenset = frozenset({
 #
 # target_types encodes which keyword categories the Officer may issue Orders
 # to. Three categories exist in the codex:
-#   "REGIMENT"  — BATTLELINE INFANTRY (the proxy used by this simulator)
-#   "SQUADRON"  — BATTLELINE VEHICLE
+#   "REGIMENT"  — unit carries the REGIMENT keyword (from BSData categoryLinks)
+#   "SQUADRON"  — unit carries the SQUADRON keyword (from BSData categoryLinks)
 #   "TITANIC"   — any unit with the TITANIC keyword
 #
 # The Flexible Command (Combined Arms, 2 command points) stratagem widens the
@@ -266,8 +266,8 @@ def _officer_target_types(officer_name: str) -> frozenset:
     """Return the set of codex keyword categories this Officer may issue
     Orders to, sourced from OFFICER_ORDER_PROFILES.
 
-    Categories: "REGIMENT" (BATTLELINE INFANTRY), "SQUADRON" (BATTLELINE
-    VEHICLE), "TITANIC".
+    Categories: "REGIMENT" (unit carries REGIMENT keyword), "SQUADRON"
+    (unit carries SQUADRON keyword), "TITANIC".
 
     Raises ValueError if `officer_name` is not in OFFICER_ORDER_PROFILES —
     fail loud per CLAUDE.md §13 (no silent .get default).
@@ -319,15 +319,16 @@ def _unit_satisfies_target_type(unit: "Unit", target_types: frozenset) -> bool:
     """True iff the unit's keyword set satisfies at least one of the
     categories in `target_types`.
 
-    Category mapping (proxy, per module docstring):
-      "REGIMENT"  — unit has BATTLELINE and INFANTRY
-      "SQUADRON"  — unit has BATTLELINE and VEHICLE
-      "TITANIC"   — unit has TITANIC keyword
+    Category mapping — real codex keywords, sourced from BSData categoryLinks
+    via the mapper's `_TRACKED_UNIT_KEYWORDS` set (wave 243):
+      "REGIMENT"  — unit carries the REGIMENT keyword
+      "SQUADRON"  — unit carries the SQUADRON keyword
+      "TITANIC"   — unit carries the TITANIC keyword
     """
     kw = set(unit.profile.unit_keywords or ())
-    if "REGIMENT" in target_types and "BATTLELINE" in kw and "INFANTRY" in kw:
+    if "REGIMENT" in target_types and "REGIMENT" in kw:
         return True
-    if "SQUADRON" in target_types and "BATTLELINE" in kw and "VEHICLE" in kw:
+    if "SQUADRON" in target_types and "SQUADRON" in kw:
         return True
     if "TITANIC" in target_types and "TITANIC" in kw:
         return True
@@ -345,31 +346,34 @@ def _is_order_target_eligible(
       1. Per-officer target-type gate: the unit satisfies at least one
          category in `officer_target_types` (REGIMENT, SQUADRON, TITANIC).
       2. Flexible Command gate: when `squadron_allowed` is True (set by the
-         Flexible Command Combined Arms stratagem), AM BATTLELINE VEHICLE
-         units (SQUADRON) are also eligible regardless of the Officer's own
-         restriction.
+         Flexible Command Combined Arms stratagem), AM SQUADRON units are also
+         eligible regardless of the Officer's own per-datasheet restriction.
 
     When `officer_target_types` is None the per-officer gate is skipped and
     only the army-wide REGIMENT eligibility rule applies (backward-compatible
     default for callers that don't pass officer context).
+
+    The BATTLELINE gate that previously guarded this function has been removed
+    (wave 243): REGIMENT and SQUADRON are the real codex eligibility keywords
+    sourced from BSData categoryLinks. Keying on BATTLELINE was a proxy that
+    blocked Kasrkin, Tempestus Scions, Heavy Weapons Squads, and all SQUADRON
+    vehicles from ever receiving Orders.
     """
     if not unit.is_alive:
         return False
     if (unit.profile.faction or "") != "Astra Militarum":
         return False
     kw = set(unit.profile.unit_keywords or ())
-    if "BATTLELINE" not in kw:
-        return False
 
     # Gate 1: per-officer target-type restriction.
     if officer_target_types is not None:
         officer_allows = _unit_satisfies_target_type(unit, officer_target_types)
     else:
-        # Legacy default: REGIMENT only (BATTLELINE INFANTRY).
-        officer_allows = "INFANTRY" in kw and "VEHICLE" not in kw
+        # Legacy default: REGIMENT only.
+        officer_allows = "REGIMENT" in kw
 
     # Gate 2: Flexible Command stratagem widens the eligible set to SQUADRON.
-    flexible_command_allows = squadron_allowed and "VEHICLE" in kw
+    flexible_command_allows = squadron_allowed and "SQUADRON" in kw
 
     return officer_allows or flexible_command_allows
 
@@ -434,7 +438,35 @@ def _unit_melee_dpa(u: "Unit") -> float:
     )
 
 
-def _pick_order_for_target(target: "Unit") -> str:
+def _unit_has_rapid_fire(u: "Unit") -> bool:
+    """True iff the unit carries at least one Rapid Fire ranged weapon —
+    primary block, secondary block, or any extra ranged profile.
+
+    This mirrors exactly the set of profiles `Unit.compute_expected_kills`
+    buffs under `transient_frfsrf_active` (every profile with rapid_fire > 0),
+    so it answers "would First Rank, Fire! Second Rank, Fire! do anything at
+    all for this unit?". The codex effect is "Improve the Attacks
+    characteristic of Rapid Fire weapons equipped by models in this unit by
+    1." — on a unit with no Rapid Fire weapons the Order does literally
+    nothing, so the AI picker must never spend an Order slot on it (wave 243:
+    widening the eligible pool to SQUADRON vehicles made tanks the
+    highest-priority targets, and they were burning their slots on this
+    no-op).
+    """
+    p = u.profile
+    if (p.rapid_fire or 0) > 0:
+        return True
+    if (getattr(p, "secondary_rapid_fire", 0) or 0) > 0:
+        return True
+    for extra in (p.extra_ranged_profiles or ()):
+        if (dict(extra).get("rapid_fire", 0) or 0) > 0:
+            return True
+    return False
+
+
+def _pick_order_for_target(
+    target: "Unit", hp_frac_lost: Optional[float] = None
+) -> str:
     """Greedy: pick the Order that maximises expected value for `target`.
 
     Heuristic:
@@ -442,21 +474,33 @@ def _pick_order_for_target(target: "Unit") -> str:
         the +1 save preserves the remaining points.
       * Else if the unit has meaningful melee DPA AND no ranged DPA,
         pick Fix Bayonets! (no shoot-relevant alternative).
-      * Else if the unit has rapid-fire ranged DPA, pick First Rank
-        Fire / Second Rank Fire (matches the codex use case for Cadians
-        / Krieg / Catachan Lasgun blocks — the canonical FRFSRF target).
+      * Else if the unit has real ranged DPA AND carries at least one
+        Rapid Fire weapon, pick First Rank Fire / Second Rank Fire
+        (matches the codex use case for Cadians / Krieg / Catachan
+        Lasgun blocks — the canonical FRFSRF target). The Rapid Fire
+        gate matters: the codex effect buffs Rapid Fire weapons only,
+        so on a no-Rapid-Fire unit (Leman Russ, Rogal Dorn) the Order
+        does nothing — those take Take Aim! instead (wave 243).
       * Else pick Take Aim! (generic +1 to hit shooting).
 
-    Lasgun-heavy BATTLELINE squads typically have ranged_dpa > 0 and
+    Lasgun-heavy REGIMENT squads typically have ranged_dpa > 0 and
     melee_dpa < 0.5; the FRFSRF branch fires on them as intended.
     Bullgryns/Ogryns (melee-only) hit the Fix Bayonets! branch.
     """
-    try:
-        hp_frac_lost = max(
-            0.0, 1.0 - target.current_health / max(1.0, target.profile.health)
-        )
-    except Exception:
-        hp_frac_lost = 0.0
+    if hp_frac_lost is None:
+        # Explicit default (CLAUDE.md rule 13): None means "single-model
+        # caller" — derive the damage fraction from this one Unit.
+        # dispatch_orders passes the SQUAD-aggregate fraction instead,
+        # because the simulator stores one Unit per physical model and
+        # casualties are removed whole-model: a squad that has lost half
+        # its models is damaged even though every surviving model sits at
+        # full health.
+        try:
+            hp_frac_lost = max(
+                0.0, 1.0 - target.current_health / max(1.0, target.profile.health)
+            )
+        except Exception:
+            hp_frac_lost = 0.0
 
     if hp_frac_lost > 0.2:
         return ORDER_TAKE_COVER
@@ -467,10 +511,15 @@ def _pick_order_for_target(target: "Unit") -> str:
     if melee_dpa > 0.5 and ranged_dpa < 0.3:
         return ORDER_FIX_BAYONETS
 
-    if ranged_dpa >= 0.5:
+    if ranged_dpa >= 0.5 and _unit_has_rapid_fire(target):
         # FRFSRF is the canonical Lasgun-block Order — pick it on any
-        # BATTLELINE INFANTRY with real ranged DPA (almost every wired
-        # AM BATTLELINE infantry datasheet qualifies).
+        # REGIMENT unit with real ranged DPA (almost every wired AM REGIMENT
+        # infantry datasheet qualifies: Cadians, Krieg, Catachan, Kasrkin etc.)
+        # — but ONLY when the unit actually carries a Rapid Fire weapon. The
+        # codex effect buffs Rapid Fire weapons exclusively, so on a Leman
+        # Russ or Rogal Dorn (no Rapid Fire profiles) the Order is a no-op;
+        # those fall through to Take Aim! (+1 to hit), the order real players
+        # issue to tanks (wave 243 mis-pilot fix).
         return ORDER_FRFSRF
 
     # Fallback — generic +1 to hit shooting.
@@ -492,18 +541,21 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
     Wahapedia rules respected:
       * Battle-shocked Officers cannot issue Orders (`battleshocked_uids`).
       * Battle-shocked targets cannot receive Orders (`battleshocked_uids`).
-      * Each unit can only be affected by ONE Order per phase (the
-        dispatcher tracks `ordered_uids` to enforce no-stacking).
+      * Each unit can only be affected by ONE Order per phase. The
+        simulator stores one Unit instance per physical model, so the
+        dispatcher groups model-instances into codex units by `squad_id`,
+        applies the Order to every model of the chosen squad, and tracks
+        `ordered_squads` to enforce no-stacking at the codex-unit level.
       * Each Officer issues up to its per-datasheet cap (from
         OFFICER_ORDER_PROFILES) per Command phase.
       * Order target must be within 6" of the issuing Officer (canonical
         OFFICER_AURA_RANGE).
       * Order target must satisfy the Officer's per-datasheet keyword
         restriction (REGIMENT / SQUADRON / TITANIC) as recorded in
-        OFFICER_ORDER_PROFILES — OR be AM BATTLELINE VEHICLE (SQUADRON) if
-        Flexible Command was fired this round (the two gates are OR-ed; the
-        Flexible Command stratagem widens the army-wide eligible set
-        independently of each Officer's own restriction).
+        OFFICER_ORDER_PROFILES — OR be an AM SQUADRON unit if Flexible Command
+        was fired this round (the two gates are OR-ed; the Flexible Command
+        stratagem widens the army-wide eligible set independently of each
+        Officer's own restriction).
 
     Cited as `simulator.voice_of_command_orders` in
     `data/rule_citations.d/astra_militarum.json`.
@@ -541,22 +593,88 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
     if not officers:
         return issued
 
-    # Army-wide target pool: all alive, non-battle-shocked AM BATTLELINE units.
-    # Per-officer target-type filtering is applied per-officer below (inside
-    # the aura filter), not on this pool, so that an Officer whose restriction
-    # is REGIMENT doesn't accidentally steal a slot from an Officer whose
-    # restriction is SQUADRON (they draw from the same ranked pool but each
-    # filters by its own target types inside the aura loop).
+    # Army-wide target pool: all alive, non-battle-shocked AM units that carry
+    # at least one of REGIMENT, SQUADRON, or TITANIC. Using the real codex
+    # keywords (wave 243) means Kasrkin, Tempestus Scions, Heavy Weapons
+    # Squads, all Leman Russ variants, Rogal Dorn tanks, Sentinels, and other
+    # datasheets that were previously invisible due to the BATTLELINE proxy are
+    # now correctly included. Per-officer target-type filtering is applied
+    # per-officer below (inside the aura filter) — this pool is a broad
+    # pre-filter to avoid scanning every unit in the inner loop.
     all_targets = [
         u for u in army.alive_units
         if (u.profile.faction or "") == "Astra Militarum"
         and u.uid not in battleshocked_uids
-        and "BATTLELINE" in set(u.profile.unit_keywords or ())
+        and bool(
+            set(u.profile.unit_keywords or ()) & {"REGIMENT", "SQUADRON", "TITANIC"}
+        )
     ]
     if not all_targets:
         return issued
 
-    ordered_uids: set = set()
+    # ONE-UNIT-PER-MODEL CORRECTION (wave 243): the simulator stores one
+    # Unit instance per physical model, but a codex Order affects the whole
+    # codex unit ("While this unit is affected by an Order …"). The
+    # dispatcher therefore groups the eligible pool into codex units
+    # (squads, keyed by squad_id): an Order is applied to EVERY model of
+    # the chosen squad, the squad counts as ONE target for the no-stacking
+    # rule, and the priority heuristic compares squad aggregates. Before
+    # this correction an Order buffed a single model — FRFSRF issued to a
+    # 10-model Lasgun block improved one lasgun, diluting the Order's
+    # value by squad size, while single-model vehicles received the full
+    # effect.
+    squads: Dict[object, List["Unit"]] = {}
+    for t in all_targets:
+        sid = getattr(t, "squad_id", -1)
+        key: object = ("squad", sid) if sid >= 0 else ("solo", t.uid)
+        squads.setdefault(key, []).append(t)
+
+    def _squad_hp_frac_lost(key: object, members: List["Unit"]) -> float:
+        """Squad-aggregate damage fraction for the Take Cover! branch.
+
+        Casualties are removed whole-model under the 10e allocation rule,
+        so the lost fraction must count ALL instances that ever belonged
+        to the squad (alive or dead) — `members` only holds survivors.
+        """
+        if key[0] == "solo":
+            u = members[0]
+            try:
+                return max(
+                    0.0, 1.0 - u.current_health / max(1.0, u.profile.health)
+                )
+            except Exception:
+                return 0.0
+        sid = key[1]
+        full_hp = 0.0
+        cur_hp = 0.0
+        for u in army.units:
+            if getattr(u, "squad_id", -1) != sid:
+                continue
+            full_hp += float(u.profile.health or 0)
+            if u.is_alive:
+                cur_hp += max(0.0, float(u.current_health))
+        if full_hp <= 0:
+            return 0.0
+        return max(0.0, 1.0 - cur_hp / full_hp)
+
+    def _squad_priority(item: Tuple[object, List["Unit"]]) -> float:
+        """Squad-aggregate version of the old per-model heuristic: total
+        points at stake plus total damage-per-activation. Summing over
+        members means a Lasgun block's volume of fire competes honestly
+        with a single tank's price tag.
+        """
+        _key, members = item
+        cost = 0.0
+        dpa = 0.0
+        for m in members:
+            try:
+                cost += float(m.profile.points_cost)
+            except Exception:
+                pass
+            dpa += _unit_ranged_dpa(m) + _unit_melee_dpa(m)
+        return cost + dpa * 10.0
+
+    ordered_squads: set = set()
     for officer in officers:
         officer_name = officer.profile.name or ""
         # Per-datasheet caps and target-type restrictions sourced from
@@ -568,45 +686,40 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
         officer_types = _officer_target_types(officer_name)
 
         for _ in range(orders_this_officer):
-            # Find eligible targets within 6" of this Officer, filtered by:
-            #   - not already ordered this round,
-            #   - within aura range,
+            # Find eligible unordered squads with at least one alive model
+            # within 6" of this Officer (range to a unit is measured to its
+            # closest model), filtered by:
+            #   - not already ordered this round (per squad, no stacking),
             #   - satisfies this Officer's per-datasheet target-type
             #     restriction OR falls under the Flexible Command SQUADRON
             #     widening (the two gates are OR-ed per the codex: Flexible
             #     Command overrides, it does not replace, per-Officer limits).
+            # Keyword eligibility is per-datasheet, so testing one member
+            # covers the squad.
             in_aura = [
-                t for t in all_targets
-                if t.uid not in ordered_uids
-                and _distance(officer.position, t.position) <= OFFICER_AURA_RANGE
+                (key, members) for key, members in squads.items()
+                if key not in ordered_squads
+                and any(
+                    _distance(officer.position, m.position) <= OFFICER_AURA_RANGE
+                    for m in members
+                )
                 and _is_order_target_eligible(
-                    t,
+                    members[0],
                     squadron_allowed=squadron_allowed,
                     officer_target_types=officer_types,
                 )
             ]
             if not in_aura:
-                break  # no more eligible unordered targets in aura — stop early
+                break  # no more eligible unordered squads in aura — stop early
 
-            # Greedy: prioritise the target whose chosen Order has the
-            # highest expected swing (cost × applicability). We use a coarse
-            # heuristic — pick the highest-DPA target in aura, then assign
-            # the best Order for that target. This biases toward
-            # FRFSRF on big Lasgun blocks (their DPA dominates) which
-            # matches real-meta usage.
-            def _target_priority(u: "Unit") -> float:
-                try:
-                    cost = float(u.profile.points_cost)
-                except Exception:
-                    cost = 0.0
-                dpa = _unit_ranged_dpa(u) + _unit_melee_dpa(u)
-                return cost + dpa * 10.0
-
-            target = max(in_aura, key=_target_priority)
-            order = _pick_order_for_target(target)
-            _apply_order(target, order)
-            ordered_uids.add(target.uid)
-            issued.append((officer.profile.name, target.profile.name, order))
+            key, members = max(in_aura, key=_squad_priority)
+            order = _pick_order_for_target(
+                members[0], hp_frac_lost=_squad_hp_frac_lost(key, members)
+            )
+            for m in members:
+                _apply_order(m, order)
+            ordered_squads.add(key)
+            issued.append((officer.profile.name, members[0].profile.name, order))
 
     return issued
 

@@ -138,14 +138,17 @@ work tracks against the goals below.
 \subsection*{Goal A --- Sim matches real tournament data}
 Drive the per-faction matchup-matrix MAE down by implementing the
 faction-specific mechanics that distinguish factions in real play.
-Headline metric: MAE vs the May 2026 Warp Friends tournament aggregate,
-currently $5.48$ pts at $N{=}30$ / $7.01$ pts at $N{=}200$ (the honest
-reading), target $\le 2.0$ pts. As of 2026-05-15, 9 of 10 faction army
+Headline metric: noise-gated MAE vs the May 2026 Warp Friends tournament
+aggregate (per-faction errors counted only beyond each faction's noise
+floor), currently gated $6.70$ pts / raw $10.05$ pts at $N{=}80$, target
+gated $\to 0$. As of 2026-05-15, 9 of 10 faction army
 rules ship (Tyranids Synapse, Drukhari Pain Tokens, AdMech Doctrina,
 GSC Cult Ambush, World Eaters Blood Tithe, Death Guard Disgustingly
 Resilient $+$ Contagions, Thousand Sons All Is Dust, Necrons Reanimation,
 Orks WAAAGH! $+$ Mob Rule). Marines Oath of Moment remains
-\texttt{[NEEDS RETRY]}. Plus 5 core 10e rules shipped this session:
+\texttt{[NEEDS RETRY]}. As of 2026-06-12 Astra Militarum Voice of
+Command (Orders) also ships: real REGIMENT / SQUADRON keyword targeting,
+a First Rank Fire rapid-fire gate, and squad-level Order dispatch. Plus 5 core 10e rules shipped this session:
 Look Out Sir, Lone Operative, Deadly Demise X, Fall Back, Desperate
 Escape. See \texttt{scripts/evaluate\_vs\_meta.py}.
 
@@ -265,7 +268,7 @@ analytic solver needs.
 Drive the simulator's mean absolute error down to 2--4\,\% against
 real tournament results, using the Games Workshop printed point costs
 as the baseline for army budgets. The current honest reading is
-$7.01$ points at $N{=}200$ (see \S\ref{sec:goals} Goal A); 2--4\,\%
+noise-gated $6.70$ points at $N{=}80$ (see \S\ref{sec:goals} Goal A); 2--4\,\%
 is the threshold at which the simulator's outputs are trustworthy
 enough to drive points re-derivation in production.
 

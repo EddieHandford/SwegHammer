@@ -123,6 +123,24 @@ normal (excess-lost) allocation above. **Deadly Demise** hits each *unit* within
 takes its X mortal wounds a single time. **Blast** likewise counts the models in
 the *targeted unit* (by `squad_id`), not every same-name model in the army.
 
+### Charge-Path Legality (screening)
+
+A charging unit may not pass within Engagement Range of any enemy unit it did
+not declare as a charge target (10e core Charge Move rule — gate
+`SWEG_CHARGE_PATH`, default-ON since wave 242). The charge-target picker
+(`pick_charge_target` in `code/strategy.py`) enforces two geometry checks: for
+non-flying chargers, the straight-line path from the charger to the approximate
+charge-end spot must not pass within Engagement Range of a non-target enemy
+(`_charge_path_screen_gap` in `code/sim/geometry.py`); and for all chargers —
+including those with the FLY keyword, which may cross over screens but not end
+among them — the end spot itself must not sit within Engagement Range of a
+non-target enemy. Candidates that fail either check drop out of the scorer, so
+a screening body becomes the charge target naturally through the existing
+kill-value ranking — screens work because the rules make them work, not via
+any new scoring term. Cited as `simulator.charge_path_non_target`. Setting
+`SWEG_CHARGE_PATH=0` restores the legacy behaviour where chargers passed
+through screening units to reach the unit behind.
+
 ### Activation Sequence
 
 Each battle round proceeds as follows:

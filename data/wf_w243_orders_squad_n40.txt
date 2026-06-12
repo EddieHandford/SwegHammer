@@ -1,0 +1,32 @@
+Mode: vanilla WH40k 10e | Lists: tourney-archetype | N=40 | workers=11
+
+Per-game winners written to data/wf_w243_orders_squad_n40.json (join with scripts/paired_delta.py).
+Faction                   Sim%   Real%   Noise    Diff   Gated    vs50
+------------------------------------------------------------------------
+Adeptus Astartes          48.2    47.0    2.16    +1.2    0.00    -1.8 .
+Necrons                   66.7    53.5    3.22   +13.2   10.02   +16.7  
+Aeldari                   45.3    41.5    3.10    +3.7    0.62    -4.7  
+Tyranids                  59.3    47.0    3.82   +12.3    8.48    +9.3  
+Orks                      56.1    45.3    2.90   +10.8    7.94    +6.1  
+T'au Empire               53.4    54.3    4.23    -0.9    0.00    +3.4 .
+Death Guard               62.9    47.6    2.58   +15.3   12.75   +12.9  
+Adeptus Custodes          70.7    49.5    2.65   +21.2   18.51   +20.7  
+Thousand Sons             63.3    53.9    8.75    +9.4    0.68   +13.3  
+Leagues of Votann         39.5    48.0    3.03    -8.5    5.51   -10.5  
+Chaos Space Marines       56.8    55.6    2.48    +1.2    0.00    +6.8 .
+World Eaters              65.0    44.9    3.42   +20.1   16.64   +15.0  
+Emperor's Children        71.3    53.3    5.67   +17.9   12.27   +21.3  
+Chaos Daemons             65.6    52.6    3.16   +13.0    9.81   +15.6  
+Astra Militarum           21.9    45.3    3.18   -23.4   20.21   -28.1  
+Adeptus Mechanicus        53.3    44.4    4.17    +8.9    4.70    +3.3  
+Adepta Sororitas          52.5    50.8    3.79    +1.8    0.00    +2.5 .
+Grey Knights              58.9    46.7    4.22   +12.2    7.98    +8.9  
+Drukhari                  45.1    52.4    3.36    -7.3    3.90    -4.9  
+Genestealer Cults         57.5    46.7    4.60   +10.9    6.27    +7.5  
+Imperial Knights          57.5    47.7    2.96    +9.7    6.78    +7.5  
+Chaos Knights             35.6    44.7    3.29    -9.1    5.85   -14.4  
+------------------------------------------------------------------------
+MAE raw (sim - real_meta):        10.55 pts  (legacy headline)
+MAE gated (only beyond noise):     7.22 pts  (target → 0; the real calibration signal)
+MAE vs Sweg-balanced (50/50):     10.69 pts  (rule-internal-balance signal)
+Factions inside noise band:      4/22  (target → all 22)

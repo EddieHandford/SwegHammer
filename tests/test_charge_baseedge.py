@@ -299,15 +299,26 @@ class GateOnBaseEdgeTests(unittest.TestCase):
             "Charger base edge must finish within 1\" of the target base edge.")
 
     def test_charger_does_not_overlap_other_models(self):
-        """With a second enemy model sitting beside the target, the gated end
-        position overlaps NEITHER the target nor the bystander."""
-        a = _make_army("A", _charger_profile(), [(20.0, 30.0)])
-        # Target at (25,30); a bystander parked right where the straight base-edge
-        # approach point would land, forcing the deterministic angular search.
-        b = _make_army("B", _small_target_profile(),
-                       [(25.0, 30.0), (23.6, 30.0)])
+        """With a FRIENDLY model sitting beside the target, the gated end
+        position overlaps NEITHER the target nor the bystander.
+
+        The bystander is friendly, not enemy (changed wave 242): under
+        charge-path legality (SWEG_CHARGE_PATH, default ON) an ENEMY model
+        parked on the straight approach makes this charge ILLEGAL — the end
+        spot sits inside a non-target's Engagement Range — so the picker
+        redirects onto the screen instead (pinned in
+        tests/test_charge_path.py). The collision predicate and the angular
+        search under test here are side-agnostic, so a friendly bystander
+        forces the same deterministic search without making the charge
+        illegal."""
+        # Charger at (20,30); the friendly bystander at (23.6,30) is parked
+        # right where the straight base-edge approach point (~22.74,30) would
+        # land, forcing the deterministic angular search.
+        a = _make_army("A", _charger_profile(), [(20.0, 30.0), (23.6, 30.0)])
+        b = _make_army("B", _small_target_profile(), [(25.0, 30.0)])
         battle = Battle(a, b, map_=_open_map())
-        attacker, target, bystander = a.units[0], b.units[0], b.units[1]
+        attacker, bystander = a.units[0], a.units[1]
+        target = b.units[0]
 
         with _force_charge_roll_12():
             battle._do_charge(attacker, battle.a, battle.b)

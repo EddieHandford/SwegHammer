@@ -3,9 +3,10 @@
 SwegHammer is organised around **four goals**. Each goal owns a strand of
 work that runs end-to-end through the simulator, the points solvers, and the
 calibration harness. Progress is measured against a single headline metric —
-the mean absolute error (MAE) of the per-faction win rate vs the May 2026
-Warp Friends tournament aggregate — currently **MAE ≈ 5.48 pts at N=30 /
-7.01 pts at N=200** (target ≤ 2.0 pts).
+the noise-gated mean absolute error (MAE) of the per-faction win rate vs the
+May 2026 Warp Friends tournament aggregate, each faction's error counted only
+beyond its per-faction noise floor — currently **gated 6.70 pts at N=80
+(raw 10.05), 5 of 22 factions inside the noise band** (target: gated → 0).
 
 This file is the high-level status board. For the human-facing checklist
 with ownership tags and math, see [`PROJECT.tex`](PROJECT.tex). For Claude
@@ -18,9 +19,9 @@ SwegHammer runs as two sequenced feedback loops, not one. See
 [`CLAUDE.md`](CLAUDE.md) "Project plan" for the rules-of-thumb.
 
 - **Stage 1 — Make the simulator play like reality.** Goal A below.
-  The feedback signal is mean absolute error vs the May 2026 Warp Friends
-  per-faction win rates, currently 7.01 pts at N=200 against a 2.0 pt
-  target. Stage 1 is the current focus.
+  The feedback signal is the noise-gated mean absolute error vs the May 2026
+  Warp Friends per-faction win rates, currently gated 6.70 pts at N=80
+  against a gated-to-zero target. Stage 1 is the current focus.
 - **Stage 2 — Fit the points equation.** Goals C and D below. Fits one
   master equation that prices every unit from its stats (plus small
   per-unit residuals), tuning the stat coefficients and residuals until
@@ -45,10 +46,13 @@ and Stage 2's solvers possible.
 
 Headline calibration metric:
 
-- **MAE 5.48 pts at N=30** vs Warp Friends May 2026 (10-faction matchup matrix).
-- **MAE 7.01 pts at N=200** — the true number; N=30 readings have ~3pt noise.
-- Persistent residual outliers at N=200: Necrons -15.2, Aeldari +13.9, TSON
-  -11.6, T'au +10.3.
+- **Noise-gated MAE 6.70 pts at N=80** vs the Warp Friends May 2026 rolling
+  aggregate (`data/warpfriends_rolling.json`, 22-faction field) — raw MAE
+  10.05; 5 of 22 factions inside their noise band.
+- Largest gated residuals on the standing anchor
+  (`data/_anchor_sc9c_n80_log.json`): Adeptus Custodes +20.1 over, Astra
+  Militarum -19.0 under, World Eaters +16.7 over, Death Guard +12.2 over,
+  Emperor's Children +12.1 over.
 - ~~**Blocker**: `UnitProfile.points_cost` currently returns a Lanchester-
   derived score rather than the GW per-model cost from `points_per_squad /
   min_models`.~~ Resolved across commits `a0d7702` (property now prefers
@@ -145,6 +149,7 @@ in real play.
   - Necrons: Reanimation Protocols + Awakened Dynasty buffs
   - Imperial Knights: Code Chivalric army rule (re-roll ONE Hit roll and ONE Wound roll per activation — the real "martial valour" Quality; wave 71 corrected this from the over-scaling "re-roll all natural 1s") + Ion Shield (5+ invulnerable save against ranged attacks ONLY — wave 72 fidelity fix: big Imperial Knights have no invulnerable save in melee, only their 3+ armour; Chaos Knights' Ion Shield is ranged and melee) + Valourstrike Lance detachment: Bold Gallantry ([ASSAULT] on IK ranged weapons when any IK unit Advances) + Bondsman abilities (each TITANIC+CHARACTER IK knight buffs one Armiger per Command phase with Paladin's Duty: Lethal Hits + Lance)
   - Chaos Knights: Harbingers of Dread army rule (Deathly Terror Battle-shock aura + Doom wound-roll bonus vs Battle-shocked targets) + Iconoclast Fiefdom detachment: Dread Tyrants Aura (War Dog units re-roll hit and wound 1s while a friendly TITANIC Chaos Knights unit is within 9")
+  - Astra Militarum: Voice of Command Orders (Officers issue per-datasheet Order counts to REGIMENT / SQUADRON / TITANIC units — wave 243 made REGIMENT and SQUADRON first-class unit keywords from the BSData categoryLink entries, replacing a BATTLELINE proxy that silently blocked nearly the whole faction; "First Rank, Fire! Second Rank, Fire!" is only issued to units that actually carry a Rapid Fire weapon, since the rule text buffs Rapid Fire weapons exclusively — tanks receive Take Aim! instead) + Flexible Command stratagem (widens a REGIMENT-only Officer's eligible set to SQUADRON for the round)
   - Adeptus Astartes: **[pending — needs retry]** Oath of Moment + Combat Doctrines
 - **Core 10e mechanics**: Hit/Wound/Save w/ crits, AP+invuln+FNP, 18 weapon
   keywords, Cover (light/heavy/obscuring), Big Guns Never Tire,

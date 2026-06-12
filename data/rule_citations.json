@@ -115,6 +115,14 @@
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/",
     "trigger": "any Engagement Range comparison between two models while the gate SWEG_CHARGE_BASEEDGE is set (the wave-240 default): the threshold distance is measured between the closest points of the two bases (centre distance minus both base radii) rather than centre to centre"
   },
+  "simulator.charge_path_non_target": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Charge-Move",
+    "rule_name": "Charge Move",
+    "quoted_text": "Within Engagement Range of every unit that you selected as a target of the charge. Without moving within Engagement Range of any enemy units that were not a target of the charge.",
+    "trigger": "a unit declares a charge and the charge move is made",
+    "effect": "charge candidates whose move would cross or end within Engagement Range of a non-target enemy are excluded (FLY chargers exempt from the crossing half only)",
+    "scope": "phase-gated"
+  },
   "simulator.fights_first_chargers": {
     "effect": "Within the active player's Fight phase pass (`_run_round_vanilla_turns`), units that charged this turn (uid in `_charging_this_round`) fight before units that did not. Implemented as a stable sort with key `0 if charging else 1` so non-charger relative order is preserved.",
     "quoted_text": "All eligible units that have the FIGHTS FIRST ability must fight in the Fights First step. Then, in the Remaining Combats step, all other eligible units fight. Each time you select an eligible unit from your army to fight with that made a Charge move this turn, that unit fights first.",
