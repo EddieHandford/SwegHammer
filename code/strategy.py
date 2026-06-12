@@ -2116,6 +2116,22 @@ def _displace_fall_back_buys_something(unit, enemies, engaged_enemies, map_) -> 
         by staying, a 2/3 escape survival strictly beats certain death, so the
         move still buys preservation (the Desperate Escape arm does not block).
 
+      * Squad-aware Desperate Escape (SWEG_SQUAD_ESCAPE, default OFF): the
+        lone-unit suppression above is correct for a single model (a lone Land
+        Raider risking ~1/3 self-destruction to buy one round of shooting is net-
+        negative), but SwegHammer is one-Unit-per-model. For a five-model
+        Hellblaster squad surrounded by 3+ enemies the real 10e math is different:
+        expected losses ≈ 5 × (2/6) ≈ 1.67 models, recovering the whole squad's
+        shooting next round — a trade real players take. The lone-unit suppression
+        was treating every squad member as an independent vehicle and locking all
+        five in place. When the gate is ON and the unit belongs to a multi-model
+        squad (squad_id >= 0), we do NOT apply the lone-unit suppression; the
+        unit escapes if conditions 1 and 2 allow it. Lone models (squad_id < 0)
+        keep the conservative block unconditionally regardless of the gate.
+        Note: every member of a given squad has the same squad_id, so each model
+        instance independently takes the same code path — the decision is
+        inherently squad-consistent without needing a per-squad cache.
+
     Returns True iff the Fall Back has a clear destination AND is not made
     net-negative by the Desperate Escape cost.
     """
@@ -2127,10 +2143,22 @@ def _displace_fall_back_buys_something(unit, enemies, engaged_enemies, map_) -> 
     # blocked by this arm). The test fires only if the retreat must cross an
     # enemy; "surrounded" (3+ enemies in Engagement Range) is the proxy for that.
     if not (p.titanic or p.fly) and len(engaged_enemies) >= 3:
-        if not _displace_likely_destroyed_if_stays(unit, engaged_enemies):
-            # Survives by staying; a ~1/3 self-destruction on the way out to buy
-            # only next round's shooting is net-negative → stay and stay useful.
-            return False
+        # SWEG_SQUAD_ESCAPE (wave 246, default OFF): multi-model squad members
+        # skip the lone-unit suppression. A squad of five with ~1.67 expected
+        # Desperate Escape losses recovers the whole squad's shooting — a trade
+        # real players take. Lone models (squad_id < 0) always take the
+        # conservative block regardless of the gate setting.
+        _squad_escape = (
+            __import__("os").environ.get("SWEG_SQUAD_ESCAPE", "0") == "1"
+        )
+        _is_squad_member = getattr(unit, "squad_id", -1) >= 0
+        if not (_squad_escape and _is_squad_member):
+            if not _displace_likely_destroyed_if_stays(unit, engaged_enemies):
+                # Survives by staying; a ~1/3 self-destruction on the way out to
+                # buy only next round's shooting is net-negative → stay and stay
+                # useful. (For lone models this block applies unconditionally;
+                # for squad members it applies only when the gate is OFF.)
+                return False
     return True
 
 
