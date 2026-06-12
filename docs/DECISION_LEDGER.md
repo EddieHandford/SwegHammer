@@ -25,7 +25,7 @@ first.
 - Chapter Approved 2025-26 mission deck re-alignment — waves 91-92 (the deck the May-2026 target used). See [[project-mission-deck-ca-2025]].
 - Damaged-bracket −1-to-Hit generalised to all 260 big models — wave 191.
 - Balanced objective-contest AI + free-contest extension — waves 192-193 (first faithful levers to move the over-pole down).
-- Rolling damage (replaced expected-value) — user-approved. See [[project-core-rules-audit-2026-06]].
+- Rolling damage `SWEG_ROLLDMG` — CORRECTED ENTRY (wave 247 discovery): user-approved and BUILT (wave 100, cited `simulator.rolled_damage`, byte-identical off path) but NEVER default-flipped — the gate reads implicit-false and no eval invocation sets it, so every production anchor to date is an expected-value-damage frame. The wave-100 N=80 read (+0.38 headline on the pre-re-base scale, variance hurting low-model elites) predates the fidelity-first ruling. Queued as a wave-247 screen-only lever: flip on the modern frame, adopt per fidelity-first unless decisively wrong-direction. See [[project-core-rules-audit-2026-06]] and [[project-fidelity-first-rebuild-authorized]].
 - Squad-activation damage-allocation spillover — wave 65 (gated 9.27 → 7.78). See [[project-squad-activation-contained-wash]].
 - Fall-Back mis-pilot fix — wave 61 (gated MAE −1.35 across many factions). See [[project-ai-piloting-top-lever]].
 - Daemonic Manifestation (friendly Shadow of Chaos) — wave 88. Built + cited but METRIC-NEUTRAL; kept as fidelity, does NOT explain the Daemons residual. See [[project-daemons-manifestation-missing]].
