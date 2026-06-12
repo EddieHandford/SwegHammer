@@ -93,7 +93,7 @@ codex text is cited under `Order.<name>`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from .army import Army
@@ -464,7 +464,9 @@ def _unit_has_rapid_fire(u: "Unit") -> bool:
     return False
 
 
-def _pick_order_for_target(target: "Unit") -> str:
+def _pick_order_for_target(
+    target: "Unit", hp_frac_lost: Optional[float] = None
+) -> str:
     """Greedy: pick the Order that maximises expected value for `target`.
 
     Heuristic:
@@ -485,12 +487,20 @@ def _pick_order_for_target(target: "Unit") -> str:
     melee_dpa < 0.5; the FRFSRF branch fires on them as intended.
     Bullgryns/Ogryns (melee-only) hit the Fix Bayonets! branch.
     """
-    try:
-        hp_frac_lost = max(
-            0.0, 1.0 - target.current_health / max(1.0, target.profile.health)
-        )
-    except Exception:
-        hp_frac_lost = 0.0
+    if hp_frac_lost is None:
+        # Explicit default (CLAUDE.md rule 13): None means "single-model
+        # caller" — derive the damage fraction from this one Unit.
+        # dispatch_orders passes the SQUAD-aggregate fraction instead,
+        # because the simulator stores one Unit per physical model and
+        # casualties are removed whole-model: a squad that has lost half
+        # its models is damaged even though every surviving model sits at
+        # full health.
+        try:
+            hp_frac_lost = max(
+                0.0, 1.0 - target.current_health / max(1.0, target.profile.health)
+            )
+        except Exception:
+            hp_frac_lost = 0.0
 
     if hp_frac_lost > 0.2:
         return ORDER_TAKE_COVER
@@ -531,8 +541,11 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
     Wahapedia rules respected:
       * Battle-shocked Officers cannot issue Orders (`battleshocked_uids`).
       * Battle-shocked targets cannot receive Orders (`battleshocked_uids`).
-      * Each unit can only be affected by ONE Order per phase (the
-        dispatcher tracks `ordered_uids` to enforce no-stacking).
+      * Each unit can only be affected by ONE Order per phase. The
+        simulator stores one Unit instance per physical model, so the
+        dispatcher groups model-instances into codex units by `squad_id`,
+        applies the Order to every model of the chosen squad, and tracks
+        `ordered_squads` to enforce no-stacking at the codex-unit level.
       * Each Officer issues up to its per-datasheet cap (from
         OFFICER_ORDER_PROFILES) per Command phase.
       * Order target must be within 6" of the issuing Officer (canonical
@@ -599,7 +612,69 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
     if not all_targets:
         return issued
 
-    ordered_uids: set = set()
+    # ONE-UNIT-PER-MODEL CORRECTION (wave 243): the simulator stores one
+    # Unit instance per physical model, but a codex Order affects the whole
+    # codex unit ("While this unit is affected by an Order …"). The
+    # dispatcher therefore groups the eligible pool into codex units
+    # (squads, keyed by squad_id): an Order is applied to EVERY model of
+    # the chosen squad, the squad counts as ONE target for the no-stacking
+    # rule, and the priority heuristic compares squad aggregates. Before
+    # this correction an Order buffed a single model — FRFSRF issued to a
+    # 10-model Lasgun block improved one lasgun, diluting the Order's
+    # value by squad size, while single-model vehicles received the full
+    # effect.
+    squads: Dict[object, List["Unit"]] = {}
+    for t in all_targets:
+        sid = getattr(t, "squad_id", -1)
+        key: object = ("squad", sid) if sid >= 0 else ("solo", t.uid)
+        squads.setdefault(key, []).append(t)
+
+    def _squad_hp_frac_lost(key: object, members: List["Unit"]) -> float:
+        """Squad-aggregate damage fraction for the Take Cover! branch.
+
+        Casualties are removed whole-model under the 10e allocation rule,
+        so the lost fraction must count ALL instances that ever belonged
+        to the squad (alive or dead) — `members` only holds survivors.
+        """
+        if key[0] == "solo":
+            u = members[0]
+            try:
+                return max(
+                    0.0, 1.0 - u.current_health / max(1.0, u.profile.health)
+                )
+            except Exception:
+                return 0.0
+        sid = key[1]
+        full_hp = 0.0
+        cur_hp = 0.0
+        for u in army.units:
+            if getattr(u, "squad_id", -1) != sid:
+                continue
+            full_hp += float(u.profile.health or 0)
+            if u.is_alive:
+                cur_hp += max(0.0, float(u.current_health))
+        if full_hp <= 0:
+            return 0.0
+        return max(0.0, 1.0 - cur_hp / full_hp)
+
+    def _squad_priority(item: Tuple[object, List["Unit"]]) -> float:
+        """Squad-aggregate version of the old per-model heuristic: total
+        points at stake plus total damage-per-activation. Summing over
+        members means a Lasgun block's volume of fire competes honestly
+        with a single tank's price tag.
+        """
+        _key, members = item
+        cost = 0.0
+        dpa = 0.0
+        for m in members:
+            try:
+                cost += float(m.profile.points_cost)
+            except Exception:
+                pass
+            dpa += _unit_ranged_dpa(m) + _unit_melee_dpa(m)
+        return cost + dpa * 10.0
+
+    ordered_squads: set = set()
     for officer in officers:
         officer_name = officer.profile.name or ""
         # Per-datasheet caps and target-type restrictions sourced from
@@ -611,45 +686,40 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
         officer_types = _officer_target_types(officer_name)
 
         for _ in range(orders_this_officer):
-            # Find eligible targets within 6" of this Officer, filtered by:
-            #   - not already ordered this round,
-            #   - within aura range,
+            # Find eligible unordered squads with at least one alive model
+            # within 6" of this Officer (range to a unit is measured to its
+            # closest model), filtered by:
+            #   - not already ordered this round (per squad, no stacking),
             #   - satisfies this Officer's per-datasheet target-type
             #     restriction OR falls under the Flexible Command SQUADRON
             #     widening (the two gates are OR-ed per the codex: Flexible
             #     Command overrides, it does not replace, per-Officer limits).
+            # Keyword eligibility is per-datasheet, so testing one member
+            # covers the squad.
             in_aura = [
-                t for t in all_targets
-                if t.uid not in ordered_uids
-                and _distance(officer.position, t.position) <= OFFICER_AURA_RANGE
+                (key, members) for key, members in squads.items()
+                if key not in ordered_squads
+                and any(
+                    _distance(officer.position, m.position) <= OFFICER_AURA_RANGE
+                    for m in members
+                )
                 and _is_order_target_eligible(
-                    t,
+                    members[0],
                     squadron_allowed=squadron_allowed,
                     officer_target_types=officer_types,
                 )
             ]
             if not in_aura:
-                break  # no more eligible unordered targets in aura — stop early
+                break  # no more eligible unordered squads in aura — stop early
 
-            # Greedy: prioritise the target whose chosen Order has the
-            # highest expected swing (cost × applicability). We use a coarse
-            # heuristic — pick the highest-DPA target in aura, then assign
-            # the best Order for that target. This biases toward
-            # FRFSRF on big Lasgun blocks (their DPA dominates) which
-            # matches real-meta usage.
-            def _target_priority(u: "Unit") -> float:
-                try:
-                    cost = float(u.profile.points_cost)
-                except Exception:
-                    cost = 0.0
-                dpa = _unit_ranged_dpa(u) + _unit_melee_dpa(u)
-                return cost + dpa * 10.0
-
-            target = max(in_aura, key=_target_priority)
-            order = _pick_order_for_target(target)
-            _apply_order(target, order)
-            ordered_uids.add(target.uid)
-            issued.append((officer.profile.name, target.profile.name, order))
+            key, members = max(in_aura, key=_squad_priority)
+            order = _pick_order_for_target(
+                members[0], hp_frac_lost=_squad_hp_frac_lost(key, members)
+            )
+            for m in members:
+                _apply_order(m, order)
+            ordered_squads.add(key)
+            issued.append((officer.profile.name, members[0].profile.name, order))
 
     return issued
 

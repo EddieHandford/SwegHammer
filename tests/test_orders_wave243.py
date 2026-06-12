@@ -793,5 +793,121 @@ class TestFrfsrfRapidFireGate(unittest.TestCase):
             )
 
 
+# ---------------------------------------------------------------------------
+# Test H: squad-level Order application — an Order affects the whole codex
+# unit, not one model (one-Unit-per-model correction, wave 243)
+# ---------------------------------------------------------------------------
+
+class TestSquadLevelOrderApplication(unittest.TestCase):
+    """The simulator stores one Unit per physical model; a codex Order
+    affects the whole unit. The dispatcher must apply the Order to every
+    model of the chosen squad, count the squad as ONE target for the
+    no-stacking rule, and judge the Take Cover! damage branch on the
+    squad aggregate (casualties are removed whole-model, so survivors
+    sit at full health even in a mauled squad).
+    """
+
+    def _army_with_squad(self, profile_factory, size: int) -> Army:
+        """Army with one officer (add_unit) and one squad (add_squad)."""
+        army = Army("Test")
+        army.add_unit(_officer_profile("Ursula Creed"))
+        army.add_squad(profile_factory(), size=size)
+        for idx, u in enumerate(army.units):
+            u.uid = f"U{idx}"
+        army._alive_cache = None
+        return army
+
+    def test_one_order_buffs_every_model_of_the_squad(self) -> None:
+        """An Order issued to a 4-model squad must set the transient flag
+        on all 4 model-instances, and count as ONE issued Order.
+        """
+        army = self._army_with_squad(_lasgun_block_profile, size=4)
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 1,
+            f"One squad in aura must consume exactly ONE Order slot; "
+            f"got {len(issued)}: {issued}",
+        )
+        _officer, _target, order = issued[0]
+        self.assertEqual(order, ORDER_FRFSRF)
+        # Select the squad's models by datasheet name — `add_unit` gives the
+        # officer its own one-model squad_id, so a squad_id >= 0 filter
+        # would catch the officer too.
+        members = [u for u in army.units if u.profile.name == "Cadians"]
+        self.assertEqual(len(members), 4)
+        for m in members:
+            self.assertTrue(
+                getattr(m, "transient_frfsrf_active", False),
+                f"Every model of the ordered squad must carry the transient "
+                f"buff; model {m.uid} does not",
+            )
+
+    def test_two_squads_get_one_order_each_not_two_models_of_one(self) -> None:
+        """With an Officer cap of 3 and two 3-model squads in aura, the
+        dispatcher must issue exactly 2 Orders (one per squad) — never a
+        second Order to another model of an already-ordered squad.
+        """
+        army = Army("Test")
+        army.add_unit(_officer_profile("Ursula Creed"))  # cap 3
+        army.add_squad(_lasgun_block_profile("BlockA"), size=3)
+        army.add_squad(_lasgun_block_profile("BlockB"), size=3)
+        for idx, u in enumerate(army.units):
+            u.uid = f"U{idx}"
+        army._alive_cache = None
+
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 2,
+            f"Two squads in aura must consume exactly two Order slots "
+            f"(no per-model double-ordering); got {len(issued)}: {issued}",
+        )
+        ordered_names = sorted(t for _o, t, _r in issued)
+        self.assertEqual(
+            ordered_names, ["BlockA", "BlockB"],
+            f"Each squad must be ordered once; got {issued}",
+        )
+
+    def test_mauled_squad_takes_cover_despite_fullhealth_survivors(self) -> None:
+        """A squad that has lost half its MODELS must hit the Take Cover!
+        branch even though every surviving model is at full health —
+        the damage fraction is judged on the squad aggregate.
+        """
+        army = self._army_with_squad(_lasgun_block_profile, size=4)
+        # Select by datasheet name — the officer holds its own one-model
+        # squad_id, so a squad_id filter would catch it too.
+        members = [u for u in army.units if u.profile.name == "Cadians"]
+        # Kill two of the four models (whole-model removal, 10e allocation).
+        for dead in members[:2]:
+            dead.current_health = 0
+        army._alive_cache = None
+
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(len(issued), 1, f"got {issued}")
+        _officer, _target, order = issued[0]
+        self.assertEqual(
+            order, ORDER_TAKE_COVER,
+            f"A squad at 50% model strength must take Take Cover!; "
+            f"got {order!r} — the damage branch must use the squad "
+            f"aggregate, not one survivor's full health",
+        )
+
+    def test_solo_units_unaffected_by_squad_grouping(self) -> None:
+        """Single-model units (no squad_id) must still be ordered
+        individually — the Leman Russ Commander pattern from Test A.
+        """
+        army = _build_army(
+            "Leman Russ Commander",
+            _squadron_only_profile("LR1"),
+            _squadron_only_profile("LR2"),
+            _squadron_only_profile("LR3"),
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 2,
+            f"Solo vehicles must still consume one slot each up to the "
+            f"Officer cap; got {len(issued)}: {issued}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
