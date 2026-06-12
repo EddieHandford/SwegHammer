@@ -106,5 +106,60 @@ class FightAlternationTests(unittest.TestCase):
                          "no unit fights twice in a single fight phase")
 
 
+    def test_round_scoped_tracker_prevents_second_fight_and_resets_next_round(self):
+        """Variant-b bounding: a unit that fought as a retaliating defender in
+        the first player's Fight phase is NOT eligible to fight again in the
+        second player's Fight phase of the SAME battle round (round-scoped
+        tracker). The tracker resets at the start of each new round, so the
+        unit CAN fight in the next round's Fight phase.
+
+        Gate: SWEG_FIGHTALT=1 must be set for this path to execute.
+        """
+        import os
+        os.environ["SWEG_FIGHTALT"] = "1"
+        try:
+            random.seed(42)
+            a = _one_unit_army("A", (10.0, 10.0))
+            b = _one_unit_army("B", (10.6, 10.0))   # within 1" Engagement Range
+            # Give both sides enough health that neither dies in one exchange.
+            a.units[0].current_health = 100.0
+            b.units[0].current_health = 100.0
+            battle = self._battle(a, b)
+
+            # --- First player's Fight phase (active=A, other=B) ---
+            battle._run_fight_alternation(a, b)
+            # B's unit fought as the retaliating defender in A's fight phase;
+            # its UID must now be in the round-scoped tracker.
+            self.assertIn(b.units[0].uid, battle._fought_this_round,
+                          "defender's UID must be recorded in _fought_this_round after retaliating")
+
+            # --- Second player's Fight phase (active=B, other=A) in the SAME round ---
+            # B's unit is now the active army, but it already fought this round;
+            # variant-b prevents it from fighting again.
+            calls_before = []
+            real_do_fight = battle._do_fight
+            fought_uids = []
+
+            def _tracking_do_fight(u, aa, ff):
+                fought_uids.append(u.uid)
+                return real_do_fight(u, aa, ff)
+
+            battle._do_fight = _tracking_do_fight
+            battle._run_fight_alternation(b, a)
+
+            self.assertNotIn(b.units[0].uid, fought_uids,
+                             "B's unit must not fight again in the second player's Fight phase of the same round")
+
+            # --- Next round: tracker resets, B's unit can fight again ---
+            # Simulate _run_round's reset of the round-scoped tracker.
+            battle._fought_this_round = set()
+            fought_uids.clear()
+            battle._run_fight_alternation(b, a)
+            self.assertIn(b.units[0].uid, fought_uids,
+                          "B's unit must be able to fight again after the round tracker resets")
+        finally:
+            del os.environ["SWEG_FIGHTALT"]
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -207,6 +207,42 @@
     "scope": "unit-led"
   },
 
+  "LeaderAbility.Senior Officer": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Castellan",
+    "rule_name": "Senior Officer (Cadian Castellan Leader Ability)",
+    "quoted_text": "While this model is leading a unit, ranged weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
+    "trigger": "Cadian Castellan is leading a Cadian Shock Troops or Kasrkin unit",
+    "effect": "Structural LeaderAbility registry entry only — [SUSTAINED HITS 1] on the led unit's ranged weapons is not expressible through the current LeaderAbility aura schema; the entry exists so lookup_ability resolves the Cadian Castellan cleanly (CLAUDE.md rule 13) and the officer-follow hook can identify host squads. BSData: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id 2b49-4d03-aaf5-3532.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Cadia Stands!": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Command-Squad",
+    "rule_name": "Cadia Stands! (Cadian Command Squad Leader Ability)",
+    "quoted_text": "While this model is leading a unit, each time a model in that unit would lose a wound as a result of a ranged attack, if that unit is on or within range of an objective marker you control, that model has a 5+ invulnerable save against that attack.",
+    "trigger": "Cadian Command Squad is leading a Cadian Shock Troops unit and the unit is on or within range of a friendly-controlled objective",
+    "effect": "Structural LeaderAbility registry entry only — the 5+ invulnerable save (Benefit of Cover proxy) against ranged attacks while on a controlled objective is a per-wound once-per-attack gate not yet expressible through the LeaderAbility schema; the entry exists so lookup_ability resolves the Cadian Command Squad cleanly (CLAUDE.md rule 13). BSData: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id 4d28-f2a7-67c1-eb2e.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Lord Castellan": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Ursula-Creed",
+    "rule_name": "Lord Castellan (Ursula Creed Leader Ability)",
+    "quoted_text": "While this model is leading a unit, that unit can be affected by up to two different Orders at the same time.",
+    "trigger": "Ursula Creed is leading a Cadian Shock Troops or Kasrkin unit",
+    "effect": "Structural LeaderAbility registry entry only — the double-Order stacking mechanic requires a per-unit Order-stack-limit exception in the Order dispatcher that is not yet implemented; the entry exists so lookup_ability resolves Ursula Creed cleanly (CLAUDE.md rule 13) and the officer-follow hook can identify host squads. BSData: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id b6b2-9971-ec0c-349e.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.The Lord Solar": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Lord-Solar-Leontus",
+    "rule_name": "The Lord Solar (Lord Solar Leontus Leader Ability)",
+    "quoted_text": "At the start of your Command phase, if this model is on the battlefield, you gain 1 CP.",
+    "trigger": "Lord Solar Leontus is on the battlefield at the start of the owning player's Command phase",
+    "effect": "Modelled as cp_discount_per_round=1 on the LeaderAbility entry — the closest existing field for a per-round Command Point gain. All seven host keys confirmed present in data/bsdata/parsed.json. The Collegiate Astrolex redeployment ability and the Supreme Commander must-be-Warlord constraint are not modelled. BSData: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id a9d-55c1-3d24-fa25.",
+    "scope": "unit-led"
+  },
+
   "simulator.officer_follow_piloting": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Voice of Command (Astra Militarum Army Rule) — piloting heuristic",

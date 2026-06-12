@@ -334,6 +334,11 @@ class Battle:
         # UIDs of units that successfully charged this round (Fights First in
         # the Fight sub-phase). Reset each round.
         self._charging_this_round: set = set()
+        # UIDs of units that have already fought this battle round under the
+        # SWEG_FIGHTALT gate (variant b: once per round, not once per phase).
+        # The vanilla (gate-off) loop does not read or write this set.
+        # Reset each round in _run_round alongside _charging_this_round.
+        self._fought_this_round: set = set()
         # Fire Overwatch (10e core stratagem, env-gated SWEG_OVERWATCH). Set of
         # army NAMES that have already used the Fire Overwatch stratagem this
         # battle round. The core rule reads "you can only use this Stratagem
@@ -8850,6 +8855,7 @@ class Battle:
         self._squad_advance_roll = {}  # wave 77: per-squad advance roll, fresh each round
         self._battleshocked_this_round = set()
         self._charging_this_round = set()
+        self._fought_this_round = set()
         # Fire Overwatch: new round, each army may use the overwatch stratagem
         # again (once per round per army). Cited as `simulator.fire_overwatch`.
         self._overwatched_this_round = set()
@@ -12179,12 +12185,29 @@ class Battle:
         the melee over-shooters than for gunlines). This restores the in-phase
         retaliation. Cited `simulator.fight_alternation`.
 
-        A unit fights at most once in this phase (`fought`). Because each battle
-        round runs both players' turns, a unit locked across both turns fights in
-        BOTH fight phases — twice per round, as 10e intends. Deterministic order
-        WITHIN a player's step (the player's free choice in real play) uses a
-        melee-threat key so reruns match. The gate-off path (the caller's else
-        branch) is unchanged, so OFF is byte-identical.
+        Variant-(b) bounding: each unit fights at most once per battle ROUND
+        (`self._fought_this_round`), not once per fight phase. Real 10e permits
+        a unit engaged across both players' turns to fight in both Fight phases
+        (twice per round, once per phase — one phase per player turn). The
+        wave-166 and wave-168 variant-(a) measurements showed that frequency
+        doubling dominated the alternation ordering signal: removing the
+        phase-level cap made World Eaters and other melee factions strike twice
+        while opponents absorbed both sets of blows, which REGRESSED the metric
+        (melee aggressor win rates rose instead of converging). The round-scoped
+        tracker is therefore a deliberate bounding decision, not a faithful rule
+        — it suppresses the doubling that the sim's round model cannot compensate
+        for (the sim lacks the Fall Back disengagement and combat-attrition
+        bounds that naturally limit a unit's chance of remaining in engagement
+        across both players' turns in real play).
+
+        The phase-local `fought` set prevents a unit fighting twice within the
+        same player's Fight phase. The round-local `self._fought_this_round` set
+        prevents it fighting again in the other player's Fight phase of the same
+        round. Both sets are used inside this method only; the vanilla (gate-off)
+        loop in the caller's else branch does not touch either set, so the
+        gate-off path remains byte-identical. Deterministic order WITHIN a
+        player's step (the player's free choice in real play) uses a melee-threat
+        key so reruns match.
         """
         fought: set = set()
 
@@ -12197,7 +12220,13 @@ class Battle:
         def _eligible(u, foe: Army) -> bool:
             if not u.is_alive or (u.profile.melee_attacks or 0) <= 0:
                 return False
+            # Phase-local guard: not fought yet in this fight phase.
             if u.uid in fought:
+                return False
+            # Round-local guard (variant b): not fought yet in this battle round
+            # across either player's fight phase. This deliberately bounds fight
+            # frequency to once per round — see the docstring for rationale.
+            if u.uid in self._fought_this_round:
                 return False
             # Eligible to fight = made a Charge move this turn, OR currently
             # within Engagement Range (1") of an enemy (matches _do_fight's own
@@ -12237,6 +12266,7 @@ class Battle:
                     pick = _next_pick(army, foe, want_ff)
                     if pick is not None:
                         fought.add(pick.uid)
+                        self._fought_this_round.add(pick.uid)
                         self._do_fight(pick, army, foe)
                         acted = True
                         break
