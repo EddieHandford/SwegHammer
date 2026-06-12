@@ -55,9 +55,15 @@ rule exists for non-additive lever composition; composition with a proven null i
 
 **6. Flip, delete, re-anchor.** `SWEG_SOLAR_SQUADRON` default flipped to "1"; fight-alternation
 gate and code deleted (the gate-off path was byte-identical, so the deletion is behaviour-neutral
-on the unset frame); full test suite green and demonstration battle clean post-surgery.
-Eighty-battle re-anchor on the flipped frame launched at close; the anchor promotion and the
-post-flip residual surface land in this block's update when it completes. Wave-246 lever 1 is
+on the unset frame); full test suite green (1636 passed) and demonstration battle clean
+post-surgery. Eighty-battle re-anchor on the flipped frame: **gated 5.79, raw 9.08, 3/22 in band
+— `data/_anchor_sc11a_n80_log.json` promoted as the standing anchor, best honest frame to date
+(−0.11 vs sc10a).** The paired join against sc10a (36,960 matched games) upgrades the solar
+verdict from wash to a REAL toward-target win: Astra Militarum +2.74 ± 2.65 on 330 flipped games
+(gated 22.97 → 20.22) — the forty-battle screen's +0.68 ± 3.82 was under-powered, the orders
+reaching artillery do convert games; the only other decisive mover is Adeptus Mechanicus +0.55
+(small, away), and all twenty other factions are flat, confirming the rest of the wave was
+byte-neutral as designed. Wave-246 lever 1 is
 already built and held per the pipelining rule: Drukhari Power from Pain (`4ad801a` on
 `held/pain-tokens`, gated `SWEG_PAIN_TOKENS`), with three review items queued at pick time
 (byte-identity proof for the obsolete per-Unit `pain_tokens` removal, citation source fields to
