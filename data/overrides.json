@@ -2951,6 +2951,16 @@
       "secondary_assault": false,
       "notes": "MUTEX-SWEEP: Predator Destructor sponsons are 2x Lascannons OR 2x Heavy Bolters per codex (BSData selectionEntryGroup Side sponsons, max=1 for the pair). Mapper put a single Lascannon profile into secondary and Heavy Bolter into extras, so the simulator was firing both sponson options as if the tank had heterogeneous sponsons. Cleared the lascannon secondary (Predator Destructor is the anti-infantry variant; heavy bolter sponsons match the autocannon turret theme and are the more common loadout). Heavy Bolter remains in extras representing the sponson pair; Hunter-killer and Storm bolter unchanged. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Predator-Destructor"
     },
+    "astra_militarum_cadian_heavy_weapons_squad": {
+      "indirect_fire": true,
+      "blast": true,
+      "notes": "HWS-MORTAR (wave 245, 2026-06-12): flag-only restore of the TOP-LEVEL AGGREGATE profile. The mapper's _frac_true majority vote (code/bsdata/mapper.py ~365) aggregates weapon flags across the Heavy Weapons Squad's four-option loadout, so the aggregate mortar primary loses its verbatim 'Blast, Heavy, Indirect Fire' keywords (BSData mortar profile id 4239-38ae-7368-497a) — only heavy survives the vote. BEHAVIOURALLY INERT at sim time, measured zero-delta with literally zero flipped games on 18,480 paired games (wave-245 screen): this unit is per-model promoted, and _loadout_entry_to_weapon_fields (code/units.py ~4585) rebuilds the firing block from the per-model loadout dicts, which already carry the mortar with indirect_fire=true and blast=true. Kept so the catalogue top-level matches BSData verbatim (cannot over-grant: parsed.json carries weapon='Mortar' as sole primary). The majority-vote bug only bites units NOT on the per-model path. Structural fix (per-profile flag retention in the mapper) belongs to the mapper phase."
+    },
+    "astra_militarum_catachan_heavy_weapons_squad": {
+      "indirect_fire": true,
+      "blast": true,
+      "notes": "HWS-MORTAR (wave 245, 2026-06-12): same majority-vote flag loss as astra_militarum_cadian_heavy_weapons_squad — see that entry. Catachan variant carries the same mortar primary profile in parsed.json (indirect_fire=false, blast=false). Krieg Heavy Weapons Squad deliberately NOT touched: its parsed primary is 'Twin Krieg heavy stubber', not the mortar."
+    },
     "astra_militarum_hellhound": {
       "weapon": "Inferno cannon",
       "strength": 6,
