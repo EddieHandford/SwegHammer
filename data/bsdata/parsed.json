@@ -122488,7 +122488,9 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "VEHICLE",
-        "WALKER"
+        "WALKER",
+        "REGIMENT",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -122664,7 +122666,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "MOUNTED"
+        "MOUNTED",
+        "REGIMENT"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.1,
@@ -124059,7 +124062,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -125029,7 +125033,8 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "INFANTRY",
-        "BATTLELINE"
+        "BATTLELINE",
+        "REGIMENT"
       ],
       "melee_attacks": 1,
       "melee_damage_per_shot": 1.0,
@@ -125206,6 +125211,7 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "VEHICLE",
+        "SQUADRON",
         "TRANSPORT"
       ],
       "melee_attacks": 3,
@@ -125526,7 +125532,8 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "INFANTRY",
-        "BATTLELINE"
+        "BATTLELINE",
+        "REGIMENT"
       ],
       "melee_attacks": 1,
       "melee_damage_per_shot": 1.0,
@@ -125702,6 +125709,7 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
+        "SQUADRON",
         "VEHICLE"
       ],
       "melee_attacks": 3,
@@ -126259,7 +126267,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "REGIMENT"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -126502,7 +126511,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "REGIMENT"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -127288,7 +127298,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -127582,6 +127593,7 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
+        "SQUADRON",
         "VEHICLE"
       ],
       "melee_attacks": 3,
@@ -127847,6 +127859,7 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
+        "REGIMENT",
         "INFANTRY"
       ],
       "melee_attacks": 2,
@@ -128293,7 +128306,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -128612,7 +128626,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -128931,7 +128946,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -129250,6 +129266,7 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
+        "SQUADRON",
         "VEHICLE"
       ],
       "melee_attacks": 6,
@@ -129569,6 +129586,7 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
+        "SQUADRON",
         "VEHICLE"
       ],
       "melee_attacks": 6,
@@ -129888,7 +129906,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -130209,7 +130228,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -131021,7 +131041,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -131341,7 +131362,9 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "VEHICLE",
-        "WALKER"
+        "WALKER",
+        "REGIMENT",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -132161,7 +132184,8 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "VEHICLE",
-        "CHARACTER"
+        "CHARACTER",
+        "SQUADRON"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -132481,6 +132505,7 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "VEHICLE",
+        "SQUADRON",
         "TRANSPORT"
       ],
       "melee_attacks": 3,
@@ -132658,6 +132683,7 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
+        "SQUADRON",
         "VEHICLE",
         "TRANSPORT"
       ],
@@ -132949,7 +132975,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -133317,7 +133344,8 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "VEHICLE",
-        "INFANTRY"
+        "INFANTRY",
+        "REGIMENT"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 1.0,
@@ -133669,7 +133697,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -133875,7 +133904,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "REGIMENT"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -134196,7 +134226,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "MOUNTED"
+        "MOUNTED",
+        "REGIMENT"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -134560,7 +134591,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -134954,7 +134986,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -135273,7 +135306,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -135592,7 +135626,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -135911,7 +135946,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -136201,7 +136237,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "REGIMENT"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 1.0,
@@ -137660,7 +137697,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -137983,6 +138021,7 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "VEHICLE",
+        "SQUADRON",
         "TRANSPORT"
       ],
       "melee_attacks": 6,
@@ -138218,7 +138257,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -139762,7 +139802,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "REGIMENT"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -140074,6 +140115,7 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
+        "REGIMENT",
         "INFANTRY"
       ],
       "melee_attacks": 3,
@@ -140250,7 +140292,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "REGIMENT"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -140426,7 +140469,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -140690,7 +140734,9 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "VEHICLE",
-        "WALKER"
+        "WALKER",
+        "SQUADRON",
+        "REGIMENT"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -141127,7 +141173,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "MOUNTED"
+        "MOUNTED",
+        "REGIMENT"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -141431,7 +141478,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -141750,7 +141798,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "MOUNTED"
+        "MOUNTED",
+        "REGIMENT"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -141956,7 +142005,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "MOUNTED"
+        "MOUNTED",
+        "REGIMENT"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -142190,7 +142240,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -142509,6 +142560,7 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
+        "SQUADRON",
         "TRANSPORT",
         "VEHICLE"
       ],
@@ -142830,7 +142882,8 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "VEHICLE",
-        "TRANSPORT"
+        "TRANSPORT",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -143298,7 +143351,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -143561,6 +143615,7 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
+        "SQUADRON",
         "VEHICLE"
       ],
       "melee_attacks": 6,
@@ -143880,7 +143935,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -144199,7 +144255,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "REGIMENT"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -144375,7 +144432,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -145192,6 +145250,7 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "VEHICLE",
+        "SQUADRON",
         "TRANSPORT"
       ],
       "melee_attacks": 3,
@@ -145369,7 +145428,8 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "CHARACTER",
-        "INFANTRY"
+        "INFANTRY",
+        "REGIMENT"
       ],
       "melee_attacks": 1,
       "melee_damage_per_shot": 1.0,
@@ -145757,7 +145817,9 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "VEHICLE",
-        "WALKER"
+        "WALKER",
+        "REGIMENT",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 2.0,
@@ -145903,7 +145965,8 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "INFANTRY",
-        "BATTLELINE"
+        "BATTLELINE",
+        "REGIMENT"
       ],
       "melee_attacks": 1,
       "melee_damage_per_shot": 1.0,
@@ -149664,6 +149727,7 @@
       "reanimates_with_army": false,
       "unit_keywords": [
         "VEHICLE",
+        "SQUADRON",
         "CHARACTER"
       ],
       "melee_attacks": 6,
@@ -149983,7 +150047,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "REGIMENT"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -150275,6 +150340,7 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
+        "REGIMENT",
         "INFANTRY"
       ],
       "melee_attacks": 2,
@@ -150586,7 +150652,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "REGIMENT"
       ],
       "melee_attacks": 1,
       "melee_damage_per_shot": 1.0,
@@ -150897,7 +150964,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "REGIMENT"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -151765,7 +151833,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "SQUADRON"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -151941,6 +152010,7 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
+        "SQUADRON",
         "VEHICLE",
         "TRANSPORT"
       ],
@@ -152118,7 +152188,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "REGIMENT"
       ],
       "melee_attacks": 1,
       "melee_damage_per_shot": 1.0,
@@ -196378,7 +196449,8 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
-        "EPIC HERO"
+        "EPIC HERO",
+        "REGIMENT"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 2.0,
@@ -196558,7 +196630,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "REGIMENT"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.1,
@@ -200361,7 +200434,8 @@
       "fnp": 7,
       "reanimates_with_army": false,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "REGIMENT"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -201554,6 +201628,7 @@
       "unit_keywords": [
         "EPIC HERO",
         "VEHICLE",
+        "SQUADRON",
         "CHARACTER"
       ],
       "melee_attacks": 5,

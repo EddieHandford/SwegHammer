@@ -5060,12 +5060,17 @@ class Battle:
         self._set_transient_squad(attacker, "transient_plus_one_to_hit_shooting")
 
     def _try_flexible_command(self, army: Army, opponent: Army) -> None:
-        """Flexible Command (Combined Arms, 2 CP, Strategic Ploy). Real
+        """Flexible Command (Combined Arms, 2 command points, Strategic Ploy). Real
         rule: your Command phase, any number of AM OFFICER units — until
         end of phase, Officers can issue Orders to REGIMENT and SQUADRON
         units. CLEAN MAPPING: sets `Army.orders_eligible_squadron_this_round
         = True` for the round; `code.orders._is_order_target_eligible`
-        reads the flag and widens the target pool to BATTLELINE VEHICLE.
+        reads the flag and widens the target pool to SQUADRON units.
+
+        Wave 243: squadron_candidates now uses the real SQUADRON keyword
+        (sourced from BSData categoryLinks) instead of the old BATTLELINE
+        + VEHICLE proxy, matching how `_is_order_target_eligible` tests
+        for SQUADRON eligibility.
         """
         from .orders import _is_am_officer
         officers = [
@@ -5076,8 +5081,7 @@ class Battle:
             return
         squadron_candidates = [
             u for u in self._am_units(army)
-            if "BATTLELINE" in (u.profile.unit_keywords or ())
-            and "VEHICLE" in (u.profile.unit_keywords or ())
+            if "SQUADRON" in (u.profile.unit_keywords or ())
         ]
         if not squadron_candidates:
             return

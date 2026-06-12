@@ -62,7 +62,7 @@ Effect routing (APPROXIMATION where noted):
     * Take Cover! — `transient_plus_one_save` on target unit. Direct
       mapping; codex effect is "+1 to save (cannot improve better than
       3+)" which lines up exactly with our +1-save flag (the 3+ cap is
-      a real-codex restriction that SwegHammer drops; AM BATTLELINE
+      a real-codex restriction that SwegHammer drops; AM REGIMENT
       saves are 5+/4+ so the cap rarely binds anyway).
 
 Eligibility:
@@ -75,14 +75,14 @@ Eligibility:
       this to multiple Officers via the simulator's command-phase
       stratagem dispatch (extra Officers are unaffected since each is
       already at the 1-cap default).
-    * Target: alive, non-Battle-shocked friendly BATTLELINE INFANTRY
-      with faction == "Astra Militarum", within 6" of the issuing
-      Officer. SwegHammer doesn't model the codex REGIMENT keyword
-      directly; we map REGIMENT → BATTLELINE INFANTRY (the codex
-      eligible-target set for Voice of Command). The Flexible Command
-      stratagem widens this to also include VEHICLE BATTLELINE for the
-      round (Leman Russ etc.) by setting `Army.orders_eligible_squadron
-      _this_round = True`.
+    * Target: alive, non-Battle-shocked friendly REGIMENT or SQUADRON
+      unit with faction == "Astra Militarum", within 6" of the issuing
+      Officer. The codex REGIMENT and SQUADRON keywords are now tracked
+      directly from BSData categoryLinks via the mapper's
+      `_TRACKED_UNIT_KEYWORDS` set — no proxy needed. The Flexible
+      Command stratagem widens the eligible set for the round (Leman
+      Russ etc.) by setting `Army.orders_eligible_squadron_this_round
+      = True`.
     * At most one Order per unit per round (subsequent Orders to the
       same unit are skipped — no Order stacking).
 
@@ -111,11 +111,11 @@ OFFICER_AURA_RANGE: float = 6.0   # 10e canonical (Voice of Command)
 # Orders. Sourced from Wahapedia AM faction page
 # (https://wahapedia.ru/wh40k10ed/factions/astra-militarum/) by reading
 # each CHARACTER datasheet's keyword line. The OFFICER keyword is the
-# codex gate for issuing Orders; BSData v10.6.0's parsed unit_keywords
-# field does not preserve it (the bsdata mapper retains only INFANTRY /
-# VEHICLE / BATTLELINE / CHARACTER / EPIC HERO / PSYKER / MOUNTED /
-# WALKER / MONSTER), so the gate has to be applied via an allowlist of
-# unit catalogue keys.
+# codex gate for issuing Orders; BSData v10.6.0's parsed unit_keywords field
+# does not preserve the OFFICER keyword (the bsdata mapper retains only
+# INFANTRY / VEHICLE / BATTLELINE / CHARACTER / EPIC HERO / PSYKER / MOUNTED /
+# WALKER / MONSTER / SYNAPSE / TRANSPORT / REGIMENT / SQUADRON), so the gate
+# has to be applied via an allowlist of unit catalogue keys.
 #
 # Including a unit in this set requires that its Wahapedia datasheet
 # carry the OFFICER keyword on the printed faction-keyword line. Adding
@@ -154,8 +154,8 @@ AM_OFFICER_NAMES: frozenset = frozenset({
 #
 # target_types encodes which keyword categories the Officer may issue Orders
 # to. Three categories exist in the codex:
-#   "REGIMENT"  — BATTLELINE INFANTRY (the proxy used by this simulator)
-#   "SQUADRON"  — BATTLELINE VEHICLE
+#   "REGIMENT"  — unit carries the REGIMENT keyword (from BSData categoryLinks)
+#   "SQUADRON"  — unit carries the SQUADRON keyword (from BSData categoryLinks)
 #   "TITANIC"   — any unit with the TITANIC keyword
 #
 # The Flexible Command (Combined Arms, 2 command points) stratagem widens the
@@ -266,8 +266,8 @@ def _officer_target_types(officer_name: str) -> frozenset:
     """Return the set of codex keyword categories this Officer may issue
     Orders to, sourced from OFFICER_ORDER_PROFILES.
 
-    Categories: "REGIMENT" (BATTLELINE INFANTRY), "SQUADRON" (BATTLELINE
-    VEHICLE), "TITANIC".
+    Categories: "REGIMENT" (unit carries REGIMENT keyword), "SQUADRON"
+    (unit carries SQUADRON keyword), "TITANIC".
 
     Raises ValueError if `officer_name` is not in OFFICER_ORDER_PROFILES —
     fail loud per CLAUDE.md §13 (no silent .get default).
@@ -319,15 +319,16 @@ def _unit_satisfies_target_type(unit: "Unit", target_types: frozenset) -> bool:
     """True iff the unit's keyword set satisfies at least one of the
     categories in `target_types`.
 
-    Category mapping (proxy, per module docstring):
-      "REGIMENT"  — unit has BATTLELINE and INFANTRY
-      "SQUADRON"  — unit has BATTLELINE and VEHICLE
-      "TITANIC"   — unit has TITANIC keyword
+    Category mapping — real codex keywords, sourced from BSData categoryLinks
+    via the mapper's `_TRACKED_UNIT_KEYWORDS` set (wave 243):
+      "REGIMENT"  — unit carries the REGIMENT keyword
+      "SQUADRON"  — unit carries the SQUADRON keyword
+      "TITANIC"   — unit carries the TITANIC keyword
     """
     kw = set(unit.profile.unit_keywords or ())
-    if "REGIMENT" in target_types and "BATTLELINE" in kw and "INFANTRY" in kw:
+    if "REGIMENT" in target_types and "REGIMENT" in kw:
         return True
-    if "SQUADRON" in target_types and "BATTLELINE" in kw and "VEHICLE" in kw:
+    if "SQUADRON" in target_types and "SQUADRON" in kw:
         return True
     if "TITANIC" in target_types and "TITANIC" in kw:
         return True
@@ -345,31 +346,34 @@ def _is_order_target_eligible(
       1. Per-officer target-type gate: the unit satisfies at least one
          category in `officer_target_types` (REGIMENT, SQUADRON, TITANIC).
       2. Flexible Command gate: when `squadron_allowed` is True (set by the
-         Flexible Command Combined Arms stratagem), AM BATTLELINE VEHICLE
-         units (SQUADRON) are also eligible regardless of the Officer's own
-         restriction.
+         Flexible Command Combined Arms stratagem), AM SQUADRON units are also
+         eligible regardless of the Officer's own per-datasheet restriction.
 
     When `officer_target_types` is None the per-officer gate is skipped and
     only the army-wide REGIMENT eligibility rule applies (backward-compatible
     default for callers that don't pass officer context).
+
+    The BATTLELINE gate that previously guarded this function has been removed
+    (wave 243): REGIMENT and SQUADRON are the real codex eligibility keywords
+    sourced from BSData categoryLinks. Keying on BATTLELINE was a proxy that
+    blocked Kasrkin, Tempestus Scions, Heavy Weapons Squads, and all SQUADRON
+    vehicles from ever receiving Orders.
     """
     if not unit.is_alive:
         return False
     if (unit.profile.faction or "") != "Astra Militarum":
         return False
     kw = set(unit.profile.unit_keywords or ())
-    if "BATTLELINE" not in kw:
-        return False
 
     # Gate 1: per-officer target-type restriction.
     if officer_target_types is not None:
         officer_allows = _unit_satisfies_target_type(unit, officer_target_types)
     else:
-        # Legacy default: REGIMENT only (BATTLELINE INFANTRY).
-        officer_allows = "INFANTRY" in kw and "VEHICLE" not in kw
+        # Legacy default: REGIMENT only.
+        officer_allows = "REGIMENT" in kw
 
     # Gate 2: Flexible Command stratagem widens the eligible set to SQUADRON.
-    flexible_command_allows = squadron_allowed and "VEHICLE" in kw
+    flexible_command_allows = squadron_allowed and "SQUADRON" in kw
 
     return officer_allows or flexible_command_allows
 
@@ -447,7 +451,7 @@ def _pick_order_for_target(target: "Unit") -> str:
         / Krieg / Catachan Lasgun blocks — the canonical FRFSRF target).
       * Else pick Take Aim! (generic +1 to hit shooting).
 
-    Lasgun-heavy BATTLELINE squads typically have ranged_dpa > 0 and
+    Lasgun-heavy REGIMENT squads typically have ranged_dpa > 0 and
     melee_dpa < 0.5; the FRFSRF branch fires on them as intended.
     Bullgryns/Ogryns (melee-only) hit the Fix Bayonets! branch.
     """
@@ -469,8 +473,8 @@ def _pick_order_for_target(target: "Unit") -> str:
 
     if ranged_dpa >= 0.5:
         # FRFSRF is the canonical Lasgun-block Order — pick it on any
-        # BATTLELINE INFANTRY with real ranged DPA (almost every wired
-        # AM BATTLELINE infantry datasheet qualifies).
+        # REGIMENT unit with real ranged DPA (almost every wired AM REGIMENT
+        # infantry datasheet qualifies: Cadians, Krieg, Catachan, Kasrkin etc.).
         return ORDER_FRFSRF
 
     # Fallback — generic +1 to hit shooting.
@@ -500,10 +504,10 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
         OFFICER_AURA_RANGE).
       * Order target must satisfy the Officer's per-datasheet keyword
         restriction (REGIMENT / SQUADRON / TITANIC) as recorded in
-        OFFICER_ORDER_PROFILES — OR be AM BATTLELINE VEHICLE (SQUADRON) if
-        Flexible Command was fired this round (the two gates are OR-ed; the
-        Flexible Command stratagem widens the army-wide eligible set
-        independently of each Officer's own restriction).
+        OFFICER_ORDER_PROFILES — OR be an AM SQUADRON unit if Flexible Command
+        was fired this round (the two gates are OR-ed; the Flexible Command
+        stratagem widens the army-wide eligible set independently of each
+        Officer's own restriction).
 
     Cited as `simulator.voice_of_command_orders` in
     `data/rule_citations.d/astra_militarum.json`.
@@ -541,17 +545,21 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
     if not officers:
         return issued
 
-    # Army-wide target pool: all alive, non-battle-shocked AM BATTLELINE units.
-    # Per-officer target-type filtering is applied per-officer below (inside
-    # the aura filter), not on this pool, so that an Officer whose restriction
-    # is REGIMENT doesn't accidentally steal a slot from an Officer whose
-    # restriction is SQUADRON (they draw from the same ranked pool but each
-    # filters by its own target types inside the aura loop).
+    # Army-wide target pool: all alive, non-battle-shocked AM units that carry
+    # at least one of REGIMENT, SQUADRON, or TITANIC. Using the real codex
+    # keywords (wave 243) means Kasrkin, Tempestus Scions, Heavy Weapons
+    # Squads, all Leman Russ variants, Rogal Dorn tanks, Sentinels, and other
+    # datasheets that were previously invisible due to the BATTLELINE proxy are
+    # now correctly included. Per-officer target-type filtering is applied
+    # per-officer below (inside the aura filter) — this pool is a broad
+    # pre-filter to avoid scanning every unit in the inner loop.
     all_targets = [
         u for u in army.alive_units
         if (u.profile.faction or "") == "Astra Militarum"
         and u.uid not in battleshocked_uids
-        and "BATTLELINE" in set(u.profile.unit_keywords or ())
+        and bool(
+            set(u.profile.unit_keywords or ()) & {"REGIMENT", "SQUADRON", "TITANIC"}
+        )
     ]
     if not all_targets:
         return issued

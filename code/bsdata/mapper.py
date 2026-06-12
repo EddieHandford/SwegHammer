@@ -2820,6 +2820,29 @@ _TRACKED_UNIT_KEYWORDS = {
     # duplicate inclusion. Source:
     # https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Datasheets
     "EPIC HERO",
+    # REGIMENT: Astra Militarum codex keyword carried by infantry and light
+    # vehicle datasheets that are eligible to receive Voice of Command Orders
+    # from REGIMENT-targeting Officers (e.g. Ursula Creed, Cadian Castellan,
+    # Command Squads). In BSData v10.6.0 this appears as a categoryLink name
+    # "Regiment" on each eligible selectionEntry. Read by
+    # `code.orders._unit_satisfies_target_type` and the army-wide target pool
+    # in `code.orders.dispatch_orders`. Must NOT be conflated with BATTLELINE
+    # — REGIMENT/SQUADRON are codex eligibility keywords, BATTLELINE is an
+    # army-construction keyword used by archetypes.py squad caps.
+    # Source: BSData cache data/bsdata/cache/Imperium - Astra Militarum - Library.cat.gz
+    "REGIMENT",
+    # SQUADRON: Astra Militarum codex keyword carried by vehicle datasheets
+    # (Leman Russ variants, Rogal Dorn, Sentinels, Chimera, etc.) that are
+    # eligible to receive Voice of Command Orders from SQUADRON-targeting
+    # Officers (e.g. Leman Russ Commander, Rogal Dorn Commander, Sentinel
+    # Commander, Lord Solar Leontus). In BSData v10.6.0 this appears as a
+    # categoryLink name "Squadron" on each eligible selectionEntry. Read by
+    # `code.orders._unit_satisfies_target_type` and the army-wide target pool
+    # in `code.orders.dispatch_orders`. The Flexible Command stratagem
+    # (Combined Arms, 2 command points) widens the eligible set to include
+    # SQUADRON targets for the round it fires.
+    # Source: BSData cache data/bsdata/cache/Imperium - Astra Militarum - Library.cat.gz
+    "SQUADRON",
 }
 
 
