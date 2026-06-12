@@ -4,6 +4,71 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 243 (2026-06-12, CLOSED) — Astra Militarum Voice of Command rebuilt end-to-end (real REGIMENT / SQUADRON keywords, First Rank Fire rapid-fire gate, squad-level Order dispatch) plus per-model primary-flag parity: all four parts faithful and ADOPTED, headline 7.10 → 7.22 at forty battles (every faction flat). The −19 Astra Militarum residual is NOT orders plumbing — the archetype builder drops two of the three officers (diagnostic banked, top next lever).
+
+**1. Part 1 — per-model loadout primary-flag parity (`f37d646`).** The `dataclasses.replace` call
+that promotes each model's best ranged weapon in `code/units.py` was not copying `indirect_fire`,
+`one_shot`, or `precision` — 168 units carried at least one wrong flag (Wyvern lost its indirect
+fire; Rhinos fired the hunter-killer missile every turn). All three flags now copy; `lance` and
+`hazardous` deliberately excluded with call-site comments. Five tests. Paired screen at forty
+battles: 7.05 → 7.10 (+0.05 wash), Aeldari −2.15 decisively toward target. Adopted on fidelity.
+
+**2. Part 2 — REGIMENT and SQUADRON as first-class keywords (`ead486d`).** The wave-242 root cause
+fixed: `code/bsdata/mapper.py` now tracks the real categoryLink keywords (31 units gain REGIMENT,
+44 gain SQUADRON), every Voice of Command gate switches off the BATTLELINE proxy, and the
+BATTLELINE hard gate in `_is_order_target_eligible` is gone. Screen: headline 7.10 → 7.28 with
+Astra Militarum −1.94 AWAY — the fix made things worse, which exposed part 3.
+
+**3. Part 3 — First Rank Fire rapid-fire gate (`e265fdf`).** With tanks newly order-eligible, the
+slot-priority heuristic fed "First Rank, Fire! Second Rank, Fire!" to Leman Russ variants that own
+no Rapid Fire weapon — a verbatim no-op ("Improve the Attacks characteristic of Rapid Fire
+weapons … by 1"). New `_unit_has_rapid_fire` helper mirrors exactly the profile set the buff
+touches; no-Rapid-Fire targets fall through to Take Aim!. Seven tests. Screen: 7.26, recovering
+only +0.6 of the −1.94 — a second mechanism had to exist.
+
+**4. Part 4 — Orders apply to the whole codex unit, not one model (`384c111`).** The second
+mechanism: `dispatch_orders` issued each Order to a single Unit INSTANCE, but the simulator stores
+one Unit per physical model — an Order to a ten-model lasgun block buffed ONE lasgun (value ÷ squad
+size) while a tank got the full effect; no-stacking was enforced per model (wrong scope); and the
+Take Cover! damage branch could never fire because casualties remove whole models, leaving
+survivors at full health. The dispatcher now groups the eligible pool into codex units by
+`squad_id`, applies the Order to every member, counts the squad as ONE no-stacking target, tests
+aura range against any member, ranks by squad aggregates (summed per-model points cost plus summed
+damage-per-activation), and derives the Take Cover! fraction from squad lost wounds including dead
+models. Four tests; citation effect text updated. One-battle probe corroboration: the order stream
+now plays like a real Command phase — the lasgun blob draws First Rank Fire, the heavy weapons
+squads draw Take Aim!.
+
+**5. Measurement (combined orders frame vs the part-1 flag-parity frame, paired, forty battles,
+18,480 matched games).** Headline gated 7.10 → 7.22 (+0.12); ALL twenty-two factions flat. Astra
+Militarum 22.9 → 21.9 (−1.05 ± 2.07) on ONE HUNDRED AND ONE flipped games — the Orders now visibly
+churn Astra Militarum games at full squad strength, but with no net direction. Verdict: every part
+is rule-grounded (cited, tested, probe-corroborated), fidelity-first says adopt. Re-anchor at
+eighty battles: gated 6.70, raw 10.05, 5/22 in band (Thousand Sons newly inside) —
+`data/_anchor_sc9c_n80_log.json` promoted as the standing anchor (replaces sc9b at 6.52; the +0.18
+is the adopted orders frame plus seed noise, consistent with the +0.12 paired read). Astra
+Militarum gated 19.01 (was 18.99) — unchanged, exactly as the officer-omission diagnostic predicts.
+
+**6. The honest finding — orders plumbing was real but is NOT the Astra Militarum residual (the
+Daemonic Manifestation shape again).** A read-only diagnostic agent traced the built archetype army:
+the template seeds the documented real-meta leader stack (Cadian Castellan + Ursula Creed + Lord
+Solar Leontus, order ceiling 8 per round) but the `(-count, -cost)` seed walk in
+`code/archetypes.py:1444` exhausts the 1100-point seed budget on the tank spine first; the EPIC
+HERO anchor then fails its 0.6 overflow cap by 25 points, and only the CHARACTER anchor fires,
+rescuing the CHEAPEST officer (Castellan, 55 points, ceiling 2 per round). Compounding: officers
+have no leader-attachment (`code/leaders.py` carries no Astra Militarum entries), so the lone
+Castellan drifts 8.5–14.2 inches from the nearest eligible squad by round 3 and issues NOTHING
+after round 2 — three Orders per battle against a template-intent ceiling of ~8 per round. Next
+levers, in order: (a) seed-walk leader-stack priority so the built list matches the template's own
+documented composition (list-realism fidelity; touches every faction's build → frame change,
+re-base at eighty battles), (b) officer leader-attachment or stay-near-squads piloting (aura
+starvation). Dedup block and eligibility logic verified correct.
+
+**7. Wave close and checkpoint.** Wave 244 plan banked (melee weapon-keyword mode routing — ranged
+anti-keywords / devastating wounds / twin-linked currently contaminate melee profiles on 242
+units). Branch past the hard size cap (eight commits, ~2,400 reviewable lines): checkpoint pull
+request opens after this close per rule 14; next waves land on `claude/sim-calibration-10`.
+
 ## Wave 242 (2026-06-12, CLOSED) — charge-path legality (the 10e "Charge Move" non-target rule) built, measured at both evaluation sizes, and ADOPTED AS DEFAULT: headline wash (+0.14) with T'au Empire and Imperial Knights both decisively toward target. Astra Militarum root cause found (orders never reach the army); wave-243 build dispatched.
 
 **1. The diagnosis (systemic before per-faction, per the wave-241 ranking).** The charge-target
@@ -73,82 +138,3 @@ Daemons 10.03) is already authorised by watchdog queue item 9 — the old "genui
 predates roughly sixty waves of frame change and the wave-166/168 reject was a doubling confound.
 Ranked after the wave-243 work.
 
-## Wave 241 (2026-06-11, CLOSED) — CRITICAL FIX landed: the wave-240 charge placement shipped without its measurement half, structurally disabling melee under the adopted default; the gate-aware Engagement Range measure now lands everywhere; honest re-anchor gated 6.38 (the +1.30 versus the last honest frame is the cost of melee actually working).
-
-**1. The bug (caught by a new one-question diagnostic, not by the metric).** `scripts/diag_fightgate_check.py`
-(now registered in the analysis toolbox) asks: does a successful charge ever produce a melee swing
-under the current gates? Under the adopted `SWEG_CHARGE_BASEEDGE` default the answer was NO —
-**18 successful charges, 0 fight activations, 0.0 melee damage** (seed-7 fixed bundle). Root cause:
-wave 240 shipped only the PLACEMENT half of the base-edge rule. The charger now ends its move one
-inch from the target's base EDGE — about 2.26 inches centre-to-centre for two 32-millimetre bases —
-but every Engagement Range check in the simulator still measured CENTRE distance against the
-one-inch threshold. Fight eligibility, the shooting melee-lock, the Fall Back crossing test, and
-the charge-roll candidate filter all judged the charger "not engaged" at its own legal charge-end
-spot. Melee never resolved in any game under the production default.
-
-**2. The fix: the measurement half of the same rule.** New gate-aware primitive
-`_er_gap(pos_a, profile_a, pos_b, profile_b)` in `code/sim/geometry.py` — gate ON it returns the
-base-edge gap (centre distance minus both base radii, minus a one-nanometre epsilon so the exact
-one-inch placement spot counts as engaged); gate OFF it returns the plain centre distance, keeping
-the legacy path byte-identical. Twelve simulator sites and five strategy sites converted together
-(fight eligibility, the shooting melee-lock, Fall Back, overwatch eligibility, the
-`pick_charge_target` filter, the m4 melee-lock, the displace-swarm rails) so no check can diverge
-from another. The charge-roll requirement is now the REAL move the 2D6 must cover —
-`max(0, gap − 1")` — not the centre distance, matching the 10e charge rule's "ends within
-Engagement Range" wording. Cited `simulator.engagement_range_base_edge` (placement and measurement
-are two halves of one rule under one gate) and registered in the `scripts/audit_rules.py`
-required-keys list; audit green, 343/343.
-
-**3. Validation.** The diagnostic now reads **gate ON: 18 charges / 20 fight activations / 10.0
-melee damage** (gate OFF: 19 / 16 / 7.0 — legacy behaviour intact). New
-`EngagementMeasurementTests` class (eight tests) in `tests/test_charge_baseedge.py` covers the
-pure math both gate ways, fight resolution at the gated charge-end spot, the shooting melee-lock
-at base contact, the charge requirement as real-move-not-centre-distance (forced 2D6 against an
-eleven-inch Knight), and a full-battle mirror of the diagnostic scenario. Fourteen full-suite
-failures triaged — every one a centre-distance-era TEST SCENARIO artifact (stand-ins without
-profiles in the m4 tests; units placed at 2.0 inches centre, which used to mean "near but not
-engaged" and now means "already engaged", in the displace-swarm, Apoplectic Frenzy, and Relentless
-Onslaught scenarios) — fixed by spreading the scenarios past the base-edge threshold with
-explanatory comments, NOT by pinning the gate off, so the production default stays the tested path.
-
-**4. Consequence: the wave-240 adoption measurement is INVALID.** The combined-collision N=80
-confirm (gated 5.13, 8/22 in band) and the standing anchor `data/_anchor_sc8c_n80_log.json` were
-measured on a simulator whose melee never fired under the ON arm. The melee-faction movement in
-that confirm (World Eaters, Chaos Daemons, Death Guard down; shooty factions up) is the bug's
-signature, not the mechanic's. The ADOPTION itself stands — the placement rule is faithful and the
-measurement now matches it — but the headline and residual surface must be re-measured: **fresh
-full N=80 re-anchor queued on the fixed tree** (`data/wf_w241_fightgate_n80.json`). The held-build
-harvest already landed on this branch before the fix (Strands charge write-back, Yncarne on-kill
-heal, the Chaos Space Marines and Aeldari archetype reshapes, the movement-event sweep — commits
-`97255b9` through `e82951a`), so the one re-anchor covers the harvest and the fight fix together;
-the two reshapes are frame changes that required a fresh anchor regardless.
-
-**5. Honest re-anchor landed: gated 6.38 (raw 9.88, 4/22 in band) — NEW STANDING ANCHOR
-`data/_anchor_sc9a_n80_log.json`.** The paired decomposition against the last honest frame
-(`_anchor_sc8b_n80_log.json`, gated 5.08 — pre-collision-adoption, melee intact) attributes the
-+1.30 cleanly: **every melee faction rises decisively now that charges actually connect** (Chaos
-Space Marines +17.31, Chaos Daemons +13.00, Death Guard +12.58, World Eaters +12.47, Grey Knights
-+9.70, Adeptus Custodes +8.63, Emperor's Children +7.25, Thousand Sons +6.69) while shooty
-factions give back wins they were taking from melee armies whose melee never fired (T'au −14.80,
-Aeldari −9.46, Leagues of Votann −5.65, Adeptus Mechanicus −4.74, Adeptus Astartes −3.56). The
-wave-240/241 fidelity work hit its targets on the honest frame: **Chaos Space Marines gated
-21.28 → 0.00 in band** (the archetype reshape), **Adepta Sororitas in band** (Bringers of Flame
-survives honestly), **Aeldari gated 2.39** (reshape + Strands + Yncarne, as diagnosed). The
-broken-melee frame's apparent Astra Militarum windfall was bug-flattered — the faction is back to
-**17.48 gated under** (sim 24.6 versus real 45.3), and the exposed melee over-poles are the new
-lever surface: **Adeptus Custodes 21.56, World Eaters 15.07, Death Guard 14.02, Imperial Knights
-10.61, Necrons 9.56, Emperor's Children 9.50, Chaos Daemons 9.10**. Headline rising for a faithful
-mechanic is expected and authorised (fidelity-first); the simulator is more correct at 6.38 than
-it was at 5.08.
-
-**Checkpoint shipped:** pull request 73 opened on the user's explicit go (waves 240-241,
-rolling-branch checkpoint pattern, size caveat and the 5.13 invalidation stated in the
-description); continuation branch `claude/sim-calibration-9` rolled off the checkpoint head
-`d66a251` per the merge-wait-must-not-bottleneck directive — wave 242 lands there.
-
-**NEXT (wave 242) on the new anchor:** (1) Adeptus Custodes 21.56 over — the elite board-control
-residual, now amplified by working melee; (2) Astra Militarum 17.48 under — the banked structural
-displacement diagnosis, no longer masked; (3) the melee over-pole cluster (World Eaters 15.07,
-Death Guard 14.02, Chaos Daemons 9.10) — first question is whether base-edge placement plus
-working melee now over-rates charge reach or fight output systemically (one mechanic, many
-factions) before any per-faction work.
