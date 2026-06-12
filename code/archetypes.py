@@ -1461,6 +1461,26 @@ SEED_FRACTION_LEADER_STACK: Dict[str, float] = {
     "Genestealer Cults": 0.49,
 }
 
+# Menu factions: the template is deliberately an oversized menu of big
+# single-count options (partial realization is the design), so the
+# CHARACTER-priority tiebreak has no leader-stack rationale there and the
+# wave-174 rule forbids seed-fraction tuning for them. Measured wave 244:
+# the un-scoped tiebreak DE-realized faithful menu entries (Aeldari Fire
+# Dragons, Emperor's Children Daemonettes, Chaos Daemons Flesh Hounds /
+# Beasts of Nurgle / Slaanesh Soul Grinder) with no permitted fraction fix,
+# while Imperial Knights / World Eaters builds were byte-identical either
+# way (seed budget exhausts before the tiebreak reaches a live choice).
+# Scoping the gate to non-menu factions keeps every menu build identical
+# to the gate-off walk.
+MENU_FACTIONS = frozenset({
+    "Imperial Knights",
+    "Chaos Knights",
+    "Chaos Daemons",
+    "Emperor's Children",
+    "World Eaters",
+    "Aeldari",
+})
+
 
 def _instantiate_template(
     template: Dict[str, int],
@@ -1494,8 +1514,14 @@ def _instantiate_template(
 
     # Wave 244 leader-stack gate — read once, consulted by the sort-key
     # tiebreak, the EPIC HERO anchor trigger, and the fraction override
-    # below (all three move together as one gated lever).
-    _leader_stack_priority = os.environ.get("SWEG_SEED_LEADERS") == "1"
+    # below (all three move together as one gated lever). Scoped to
+    # non-menu factions (see MENU_FACTIONS): menu builds stay identical to
+    # the gate-off walk because the tiebreak de-realized faithful menu
+    # entries with no permitted fraction fix.
+    _leader_stack_priority = (
+        os.environ.get("SWEG_SEED_LEADERS") == "1"
+        and (faction or "") not in MENU_FACTIONS
+    )
 
     seed_fraction = SEED_FRACTION_BY_FACTION.get(faction or "", SEED_FRACTION)
     if _leader_stack_priority:

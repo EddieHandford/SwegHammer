@@ -296,17 +296,12 @@ class SeedFractionSupersetTests(unittest.TestCase):
 
     Menu factions (Imperial Knights, Chaos Knights, Chaos Daemons,
     Emperor's Children, World Eaters, Aeldari) are excluded per the
-    wave-174 standing rule.
+    wave-174 standing rule — and the gate itself is scoped off for them
+    (code/archetypes.py MENU_FACTIONS), so their gate-on build must be
+    IDENTICAL to gate-off, not merely a superset.
     """
 
-    MENU_FACTIONS = frozenset({
-        "Imperial Knights",
-        "Chaos Knights",
-        "Chaos Daemons",
-        "Emperor's Children",
-        "World Eaters",
-        "Aeldari",
-    })
+    from code.archetypes import MENU_FACTIONS
     BUDGET = 2000.0
 
     @classmethod
@@ -345,6 +340,38 @@ class SeedFractionSupersetTests(unittest.TestCase):
             for arch_name in arch_dict:
                 with self.subTest(faction=faction, archetype=arch_name):
                     self._check_superset(faction, arch_name)
+
+    def test_menu_factions_gate_on_identical_to_gate_off(self):
+        """Menu factions are scoped OUT of the leader-stack gate entirely
+        (code/archetypes.py MENU_FACTIONS): the wave-244 probe found the
+        un-scoped tiebreak de-realized faithful menu entries (Aeldari Fire
+        Dragons, Emperor's Children Daemonettes, Chaos Daemons Flesh
+        Hounds / Beasts of Nurgle / Slaanesh Soul Grinder) with no
+        permitted seed-fraction fix. Gate-on seeded counts must equal
+        gate-off exactly."""
+        from code.archetypes import _instantiate_template
+        for faction in sorted(self.MENU_FACTIONS):
+            for arch_name, template in ARCHETYPES.get(faction, {}).items():
+                with self.subTest(faction=faction, archetype=arch_name):
+                    with mock.patch.dict(os.environ, {}, clear=False):
+                        os.environ.pop("SWEG_SEED_LEADERS", None)
+                        off_result = _instantiate_template(
+                            dict(template), self.BUDGET,
+                            random.Random(0), faction=faction,
+                        )
+                    with mock.patch.dict(
+                        os.environ, {"SWEG_SEED_LEADERS": "1"}, clear=False
+                    ):
+                        on_result = _instantiate_template(
+                            dict(template), self.BUDGET,
+                            random.Random(0), faction=faction,
+                        )
+                    self.assertEqual(
+                        off_result, on_result,
+                        f"Menu faction {faction!r} archetype {arch_name!r}: "
+                        f"gate-on build differs from gate-off — the menu "
+                        f"scope-out is not holding",
+                    )
 
     def test_adeptus_astartes_eradicator_squad_and_apothecary_both_seeded(self):
         """Gate-on must seed BOTH the Eradicator Squad (90pt, non-CHARACTER)
