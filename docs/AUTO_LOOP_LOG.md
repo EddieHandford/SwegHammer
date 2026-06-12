@@ -4,85 +4,69 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
-## Wave 244 (2026-06-12, CLOSED) — first batch-screen wave under the new user-set methodology: three levers screened against one shared anchor, all three ADOPTED, defaults flipped together, one N=80 re-anchor — gated 5.90, the best honest frame yet (−0.80 versus the wave-243 anchor).
+## Wave 246 (2026-06-12, CLOSED) — second batch-screen wave on `claude/sim-calibration-11`: Drukhari Power from Pain ADOPTED (the last missing army rule among the competitive factions), squad-level pre-game embark REJECTED and DELETED, squad-aware Fall Back escape WASH-KEPT — and the keeper-set default flip exposed a squad-membership predicate bug that the wave-236 displacement rail tests caught before it shipped. Eighty-battle re-anchor: gated 5.73, new best honest frame.
 
-**1. Methodology (user-set this wave, now standing).** Re-anchors are the expensive runs, so the
-wave shape changed: every lever built gated default-off, independent forty-battle paired screens
-all reusing ONE off-arm anchor log, one combined forty-battle run of the keeper set before any
-flip (levers do not compose additively), then all adopted defaults flipped together and a single
-eighty-battle re-anchor on the flipped frame. Encoded as `AUTO_LOOP_PROCEDURE.md` §I together
-with the confirmed operating shape (three to five file-disjoint levers per wave, next-wave build
-agents pipelined inside the current wave's evaluation windows). Separately user-directed this
-wave: vibe-code cleanup is now a standing housekeeping element (procedure "Vibe-code
-housekeeping" subsection; research report at `docs/research/vibe_code_cleanup_research.md` — the
-repo inventory found eighty-three `SWEG_` gates with only fourteen explicit defaults, roughly
-fifty stale one-shot diagnostic scripts, and roughly one hundred pre-convention log files; one
-checklist item executes per branch checkpoint, starting at the `sim-calibration-11` roll).
+**1. Lever 1 — Drukhari Power from Pain: ADOPTED.** The held build (`4ad801a` off
+`held/pain-tokens`, gated `SWEG_PAIN_TOKENS`) cherry-picked after its three pick-time review items
+cleared: fixed-seed demonstration-battle byte-comparison proved the obsolete per-Unit `pain_tokens`
+removal neutral on the gate-unset frame, citation source fields re-pointed at the BSData cache path
+plus rule id `5e02-2ddc-f55-e6dd` (Wahapedia was unreachable at build time), and the transient
+lethal-hits spend scope verified per-round with attached-squad dedup. Army-level Pain-token pool:
+command-phase, enemy-destroyed, and battle-shock-failure accrual; greedy
+highest-damage-per-activation spend granting transient Lethal Hits (documented approximation — the
+codex activates per-datasheet Pain abilities; the simulator collapses Empowering to the dominant
+offensive uplift). Paired forty-battle screen against the shared `data/wf_w245_solar_n40.json`
+anchor: gated 6.75 → 6.69 (−0.06), Drukhari +1.03 ± 0.90 the sole decisive mover, toward target,
+all others flat.
 
-**2. Lever 1 — leader-stack seed priority (`SWEG_SEED_LEADERS`).** The archetype seed walk now
-seeds the template's documented real-meta leader stack before spending the budget on the spine
-(the wave-243 finding: the `(-count, -cost)` walk dropped two of Astra Militarum's three
-officers). Fourteen-faction seed-fraction overrides re-derived as a strict superset of the
-gate-off realization; menu factions scoped out (their builds stay byte-identical). Screened ALONE
-it crashed Astra Militarum to gated 30.44 — three officers in the list with no piloting are dead
-points — exactly the non-additivity case the combined-run rule exists for: an independent-sum
-read would have wrongly rejected the lever.
+**2. Lever 2 — squad-level pre-game embark: REJECTED and DELETED** (revert `6cb1883`). The
+`SWEG_EMBARK_SQUAD` screen read gated 8.36 (+1.61) with decisive wrong-direction movers across six
+factions — T'au −9.48, Drukhari −8.85, Leagues of Votann −6.28 further under; Chaos Space Marines
++6.63, Tyranids +6.07, Orks +5.04 further over. Whole-squad embark denies first-round shooting and
+board presence with no disembark-timing intelligence to recover the tempo. It is a piloting policy,
+not a codex rule, so fidelity-first protection does not apply; gate and code deleted at close per
+the housekeeping prevention rule. The transport lever family (one-passenger simplification was the
+wave-245 queue entry) is closed as measured-rejected on this frame.
 
-**3. Lever 3 — officer attachment and stay-near piloting (`SWEG_OFFICER_FOLLOW`).** Astra
-Militarum officer entries added to `code/leaders.py` (registry append at import, ~1388) plus a
-stay-near-squads movement hook in `code/strategy.py` (~3006), so seeded officers hold aura range
-instead of drifting eight to fourteen inches off the line by round 3. Combined 1+3 screen versus
-the wave anchor: gated 7.22 → 7.20 (wash), with the lever-1 Astra Militarum crash recovered by
-−5.27. Adopted on fidelity: the built list now matches the template's documented composition and
-the officers actually play their role.
+**3. Lever 3 — squad-aware Fall Back escape: WASH-KEEP, default flipped ON.** A genuine multi-model
+squad surrounded by three or more enemies now accepts per-squad Desperate Escape losses (about 1.67
+expected models on a five-model squad) to recover its shooting instead of dying in place
+(`SWEG_SQUAD_ESCAPE`, `code/strategy.py` `_displace_fall_back_buys_something`). Screen: gated 6.73
+(−0.02), every faction flat, World Eaters −2.07 ± 2.13 toward target grazing zero. Kept on the
+officer-follow / solar-squadron wash-adoption precedent: the piloting is faithful and the suppression
+it relaxes was an artefact of the lone-model heuristic.
 
-**4. Lever 2 — melee weapon-keyword mode routing (data-driven, no gate).** Ranged-only weapon
-keywords (anti-keywords, devastating wounds, twin-linked) contaminated melee profiles on 242
-units, granting fabricated melee output. Mode routing now keys each keyword to the profile that
-actually carries it. Screen on the combined frame: gated 7.20 → 6.77 (−0.43); toward target —
-Adeptus Custodes −4.03, Adeptus Mechanicus −3.40, Death Guard −3.16, Necrons −2.23, Orks −2.04,
-Genestealer Cults −2.03, Leagues of Votann −1.49; away — Emperor's Children +2.93, Drukhari
-+2.66, Imperial Knights +2.21, World Eaters +2.16 (melee factions losing fabricated keyword
-output, the faithful direction). Thousand Sons raw narrowed 5.4 → 3.8, consistent with the
-Mutalith devastating-wounds contamination hypothesis.
+**4. The predicate bug — the wave's major find.** The combined keeper-set screen (gated 6.69,
+−0.06, Drukhari +2.43 ± 2.36 decisive toward) passed, but the build agent's squad-membership test
+was `squad_id >= 0` — and `Army.add_unit()` makes EVERY lone unit a one-model squad with its own
+squad_id (`code/army.py:680`), so the flipped gate would have let every surrounded non-titanic unit
+fall back, a far broader behaviour than the screened lever. The two wave-236 displacement rail
+tests caught it at the post-flip full-suite run (both asserted STAY for a lone surrounded unit and
+got FALL_BACK). Predicate corrected to count ALIVE members sharing the unit's squad_id via
+`unit.army_ref` (more than one alive member = genuine squad; one-model squads, last survivors, and
+hand-built units without `army_ref` keep the conservative lone-model suppression). Flip and fix
+landed as one commit (`2c08406` — the flip alone leaves the suite red, so they cannot be split),
+with the gate-unset tests across three test files converted to explicit `="0"` kill-switch tests.
+Suite 1661 green, demonstration battle clean.
 
-**5. Flip, fold, re-anchor.** Defaults flipped together (`2c5a7c4` — both gates default "1",
-`=0` is the kill-switch, off-arm tests pinned explicitly since unset now means on); pull request
-74 merged upstream and folded back as `fa44c15` with zero content difference (anchors stayed
-valid); full test suite 1632 passed; demonstration battle clean. Eighty-battle re-anchor on the
-flipped frame: **gated 5.90, raw 9.19, 3/22 in band — `data/_anchor_sc10a_n80_log.json` promoted
-as the standing anchor.** Versus the sc9c anchor (6.70): −0.80, the best honest-frame headline
-yet. Decisive movers at eighty battles: Adeptus Custodes 20.05 → 8.97, Necrons 9.72 → 4.04,
-Genestealer Cults 4.71 → 0.30, Chaos Knights 6.53 → 1.30, Grey Knights 7.38 → 4.91, Leagues of
-Votann 3.80 → 1.81 all toward target; Astra Militarum 19.01 → 22.97 away (the accepted fidelity
-cost of the officer frame — remaining-gap diagnostic in flight), Imperial Knights 5.80 → 9.21
-and Emperor's Children 12.05 → 14.44 away. In-band count 5 → 3 (Chaos Space Marines at 1.10 and
-Adepta Sororitas at 0.35 slipped marginally out; Adeptus Astartes, T'au, Thousand Sons in).
+**5. Corrected keeper-set re-screen (defaults ON, plain run against the same anchor): gated 6.75 →
+6.78 (+0.03, wash), Drukhari +1.29 ± 1.00 the sole decisive mover, toward target, zero
+wrong-direction movers.** Half the buggy-predicate Drukhari win was lone-model escapes; the
+corrected, genuinely-squad-scoped lever keeps the faithful half. Method note banked: a keeper set
+measured with a broader-than-intended behaviour must be re-screened after the correction, never
+argued away.
 
-**6. Wave 245 pipelined inside the eval windows (per §I).** (a) Fight-alternation variant (b) —
-round-scoped once-per-round melee alternation — BUILT and held (`a5754c9` on its worktree
-branch; cherry-pick onto `sim-calibration-11`; the commit bundles four pre-existing Astra
-Militarum citation-debt fixes to review at pick time). The old "genuinely refuted" tag covered
-only variant (a) full-doubling, and that refutation frame had melee structurally disabled.
-Adoption, if the screen supports it, needs the explicit argument that bounding fight frequency
-below the real rule compensates for the sim round model lacking Fall Back disengagement. (b) A
-second planned lever — conditional per-attack-type invulnerable saves — was CANCELLED at
-briefing validation: it already landed at wave 217 and was repaired at wave 236; a stale memory
-file said otherwise and the validated-briefing prep step caught it before a build was wasted.
-(c) The Astra Militarum remaining-gap diagnostic was re-dispatched (the original agent died
-silently; its worktree held no work in progress) and RETURNED during this close. Confirmed, both
-grounded in code and the BSData cache: Lord Solar's stay-near host set (`code/leaders.py` ~1444)
-is infantry-only, so he drifts mid-table while the SQUADRON artillery he could order three times
-a round sits at deployment outside his six-inch aura; and the Cadian Heavy Weapons Squad — nine
-of ten built armies — loses its mortar's verbatim "Blast, Heavy, Indirect Fire" keyword to the
-mapper's majority-vote flag aggregation across a four-weapon loadout (an overrides-only fix).
-Refuted: Basilisk and Manticore indirect fire work correctly; defensive-order timing is minor;
-the remembered Wyvern misidentification is real in code but the Wyvern is not in the archetype
-template. Both confirmed levers are file-disjoint from the fight-alternation build — wave 245
-fields all three.
-
-**7. Wave close and checkpoint.** Branch past the hard size cap (seven commits, ~1,730
-reviewable lines before this close): checkpoint pull request opens for `claude/sim-calibration-10`
-after this close; `claude/sim-calibration-11` rolls off its head per the
-merge-wait-must-not-bottleneck directive, and the first standing vibe-cleanup item (the scripts
-archive pass) executes at the roll.
+**6. Fold, re-anchor, diagnostics.** origin/main folded at close (`4250949` — pull requests 75/76,
+pure `scripts/archive/` renames, zero behaviour-relevant files, anchors stay valid). Eighty-battle
+re-anchor on the corrected flipped frame: **gated 5.73, raw 8.99, 3/22 in band —
+`data/_anchor_sc11b_n80_log.json` promoted as the standing anchor, best honest frame to date
+(−0.06 vs sc11a).** Paired join against sc11a (36,960 matched games): Drukhari +1.01 ± 0.97 toward
+target (the wave's intended effect, confirmed at eighty battles) and Grey Knights −0.15 ± 0.13
+toward (over-pole shrinking); all twenty other factions flat. Fall Back diagnostic negative
+findings recorded so they are not re-litigated: the FLY Fall Back lockout is correct as modelled,
+Desperate Escape is already modelled at the displacement gate, the screening gap and the absence of
+overextension punishment are real but deferred, consolidation-targeting examined and deprioritized.
+An eval-wall-clock read-only diagnostic triaged the Astra Militarum twenty-point under-pole into
+five citation-backed candidates (Born Soldiers REGIMENT proxy at `code/units.py:3524` the
+highest-estimate; orchestrator spot-verified the top two against source) — banked as the wave-247
+lever list in `docs/CURRENT_STATE.md`.

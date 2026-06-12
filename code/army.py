@@ -267,6 +267,19 @@ class Army:
         # non-WE army (the spend gate checks faction tag before running).
         # Cited as `simulator.blood_tithe`.
         self.blood_tithe: int = 0
+        # Drukhari army rule — Power from Pain (10e). An army-level token pool;
+        # gains 1 at the start of the Drukhari player's Command phase, 1 each
+        # time an enemy unit is destroyed, and 1 each time an enemy unit fails
+        # a Battle-shock test. Spent 1-at-a-time when a Drukhari unit is
+        # selected to shoot or fight — granting that unit Lethal Hits for the
+        # round (APPROXIMATION: the codex Empowers unit-specific Pain
+        # abilities until the end of the phase; the simulator collapses this
+        # to the universally-applicable round-scoped transient_lethal_hits
+        # grant, the same collapse Blood Tithe uses). Stays 0 on a non-Drukhari
+        # army (the spend gate checks faction tag before running). Cited as
+        # `simulator.power_from_pain`. BSData source:
+        # data/bsdata/cache/Aeldari - Aeldari Library.cat.gz, rule id 5e02-2ddc-f55-e6dd.
+        self.pain_token_pool: int = 0
         # Round number in which a 4-BT Lethal Hits spend fired. Read by
         # Unit.attack against the live battle round (via _battle_ref) to
         # gate effective_lethal_hits for World Eaters attackers; the buff

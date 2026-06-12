@@ -1030,12 +1030,6 @@ class Unit:
         # `SKYSPLINTER_ASSAULT.rain_of_cruelty_disembark`.
         "transient_lance_this_turn",
         "transient_ignores_cover_this_turn",
-        # Drukhari Power From Pain (army rule, 10e). Awarded at the start of
-        # each Command phase to any Drukhari unit below Starting Strength;
-        # capped at 1 per unit. While > 0, the unit's models gain Lethal Hits
-        # and FNP 6+. Persists across rounds (not cleared with the transient
-        # stratagem flags). Cited as `simulator.power_from_pain`.
-        "pain_tokens",
         # Genestealer Cults Cult Ambush (army rule, 10e). Flagged True at
         # deployment time for every GSC unit; the Battle._arrive_from_reserves
         # path consumes it at the top of Round 1 to place the unit > 9"
@@ -1241,8 +1235,6 @@ class Unit:
         # Cited as `SKYSPLINTER_ASSAULT.rain_of_cruelty_disembark`.
         self.transient_lance_this_turn: bool = False
         self.transient_ignores_cover_this_turn: bool = False
-        # Power From Pain (Drukhari army rule). 0 = none, 1 = active (cap).
-        self.pain_tokens: int = 0
         # Cult Ambush (Genestealer Cults army rule). True means the unit is
         # waiting to land at the top of Round 1 via the simulator's reserves
         # path; cleared the moment it arrives on the battlefield. See
@@ -3362,19 +3354,15 @@ class Unit:
                 att_reroll_hit_ones = True
                 att_reroll_wound_ones = True
 
-            # Drukhari Power From Pain (10e codex, current Wahapedia text):
-            # the army rule does NOT grant passive LETHAL HITS from holding a
-            # Pain Token. Tokens accrue into a pool and can be SPENT to
-            # Empower a unit, whereupon that unit's per-datasheet "Pain
-            # ability" takes effect until the end of the phase. Per-datasheet
-            # Pain abilities are not catalogued in SwegHammer yet, so no
-            # token-driven offensive buff fires here. The previous unconditional
-            # `p.lethal_hits or (self.pain_tokens > 0 and faction == 'Drukhari')`
-            # branch was a fabrication that gave army-wide free LETHAL HITS
-            # to every multi-model Drukhari unit that had lost one model. This
-            # was the largest non-structural driver of Drukhari's +33pt sim-vs-
-            # meta overshoot in wave 42 (DRK-PAIN-TOKENS). Wahapedia:
-            # https://wahapedia.ru/wh40k10ed/factions/drukhari/
+            # Drukhari Power From Pain (10e codex, wave 246): the army rule
+            # grants LETHAL HITS per activation by SPENDING 1 Pain token from
+            # the army-level pool (army.pain_token_pool). The spend fires in
+            # Battle._apply_power_from_pain_spend (greedy, per-round) and sets
+            # `transient_lethal_hits` on the selected unit via
+            # `_set_transient_squad`. The old passive per-unit pain_tokens
+            # grant (unconditional LETHAL HITS to below-Starting-Strength
+            # multi-model units) was removed in wave 246 as a fabrication.
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/drukhari/
             # Route the per-weapon LETHAL HITS value by attack mode, matching
             # the SUSTAINED HITS mode-routing convention above. Pre-wave-52
             # the simulator read `p.lethal_hits` unconditionally, but that

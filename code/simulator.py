@@ -6602,6 +6602,74 @@ class Battle:
                     f"({roll} >= {ld}), no self-damage"
                 )
 
+    def _apply_power_from_pain_spend(self, round_num: int) -> None:
+        """Drukhari Power from Pain (10e) — greedy per-round token spend.
+
+        Codex rule (BSData rule id 5e02-2ddc-f55-e6dd, verbatim):
+        "Each Pain ability will state when you can spend Pain tokens to Empower
+        that unit. When you do, until the end of the phase, that unit is
+        Empowered and all Pain abilities it has take effect. While an Attached
+        unit is Empowered, the Pain abilities of all Leader and Bodyguard units
+        in that unit take effect — you do not need to spend additional Pain
+        tokens to activate each of those Pain abilities."
+
+        APPROXIMATION: per-datasheet Pain abilities are not catalogued in
+        SwegHammer. The simulator collapses Empowering to granting
+        `transient_lethal_hits` on the selected unit for the ROUND (the
+        codex scope is "until the end of the phase"; the round-scoped
+        transient flag — set after `_clear_transient_stratagem_flags`,
+        wiped at the next round start — is the same phase-to-round
+        collapse the World Eaters Blood Tithe 4-BT spend uses). This
+        captures the offensive uplift direction while deferring
+        per-ability accuracy to future work. Cited as
+        `simulator.power_from_pain`.
+
+        AI heuristic: greedy — each round spend 1 token on the highest-DPA
+        alive Drukhari unit (mirrors the Dark Pacts single-elect model).
+        Dedup per codex unit per ROUND via the `_unit_budget_used` mechanism
+        (reset each round at round start) keyed on squad_id (squad_id >= 0)
+        or profile.name (fallback), so an Attached/multi-instance squad
+        spends ONCE. Gate: SWEG_PAIN_TOKENS (default ON since the wave-246
+        adoption; SWEG_PAIN_TOKENS=0 is the kill-switch).
+        """
+        if os.environ.get("SWEG_PAIN_TOKENS", "1") == "0":
+            return
+        for army in (self.a, self.b):
+            if army.pain_token_pool <= 0:
+                continue
+            drukhari_units = [
+                u for u in army.alive_units
+                if (u.profile.faction or "") == "Drukhari"
+                and u.uid not in self._battleshocked_this_round
+            ]
+            if not drukhari_units:
+                continue
+
+            def _dpa(u):
+                p = u.profile
+                ranged = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+                melee = (p.melee_attacks or 0) * (p.melee_hit_probability or 0) * (p.melee_damage_per_shot or 0.0)
+                return ranged + melee
+
+            # Elect the highest-DPA Drukhari unit this round.
+            elected = max(drukhari_units, key=_dpa)
+
+            # Dedup via unit budget: one PfP spend per codex unit per round.
+            _squad_id = getattr(elected, "squad_id", -1)
+            _budget_key = _squad_id if _squad_id >= 0 else elected.profile.name
+            if not army.unit_budget_available("pfp", _budget_key):
+                continue
+            army.mark_unit_budget("pfp", _budget_key)
+
+            # Spend 1 token and grant transient_lethal_hits to the whole squad.
+            army.pain_token_pool -= 1
+            self._set_transient_squad(elected, "transient_lethal_hits")
+            if self.verbose:
+                print(
+                    f"  POWER FROM PAIN: {elected.profile.name} Empowered "
+                    f"(Lethal Hits, pool now {army.pain_token_pool})"
+                )
+
     # ---- Drukhari Combat Drugs (army rule, 10e). Profile-name allowlist of
     # the four WYCH CULT datasheets currently in the catalogue. BSData's
     # 10e Drukhari .cat parses these units' faction-side categoryLink "WYCH
@@ -8379,6 +8447,22 @@ class Battle:
             self._emit(BattleshockFailed(
                 unit_uid=rep.uid, roll=roll, target=target,
             ))
+            # Drukhari Power from Pain — battleshock-failure accrual.
+            # Codex rule: "1 Pain token each time an enemy unit fails a
+            # Battle-shock test." The OPPOSING army earns 1 token if it
+            # is Drukhari (i.e. the army that did NOT just fail the test).
+            # Gate: SWEG_PAIN_TOKENS must be active (default ON since the
+            # wave-246 adoption; =0 kill-switch). Once per squad (not
+            # per model) — the single emit above represents one codex unit
+            # failing, so one token is correct.
+            # Cited as `simulator.power_from_pain.battleshock_accrual`.
+            if os.environ.get("SWEG_PAIN_TOKENS", "1") != "0":
+                _bs_opponent = self.b if army is self.a else self.a
+                if any(
+                    u.profile.faction == "Drukhari"
+                    for u in _bs_opponent.alive_units
+                ):
+                    _bs_opponent.pain_token_pool += 1
             # Shadow of Chaos: failed test inside the Shadow also
             # inflicts D3 mortal wounds on ONE model in the squad
             # (per the rule's wording "that unit suffers D3 mortal
@@ -9069,79 +9153,19 @@ class Battle:
                     self._apply_shadow_in_the_warp_forced_tests(
                         army, round_num
                     )
-        # ---- Drukhari Power From Pain (10e army rule). At the start of
-        # each Command phase, every Drukhari unit Below Starting Strength
-        # gains 1 Pain Token (cap of 1 per unit). While > 0, the unit's
-        # models gain Lethal Hits + FNP 6+; the buffs themselves are
-        # applied in Unit.attack and Unit.receive_damage. Cited as
-        # `simulator.power_from_pain`.
-        #
-        # iter-DRK fix: "Below Starting Strength" is the 10e core term
-        # for "this unit contains fewer models than its starting strength"
-        # — it ONLY applies to multi-model units, and ONLY once a whole
-        # model has been destroyed (not "lost any wounds at all"). A
-        # single-model unit (CHARACTER, VEHICLE, MONSTER, single-model
-        # MOUNTED, etc.) is never Below Starting Strength even if its
-        # last wound is one chip short of dying — the codex confirms
-        # this explicitly. The previous gate (`current_health < health`)
-        # fired the instant any wound was taken (e.g. a Raider taking a
-        # single chip damage), giving every Drukhari unit FNP 6+ and
-        # Lethal Hits from round 2 onwards — a massive over-buff vs the
-        # codex trigger. We now require BOTH:
-        #   (a) the unit is multi-model (min_models >= 2), AND
-        #   (b) it has lost at least one whole model's worth of wounds.
-        # `wounds_per_model = profile.health / profile.min_models` (this
-        # is how the catalogue builder assigns squad totals).
-        # Reference: https://wahapedia.ru/wh40k10ed/factions/drukhari/
-        # DRK-PAIN-TOKENS-V2: "cap of 1 per unit" means one Pain Token
-        # per codex unit (codex squad), not one per simulator Unit
-        # instance. The simulator expands each codex squad into N
-        # individual Unit instances (one per model). Without a squad-name
-        # gate, every dead model instance satisfies the Below Starting
-        # Strength check (current_health = 0 <= profile.health -
-        # wounds_per_model), and each gets its own pain_token, producing
-        # an 11.8x token amplification vs the codex cap of 1 per squad.
-        # The fix mirrors the SOROR-V1 / TAU-MARKERLIGHTS-V1 pattern:
-        # deduplicate on profile.name so at most one Unit instance per
-        # codex squad name holds a pain_token. Note: pain_tokens are
-        # currently inert (the per-datasheet ability effects are not yet
-        # wired), so this is a correctness fix for when those abilities
-        # are added, not a direct sim-outcome change.
-        for army in (self.a, self.b):
-            # Track which codex squad names already hold or have been
-            # awarded a Pain Token this command phase. One token per
-            # codex squad (profile.name) is the codex cap.
-            _pain_token_awarded: set = set()
-            for u in army.units:
-                if u.profile.faction != "Drukhari":
-                    continue
-                if u.pain_tokens >= 1:
-                    # Already holds a token from a prior round: mark
-                    # this codex squad as covered so no sibling instance
-                    # receives a duplicate token.
-                    _pain_token_awarded.add(u.profile.name)
-                    continue
-                if u.profile.name in _pain_token_awarded:
-                    continue   # codex-squad cap: one token per squad
-                # In the per-model architecture each Unit IS one model, so
-                # profile.health is the per-model wound count. The pooled-health
-                # formula (health / min_models) was wrong: it divided per-model
-                # health by squad size, yielding a fractional wounds_per_model
-                # (e.g. 2/5 = 0.4 for Intercessors) that fired on any damage.
-                # Correct fix: wounds_per_model = profile.health (a model is
-                # destroyed when current_health drops to 0). min_models check
-                # is retained as a guard for truly single-model profiles.
-                if u.profile.min_models < 2:
-                    continue
-                # Below Starting Strength = this model instance has taken any damage.
-                # In the per-model architecture, each Unit IS one model. A model is
-                # Below Starting Strength when its current_health < profile.health
-                # (it has taken at least one wound). The old pooled-health formula
-                # required a full model kill (current_health <= 0); the per-model
-                # equivalent is any damage at all.
-                if u.current_health < u.profile.health:
-                    u.pain_tokens = 1
-                    _pain_token_awarded.add(u.profile.name)
+        # ---- Drukhari Power From Pain (10e army rule) — Command-phase
+        # accrual. One token is gained at the start of the Drukhari player's
+        # Command phase if that army has at least one alive Drukhari unit
+        # (mirrors the Sororitas Acts of Faith army-alive gate). Gated
+        # SWEG_PAIN_TOKENS (default ON since the wave-246 adoption;
+        # SWEG_PAIN_TOKENS=0 is the kill-switch and restores the fully
+        # inert pre-wave-246 path).
+        # Cited as `simulator.power_from_pain.command_phase_accrual`.
+        _pfp_on = os.environ.get("SWEG_PAIN_TOKENS", "1") != "0"
+        if _pfp_on:
+            for army in (self.a, self.b):
+                if any(u.profile.faction == "Drukhari" for u in army.alive_units):
+                    army.pain_token_pool += 1
         # ---- Adepta Sororitas Acts of Faith (10e army rule). At the
         # start of each battle round, every Sororitas army gains 1
         # Miracle die (an unmodifiable pre-rolled D6 value, banked in a
@@ -9301,6 +9325,14 @@ class Battle:
         # on failure deal D3 mortal wounds via `receive_damage` (FNP-
         # aware). Cited as `simulator.dark_pacts`.
         self._apply_dark_pacts(round_num)
+        # ---- Drukhari Power from Pain (10e army rule) — per-round spend.
+        # Pool accrual: +1 at Command-phase start (above), +1 per enemy unit
+        # destroyed (_maybe_award_pain_token at kill sites), +1 per enemy
+        # Battle-shock failure (_battleshock_test_squad fail branch). The
+        # greedy AI spend fires here — same timing as Dark Pacts. Gate:
+        # SWEG_PAIN_TOKENS (default ON since the wave-246 adoption;
+        # =0 kill-switch). Cited as `simulator.power_from_pain`.
+        self._apply_power_from_pain_spend(round_num)
         # ---- World Eaters Blessings of Khorne (10e army rule). At the
         # start of each battle round, roll 8D6 and activate up to two
         # Blessings using doubles/triples meeting each Blessing's
@@ -9893,21 +9925,16 @@ class Battle:
                     return 1
                 return 2
 
-            # Group-2 #2 — fight-phase alternation (gate SWEG_FIGHTALT). 10e
-            # resolves a Fight phase with BOTH armies' engaged units, alternating
-            # one at a time (Fights First step, then Remaining), so a charged
-            # defender swings back IN THIS phase instead of waiting for its own
-            # turn (the over-credit the wave-163 instrument proved differentially
-            # favours melee aggressors). Default OFF: the gate unset runs the
-            # original active-only loop verbatim → byte-identical. Cited
-            # `simulator.fight_alternation`.
-            if __import__("os").environ.get("SWEG_FIGHTALT") == "1":
-                self._run_fight_alternation(active, other)
-            else:
-                ordered = sorted(list(active.units), key=_fight_priority)
-                for unit in ordered:
-                    if unit.is_alive:
-                        self._do_fight(unit, active, other)
+            # Fight-phase alternation (SWEG_FIGHTALT) was built and REJECTED
+            # twice — variant (a) wave 166/168, variant (b) wave 245 (gated
+            # 6.77 → 7.96 paired N=40: extra fight activations inflate a melee
+            # surface the simulator already over-rewards). Gate and code path
+            # deleted at wave-245 close per the housekeeping prevention rule;
+            # see docs/DECISION_LEDGER.md before rebuilding.
+            ordered = sorted(list(active.units), key=_fight_priority)
+            for unit in ordered:
+                if unit.is_alive:
+                    self._do_fight(unit, active, other)
             # DAEMONS-DIAG-5: Bloodthirster "Relentless Carnage" — end-of-
             # Fight-phase mortal-wound payload. BSData v10.6.0 Chaos Daemons
             # Library (Bloodthirster datasheet, "Relentless Carnage" ability
@@ -11432,6 +11459,10 @@ class Battle:
                 killer=attacker, killer_army=attacker_army,
                 victim=shoot_target, victim_army=defender_army,
             )
+            self._maybe_award_pain_token(
+                killer_army=attacker_army,
+                victim=shoot_target, victim_army=defender_army,
+            )
             # Adepta Sororitas Acts of Faith: friendly Sororitas death
             # grants the victim's army +1 Miracle die.
             self._maybe_award_miracle_die(
@@ -12162,87 +12193,6 @@ class Battle:
         # 6" of a charger (a fabricated free 6"/3" move into engagement), over-
         # rating every melee-Character army. See docs/CORE_RULES_AUDIT.md #1.
 
-    def _run_fight_alternation(self, active: Army, other: Army) -> None:
-        """Group-2 #2 — faithful 10e Fight-phase alternation (gate SWEG_FIGHTALT).
-
-        Real 10e resolves a Fight phase with the eligible units of BOTH armies,
-        not just the active player's: the Fight phase has a Fights First step
-        (units that charged this turn or have the Fights First ability) and then
-        a Remaining Combats step, and within each step the players alternate
-        selecting ONE eligible unit to fight. The Fights First step starts with
-        the ACTIVE player (whose chargers strike first); the Remaining Combats
-        step starts with the NON-ACTIVE player (the defender picks first — the
-        verified 10e order). SwegHammer's vanilla loop fought only the active army's
-        units, deferring the defender's retaliation to its own later turn — which
-        let melee aggressors delete defenders before they could swing back (the
-        over-credit the wave-163 instrument proved differential, ~30x larger for
-        the melee over-shooters than for gunlines). This restores the in-phase
-        retaliation. Cited `simulator.fight_alternation`.
-
-        A unit fights at most once in this phase (`fought`). Because each battle
-        round runs both players' turns, a unit locked across both turns fights in
-        BOTH fight phases — twice per round, as 10e intends. Deterministic order
-        WITHIN a player's step (the player's free choice in real play) uses a
-        melee-threat key so reruns match. The gate-off path (the caller's else
-        branch) is unchanged, so OFF is byte-identical.
-        """
-        fought: set = set()
-
-        def _melee_threat(u) -> float:
-            p = u.profile
-            return (max(0, int(p.melee_attacks or 0))
-                    * float(p.melee_hit_probability or 0.0)
-                    * float(p.melee_damage_per_shot or 0.0))
-
-        def _eligible(u, foe: Army) -> bool:
-            if not u.is_alive or (u.profile.melee_attacks or 0) <= 0:
-                return False
-            if u.uid in fought:
-                return False
-            # Eligible to fight = made a Charge move this turn, OR currently
-            # within Engagement Range (1") of an enemy (matches _do_fight's own
-            # in-range gate; pile-in then closes the residual gap).
-            if u.uid in self._charging_this_round:
-                return True
-            return any(_er_gap_units(u, e) <= 1.0
-                       for e in foe.alive_units)
-
-        def _is_ff(u) -> bool:
-            return (u.uid in self._charging_this_round
-                    or bool(getattr(u.profile, "fights_first", False)))
-
-        def _next_pick(army: Army, foe: Army, want_ff: bool):
-            cands = [u for u in army.units
-                     if _eligible(u, foe) and _is_ff(u) == want_ff]
-            if not cands:
-                return None
-            # The player picks their highest-threat eligible unit (stable, with
-            # uid tiebreak for determinism).
-            return max(cands, key=lambda u: (_melee_threat(u), u.uid))
-
-        for want_ff in (True, False):
-            # Verified 10e order (Wahapedia quick-start): "Units that charged
-            # this turn fight before all others. Then, starting with the player
-            # not currently taking their turn, players alternate fighting." So
-            # the Fights First step starts with the ACTIVE player (whose
-            # chargers/Fights First units strike first), and the Remaining
-            # Combats step starts with the NON-ACTIVE player (the defender picks
-            # first — its compensation). side 0 = active, 1 = non-active.
-            side = 0 if want_ff else 1
-            while True:
-                acted = False
-                for _ in range(2):
-                    army, foe = (active, other) if side == 0 else (other, active)
-                    side ^= 1
-                    pick = _next_pick(army, foe, want_ff)
-                    if pick is not None:
-                        fought.add(pick.uid)
-                        self._do_fight(pick, army, foe)
-                        acted = True
-                        break
-                if not acted:
-                    break
-
     def _do_fight(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         """Resolve a melee strike if the attacker is in engagement range (1").
 
@@ -12330,6 +12280,10 @@ class Battle:
             )
             self._maybe_award_blood_tithe(
                 killer=attacker, killer_army=attacker_army,
+                victim=target, victim_army=defender_army,
+            )
+            self._maybe_award_pain_token(
+                killer_army=attacker_army,
                 victim=target, victim_army=defender_army,
             )
             self._maybe_award_miracle_die(
@@ -12841,6 +12795,64 @@ class Battle:
         if not any(u.profile.faction == "Adepta Sororitas" for u in victim_army.alive_units):
             return
         victim_army.gain_miracle_dice(1, random)
+
+    def _maybe_award_pain_token(
+        self, killer_army: Army,
+        victim: "Unit", victim_army: Army,
+    ) -> None:
+        """Drukhari Power from Pain (10e) — enemy-unit-destroyed accrual.
+
+        Codex rule (verbatim extract from BSData rule id 5e02-2ddc-f55-e6dd):
+        "1 Pain token each time an enemy unit is destroyed."
+
+        The OPPONENT of the Drukhari army is the one whose unit is being
+        destroyed, so we award 1 token to whichever army is Drukhari and
+        is on the OPPOSITE side from the victim. Concretely:
+          - If victim_army is NOT Drukhari but killer_army IS Drukhari →
+            killer_army gets +1 (the Drukhari player destroyed an enemy).
+          - If victim_army IS Drukhari and killer_army IS NOT Drukhari →
+            killer_army (non-Drukhari) gets nothing (no accrual for the
+            Drukhari player losing a unit; the codex only says "enemy unit
+            is destroyed", not "friendly unit dies").
+          - Mirror matches (both Drukhari): killer_army gets +1 because it
+            destroyed an enemy (the victim was the enemy relative to the
+            killer).
+
+        PER-UNIT DEDUP (AMPLIFICATION prevention): the codex awards 1 token
+        "each time an enemy UNIT is destroyed", but SwegHammer's one-Unit-
+        per-model representation calls this hook on every MODEL death.
+        Only award when the victim is the LAST alive model of its codex
+        unit (no surviving sibling shares squad_id or profile.name in the
+        victim's army). Mirrors the _maybe_award_blood_tithe template.
+
+        Gate: SWEG_PAIN_TOKENS must be active. Checked at call site by
+        the caller guard (not re-read from environ here to avoid per-kill
+        environ overhead). The callers already gate on the env flag.
+        Cited as `simulator.power_from_pain.enemy_destroyed_accrual`.
+        """
+        # Gate: SWEG_PAIN_TOKENS must be active (default ON, =0 kill-switch).
+        if os.environ.get("SWEG_PAIN_TOKENS", "1") == "0":
+            return
+        # Only award when the KILLER army is Drukhari (they destroyed an
+        # enemy unit). Victim-army-is-Drukhari (friendly death) is not a
+        # Pain token trigger.
+        if killer_army is victim_army:
+            return  # pathological self-damage edge case — no award
+        if not any(u.profile.faction == "Drukhari" for u in killer_army.alive_units):
+            return
+        # Last-instance check (standard amplification guard).
+        _victim_squad_id = getattr(victim, "squad_id", -1)
+        if any(
+            (
+                (getattr(u, "squad_id", -1) >= 0 and _victim_squad_id >= 0
+                 and getattr(u, "squad_id", -1) == _victim_squad_id)
+                or
+                (_victim_squad_id < 0 and u.profile.name == victim.profile.name)
+            )
+            for u in victim_army.alive_units
+        ):
+            return  # other squad-mates still alive — codex unit not fully destroyed yet
+        killer_army.pain_token_pool += 1
 
     # APPROXIMATION: models the retired Eye of the Ancestors rule; current codex army rule is Prioritised Efficiency.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Prioritised-Efficiency
@@ -13444,6 +13456,10 @@ class Battle:
                 killer=charger, killer_army=charger_army,
                 victim=_m, victim_army=target_army,
             )
+            self._maybe_award_pain_token(
+                killer_army=charger_army,
+                victim=_m, victim_army=target_army,
+            )
             self._maybe_award_miracle_die(
                 victim=_m, victim_army=target_army,
             )
@@ -13524,6 +13540,10 @@ class Battle:
             )
             self._maybe_award_blood_tithe(
                 killer=retaliator, killer_army=loser_army,
+                victim=winner_unit, victim_army=winner_army,
+            )
+            self._maybe_award_pain_token(
+                killer_army=loser_army,
                 victim=winner_unit, victim_army=winner_army,
             )
             self._maybe_award_miracle_die(
