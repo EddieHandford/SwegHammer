@@ -181,13 +181,13 @@ class LeaderStackPriorityTests(unittest.TestCase):
     )
 
     def test_gate_off_drops_creed_and_leontus(self):
-        """Without the gate, the seed walk keeps only the cheapest officer —
-        pins the wave-243 diagnostic so this test fails loudly if the
-        un-gated baseline ever shifts (the A/B OFF arm must stay stable)."""
+        """With the gate pinned off (SWEG_SEED_LEADERS=0 — since the
+        wave-244 default flip an unset environment means gate-ON), the seed
+        walk keeps only the cheapest officer — pins the wave-243 diagnostic
+        so this test fails loudly if the kill-switch arm ever shifts."""
         from code.archetypes import _instantiate_template
 
-        with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("SWEG_SEED_LEADERS", None)
+        with mock.patch.dict(os.environ, {"SWEG_SEED_LEADERS": "0"}):
             scaled = _instantiate_template(
                 dict(self.AM_TEMPLATE), 2000.0, random.Random(0),
                 faction="Astra Militarum",
@@ -311,7 +311,9 @@ class SeedFractionSupersetTests(unittest.TestCase):
         template = ARCHETYPES[faction][arch_name]
         with mock.patch.dict(os.environ, env_override, clear=False):
             if "SWEG_SEED_LEADERS" not in env_override:
-                os.environ.pop("SWEG_SEED_LEADERS", None)
+                # Pin the gate off — since the wave-244 default flip an
+                # unset environment means gate-ON.
+                os.environ["SWEG_SEED_LEADERS"] = "0"
             result = _instantiate_template(
                 dict(template), cls.BUDGET, random.Random(0), faction=faction,
             )
@@ -353,8 +355,9 @@ class SeedFractionSupersetTests(unittest.TestCase):
         for faction in sorted(self.MENU_FACTIONS):
             for arch_name, template in ARCHETYPES.get(faction, {}).items():
                 with self.subTest(faction=faction, archetype=arch_name):
-                    with mock.patch.dict(os.environ, {}, clear=False):
-                        os.environ.pop("SWEG_SEED_LEADERS", None)
+                    with mock.patch.dict(
+                        os.environ, {"SWEG_SEED_LEADERS": "0"}, clear=False
+                    ):
                         off_result = _instantiate_template(
                             dict(template), self.BUDGET,
                             random.Random(0), faction=faction,

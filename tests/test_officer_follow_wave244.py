@@ -1,11 +1,13 @@
 """
 Wave 244 lever 3: Astra Militarum officer leader-attachment registry +
-stay-near piloting (gated SWEG_OFFICER_FOLLOW, default-off).
+stay-near piloting (gated SWEG_OFFICER_FOLLOW, default-on since the
+wave-244 adoption; =0 is the kill-switch).
 
 Four tests:
 
-(a) Gate-off (default): _REGISTRY has NO Astra Militarum officer entries and
-    pick_move_intent output is unchanged for an officer-named unit.
+(a) Gate-off (kill-switch, SWEG_OFFICER_FOLLOW=0): _REGISTRY has NO Astra
+    Militarum officer entries and pick_move_intent output is unchanged for
+    an officer-named unit.
 
 (b) Gate-on: exactly the four expected entries are present in _REGISTRY with
     correct host_keys.
@@ -62,8 +64,12 @@ def _empty_map():
 class TestGateOff(unittest.TestCase):
 
     def setUp(self):
-        # Ensure gate is off — the environment must NOT have SWEG_OFFICER_FOLLOW=1.
-        # We do a fresh import of leaders with the gate off.
+        # Pin the gate off explicitly — since the wave-244 default flip an
+        # UNSET environment means gate-ON, so the off-arm needs "0".
+        os.environ["SWEG_OFFICER_FOLLOW"] = "0"
+
+    def tearDown(self):
+        # Restore the unset (default-on) state for the rest of the suite.
         os.environ.pop("SWEG_OFFICER_FOLLOW", None)
 
     def test_registry_has_no_astra_militarum_officer_entries_when_gate_off(self):

@@ -2990,8 +2990,9 @@ def pick_move_intent(
     # ----- SWEG_OFFICER_FOLLOW: Astra Militarum officer stay-near hook -----
     # Officers that drift more than OFFICER_AURA_RANGE (6") from their host
     # squad issue zero Orders past round 2. This hook pulls them back before
-    # any other intent fires. Gate: SWEG_OFFICER_FOLLOW=1 (default-off, so
-    # the off-arm is byte-identical — no change to any non-AM unit).
+    # any other intent fires. Gate: SWEG_OFFICER_FOLLOW (default-on since
+    # the wave-244 adoption; =0 is the kill-switch and restores the
+    # pre-wave-244 arm byte-identically — no change to any non-AM unit).
     #
     # Placement: BEFORE the MELEE early-exit so even a MELEE-classed officer
     # (should be rare for AM CHARACTERs) uses the follow path when far from
@@ -3003,7 +3004,7 @@ def pick_move_intent(
     # movement constraint in pick_move_intent — the hook fires identically.
     # Cited as simulator.officer_follow_piloting in
     # data/rule_citations.d/astra_militarum.json.
-    if __import__("os").environ.get("SWEG_OFFICER_FOLLOW", "0") == "1":
+    if __import__("os").environ.get("SWEG_OFFICER_FOLLOW", "1") == "1":
         _officer_intent = _maybe_officer_follow(unit, friendly)
         if _officer_intent is not None:
             return _officer_intent, "officer_follow"

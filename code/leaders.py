@@ -1355,7 +1355,8 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
 
 # ---------------------------------------------------------------------------
 # Astra Militarum officer leader-attachment registry entries
-# (gated SWEG_OFFICER_FOLLOW, default-off)
+# (gated SWEG_OFFICER_FOLLOW, default-on since the wave-244 adoption;
+# SWEG_OFFICER_FOLLOW=0 is the kill-switch)
 #
 # Four officers whose Leader datasheets specify legal bodyguard hosts. These
 # entries serve a STRUCTURAL purpose only under the current schema: the
@@ -1366,10 +1367,10 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
 # comes entirely from the Half-B stay-near piloting hook (pick_move_intent,
 # code/strategy.py) which keeps officers inside their 6" Order-issuance band.
 #
-# SWEG_OFFICER_FOLLOW=1 appends these entries to _REGISTRY, making
-# `lookup_ability` resolve each officer name and enabling the host_keys gate
-# in `is_actually_led`. Default-off (gate unset) → _REGISTRY is unchanged,
-# behaviour byte-identical to the off-arm.
+# When the gate is on (the default) these entries append to _REGISTRY,
+# making `lookup_ability` resolve each officer name and enabling the
+# host_keys gate in `is_actually_led`. SWEG_OFFICER_FOLLOW=0 leaves
+# _REGISTRY unchanged, behaviour byte-identical to the pre-wave-244 arm.
 #
 # BSData verbatim attach targets (Library cat.gz, cross-checked):
 #   Cadian Castellan  (id 2b49-4d03-aaf5-3532): Cadian Shock Troops, Kasrkin
@@ -1385,11 +1386,11 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
 # data/rule_citations.d/astra_militarum.json.
 # ---------------------------------------------------------------------------
 
-_AM_OFFICER_FOLLOW_GATE: bool = os.environ.get("SWEG_OFFICER_FOLLOW", "0") == "1"
+_AM_OFFICER_FOLLOW_GATE: bool = os.environ.get("SWEG_OFFICER_FOLLOW", "1") == "1"
 
-# These entries fold into the unconditional _REGISTRY when the gate is flipped
-# to default-on at a future wave. Until then they are appended only when the
-# gate is on, keeping the default-off path byte-identical.
+# These entries fold into the unconditional _REGISTRY when the gate itself is
+# removed at a future wave. Until then they are appended only when the gate is
+# on (the default), keeping SWEG_OFFICER_FOLLOW=0 as a working kill-switch.
 _AM_OFFICER_REGISTRY_ENTRIES: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Cadian Castellan — "Senior Officer" ability (BSData id 2b49-4d03-aaf5-3532).
     # BSData verbatim: "While this model is leading a unit, ranged weapons

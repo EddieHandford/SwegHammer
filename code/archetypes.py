@@ -1517,9 +1517,12 @@ def _instantiate_template(
     # below (all three move together as one gated lever). Scoped to
     # non-menu factions (see MENU_FACTIONS): menu builds stay identical to
     # the gate-off walk because the tiebreak de-realized faithful menu
-    # entries with no permitted fraction fix.
+    # entries with no permitted fraction fix. Default ON since the
+    # wave-244 adoption; SWEG_SEED_LEADERS=0 is the kill-switch (the
+    # fraction dict stays separate from SEED_FRACTION_BY_FACTION for
+    # exactly this reason — fold only when the gate is removed).
     _leader_stack_priority = (
-        os.environ.get("SWEG_SEED_LEADERS") == "1"
+        os.environ.get("SWEG_SEED_LEADERS", "1") == "1"
         and (faction or "") not in MENU_FACTIONS
     )
 
@@ -1591,7 +1594,8 @@ def _instantiate_template(
     # slice tight and lets the random topup handle distribution.
     #
     # Wave 244 — leader-stack priority (gated SWEG_SEED_LEADERS, default
-    # OFF for the paired A/B; =1 enables). Within the SAME template count,
+    # ON since the wave-244 adoption; =0 is the kill-switch). Within the
+    # SAME template count,
     # CHARACTER entries seed before non-CHARACTER entries. Motivating
     # failure (wave-243 orders diagnostic): the Astra Militarum Combined
     # Arms template documents a three-officer leader stack (Cadian
