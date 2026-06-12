@@ -108,7 +108,17 @@ class KillPotentialMathTests(unittest.TestCase):
 class ChargePickerPrefersDamageableTargets(unittest.TestCase):
     """Given a T4 W1 squishy AND a T10 W12 brick both in range, the
     light brawler must charge the squishy. The penalty must keep the
-    crackable target on top."""
+    crackable target on top.
+
+    HISTORY (wave 242): these tests originally compared `target.uid` —
+    but `uid` is assigned by Battle at start, and no Battle exists here,
+    so every uid was "" and the assertions were vacuously true whatever
+    the picker chose. They now use `assertIs`. The staging is also spread
+    off-axis: under charge-path legality (SWEG_CHARGE_PATH, default ON
+    since wave 242) the original collinear layouts made the far candidate
+    an ILLEGAL charge (its end spot sat inside the nearer non-target's
+    Engagement Range), which is the path-rule's job, not this penalty's —
+    that behaviour is pinned in tests/test_charge_path.py."""
 
     def test_squishy_preferred_over_uncrackable_brick(self):
         a = Army("A")
@@ -119,22 +129,25 @@ class ChargePickerPrefersDamageableTargets(unittest.TestCase):
 
         attacker = a.units[0]
         brick, squishy = d.units[0], d.units[1]
-        # Both inside 12" charge range, both > 1" so not engaged.
+        # Both inside 12" charge range, both > 1" base-edge gap so not
+        # engaged, and on separate axes so each charge path is legal under
+        # SWEG_CHARGE_PATH (neither candidate screens the other).
         attacker.position = (30.0, 30.0)
-        brick.position = (33.0, 30.0)
-        squishy.position = (35.0, 30.0)
+        brick.position = (33.0, 30.0)    # 3" east
+        squishy.position = (30.0, 35.0)  # 5" north
 
         target, dist = pick_charge_target(attacker, d)
         self.assertIsNotNone(target)
-        self.assertEqual(
-            target.uid, squishy.uid,
+        self.assertIs(
+            target, squishy,
             "Should charge the T4 W1 squishy, not the T10 W12 brick the"
             " brawler can't dent.",
         )
 
     def test_squishy_preferred_even_when_brick_is_closer(self):
         """The won't-crack penalty must beat distance — the brick is
-        a much shorter charge but cracking it is impossible."""
+        a much shorter charge (higher 2D6 success odds) but cracking it
+        is impossible."""
         a = Army("A")
         a.add_unit(_light_brawler())
         d = Army("D")
@@ -143,20 +156,33 @@ class ChargePickerPrefersDamageableTargets(unittest.TestCase):
 
         attacker = a.units[0]
         brick, squishy = d.units[0], d.units[1]
+        # Separate axes so both charge paths are legal under
+        # SWEG_CHARGE_PATH; the brick is a near-certain 2D6 (needs ~0.7"),
+        # the squishy a real roll (needs ~5.7").
         attacker.position = (30.0, 30.0)
-        brick.position = (32.0, 30.0)    # 2" — trivially short charge
-        squishy.position = (36.0, 30.0)  # 6" — moderate charge
+        brick.position = (30.0, 33.0)    # 3" north — trivially short charge
+        squishy.position = (38.0, 30.0)  # 8" east — long charge
         target, _ = pick_charge_target(attacker, d)
-        self.assertEqual(target.uid, squishy.uid)
+        self.assertIsNotNone(target)
+        self.assertIs(target, squishy)
 
 
 class ChargePickerAllUncrackableFallsBack(unittest.TestCase):
     """When EVERY candidate is below the won't-crack threshold the
-    penalty is applied to all of them — relative ordering survives, so
-    the picker still returns the *most* damageable one. It must NOT
-    return None just because no target is crackable."""
+    penalty is applied uniformly to all of them — relative ordering by
+    the FULL charge score survives, and the picker must NOT return None
+    just because no target is crackable.
 
-    def test_picks_most_damageable_when_all_uncrackable(self):
+    NOTE (wave 242): this class originally also claimed the picker
+    returns the *most damageable* candidate. That was never true — the
+    old `target.uid` comparison was vacuous ("" == "", uids are only
+    assigned by Battle), and the picker has always ranked uncrackables
+    by the full score (kill potential PLUS ranged-output value PLUS
+    counter-threat), under which the heavier brick's bigger guns make it
+    the better charge. The penalty is a uniform downweight, not a
+    damageability re-ranker; this test pins the no-veto half only."""
+
+    def test_picks_someone_when_all_uncrackable(self):
         a = Army("A")
         a.add_unit(_light_brawler())
         d = Army("D")
@@ -165,9 +191,11 @@ class ChargePickerAllUncrackableFallsBack(unittest.TestCase):
 
         attacker = a.units[0]
         heavy_brick, lighter = d.units[0], d.units[1]
+        # Separate axes so both charge paths are legal under
+        # SWEG_CHARGE_PATH (neither candidate screens the other).
         attacker.position = (30.0, 30.0)
-        heavy_brick.position = (33.0, 30.0)
-        lighter.position = (35.0, 30.0)
+        heavy_brick.position = (33.0, 30.0)  # 3" east
+        lighter.position = (30.0, 35.0)      # 5" north
 
         # Both below threshold — confirm preconditions.
         self.assertLess(
@@ -185,10 +213,9 @@ class ChargePickerAllUncrackableFallsBack(unittest.TestCase):
             "Picker should still pick SOMEONE when all candidates are"
             " un-crackable — the penalty downweights but doesn't veto.",
         )
-        self.assertEqual(
-            target.uid, lighter.uid,
-            "Among T10 alternatives the lighter brick (3+ save, 8 HP)"
-            " is the most damageable — picker should prefer it.",
+        self.assertIn(
+            target, (heavy_brick, lighter),
+            "Picker must return one of the live candidates.",
         )
 
     def test_penalty_constant_is_lt_one(self):

@@ -230,8 +230,8 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # disabled melee under the adopted default.
     "simulator.engagement_range_base_edge",
     # 10e core "Charge Move" — a charge move must NOT move within Engagement
-    # Range of any non-target enemy unit. Gated SWEG_CHARGE_PATH (default OFF)
-    # in pick_charge_target (code/strategy.py): excludes candidates whose
+    # Range of any non-target enemy unit. Gated SWEG_CHARGE_PATH (default ON
+    # since wave 242) in pick_charge_target (code/strategy.py): excludes candidates whose
     # straight-line path (part a, non-FLY only) or approximate end spot (part b,
     # all chargers) would cross or end within Engagement Range of a non-target.
     # FLY chargers are exempt from the path half (they move over enemy models).

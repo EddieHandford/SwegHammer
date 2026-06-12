@@ -1665,11 +1665,15 @@ def pick_charge_target(attacker, enemy):
     # the gap -> required-move conversion below, which must not fire on the
     # legacy path (where the required move IS the centre distance).
     base_edge = os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1"
-    # Gate SWEG_CHARGE_PATH (default OFF): exclude charge candidates whose
-    # straight-line move would require an illegal charge path (10e core rule:
-    # "Without moving within Engagement Range of any enemy units that were not
-    # a target of the charge"). Cited `simulator.charge_path_non_target`.
-    charge_path = os.environ.get("SWEG_CHARGE_PATH", "0") == "1"
+    # Gate SWEG_CHARGE_PATH (default ON since wave 242: paired N=80 confirm
+    # was a +0.14 headline wash with T'au +3.85 and Imperial Knights -5.46
+    # both decisive toward target — adopted as a faithful core rule): exclude
+    # charge candidates whose straight-line move would require an illegal
+    # charge path (10e core rule: "Without moving within Engagement Range of
+    # any enemy units that were not a target of the charge"). Cited
+    # `simulator.charge_path_non_target`. Set SWEG_CHARGE_PATH=0 for the
+    # legacy no-path-check behaviour.
+    charge_path = os.environ.get("SWEG_CHARGE_PATH", "1") == "1"
     # Whether the attacker has the FLY keyword: FLY models may move over enemy
     # models during a charge move and are exempt from the PATH check (part a),
     # but the END SPOT check (part b) applies to all chargers.
