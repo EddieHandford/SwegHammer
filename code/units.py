@@ -3516,12 +3516,39 @@ class Unit:
                     target_is_vm = (
                         "VEHICLE" in target_kws or "MONSTER" in target_kws
                     )
-                    # REGIMENT leg: BATTLELINE-keyword attacker (the three
-                    # core Cadian / Catachan / Krieg troop squads, which all
-                    # carry the codex REGIMENT keyword) vs non-VEHICLE/MONSTER
-                    # target.
+                    # REGIMENT leg: attacker carries the REGIMENT keyword
+                    # (the codex rule's literal gate) vs non-VEHICLE/MONSTER
+                    # target.  BSData v10.6.0 verbatim (Astra Militarum -
+                    # Library.cat.gz, rule id b65e-c54b-b8fe-e8e2): "Each
+                    # time a model in a **^^Regiment^^** unit from your army
+                    # makes a ranged attack that targets a visible unit
+                    # (excluding **^^Monsters^^** and **^^Vehicles^^**) that
+                    # attack has the **[LETHAL HITS]** ability."
+                    #
+                    # Wave 243 made REGIMENT a first-class tracked keyword
+                    # (BSData categoryLinks, 31 units) so the codex check is
+                    # now possible.  The env gate SWEG_BORN_REGIMENT selects
+                    # which keyword is used:
+                    #   unset / "0": legacy BATTLELINE proxy (byte-identical
+                    #     to pre-wave-247 behaviour — catches the three core
+                    #     Cadian / Catachan / Krieg troop squads that happen
+                    #     to carry both BATTLELINE and REGIMENT, but misses
+                    #     non-BATTLELINE REGIMENT units such as Kasrkin,
+                    #     Heavy Weapons Squads, Attilan Rough Riders, etc.)
+                    #   "1": corrected REGIMENT check — the codex-literal
+                    #     gate; covers all 31 REGIMENT datasheets.
+                    # Read inline per-call (matching nearby gate idiom).
+                    # Cited as `COMBINED_REGIMENT.am_born_soldiers_lethal_hits`.
+                    _use_regiment_kw = (
+                        __import__("os").environ.get("SWEG_BORN_REGIMENT", "0") != "0"
+                    )
+                    _regiment_attacker = (
+                        "REGIMENT" in attacker_kws
+                        if _use_regiment_kw
+                        else "BATTLELINE" in attacker_kws
+                    )
                     if (
-                        "BATTLELINE" in attacker_kws
+                        _regiment_attacker
                         and "VEHICLE" not in attacker_kws
                         and "MONSTER" not in attacker_kws
                         and not target_is_vm
