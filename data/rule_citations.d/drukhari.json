@@ -1,12 +1,39 @@
 {
-  "_comment": "Drukhari army rules + faction-specific citations (10e). Power From Pain in the current codex is a pool-and-spend mechanic: tokens accrue into an army-wide pool, and are SPENT to Empower a unit so its per-datasheet 'Pain ability' takes effect until the end of the phase. There is NO passive Lethal Hits / Feel No Pain 6+ on holding a token — that was an older index version of the rule. Per-datasheet Pain abilities are not catalogued in SwegHammer yet, so the spend half of the rule produces no in-sim effect; the accrual machinery is preserved for future per-datasheet hooks.",
+  "_comment": "Drukhari army rules + faction-specific citations (10e). Wave 246: Power From Pain is now fully modelled as an army-level token pool (army.pain_token_pool). Accrual: +1 at start of own Command phase, +1 per enemy unit destroyed, +1 per enemy unit failing a Battle-shock test. Spend: greedy AI elects the highest-DPA Drukhari unit per round and grants transient_lethal_hits (APPROXIMATION — the codex activates per-datasheet Pain abilities; the simulator collapses Empowering to Lethal Hits as the dominant offensive uplift). Gated SWEG_PAIN_TOKENS (default OFF). The obsolete per-unit pain_tokens field and the Below-Starting-Strength per-unit accrual block have been removed.",
 
   "simulator.power_from_pain": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/",
     "rule_name": "Power From Pain",
-    "quoted_text": "All DRUKHARI units have a Pain ability, tagged with the word 'Pain'. Pain abilities only apply to a unit while it is Empowered. If your Army Faction is DRUKHARI, you can Empower units from your army with Pain abilities by spending Pain tokens. If your Army Faction is DRUKHARI, you gain Pain tokens as follows: 1 Pain token at the start of your Command phase. 1 Pain token each time an enemy unit is destroyed. 1 Pain token each time an enemy unit fails a Battle-shock test. Each time you gain a Pain token, keep it to one side - this is your Pain token pool. Each time you spend a Pain token, reduce your Pain token pool by the same amount. Each Pain ability will state when you can spend Pain tokens to Empower that unit. When you do, until the end of the phase, that unit is Empowered and all Pain abilities it has take effect. While an Attached unit is Empowered, the Pain abilities of all Leader and Bodyguard units in that unit take effect - you do not need to spend additional Pain tokens to activate each of those Pain abilities.",
-    "trigger": "(accrual half, modelled) start of own Command phase; Battle._run_round awards 1 Pain Token to each Drukhari unit Below Starting Strength. The wider accrual conditions (token per enemy unit destroyed; token per enemy unit failing Battle-shock test) and the army-wide pool semantics are NOT modelled — the legacy per-unit cap-of-1 trigger is left in place because no downstream consumer reads the count yet and the additional accruals would be dead state. (spend half, NOT modelled) per-datasheet Pain abilities specify when their tokens may be spent to Empower the unit; SwegHammer has not catalogued any per-datasheet Pain abilities, so no spend ever fires.",
-    "effect": "(accrual half, modelled) the unit's `pain_tokens` field is set to 1. (spend half, NOT modelled) no Empowered state is tracked and no Pain-ability buffs fire — Unit.attack and Unit.receive_damage do not read `pain_tokens` for any combat effect. The earlier implementation that granted passive Lethal Hits + FNP 6+ while pain_tokens > 0 was a fabrication that contradicted the current Wahapedia text (DRK-PAIN-TOKENS, 2026-05-27); it has been removed and now produces no in-sim effect at all. Future work: catalogue per-datasheet Pain abilities (Wyches, Incubi, Kabalites etc.), then wire spend at the per-attack / per-receive_damage call sites against the army's pool with the Empowered-until-end-of-phase scope.",
+    "quoted_text": "All DRUKHARI units have a Pain ability, tagged with the word 'Pain'. Pain abilities only apply to a unit while it is Empowered. If your Army Faction is DRUKHARI, you can Empower units from your army with Pain abilities by spending Pain tokens (see below). GAINING PAIN TOKENS: If your Army Faction is DRUKHARI, you gain Pain tokens as follows: 1 Pain token at the start of your Command phase. 1 Pain token each time an enemy unit is destroyed. 1 Pain token each time an enemy unit fails a Battle-shock test. Each time you gain a Pain token, keep it to one side - this is your Pain token pool. Each time you spend a Pain token, reduce your Pain token pool by the same amount. EMPOWERED THROUGH PAIN: Each Pain ability will state when you can spend Pain tokens to Empower that unit. When you do, until the end of the phase, that unit is Empowered and all Pain abilities it has take effect. While an Attached unit is Empowered, the Pain abilities of all Leader and Bodyguard units in that unit take effect - you do not need to spend additional Pain tokens to activate each of those Pain abilities.",
+    "trigger": "army.pain_token_pool >= 1 when a Drukhari unit is selected to shoot or fight; greedy AI spends 1 token on the highest-DPA Drukhari unit per round via _apply_power_from_pain_spend. Pool accrual: see sub-citations .command_phase_accrual, .enemy_destroyed_accrual, .battleshock_accrual. Gated SWEG_PAIN_TOKENS (default OFF).",
+    "effect": "APPROXIMATION: grants transient_lethal_hits to the elected unit for the round via _set_transient_squad. The codex activates per-datasheet Pain abilities on the Empowered unit; SwegHammer collapses this to Lethal Hits as the dominant offensive uplift. Attached/multi-instance squads spend ONCE (dedup via _unit_budget_used keyed on squad_id). Pool decremented by 1 per spend.",
+    "scope": "army-wide"
+  },
+
+  "simulator.power_from_pain.command_phase_accrual": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/",
+    "rule_name": "Power From Pain — Command-phase accrual",
+    "quoted_text": "1 Pain token at the start of your Command phase.",
+    "trigger": "start of own Command phase (Battle._run_round command-phase block) if at least one alive Drukhari unit is in the army; gated SWEG_PAIN_TOKENS",
+    "effect": "army.pain_token_pool += 1",
+    "scope": "army-wide"
+  },
+
+  "simulator.power_from_pain.enemy_destroyed_accrual": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/",
+    "rule_name": "Power From Pain — enemy unit destroyed accrual",
+    "quoted_text": "1 Pain token each time an enemy unit is destroyed.",
+    "trigger": "last model of an enemy codex unit is destroyed (last-instance gate via squad_id / profile.name, mirroring _maybe_award_blood_tithe template) and the killer army contains at least one alive Drukhari unit; fired from _maybe_award_pain_token at the 4 kill sites (shooting, melee, Tank Shock, Counter-Offensive); gated SWEG_PAIN_TOKENS",
+    "effect": "killer_army.pain_token_pool += 1",
+    "scope": "army-wide"
+  },
+
+  "simulator.power_from_pain.battleshock_accrual": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/",
+    "rule_name": "Power From Pain — enemy Battle-shock failure accrual",
+    "quoted_text": "1 Pain token each time an enemy unit fails a Battle-shock test.",
+    "trigger": "an enemy codex unit fails its Battle-shock test (roll < target branch in _battleshock_test_squad, once per squad roll — the per-squad emit maps to one codex unit) and the opposing army contains at least one alive Drukhari unit; gated SWEG_PAIN_TOKENS",
+    "effect": "opponent_army.pain_token_pool += 1",
     "scope": "army-wide"
   },
 

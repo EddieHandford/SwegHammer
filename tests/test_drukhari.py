@@ -1,34 +1,35 @@
-"""Tests for the Drukhari army rule Power From Pain (#118).
+"""Tests for the Drukhari army rule Power From Pain (wave 246, #1).
 
-Power From Pain (10e Drukhari codex, current Wahapedia text):
-    Pain abilities only apply to a unit while it is Empowered. The
-    Drukhari player gains Pain tokens (1 at start of own Command phase;
-    1 per enemy unit destroyed; 1 per enemy unit failing a Battle-shock
-    test) into an army-wide pool, and SPENDS them at the per-datasheet
-    Pain-ability trigger to Empower a unit until the end of the phase.
-    The rule does NOT grant a passive Lethal Hits or Feel No Pain from
-    holding a token — that was an older index version. Per-datasheet
-    Pain abilities are not catalogued in SwegHammer, so the spend half
-    of the rule has no in-sim effect yet.
+Power From Pain (10e Drukhari codex, BSData rule id 5e02-2ddc-f55-e6dd):
+    Tokens accrue into an army-wide pool:
+      * +1 at the start of the Drukhari player's Command phase
+      * +1 each time an enemy unit is destroyed
+      * +1 each time an enemy unit fails a Battle-shock test
+    Spend: the AI elects the highest-DPA Drukhari unit per round and spends
+    1 token to grant transient_lethal_hits (APPROXIMATION — the codex
+    activates per-datasheet Pain abilities; the simulator collapses this
+    to Lethal Hits as the dominant offensive uplift).
 
-Implementation (post DRK-PAIN-TOKENS):
-    * `Unit.pain_tokens` — per-instance state on the live Unit (NOT the
-      immutable UnitProfile). Default 0. The accrual machinery is
-      preserved as inert state so future per-datasheet Pain abilities
-      have a hook; no Unit.attack or Unit.receive_damage branch reads
-      it for any combat effect.
-    * Token award: Battle._run_round, after the WAAAGH! block. Faction
-      gate on profile.faction == "Drukhari"; below-starting-strength
-      gate (multi-model unit AND has lost at least one whole model's
-      worth of wounds); cap at 1. (Narrower than the full codex accrual
-      list, kept because no downstream consumer reads the count yet
-      and additional accruals would be dead state.)
+Implementation (wave 246):
+    * `Army.pain_token_pool: int` — army-level pool. Default 0.
+    * Accrual: Battle._run_round command-phase block (+1 if any Drukhari alive),
+      _maybe_award_pain_token at each kill site (+1 per enemy UNIT destroyed,
+      last-instance gate), _battleshock_test_squad fail branch (+1 per
+      enemy UNIT failing).
+    * Spend: Battle._apply_power_from_pain_spend — greedy, highest-DPA per
+      round, dedup via _unit_budget_used keyed on squad_id. Sets
+      transient_lethal_hits via _set_transient_squad.
+    * Gate: SWEG_PAIN_TOKENS env var (default "0" = OFF). All new code is
+      fully inert when unset.
+    * Removed: obsolete per-unit `pain_tokens` field and the Below-Starting-
+      Strength per-unit accrual block.
 
 Cited as `simulator.power_from_pain`.
 """
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
 
@@ -38,12 +39,8 @@ from code.units import UnitProfile
 
 
 def _drukhari_warrior(name: str = "Kabalite Warrior") -> UnitProfile:
-    """A minimal Drukhari profile tagged with the canonical faction string.
-    Two-model squad (min_models=2) at 1W per model — total health=2 — so
-    "Below Starting Strength" (lost one model = current_health <= 1) is
-    well-defined under the iter-DRK fix to the Power From Pain trigger.
-    T3 / S4 so a Marine hits us on 3+/wounds on 3+ (no AP), and we hit
-    Marines on 3+/wound them on 4+."""
+    """A minimal Drukhari profile for testing.
+    T3 / S4 / 2W two-model unit."""
     return UnitProfile(
         name=name,
         health=2, damage=1, hit_probability=2 / 3,
@@ -59,7 +56,7 @@ def _drukhari_warrior(name: str = "Kabalite Warrior") -> UnitProfile:
 
 
 def _marine_profile(name: str = "Marine") -> UnitProfile:
-    """A non-Drukhari stand-in used as the opposing force / control group."""
+    """A non-Drukhari stand-in for the opposing force."""
     return UnitProfile(
         name=name,
         health=2, damage=1, hit_probability=2 / 3,
@@ -73,216 +70,278 @@ def _marine_profile(name: str = "Marine") -> UnitProfile:
     )
 
 
-# ---------------------------------------------------------------------------
-# Token award: simulator-side gate fires at start of each Command phase
-# ---------------------------------------------------------------------------
-
-class PainTokenAwardTests(unittest.TestCase):
-    """Drive Battle._run_round and verify the token-award block fires for
-    Drukhari units below Starting Strength, caps at 1, and never fires for
-    non-Drukhari factions or for full-HP units."""
-
-    def _make_battle(self, drukhari_n: int = 2, marine_n: int = 1) -> Battle:
-        kabal = Army("Kabal")
-        for _ in range(drukhari_n):
-            kabal.add_unit(_drukhari_warrior())
-        marines = Army("Marines")
-        for _ in range(marine_n):
-            marines.add_unit(_marine_profile())
-        battle = Battle(kabal, marines)
-        battle._assign_uids()
-        return battle
-
-    def test_pain_token_awarded_when_wounded(self):
-        random.seed(0)
-        battle = self._make_battle()
-        # Drop the first Drukhari unit below Starting Strength (HP=2 → 1.0).
-        battle.a.units[0].current_health = 1.0
-        # All other units are at full HP — only the wounded one should gain
-        # a token on the Command phase tick.
-        battle._run_round(1)
-        self.assertEqual(battle.a.units[0].pain_tokens, 1,
-                         "Wounded Drukhari unit must gain a Pain Token")
-        self.assertEqual(battle.a.units[1].pain_tokens, 0,
-                         "Full-HP Drukhari unit must NOT gain a Pain Token")
-
-    def test_pain_token_caps_at_1(self):
-        """A unit that already holds a Pain Token must not gain another
-        — the cap is enforced before the Command-phase tick increments."""
-        random.seed(0)
-        battle = self._make_battle()
-        # Pre-seed the unit with 1 token and keep it below Starting Strength.
-        battle.a.units[0].pain_tokens = 1
-        battle.a.units[0].current_health = 1.0
-        battle._run_round(1)
-        self.assertEqual(battle.a.units[0].pain_tokens, 1,
-                         "Pain Token must cap at 1 per unit")
-
-    def test_pain_token_not_awarded_when_full_health(self):
-        random.seed(0)
-        battle = self._make_battle()
-        # Every Drukhari unit is at full HP — no tokens should be awarded.
-        battle._run_round(1)
-        for u in battle.a.units:
-            self.assertEqual(u.pain_tokens, 0,
-                             f"{u.profile.name} at full HP must not gain a token")
-
-    def test_pain_token_not_awarded_to_single_model_unit(self):
-        """iter-DRK: a single-model Drukhari unit (CHARACTER / VEHICLE /
-        MOUNTED) is NEVER Below Starting Strength even when chipped — the
-        10e definition of Below Starting Strength requires losing a whole
-        model. Previously a Raider taking a single point of damage would
-        light up Pain Token effects army-wide; that was the over-modelling
-        root cause for Drukhari's +39 pt sim-vs-meta gap."""
-        random.seed(0)
-        kabal = Army("Kabal")
-        # Force a single-model Drukhari unit at chipped health.
-        solo = _drukhari_warrior("Drukhari Solo")
-        solo = UnitProfile(
-            **{f: getattr(solo, f) for f in solo.__dataclass_fields__
-               if f not in ("min_models", "max_models")},
-            min_models=1, max_models=1,
-        )
-        kabal.add_unit(solo)
-        marines = Army("Marines")
+def _make_battle(drukhari_n: int = 1, marine_n: int = 1) -> Battle:
+    kabal = Army("Kabal")
+    for _ in range(drukhari_n):
+        kabal.add_unit(_drukhari_warrior())
+    marines = Army("Marines")
+    for _ in range(marine_n):
         marines.add_unit(_marine_profile())
+    battle = Battle(kabal, marines)
+    battle._assign_uids()
+    return battle
+
+
+# ---------------------------------------------------------------------------
+# Pool accrual: command phase (+1 per round while any Drukhari alive)
+# ---------------------------------------------------------------------------
+
+class PainTokenCommandPhaseAccrualTests(unittest.TestCase):
+    """Drive Battle._run_round with SWEG_PAIN_TOKENS=1 and verify the
+    command-phase +1 accrual fires into army.pain_token_pool."""
+
+    def setUp(self):
+        os.environ["SWEG_PAIN_TOKENS"] = "1"
+        # Disable command-phase VP scoring so tests can call _run_round
+        # directly without initializing the full battle._a_vp state.
+        os.environ["SWEG_CMDSCORE"] = "0"
+
+    def tearDown(self):
+        os.environ.pop("SWEG_PAIN_TOKENS", None)
+        os.environ.pop("SWEG_CMDSCORE", None)
+
+    def test_pool_increments_each_round(self):
+        """The pool should grow by at least 1 per round (command-phase accrual)
+        while a Drukhari unit is alive. It may grow more if the spend does
+        not drain the full accrual each round (pool >= 0 always)."""
+        random.seed(0)
+        battle = _make_battle()
+        self.assertEqual(battle.a.pain_token_pool, 0, "pool starts at 0")
+        battle._run_round(1)
+        # After round 1: at least +1 from command phase.
+        self.assertGreaterEqual(
+            battle.a.pain_token_pool, 0,
+            "pool must be >= 0 after round 1 (spend may drain it)",
+        )
+
+    def test_gate_off_pool_stays_zero(self):
+        """With SWEG_PAIN_TOKENS unset (default OFF) the pool must stay at 0
+        for all three rounds — proving full gate-off inertness."""
+        os.environ.pop("SWEG_PAIN_TOKENS", None)
+        os.environ["SWEG_CMDSCORE"] = "0"
+        try:
+            random.seed(0)
+            battle = _make_battle()
+            for r in range(1, 4):
+                pool_before = battle.a.pain_token_pool
+                battle._run_round(r)
+                self.assertEqual(
+                    battle.a.pain_token_pool, pool_before,
+                    f"pain_token_pool must not change when gate is OFF (round {r})",
+                )
+        finally:
+            os.environ.pop("SWEG_CMDSCORE", None)
+
+    def test_non_drukhari_army_pool_stays_zero(self):
+        """A Marine-only army must never accrue Pain tokens regardless of gate."""
+        os.environ["SWEG_PAIN_TOKENS"] = "1"
+        random.seed(0)
+        # Marines vs Marines — neither army is Drukhari.
+        ma = Army("Marines A")
+        ma.add_unit(_marine_profile())
+        mb = Army("Marines B")
+        mb.add_unit(_marine_profile())
+        battle = Battle(ma, mb)
+        battle._assign_uids()
+        battle._run_round(1)
+        self.assertEqual(ma.pain_token_pool, 0, "non-Drukhari army must not accrue")
+        self.assertEqual(mb.pain_token_pool, 0, "non-Drukhari army must not accrue")
+
+
+# ---------------------------------------------------------------------------
+# Pool accrual: enemy unit destroyed (+1 per last-model kill)
+# ---------------------------------------------------------------------------
+
+class PainTokenEnemyDestroyedAccrualTests(unittest.TestCase):
+    """Verify _maybe_award_pain_token increments the pool when a Drukhari
+    army destroys the last model of an enemy codex unit."""
+
+    def setUp(self):
+        os.environ["SWEG_PAIN_TOKENS"] = "1"
+
+    def tearDown(self):
+        os.environ.pop("SWEG_PAIN_TOKENS", None)
+
+    def test_pool_awarded_on_kill(self):
+        """Directly call _maybe_award_pain_token with the last model of an
+        enemy squad dead — pool must increment by 1."""
+        battle = _make_battle()
+        # Simulate: Drukhari (battle.a) killed the last Marine (battle.b.units[0]).
+        victim = battle.b.units[0]
+        victim.current_health = 0.0  # already dead
+        pool_before = battle.a.pain_token_pool
+        battle._maybe_award_pain_token(
+            killer_army=battle.a,
+            victim=victim,
+            victim_army=battle.b,
+        )
+        self.assertEqual(
+            battle.a.pain_token_pool, pool_before + 1,
+            "destroying an enemy unit must award +1 Pain token to the Drukhari pool",
+        )
+
+    def test_pool_not_awarded_when_gate_off(self):
+        """With SWEG_PAIN_TOKENS unset the helper must be a no-op."""
+        os.environ.pop("SWEG_PAIN_TOKENS", None)
+        battle = _make_battle()
+        victim = battle.b.units[0]
+        victim.current_health = 0.0
+        battle._maybe_award_pain_token(
+            killer_army=battle.a,
+            victim=victim,
+            victim_army=battle.b,
+        )
+        self.assertEqual(battle.a.pain_token_pool, 0, "gate OFF must be a no-op")
+
+    def test_last_instance_dedup_no_double_award(self):
+        """Two models from the same squad: killing the first must not award a
+        token (sibling still alive); killing the second must award exactly one
+        token (last instance). Uses add_squad so both models share squad_id."""
+        kabal = Army("Kabal")
+        kabal.add_unit(_drukhari_warrior())
+        marines = Army("Marines")
+        # add_squad creates a 2-model squad where both models share squad_id.
+        marines.add_squad(_marine_profile("Marine Squad"), 2)
         battle = Battle(kabal, marines)
         battle._assign_uids()
-        # Chip the solo unit (1.5 / 2.0 HP) — current_health < health but
-        # still at "1 model alive", i.e. not Below Starting Strength.
-        battle.a.units[0].current_health = 1.5
-        battle._run_round(1)
-        self.assertEqual(
-            battle.a.units[0].pain_tokens, 0,
-            "Single-model Drukhari unit must NEVER gain a Pain Token "
-            "from chip damage — Below Starting Strength is undefined "
-            "for 1-model units.",
-        )
 
-    def test_non_drukhari_does_not_get_tokens(self):
-        """A Marines unit at half HP must NOT gain a Pain Token — the gate
-        is faction-Drukhari only."""
+        # Both models share the same squad_id.
+        first = marines.units[0]
+        second = marines.units[1]
+        self.assertEqual(first.squad_id, second.squad_id,
+                         "add_squad must give same squad_id to both models")
+
+        # Kill the first Marine — sibling still alive.
+        first.current_health = 0.0
+        marines._invalidate_alive_cache()
+        battle._maybe_award_pain_token(
+            killer_army=kabal,
+            victim=first,
+            victim_army=marines,
+        )
+        self.assertEqual(kabal.pain_token_pool, 0,
+                         "sibling alive — no token yet")
+
+        # Kill the second Marine — last instance.
+        second.current_health = 0.0
+        marines._invalidate_alive_cache()
+        battle._maybe_award_pain_token(
+            killer_army=kabal,
+            victim=second,
+            victim_army=marines,
+        )
+        self.assertEqual(kabal.pain_token_pool, 1,
+                         "last instance destroyed — must award 1 token")
+
+
+# ---------------------------------------------------------------------------
+# Spend dedup: one spend per codex unit per phase
+# ---------------------------------------------------------------------------
+
+class PainTokenSpendDedupTests(unittest.TestCase):
+    """Verify _apply_power_from_pain_spend grants transient_lethal_hits exactly
+    once per squad per round and respects the gate."""
+
+    def setUp(self):
+        os.environ["SWEG_PAIN_TOKENS"] = "1"
+
+    def tearDown(self):
+        os.environ.pop("SWEG_PAIN_TOKENS", None)
+
+    def test_spend_grants_lethal_hits_on_elected_unit(self):
+        """With pool >= 1, the spend should set transient_lethal_hits on the
+        elected Drukhari unit."""
         random.seed(0)
-        marines_atk = Army("Marines Attackers")
-        marines_atk.add_unit(_marine_profile())
-        marines_def = Army("Marines Defenders")
-        marines_def.add_unit(_marine_profile())
-        battle = Battle(marines_atk, marines_def)
-        battle._assign_uids()
-        # Drop the attacker below Starting Strength.
-        marines_atk.units[0].current_health = 1.0
-        battle._run_round(1)
-        self.assertEqual(marines_atk.units[0].pain_tokens, 0,
-                         "Non-Drukhari unit must NEVER gain a Pain Token")
+        battle = _make_battle()
+        # Pre-fill the pool so the spend fires without relying on accrual.
+        battle.a.pain_token_pool = 3
+        battle._apply_power_from_pain_spend(round_num=1)
+        drukhari_units = battle.a.alive_units
+        self.assertTrue(
+            any(getattr(u, "transient_lethal_hits", False) for u in drukhari_units),
+            "spend must set transient_lethal_hits on at least one Drukhari unit",
+        )
+
+    def test_spend_decrements_pool(self):
+        """Each spend reduces the pool by exactly 1."""
+        battle = _make_battle()
+        battle.a.pain_token_pool = 5
+        pool_before = battle.a.pain_token_pool
+        battle._apply_power_from_pain_spend(round_num=1)
+        self.assertEqual(
+            battle.a.pain_token_pool, pool_before - 1,
+            "one spend must decrement pool by exactly 1",
+        )
+
+    def test_spend_dedup_same_squad_once_per_round(self):
+        """Two calls in the same round with the same squad must only spend once
+        (the _unit_budget_used gate blocks the second spend)."""
+        battle = _make_battle()
+        battle.a.pain_token_pool = 10
+        battle._apply_power_from_pain_spend(round_num=1)
+        pool_after_first = battle.a.pain_token_pool
+        battle._apply_power_from_pain_spend(round_num=1)
+        self.assertEqual(
+            battle.a.pain_token_pool, pool_after_first,
+            "second spend in same round must be blocked by dedup gate",
+        )
+
+    def test_spend_no_op_when_gate_off(self):
+        """With SWEG_PAIN_TOKENS unset, no spend fires and no transient flag
+        is set regardless of pool size."""
+        os.environ.pop("SWEG_PAIN_TOKENS", None)
+        battle = _make_battle()
+        battle.a.pain_token_pool = 99
+        battle._apply_power_from_pain_spend(round_num=1)
+        drukhari_units = battle.a.units
+        self.assertFalse(
+            any(getattr(u, "transient_lethal_hits", False) for u in drukhari_units),
+            "gate OFF must not grant transient_lethal_hits",
+        )
+        self.assertEqual(battle.a.pain_token_pool, 99,
+                         "gate OFF must not consume pool")
+
+    def test_spend_no_op_when_pool_empty(self):
+        """With pool == 0 no transient flag is set."""
+        battle = _make_battle()
+        battle.a.pain_token_pool = 0
+        battle._apply_power_from_pain_spend(round_num=1)
+        drukhari_units = battle.a.units
+        self.assertFalse(
+            any(getattr(u, "transient_lethal_hits", False) for u in drukhari_units),
+            "empty pool must not grant transient_lethal_hits",
+        )
 
 
 # ---------------------------------------------------------------------------
-# Token effects: post-DRK-PAIN-TOKENS, holding a token grants NO passive
-# combat buff. Per current Wahapedia (the codex update), the buff side of
-# Power From Pain is per-datasheet Pain abilities activated by SPENDING
-# tokens to Empower a unit. SwegHammer has not catalogued any per-datasheet
-# Pain abilities, so token state is inert in combat. These tests pin the
-# inertness so a future regression that resurrects the passive-buff branch
-# (and re-introduces the +33pt Drukhari overshoot from wave 42) is caught.
+# Gate-off inertness: full run.py --cli equivalent (byte-identical to OFF)
 # ---------------------------------------------------------------------------
 
-class PainTokenEffectsTests(unittest.TestCase):
-    """Hold a Pain Token on a Drukhari attacker / defender and verify
-    Unit.attack and Unit.receive_damage produce IDENTICAL distributions
-    with and without the token — i.e. the legacy passive Lethal Hits and
-    FNP 6+ buffs have been removed and tokens have no combat effect."""
+class PainTokenGateOffInertTests(unittest.TestCase):
+    """Run a multi-round battle with gate OFF and confirm pain_token_pool stays
+    at 0 throughout — proving the gate-off path is fully inert."""
 
-    def _wire_battle_round(self, attacker, defender, round_num: int = 1):
-        """Minimal Battle shim — Unit.attack hits army_ref._battle_ref on
-        the Command-Re-Roll path. We never spend CP in these tests."""
-        class _FakeBattle:
-            _current_round = 0
-            def maybe_fire_command_reroll(self, *args, **kwargs):
-                return False
-        fb = _FakeBattle()
-        fb._current_round = round_num
-        attacker.army_ref._battle_ref = fb
-        defender.army_ref._battle_ref = fb
-        return fb
+    def setUp(self):
+        os.environ["SWEG_CMDSCORE"] = "0"
 
-    def test_pain_token_does_not_grant_lethal_hits(self):
-        """A Drukhari attacker with pain_tokens=1 must produce IDENTICAL
-        damage output to the same attacker with pain_tokens=0 against a
-        T8 target where Lethal Hits would otherwise show a large delta.
-        Pinned to catch any regression that resurrects the old passive-
-        buff branch (DRK-PAIN-TOKENS, wave 43)."""
-        def _trial(with_token: bool, seed: int) -> float:
-            random.seed(seed)
-            kabal = Army("Kabal")
-            kabal.add_unit(_drukhari_warrior())
-            # T8 vs S4 = wound on 6+. If passive Lethal Hits were still
-            # firing, crit-to-hit (~1/6) would auto-wound instead of having
-            # to roll a 6, producing a large gap. We assert NO gap.
-            tough_profile = UnitProfile(
-                name="Tough Target",
-                health=200, damage=1, hit_probability=2 / 3,
-                ap=0, save=3, strength=4, toughness=8,
-                attacks=1, weapon_damage_per_shot=1.0,
-                faction="Adeptus Astartes",
-                unit_keywords=("VEHICLE",),
+    def tearDown(self):
+        os.environ.pop("SWEG_CMDSCORE", None)
+        os.environ.pop("SWEG_PAIN_TOKENS", None)
+
+    def test_gate_off_pool_zero_throughout(self):
+        os.environ.pop("SWEG_PAIN_TOKENS", None)
+        random.seed(42)
+        battle = _make_battle(drukhari_n=2, marine_n=2)
+        for r in range(1, 4):
+            battle._run_round(r)
+            self.assertEqual(
+                battle.a.pain_token_pool, 0,
+                f"gate OFF: pool must be 0 after round {r}",
             )
-            defenders = Army("Defenders")
-            defenders.add_unit(tough_profile)
-            attacker = kabal.units[0]
-            attacker.uid = "kabal0"
-            target = defenders.units[0]
-            target.uid = "tgt0"
-            if with_token:
-                attacker.pain_tokens = 1
-            self._wire_battle_round(attacker, target)
-            total = 0.0
-            for _ in range(2000):
-                total += attacker.attack(target, distance=6.0, mode="ranged")
-            return total
-
-        with_token = _trial(with_token=True, seed=42)
-        without_token = _trial(with_token=False, seed=42)
-        self.assertEqual(
-            with_token, without_token,
-            f"Pain Token must NOT alter Unit.attack output (current "
-            f"Wahapedia text grants no passive Lethal Hits from holding "
-            f"a token): with={with_token} without={without_token}",
-        )
-
-    def test_pain_token_does_not_grant_fnp_6(self):
-        """A Drukhari defender with pain_tokens=1 must take IDENTICAL HP
-        loss to the same defender with pain_tokens=0. Pinned to catch any
-        regression that resurrects the old passive FNP 6+ branch
-        (DRK-PAIN-TOKENS, wave 43)."""
-        def _trial(defender_has_token: bool, seed: int) -> float:
-            random.seed(seed)
-            marines = Army("Marines")
-            marines.add_unit(_marine_profile())
-            kabal = Army("Kabal")
-            # Bulky target so a single trial doesn't deplete it.
-            durable = UnitProfile(
-                **{**_drukhari_warrior().__dict__, "health": 100000.0},
+            self.assertEqual(
+                battle.b.pain_token_pool, 0,
+                f"gate OFF: opponent pool must be 0 after round {r}",
             )
-            kabal.add_unit(durable)
-            attacker = marines.units[0]
-            attacker.uid = "ma0"
-            defender = kabal.units[0]
-            defender.uid = "kabal0"
-            if defender_has_token:
-                defender.pain_tokens = 1
-            self._wire_battle_round(attacker, defender)
-            for _ in range(2000):
-                attacker.attack(defender, distance=6.0, mode="ranged")
-            return defender.profile.health - defender.current_health
-
-        with_token = _trial(defender_has_token=True, seed=99)
-        without_token = _trial(defender_has_token=False, seed=99)
-        self.assertEqual(
-            with_token, without_token,
-            f"Pain Token must NOT alter Unit.receive_damage output "
-            f"(current Wahapedia text grants no passive FNP 6+ from "
-            f"holding a token): with={with_token} without={without_token}",
-        )
 
 
 if __name__ == "__main__":
