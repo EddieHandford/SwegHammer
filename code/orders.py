@@ -438,6 +438,32 @@ def _unit_melee_dpa(u: "Unit") -> float:
     )
 
 
+def _unit_has_rapid_fire(u: "Unit") -> bool:
+    """True iff the unit carries at least one Rapid Fire ranged weapon —
+    primary block, secondary block, or any extra ranged profile.
+
+    This mirrors exactly the set of profiles `Unit.compute_expected_kills`
+    buffs under `transient_frfsrf_active` (every profile with rapid_fire > 0),
+    so it answers "would First Rank, Fire! Second Rank, Fire! do anything at
+    all for this unit?". The codex effect is "Improve the Attacks
+    characteristic of Rapid Fire weapons equipped by models in this unit by
+    1." — on a unit with no Rapid Fire weapons the Order does literally
+    nothing, so the AI picker must never spend an Order slot on it (wave 243:
+    widening the eligible pool to SQUADRON vehicles made tanks the
+    highest-priority targets, and they were burning their slots on this
+    no-op).
+    """
+    p = u.profile
+    if (p.rapid_fire or 0) > 0:
+        return True
+    if (getattr(p, "secondary_rapid_fire", 0) or 0) > 0:
+        return True
+    for extra in (p.extra_ranged_profiles or ()):
+        if (dict(extra).get("rapid_fire", 0) or 0) > 0:
+            return True
+    return False
+
+
 def _pick_order_for_target(target: "Unit") -> str:
     """Greedy: pick the Order that maximises expected value for `target`.
 
@@ -446,9 +472,13 @@ def _pick_order_for_target(target: "Unit") -> str:
         the +1 save preserves the remaining points.
       * Else if the unit has meaningful melee DPA AND no ranged DPA,
         pick Fix Bayonets! (no shoot-relevant alternative).
-      * Else if the unit has rapid-fire ranged DPA, pick First Rank
-        Fire / Second Rank Fire (matches the codex use case for Cadians
-        / Krieg / Catachan Lasgun blocks — the canonical FRFSRF target).
+      * Else if the unit has real ranged DPA AND carries at least one
+        Rapid Fire weapon, pick First Rank Fire / Second Rank Fire
+        (matches the codex use case for Cadians / Krieg / Catachan
+        Lasgun blocks — the canonical FRFSRF target). The Rapid Fire
+        gate matters: the codex effect buffs Rapid Fire weapons only,
+        so on a no-Rapid-Fire unit (Leman Russ, Rogal Dorn) the Order
+        does nothing — those take Take Aim! instead (wave 243).
       * Else pick Take Aim! (generic +1 to hit shooting).
 
     Lasgun-heavy REGIMENT squads typically have ranged_dpa > 0 and
@@ -471,10 +501,15 @@ def _pick_order_for_target(target: "Unit") -> str:
     if melee_dpa > 0.5 and ranged_dpa < 0.3:
         return ORDER_FIX_BAYONETS
 
-    if ranged_dpa >= 0.5:
+    if ranged_dpa >= 0.5 and _unit_has_rapid_fire(target):
         # FRFSRF is the canonical Lasgun-block Order — pick it on any
         # REGIMENT unit with real ranged DPA (almost every wired AM REGIMENT
-        # infantry datasheet qualifies: Cadians, Krieg, Catachan, Kasrkin etc.).
+        # infantry datasheet qualifies: Cadians, Krieg, Catachan, Kasrkin etc.)
+        # — but ONLY when the unit actually carries a Rapid Fire weapon. The
+        # codex effect buffs Rapid Fire weapons exclusively, so on a Leman
+        # Russ or Rogal Dorn (no Rapid Fire profiles) the Order is a no-op;
+        # those fall through to Take Aim! (+1 to hit), the order real players
+        # issue to tanks (wave 243 mis-pilot fix).
         return ORDER_FRFSRF
 
     # Fallback — generic +1 to hit shooting.

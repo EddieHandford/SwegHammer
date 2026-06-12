@@ -39,7 +39,12 @@ from code.army import Army
 from code.map import Map, Objective
 from code.orders import (
     OFFICER_ORDER_PROFILES,
+    ORDER_FRFSRF,
+    ORDER_TAKE_AIM,
+    ORDER_TAKE_COVER,
     _is_order_target_eligible,
+    _pick_order_for_target,
+    _unit_has_rapid_fire,
     _unit_satisfies_target_type,
     dispatch_orders,
 )
@@ -612,6 +617,180 @@ class TestTitanicKeywordStillWorks(unittest.TestCase):
             _unit_satisfies_target_type(unit, frozenset({"TITANIC"})),
             "SQUADRON-only unit must not satisfy TITANIC target type",
         )
+
+
+# ---------------------------------------------------------------------------
+# Test G: FRFSRF Rapid Fire gate — the Order is never picked for a unit with
+# no Rapid Fire weapon (wave 243 mis-pilot fix)
+# ---------------------------------------------------------------------------
+
+def _lasgun_block_profile(name: str = "Cadians") -> UnitProfile:
+    """Synthetic Lasgun-block profile: REGIMENT infantry WITH a Rapid Fire
+    weapon — the canonical First Rank, Fire! Second Rank, Fire! target.
+    """
+    return UnitProfile(
+        name=name,
+        health=2,
+        damage=1,
+        hit_probability=0.67,
+        attacks=2,
+        range_inches=24,
+        save=5,
+        toughness=3,
+        strength=3,
+        ap=0,
+        weapon_damage_per_shot=1.0,
+        rapid_fire=1,  # Lasgun: Rapid Fire 1
+        points_override=12.0,
+        faction="Astra Militarum",
+        unit_keywords=("INFANTRY", "REGIMENT"),
+    )
+
+
+class _MinUnit:
+    """Minimal Unit-like object exposing only .profile — sufficient for
+    `_unit_has_rapid_fire`, which reads profile fields exclusively.
+    """
+
+    def __init__(self, profile: UnitProfile) -> None:
+        self.profile = profile
+
+
+class TestUnitHasRapidFire(unittest.TestCase):
+    """Direct unit tests for `_unit_has_rapid_fire` — must mirror the set of
+    profiles `Unit.compute_expected_kills` buffs under
+    `transient_frfsrf_active` (primary, secondary, and extra ranged profiles).
+    """
+
+    def test_primary_rapid_fire_detected(self) -> None:
+        unit = _MinUnit(_lasgun_block_profile())
+        self.assertTrue(
+            _unit_has_rapid_fire(unit),
+            "rapid_fire=1 on the primary ranged block must be detected",
+        )
+
+    def test_no_rapid_fire_anywhere_returns_false(self) -> None:
+        unit = _MinUnit(_squadron_only_profile("LemanRussNoRF"))
+        self.assertFalse(
+            _unit_has_rapid_fire(unit),
+            "A unit with no Rapid Fire profile anywhere (Leman Russ pattern) "
+            "must return False — FRFSRF would be a no-op on it",
+        )
+
+    def test_secondary_rapid_fire_detected(self) -> None:
+        p = _squadron_only_profile("ChimeraLike")
+        # Simulate a hull weapon with Rapid Fire on the secondary block.
+        object.__setattr__(p, "secondary_rapid_fire", 1)
+        self.assertTrue(
+            _unit_has_rapid_fire(_MinUnit(p)),
+            "rapid_fire on the secondary ranged block must be detected",
+        )
+
+    def test_extra_ranged_profile_rapid_fire_detected(self) -> None:
+        p = _squadron_only_profile("TankWithHullBolters")
+        # extra_ranged_profiles is a tuple of (key, value)-pair tuples.
+        object.__setattr__(
+            p,
+            "extra_ranged_profiles",
+            (
+                (
+                    ("name", "hull heavy bolter"),
+                    ("attacks", 3),
+                    ("rapid_fire", 0),
+                ),
+                (
+                    ("name", "lasgun array"),
+                    ("attacks", 2),
+                    ("rapid_fire", 1),
+                ),
+            ),
+        )
+        self.assertTrue(
+            _unit_has_rapid_fire(_MinUnit(p)),
+            "rapid_fire on ANY extra ranged profile must be detected — "
+            "compute_expected_kills buffs extras too",
+        )
+
+
+class TestFrfsrfRapidFireGate(unittest.TestCase):
+    """`_pick_order_for_target` must never pick First Rank, Fire! Second Rank,
+    Fire! for a unit that carries no Rapid Fire weapon.
+
+    Citation (data/rule_citations.d/astra_militarum.json,
+    `Order.First Rank, Fire! Second Rank, Fire!`): "Improve the Attacks
+    characteristic of Rapid Fire weapons equipped by models in this unit
+    by 1." — the effect touches Rapid Fire weapons exclusively, so on a
+    Leman Russ or Rogal Dorn the Order does literally nothing. Before this
+    gate, the wave-243 pool widening made tanks the highest-priority Order
+    targets (points_cost-weighted) and they burned every slot on the no-op,
+    which is why the keyword fix screened BACKWARDS for Astra Militarum.
+    """
+
+    def test_healthy_tank_without_rapid_fire_gets_take_aim(self) -> None:
+        """A healthy high-ranged-DPA SQUADRON tank with no Rapid Fire weapon
+        must receive Take Aim! (+1 to hit), not FRFSRF.
+        """
+        army = _build_army("Leman Russ Commander", _squadron_only_profile("LR1"))
+        target = army.units[1]
+        order = _pick_order_for_target(target)
+        self.assertNotEqual(
+            order, ORDER_FRFSRF,
+            "FRFSRF must never be picked for a no-Rapid-Fire unit — the codex "
+            "effect buffs Rapid Fire weapons exclusively (no-op on a tank)",
+        )
+        self.assertEqual(
+            order, ORDER_TAKE_AIM,
+            f"A healthy no-Rapid-Fire tank must fall through to Take Aim!; "
+            f"got {order!r}",
+        )
+
+    def test_healthy_lasgun_block_still_gets_frfsrf(self) -> None:
+        """A healthy Lasgun block (rapid_fire=1, real ranged DPA) must still
+        receive FRFSRF — the gate must not break the canonical use case.
+        """
+        army = _build_army("Ursula Creed", _lasgun_block_profile("Cadians"))
+        target = army.units[1]
+        order = _pick_order_for_target(target)
+        self.assertEqual(
+            order, ORDER_FRFSRF,
+            f"A healthy Rapid Fire Lasgun block is the canonical FRFSRF target; "
+            f"got {order!r}",
+        )
+
+    def test_damaged_unit_still_prefers_take_cover(self) -> None:
+        """Precedence guard: the damage branch (>20% HP lost) outranks the
+        Rapid Fire gate — a damaged Lasgun block takes Take Cover!.
+        """
+        army = _build_army("Ursula Creed", _lasgun_block_profile("MauledCadians"))
+        target = army.units[1]
+        target.current_health = target.profile.health * 0.5
+        order = _pick_order_for_target(target)
+        self.assertEqual(
+            order, ORDER_TAKE_COVER,
+            f"A damaged unit must take Take Cover! regardless of Rapid Fire; "
+            f"got {order!r}",
+        )
+
+    def test_dispatch_issues_take_aim_not_frfsrf_to_tanks(self) -> None:
+        """End-to-end: Leman Russ Commander ordering SQUADRON tanks must issue
+        Take Aim! to every one of them, never FRFSRF.
+        """
+        army = _build_army(
+            "Leman Russ Commander",
+            _squadron_only_profile("LR1"),
+            _squadron_only_profile("LR2"),
+        )
+        issued = dispatch_orders(army, battleshocked_uids=set())
+        self.assertEqual(
+            len(issued), 2,
+            f"Leman Russ Commander must still issue 2 Orders; got {issued}",
+        )
+        for _officer, target_name, order in issued:
+            self.assertEqual(
+                order, ORDER_TAKE_AIM,
+                f"Order to no-Rapid-Fire tank {target_name!r} must be Take Aim!; "
+                f"got {order!r}",
+            )
 
 
 if __name__ == "__main__":
