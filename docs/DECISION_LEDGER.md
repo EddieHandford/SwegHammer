@@ -54,6 +54,7 @@ first.
 - Fresh standing anchor at ZERO eval cost — wave 239: the Acts-of-Faith ON arm promoted to `data/_anchor_sc7d_n80_log.json` (gated 5.85, raw 8.81, 5/22 in band) because its config equals the new production default exactly; anchor-promotion-not-re-run is the standing pattern when a measured arm becomes the default.
 
 ## REVERTED / REJECTED (tried, made it worse or proven wrong — do NOT re-attempt)
+- Fight alternation, BOTH variants — variant (a) full-doubling refuted pre-wave-220 (melee-disabled frame, weak evidence) and variant (b) round-scoped once-per-round REJECTED wave 245 on strong evidence: paired N=40 vs the sc10a anchor (18,480 matched games) read gated 6.77 → 7.96 (+1.19), decisive wrong-direction movers World Eaters +5.89 / Imperial Knights +6.58 / Adeptus Custodes +5.41 / Chaos Space Marines +4.62 / Drukhari −6.46. Extra fight activations inflate a melee surface the sim already over-rewards; the melee over-pole is NOT a fight-frequency under-model. Gate + code path deleted at wave-245 close per the housekeeping prevention rule.
 - Dark Pacts coverage experiment — wave 209, REVERTED. The Chaos Space Marines under-output is NOT Dark-Pacts-coverage.
 - Candidate A clustering-geometry positional fix — wave 94, REGRESSED 4.15 → 4.30 (helped over-shooters that already hold markers, not Imperial Knights / Daemons), reverted. See [[project-matchup-fidelity-diagnosis]].
 - Squad-activation contained decision-overlay — wave 64-65, WASH (9.27 → 9.30); only the spillover half landed. See [[project-squad-activation-contained-wash]].
@@ -61,6 +62,8 @@ first.
 - Anti-tank strength / squad-size maxing — wave 190, made Imperial Knights WORSE; the "kill the Knight harder" axis is exhausted.
 - Fab band-aid on thin archetypes — dropping fabrications from under-performers WORSENS mean absolute error (they were compensating for archetype thinness). See [[project-fab-bandaid-on-thin-archetypes]].
 - Primary-mission rotation as the over-pole lever — wave 187, REFUTED.
+
+- Drukhari Ravager count 1 → 3 (wave-245 diagnostic candidate) — REJECTED unbuilt: the diagnostic agent's "real triple-Ravager meta" claim is unsourced and CONTRADICTS the template's documented composition (`code/archetypes.py` DRK-ARCH-1 comment: Warp Friends ~848-game Skysplinter lists run 3 Raiders + 1 Venom + 1 Ravager). Raising it to chase the win rate = forbidden metric-tuning. The list is faithful; the Drukhari under-residual is sim fidelity — see the Power from Pain open lever.
 
 ## PARKED (not pursued now; needs NEW information to reopen — the line says what would reopen it)
 - Displacement Stage 2 swarm charge-to-contest (`SWEG_DISPLACE_SWARM`, default-OFF) — wave 238/239 N=80 paired A/B vs the 5.83 anchor: +0.07 WASH MISSING ITS TARGET (Adeptus Custodes −0.05 flat, Imperial Knights +0.83 wrong-direction; ~100 body-army flips = fires-but-churns). Code + tests kept (`724252e`); reopen for a paired re-test after a body-army composition change (e.g. the Chaos Space Marines real-list archetype reshape). See [[project-displacement-greenlit]].
