@@ -6615,16 +6615,21 @@ class Battle:
 
         APPROXIMATION: per-datasheet Pain abilities are not catalogued in
         SwegHammer. The simulator collapses Empowering to granting
-        `transient_lethal_hits` on the selected unit for the activation.
-        This captures the offensive uplift direction while deferring
+        `transient_lethal_hits` on the selected unit for the ROUND (the
+        codex scope is "until the end of the phase"; the round-scoped
+        transient flag — set after `_clear_transient_stratagem_flags`,
+        wiped at the next round start — is the same phase-to-round
+        collapse the World Eaters Blood Tithe 4-BT spend uses). This
+        captures the offensive uplift direction while deferring
         per-ability accuracy to future work. Cited as
         `simulator.power_from_pain`.
 
         AI heuristic: greedy — each round spend 1 token on the highest-DPA
         alive Drukhari unit (mirrors the Dark Pacts single-elect model).
-        Dedup per codex unit per phase via the `_unit_budget_used` mechanism
-        keyed on squad_id (squad_id >= 0) or profile.name (fallback), so an
-        Attached/multi-instance squad spends ONCE. Gate: SWEG_PAIN_TOKENS.
+        Dedup per codex unit per ROUND via the `_unit_budget_used` mechanism
+        (reset each round at round start) keyed on squad_id (squad_id >= 0)
+        or profile.name (fallback), so an Attached/multi-instance squad
+        spends ONCE. Gate: SWEG_PAIN_TOKENS.
         """
         if os.environ.get("SWEG_PAIN_TOKENS", "0") == "0":
             return

@@ -272,9 +272,10 @@ class Army:
         # time an enemy unit is destroyed, and 1 each time an enemy unit fails
         # a Battle-shock test. Spent 1-at-a-time when a Drukhari unit is
         # selected to shoot or fight — granting that unit Lethal Hits for the
-        # activation (APPROXIMATION: the codex Empowers unit-specific Pain
-        # abilities; the simulator collapses this to the universally-applicable
-        # transient_lethal_hits grant per activation). Stays 0 on a non-Drukhari
+        # round (APPROXIMATION: the codex Empowers unit-specific Pain
+        # abilities until the end of the phase; the simulator collapses this
+        # to the universally-applicable round-scoped transient_lethal_hits
+        # grant, the same collapse Blood Tithe uses). Stays 0 on a non-Drukhari
         # army (the spend gate checks faction tag before running). Cited as
         # `simulator.power_from_pain`. BSData source:
         # data/bsdata/cache/Aeldari - Aeldari Library.cat.gz, rule id 5e02-2ddc-f55-e6dd.
