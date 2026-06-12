@@ -1388,12 +1388,14 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
 
 _AM_OFFICER_FOLLOW_GATE: bool = os.environ.get("SWEG_OFFICER_FOLLOW", "1") == "1"
 
-# Wave-245 screen gate: extend Lord Solar's stay-near coverage to include the
-# five SQUADRON artillery/tank catalog keys so the officer-follow hook can pull
-# him toward unordered SQUADRON vehicles when infantry hosts are already
-# covered.  Default-off ("0") preserves byte-identical behaviour to the
-# pre-wave-245 arm.  Controlled by SWEG_SOLAR_SQUADRON.
-_AM_SOLAR_SQUADRON_GATE: bool = os.environ.get("SWEG_SOLAR_SQUADRON", "0") == "1"
+# Wave-245 adopted (default-on, kill-switch retained): extend Lord Solar's
+# stay-near coverage to include the five SQUADRON artillery/tank catalog keys
+# so the officer-follow hook can pull him toward unordered SQUADRON vehicles
+# when infantry hosts are already covered.  Screened wash-keep on fidelity
+# (paired N=40 vs the sc10a anchor: gated 6.77 to 6.75, Astra Militarum
+# +0.68 with 157 flipped games — orders now reach artillery, churn without
+# net direction).  SWEG_SOLAR_SQUADRON=0 restores the pre-wave-245 arm.
+_AM_SOLAR_SQUADRON_GATE: bool = os.environ.get("SWEG_SOLAR_SQUADRON", "1") == "1"
 
 # Lord Solar Leontus has three Orders per round targeting REGIMENT, SQUADRON,
 # and TITANIC units (code/orders.py OFFICER_ORDER_PROFILES).  His seven codex

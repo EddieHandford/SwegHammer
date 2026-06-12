@@ -175,28 +175,38 @@ class TestGateOnRegistry(unittest.TestCase):
         self.assertIn("astra_militarum_kasrkin", ability.host_keys)
 
     def test_lord_solar_leontus_host_keys(self):
+        # Wave-245 flipped SWEG_SOLAR_SQUADRON default-on, which appends five
+        # SQUADRON vehicle keys to this host set. This wave-244 test asserts
+        # the BASE infantry set, so pin the gate off explicitly (unset now
+        # means on). The gate-on superset is asserted by
+        # tests/test_solar_squadron_wave245.py.
         import importlib
         import code.leaders as leaders_mod
-        importlib.reload(leaders_mod)
 
-        registry_dict = dict(leaders_mod._REGISTRY)
-        ability = registry_dict["Lord Solar Leontus"]
-        expected_hosts = {
-            "astra_militarum_attilan_rough_riders",
-            "astra_militarum_cadian_shock_troops",
-            "astra_militarum_catachan_jungle_fighters",
-            "astra_militarum_death_korps_of_krieg",
-            "astra_militarum_death_riders",
-            "astra_militarum_kasrkin",
-            "astra_militarum_krieg_combat_engineers",
-        }
-        actual = set(ability.host_keys)
-        self.assertEqual(
-            actual, expected_hosts,
-            f"Lord Solar Leontus host_keys mismatch.\n"
-            f"  Missing: {expected_hosts - actual}\n"
-            f"  Extra:   {actual - expected_hosts}",
-        )
+        os.environ["SWEG_SOLAR_SQUADRON"] = "0"
+        try:
+            importlib.reload(leaders_mod)
+            registry_dict = dict(leaders_mod._REGISTRY)
+            ability = registry_dict["Lord Solar Leontus"]
+            expected_hosts = {
+                "astra_militarum_attilan_rough_riders",
+                "astra_militarum_cadian_shock_troops",
+                "astra_militarum_catachan_jungle_fighters",
+                "astra_militarum_death_korps_of_krieg",
+                "astra_militarum_death_riders",
+                "astra_militarum_kasrkin",
+                "astra_militarum_krieg_combat_engineers",
+            }
+            actual = set(ability.host_keys)
+            self.assertEqual(
+                actual, expected_hosts,
+                f"Lord Solar Leontus host_keys mismatch.\n"
+                f"  Missing: {expected_hosts - actual}\n"
+                f"  Extra:   {actual - expected_hosts}",
+            )
+        finally:
+            os.environ.pop("SWEG_SOLAR_SQUADRON", None)
+            importlib.reload(leaders_mod)
 
 
 # ---------------------------------------------------------------------------
