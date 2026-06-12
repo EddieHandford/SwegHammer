@@ -148,6 +148,35 @@ merge-ready and roll a fresh branch after it merges, as was done for
 (`data/bsdata/parsed.json` regenerations, archived evaluation logs) do not
 count toward the caps.
 
+## I. Batch screens, single re-anchor — the standing wave shape
+
+User-set (2026-06-12, wave 244). Re-anchors are the expensive runs, so a wave
+batches its levers against one shared baseline and pays for exactly one
+re-anchor at close:
+
+1. **Build every lever gated, default-off.** Subset combinations stay
+   screenable against one baseline without rebasing mid-wave.
+2. **Independent N=40 paired screens, all reusing the wave's single off-arm
+   anchor log** (the reuse-confirmed-frame and no-redundant-runs rules).
+   Screens run serially — the win is fewer expensive runs, not parallel
+   screening; fill the evaluation wall-clock with build and diagnostic agents
+   instead.
+3. **Always run one combined N=40 of the keeper set before flipping** —
+   levers do not compose additively. Wave-244 proof: lever 1 alone crashed
+   Astra Militarum to gated 30.44 (officer dead weight), levers 1+3 together
+   recovered −5.27; an independent-sum read would have wrongly rejected
+   lever 1.
+4. **Flip all adopted defaults together at wave close** (each lever keeps its
+   kill-switch), then run **one N=80 re-anchor on the flipped frame** and
+   promote it as the standing anchor.
+
+**Lever count and pipelining.** Three to five levers per wave, preferring
+file-disjoint levers so build agents do not collide. Build agents for the
+NEXT wave are dispatched inside the current wave's evaluation windows, so the
+serial evaluation queue — the binding constraint — never idles. The
+diagnosis-quality gate stays: do not manufacture shallow levers to fill build
+capacity; a wash still costs a full screen slot.
+
 ## Cleanup routine
 
 Run `python scripts/loop_cleanup.py` at the end of each iter (or whenever
@@ -165,3 +194,52 @@ the system feels heavy). The script:
 Cleanup is opt-in (you run it manually), not a hook. Cleanup that
 silently mutates state breaks the recovery flow when an agent dies
 mid-task.
+
+### Vibe-code housekeeping (standing element, user-directed 2026-06-12)
+
+Beyond the per-iteration script above, the loop carries a standing
+code-hygiene obligation: the debt that accumulates from rapid
+agent-generated work (stale environment gates, dead experiment helpers,
+one-shot diagnostic scripts, unused dependencies) gets paid down on a
+fixed cadence instead of waiting for a dedicated cleanup project.
+
+**Source of truth:** the prioritised checklist in
+`docs/research/vibe_code_cleanup_research.md`. Treat it as a living
+document — when an item completes, annotate it with the date and the
+commit; when new debt classes appear, append them.
+
+**Cadence: one checklist item per branch checkpoint.** When a rolling
+calibration branch hits the size cap and checkpoints (pull request
+marked merge-ready, fresh branch rolled), pick the highest-priority
+unfinished checklist item and execute it on the fresh branch before or
+between the first calibration waves. Low-effort items (audit sweeps,
+archive passes) may additionally run as filler inside evaluation
+windows, the same slot build agents use.
+
+**Rules for cleanup work:**
+
+* Each checklist item is its own small pull request (standing rule 14)
+  — never bundled with calibration levers, so a cleanup regression is
+  trivially bisectable from a behaviour change.
+* Gate retirement follows the lifecycle: force the gate always-on
+  (explicit default at the read site) → let it survive at least one
+  N=80 re-anchor → delete the gate check and the legacy code path
+  together, with a fixed-seed game-log byte-comparison as the
+  behaviour-identity proof. Batches of three to five gates per pull
+  request.
+* Dead-code deletion needs the same byte-identity proof when it touches
+  `code/`; pure `scripts/` archive moves only need the demo battle to
+  exit cleanly.
+
+**Prevention (so the debt stops accumulating):**
+
+* Every new `SWEG_` gate declares its default explicitly at the read
+  site (`os.environ.get("SWEG_X", "0") == "1"`), never the implicit
+  falsy-when-unset pattern — the adoption state must be readable from
+  the code, not reconstructed from memory files.
+* When a screened lever is REJECTED, delete its gate and code path in
+  the same wave-close commit — do not leave it default-off "in case".
+  A parked lever (re-test planned) keeps its gate but gets a comment
+  naming the parking decision and date.
+* Evaluation artifacts older than roughly twenty waves move to
+  `data/archive/`; they never accumulate in `docs/`.

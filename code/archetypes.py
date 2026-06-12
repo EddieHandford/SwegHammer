@@ -1345,6 +1345,142 @@ SEED_FRACTION_BY_FACTION: Dict[str, float] = {
     "Imperial Knights": 0.45,
 }
 
+# Wave 244 (gated SWEG_SEED_LEADERS) — fraction re-derivation under the
+# leader-stack tiebreak. The per-faction fractions above were each derived
+# as "the lowest that realizes the cited dropped core" (wave-174 method)
+# under the old (-count, -cost) walk. With the leader-stack tiebreak on,
+# characters seed ahead of equally-counted heavy support, so the same
+# fraction can no longer guarantee the gate-on seeded set is a superset of
+# the gate-off seeded set.
+#
+# Superset criterion (wave 244 amendment): gate-on seeded set must be a
+# strict superset of gate-off seeded set — no entry that the gate-off walk
+# realizes may be absent from the gate-on walk. Any missing entry is a
+# list-realism regression (the gate-on build loses a documented template
+# entry that the baseline build fielded). The original four entries were
+# derived against a 150-point screening threshold and missed cheaper
+# de-realizations (for example, Adeptus Astartes Apothecary at 50 points
+# displaces the Eradicator Squad at 90 points in the count=1 tier).
+#
+# Each value below is the minimal fraction at which the gate-on
+# deterministic seed walk realizes a superset of the gate-off seeded set
+# (scanned in 0.01 steps at the 2000-point eval budget). Derivation is
+# realized-MATCHES-real, NOT chosen to move win rate. Menu factions
+# (Imperial Knights, Chaos Knights, Chaos Daemons, Emperor's Children,
+# World Eaters, Aeldari) are left alone per the wave-174 rule. Consulted
+# only when the gate is on; fold into SEED_FRACTION_BY_FACTION at
+# default-flip.
+#
+# Fractions where the dict folds into SEED_FRACTION_BY_FACTION (gate-off
+# baseline) are also the fallback for gate-on when no entry is listed
+# here — any faction not listed below had no de-realization at 2000 points
+# and needs no extra headroom.
+#
+# Per-faction table (gate-off effective fraction -> gate-on minimal):
+#   Adeptus Astartes:  0.30 -> 0.31  restores Eradicator Squad (90pt)
+#   Necrons:           0.30 -> 0.34  restores Ghost Ark (115pt)
+#   T'au Empire:       0.55 -> 0.59  restores Devilfish (85pt)
+#   Death Guard:       0.30 -> 0.37  restores Deathshroud Terminators (160pt)
+#   Adeptus Custodes:  0.55 -> 0.58  restores Custodian Guard (160pt) +
+#                                    Prosecutors (40pt)
+#   Leagues of Votann: 0.40 -> 0.48  restores Hernkyn Pioneers (80pt) +
+#                                    Sagitaur (90pt)
+#   Drukhari:          0.30 -> 0.33  restores Ravager (110pt)
+#   Chaos Space Marines: 0.65 -> 0.66  restores Legionaries (90pt)
+#   Astra Militarum:   0.67 -> 0.72  restores Taurox Prime (90pt)
+#                                    (old 0.67 missed this sub-150pt drop)
+#   Adeptus Mechanicus: 0.65 -> 0.73  restores Pteraxii Sterylizors (80pt) +
+#                                    Sicarian Infiltrators (75pt)
+#   Adepta Sororitas:  0.61 -> 0.65  restores Seraphim Squad (80pt)
+#                                    (old 0.61 missed this sub-150pt drop)
+#   Grey Knights:      0.72 -> 0.78  restores Interceptor Squad (125pt)
+#                                    (old 0.72 missed this sub-150pt drop)
+#   Thousand Sons:     0.37 unchanged  already a superset at 0.37
+#   Genestealer Cults: 0.30 -> 0.49  restores Aberrants (135pt) +
+#                                    Achilles Ridgerunners (95pt) +
+#                                    Atalan Jackals (85pt) +
+#                                    Goliath Rockgrinder (120pt)
+SEED_FRACTION_LEADER_STACK: Dict[str, float] = {
+    # Adeptus Astartes: 0.30 -> 0.31; restores Eradicator Squad (90pt)
+    # displaced by the Apothecary CHARACTER tiebreak (50pt).
+    "Adeptus Astartes": 0.31,
+    # Necrons: 0.30 -> 0.34; restores Ghost Ark (115pt) displaced by
+    # the Overlord CHARACTER tiebreak (85pt).
+    "Necrons": 0.34,
+    # T'au Empire: 0.55 -> 0.59; restores Devilfish (85pt) displaced by
+    # the Commander in Enforcer Battlesuit CHARACTER tiebreak (95pt).
+    "T'au Empire": 0.59,
+    # Death Guard: 0.30 -> 0.37; restores Deathshroud Terminators (160pt)
+    # displaced by Foul Blightspawn (75pt) + Typhus (100pt) CHARACTER tiebreaks.
+    "Death Guard": 0.37,
+    # Adeptus Custodes: 0.55 -> 0.58; restores Custodian Guard (160pt) +
+    # Prosecutors (40pt) displaced by Blade Champion (120pt) + Allarus
+    # Custodians (110pt) tiebreaks.
+    "Adeptus Custodes": 0.58,
+    # Leagues of Votann: 0.40 -> 0.48; restores Hernkyn Pioneers (80pt) +
+    # Sagitaur (90pt) displaced by Einhyr Champion (70pt) + Brokhyr Iron
+    # Master (75pt) CHARACTER tiebreaks.
+    "Leagues of Votann": 0.48,
+    # Drukhari: 0.30 -> 0.33; restores Ravager (110pt) displaced by
+    # Archon CHARACTER tiebreak (80pt).
+    "Drukhari": 0.33,
+    # Chaos Space Marines: 0.65 -> 0.66; restores Legionaries (90pt)
+    # displaced by Dark Apostle CHARACTER tiebreak (65pt).
+    "Chaos Space Marines": 0.66,
+    # Astra Militarum: 0.67 -> 0.72; restores Taurox Prime (90pt)
+    # displaced by Cadian Command Squad (65pt) + Ursula Creed (85pt) +
+    # Lord Solar Leontus (130pt) CHARACTER tiebreaks. Old value 0.67
+    # restored the 150pt+ heavy core but missed this sub-150pt entry.
+    "Astra Militarum": 0.72,
+    # Adeptus Mechanicus: 0.65 -> 0.73; restores Pteraxii Sterylizors
+    # (80pt) + Sicarian Infiltrators (75pt) displaced by Skitarii Marshal
+    # (35pt) + Tech-Priest Manipulus (60pt) + Tech-Priest Dominus (65pt)
+    # CHARACTER tiebreaks.
+    "Adeptus Mechanicus": 0.73,
+    # Adepta Sororitas: 0.61 -> 0.65; restores Seraphim Squad (80pt)
+    # displaced by Canoness (60pt) + Palatine (50pt) + Junith Eruita (80pt)
+    # CHARACTER tiebreaks. Old value 0.61 restored the Castigator but
+    # missed this sub-150pt entry.
+    "Adepta Sororitas": 0.65,
+    # Grey Knights: 0.72 -> 0.78; restores Interceptor Squad (125pt)
+    # displaced by five CHARACTER tiebreaks (Brother Captain 90pt,
+    # Brotherhood Chaplain 65pt, Brotherhood Librarian 80pt, Brotherhood
+    # Champion 70pt, Grand Master 95pt) + Venerable Dreadnought (140pt).
+    # Old value 0.72 restored the Nemesis Dreadknight + Land Raider but
+    # missed this sub-150pt entry.
+    "Grey Knights": 0.78,
+    # Thousand Sons: 0.37 unchanged; gate-on seeded set is already a
+    # superset of gate-off seeded set at 0.37 (Mutalith Vortex Beast +
+    # Rubric Marines + Scarab Occult Terminators all realized).
+    "Thousand Sons": 0.37,
+    # Genestealer Cults: 0.30 -> 0.49; restores Aberrants (135pt) +
+    # Achilles Ridgerunners (95pt) + Atalan Jackals (85pt) + Goliath
+    # Rockgrinder (120pt) displaced by six CHARACTER tiebreaks (Patriarch
+    # 75pt, Primus 70pt, Clamavus 50pt, Jackal Alphus 55pt, Kelermorph
+    # 60pt, Sanctus 50pt).
+    "Genestealer Cults": 0.49,
+}
+
+# Menu factions: the template is deliberately an oversized menu of big
+# single-count options (partial realization is the design), so the
+# CHARACTER-priority tiebreak has no leader-stack rationale there and the
+# wave-174 rule forbids seed-fraction tuning for them. Measured wave 244:
+# the un-scoped tiebreak DE-realized faithful menu entries (Aeldari Fire
+# Dragons, Emperor's Children Daemonettes, Chaos Daemons Flesh Hounds /
+# Beasts of Nurgle / Slaanesh Soul Grinder) with no permitted fraction fix,
+# while Imperial Knights / World Eaters builds were byte-identical either
+# way (seed budget exhausts before the tiebreak reaches a live choice).
+# Scoping the gate to non-menu factions keeps every menu build identical
+# to the gate-off walk.
+MENU_FACTIONS = frozenset({
+    "Imperial Knights",
+    "Chaos Knights",
+    "Chaos Daemons",
+    "Emperor's Children",
+    "World Eaters",
+    "Aeldari",
+})
+
 
 def _instantiate_template(
     template: Dict[str, int],
@@ -1376,7 +1512,25 @@ def _instantiate_template(
     if not template or points_budget <= 0:
         return {}
 
+    # Wave 244 leader-stack gate — read once, consulted by the sort-key
+    # tiebreak, the EPIC HERO anchor trigger, and the fraction override
+    # below (all three move together as one gated lever). Scoped to
+    # non-menu factions (see MENU_FACTIONS): menu builds stay identical to
+    # the gate-off walk because the tiebreak de-realized faithful menu
+    # entries with no permitted fraction fix. Default ON since the
+    # wave-244 adoption; SWEG_SEED_LEADERS=0 is the kill-switch (the
+    # fraction dict stays separate from SEED_FRACTION_BY_FACTION for
+    # exactly this reason — fold only when the gate is removed).
+    _leader_stack_priority = (
+        os.environ.get("SWEG_SEED_LEADERS", "1") == "1"
+        and (faction or "") not in MENU_FACTIONS
+    )
+
     seed_fraction = SEED_FRACTION_BY_FACTION.get(faction or "", SEED_FRACTION)
+    if _leader_stack_priority:
+        seed_fraction = SEED_FRACTION_LEADER_STACK.get(
+            faction or "", seed_fraction
+        )
     seed_budget = points_budget * seed_fraction
 
     # DAEMONS-FIX-1 — Chaos Daemons mono-god Greater Daemon anchor.
@@ -1438,7 +1592,37 @@ def _instantiate_template(
     # We instantiate exactly one squad per template entry here — extra
     # copies past 1 are left to `_random_fill`, which keeps the seeded
     # slice tight and lets the random topup handle distribution.
+    #
+    # Wave 244 — leader-stack priority (gated SWEG_SEED_LEADERS, default
+    # ON since the wave-244 adoption; =0 is the kill-switch). Within the
+    # SAME template count,
+    # CHARACTER entries seed before non-CHARACTER entries. Motivating
+    # failure (wave-243 orders diagnostic): the Astra Militarum Combined
+    # Arms template documents a three-officer leader stack (Cadian
+    # Castellan / Ursula Creed / Lord Solar Leontus — the cited real
+    # May-2026 composition), but the (-count, -cost) walk spends the
+    # 1100-point seed slice on the tank spine (running 1095), skips
+    # Leontus (130) and Creed (85), and the CHARACTER anchor below
+    # rescues only the cheapest officer (Castellan, 55) — the built army
+    # issues ~2 Orders a round against a template intent of ~8. Real
+    # tournament lists fix their character stack FIRST and scale the
+    # rest; encoding that as a TIEBREAK (not a pre-pass) keeps multi-copy
+    # spine entries (Rubric Marines at count=2) seeding ahead of
+    # characters, preserving small-budget anchor behaviour. List-realism
+    # fidelity (wave-174/175 precedent), not win-rate tuning.
+    def _is_character_key(key: str) -> bool:
+        profile = UNIT_CATALOG.get(key)
+        if profile is None:
+            return False
+        return "CHARACTER" in (profile.unit_keywords or ())
+
     def sort_key(key: str):
+        if _leader_stack_priority:
+            return (
+                -template.get(key, 0),
+                0 if _is_character_key(key) else 1,
+                -_squad_cost(key),
+            )
         return (-template.get(key, 0), -_squad_cost(key))
 
     for key in sorted(template, key=sort_key):
@@ -1476,8 +1660,26 @@ def _instantiate_template(
             return False
         return "EPIC HERO" in (profile.unit_keywords or ())
 
+    # Wave 244 (gated SWEG_SEED_LEADERS): the leader-stack tiebreak above
+    # exposes a hole in this anchor's trigger. With characters seeding
+    # first within the same template count, a CHEAP epic-hero character
+    # (Death Guard Typhus, 100pt) now lands in the regular walk, the
+    # "no epic hero seeded" condition is satisfied, and the FLAGSHIP
+    # (Mortarion, 380pt) is silently dropped — exactly the failure this
+    # anchor's comment warns about. Under the gate, fire the anchor
+    # whenever the flagship (most expensive template EPIC HERO) itself is
+    # unseeded, not merely when zero epic heroes are seeded. Un-gated
+    # behaviour is unchanged (the A/B OFF arm must stay byte-identical).
     epic_hero_keys = [k for k in template if _is_epic_hero_key(k)]
-    if epic_hero_keys and not any(k in scaled for k in epic_hero_keys):
+    if _leader_stack_priority:
+        _eh_anchor_needed = bool(epic_hero_keys) and (
+            max(epic_hero_keys, key=_squad_cost) not in scaled
+        )
+    else:
+        _eh_anchor_needed = bool(epic_hero_keys) and not any(
+            k in scaled for k in epic_hero_keys
+        )
+    if _eh_anchor_needed:
         # Pick the MOST EXPENSIVE template EPIC HERO as the centerpiece —
         # the priciest EPIC HERO is the archetype's flagship (Death Guard
         # Mortarion at 380pt over Typhus at 100pt). Falling back to the
@@ -1506,16 +1708,11 @@ def _instantiate_template(
     # CHARACTER in even if it overflows `seed_budget` slightly. The
     # overflow is bounded by `1.5 * seed_budget` so we don't blow past the
     # random_fill headroom at small budgets. Faction-neutral — any
-    # template entry with the CHARACTER keyword qualifies.
-    def _has_character(key: str) -> bool:
-        profile = UNIT_CATALOG.get(key)
-        if profile is None:
-            return False
-        return "CHARACTER" in (profile.unit_keywords or ())
-
-    any_char_seeded = any(_has_character(k) for k in scaled)
+    # template entry with the CHARACTER keyword qualifies (predicate
+    # `_is_character_key` shared with the wave-244 leader-stack tiebreak).
+    any_char_seeded = any(_is_character_key(k) for k in scaled)
     if not any_char_seeded:
-        char_keys = [k for k in template if _has_character(k)]
+        char_keys = [k for k in template if _is_character_key(k)]
         if char_keys:
             # Cheapest CHARACTER first so the overflow is minimal.
             cheapest_char = min(char_keys, key=_squad_cost)

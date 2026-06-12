@@ -1353,6 +1353,97 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("leagues_of_votann_hearthkyn_warriors",))),
 )
 
+# ---------------------------------------------------------------------------
+# Astra Militarum officer leader-attachment registry entries
+# (gated SWEG_OFFICER_FOLLOW, default-on since the wave-244 adoption;
+# SWEG_OFFICER_FOLLOW=0 is the kill-switch)
+#
+# Four officers whose Leader datasheets specify legal bodyguard hosts. These
+# entries serve a STRUCTURAL purpose only under the current schema: the
+# LeaderAbility fields carry no offensive/defensive aura (the real codex
+# abilities are Order-economy and unit-buff mechanics that do not map onto
+# existing LeaderAbility flag fields), so the simulator's `effective_buffs`
+# merge will see them as zero-contribution — the actual tactical benefit
+# comes entirely from the Half-B stay-near piloting hook (pick_move_intent,
+# code/strategy.py) which keeps officers inside their 6" Order-issuance band.
+#
+# When the gate is on (the default) these entries append to _REGISTRY,
+# making `lookup_ability` resolve each officer name and enabling the
+# host_keys gate in `is_actually_led`. SWEG_OFFICER_FOLLOW=0 leaves
+# _REGISTRY unchanged, behaviour byte-identical to the pre-wave-244 arm.
+#
+# BSData verbatim attach targets (Library cat.gz, cross-checked):
+#   Cadian Castellan  (id 2b49-4d03-aaf5-3532): Cadian Shock Troops, Kasrkin
+#   Cadian Command Squad (id 4d28-f2a7-67c1-eb2e): Cadian Shock Troops
+#   Ursula Creed       (id b6b2-9971-ec0c-349e): Cadian Shock Troops, Kasrkin
+#   Lord Solar Leontus (id a9d-55c1-3d24-fa25):
+#       Attilan Rough Riders, Cadian Shock Troops, Catachan Jungle Fighters,
+#       Death Korps of Krieg, Death Riders, Kasrkin, Krieg Combat Engineers
+#       (all seven host keys confirmed present in data/bsdata/parsed.json —
+#       rule 13 key-verification performed before listing)
+#
+# Cited as LeaderAbility.<Officer>.leader_attachment in
+# data/rule_citations.d/astra_militarum.json.
+# ---------------------------------------------------------------------------
+
+_AM_OFFICER_FOLLOW_GATE: bool = os.environ.get("SWEG_OFFICER_FOLLOW", "1") == "1"
+
+# These entries fold into the unconditional _REGISTRY when the gate itself is
+# removed at a future wave. Until then they are appended only when the gate is
+# on (the default), keeping SWEG_OFFICER_FOLLOW=0 as a working kill-switch.
+_AM_OFFICER_REGISTRY_ENTRIES: Tuple[Tuple[str, LeaderAbility], ...] = (
+    # Cadian Castellan — "Senior Officer" ability (BSData id 2b49-4d03-aaf5-3532).
+    # BSData verbatim: "While this model is leading a unit, ranged weapons
+    # equipped by models in that unit have the [SUSTAINED HITS 1] ability."
+    # The [SUSTAINED HITS 1] grant is not expressible through the current
+    # LeaderAbility aura schema (no sustained_hits_ranged field on the
+    # dataclass). The entry is structural only — host_keys registers the
+    # legal hosts so lookup_ability resolves cleanly per CLAUDE.md §13 and
+    # the pick_move_intent officer-follow hook can identify the nearest host.
+    # Cited as LeaderAbility.Cadian Castellan.leader_attachment.
+    ("Cadian Castellan",     LeaderAbility(name="Senior Officer",              aura_range=6.0,
+                                            host_keys=("astra_militarum_cadian_shock_troops",
+                                                       "astra_militarum_kasrkin"))),
+    # Cadian Command Squad — "Cadia Stands!" ability (BSData id 4d28-f2a7-67c1-eb2e).
+    # BSData verbatim Leader text: "This model can be attached to the following
+    # unit: Cadian Shock Troops". The Cadia Stands! ability grants Benefit of
+    # Cover against ranged attacks while on a controlled objective — a defensive
+    # once-per-attack gate with no existing LeaderAbility proxy. Structural only.
+    # Cited as LeaderAbility.Cadian Command Squad.leader_attachment.
+    ("Cadian Command Squad",  LeaderAbility(name="Cadia Stands!",              aura_range=6.0,
+                                            host_keys=("astra_militarum_cadian_shock_troops",))),
+    # Ursula Creed — "Lord Castellan" ability (BSData id b6b2-9971-ec0c-349e).
+    # BSData verbatim: "While this model is leading a unit, that unit can be
+    # affected by up to two different Orders at the same time." The double-Order
+    # stacking mechanic is not modelled (the Order dispatcher's no-stack guard
+    # does not yet expose a per-unit exception slot). Structural only.
+    # Cited as LeaderAbility.Ursula Creed.leader_attachment.
+    ("Ursula Creed",          LeaderAbility(name="Lord Castellan",             aura_range=6.0,
+                                            host_keys=("astra_militarum_cadian_shock_troops",
+                                                       "astra_militarum_kasrkin"))),
+    # Lord Solar Leontus — "The Lord Solar" / CP-drip ability (BSData id a9d-55c1-3d24-fa25).
+    # BSData verbatim: "At the start of your Command phase, if this model is on
+    # the battlefield, you gain 1 CP." Modelled as cp_discount_per_round=1 which
+    # is the closest existing LeaderAbility field for a per-round CP gain.
+    # MOUNTED keyword (Move 12") — routes through pick_move_intent exactly like
+    # other officers; no MOUNTED-specific movement gate exists in the hook, so
+    # Leontus is subject to the same officer-follow pull as INFANTRY officers.
+    # Seven hosts confirmed present in data/bsdata/parsed.json (rule 13 check).
+    # Cited as LeaderAbility.Lord Solar Leontus.leader_attachment.
+    ("Lord Solar Leontus",    LeaderAbility(name="The Lord Solar",             aura_range=6.0,
+                                            cp_discount_per_round=1,
+                                            host_keys=("astra_militarum_attilan_rough_riders",
+                                                       "astra_militarum_cadian_shock_troops",
+                                                       "astra_militarum_catachan_jungle_fighters",
+                                                       "astra_militarum_death_korps_of_krieg",
+                                                       "astra_militarum_death_riders",
+                                                       "astra_militarum_kasrkin",
+                                                       "astra_militarum_krieg_combat_engineers"))),
+)
+
+if _AM_OFFICER_FOLLOW_GATE:
+    _REGISTRY = _REGISTRY + _AM_OFFICER_REGISTRY_ENTRIES
+
 
 def warlord_ability(army: "Army") -> Optional[LeaderAbility]:
     """Return the LeaderAbility of this army's Warlord, if any.

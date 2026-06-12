@@ -2703,6 +2703,87 @@ def _m4_cluster_intent(unit, own_oc, enemy_alive, objectives, map_):
     return slot, _CAPTURE_INTENT
 
 
+def _maybe_officer_follow(
+    unit, friendly,
+) -> Optional[Tuple[float, float]]:
+    """
+    SWEG_OFFICER_FOLLOW stay-near hook (wave 244, lever 3).
+
+    Returns the move-target position toward the nearest eligible host-key
+    squad when the following conditions are ALL true:
+
+      1. The moving unit is an Astra Militarum OFFICER (name is in
+         AM_OFFICER_NAMES from code/orders.py).
+      2. The nearest friendly host-key squad (i.e. a unit whose catalogue
+         key appears in the officer's LeaderAbility.host_keys) is more than
+         OFFICER_AURA_RANGE (6.0") away.
+
+    Returns None when any condition fails (not an officer, no host key
+    squad alive, or already within aura range — the normal intent logic
+    continues in that case).
+
+    Implementation notes:
+      - Lazy imports (orders.OFFICER_AURA_RANGE, orders.AM_OFFICER_NAMES,
+        leaders.lookup_ability, leaders._name_to_catalog_keys) mirror the
+        pattern at strategy.py:652 to avoid a module-level circular import.
+      - Cadian Command Squad is a 5-model squad. We measure to the centroid
+        of the squad (mean of all alive model positions belonging to the same
+        squad_id group) rather than a single arbitrary model position.
+      - squad_id == unit.squad_id for every model that belongs to the same
+        codex unit; we group by squad_id and average positions.
+      - The officer itself may have squad_id < 0 (lone deploy); we exclude
+        it from the squad centroid calculation.
+    """
+    try:
+        from .orders import AM_OFFICER_NAMES, OFFICER_AURA_RANGE
+        from .leaders import _name_to_catalog_keys, lookup_ability
+    except Exception:
+        return None
+
+    officer_name = getattr(getattr(unit, "profile", None), "name", None)
+    if officer_name not in AM_OFFICER_NAMES:
+        return None
+
+    ability = lookup_ability(officer_name)
+    if ability is None or not ability.host_keys:
+        return None
+    host_keys_set = frozenset(ability.host_keys)
+
+    # Collect alive friendly units (excluding the officer itself) and
+    # map each to its catalogue keys to identify host-eligible squads.
+    # Group models by squad_id so multi-model squads get a centroid position
+    # rather than measuring to one arbitrary model.
+    from collections import defaultdict
+    squad_positions: dict = defaultdict(list)
+    squad_to_host_match: dict = {}  # squad_id -> True when any model matches host
+
+    friendly_alive = [u for u in friendly.units if u.is_alive and u is not unit]
+    for u in friendly_alive:
+        keys = _name_to_catalog_keys(getattr(getattr(u, "profile", None), "name", "") or "")
+        if keys and host_keys_set.intersection(keys):
+            sid = getattr(u, "squad_id", id(u))
+            squad_positions[sid].append(u.position)
+            squad_to_host_match[sid] = True
+
+    if not squad_positions:
+        return None  # no eligible host squads alive
+
+    # Compute centroid for each host squad; find the nearest to the officer.
+    def _centroid(positions):
+        xs = [p[0] for p in positions]
+        ys = [p[1] for p in positions]
+        return (sum(xs) / len(xs), sum(ys) / len(ys))
+
+    nearest_pos = min(
+        (_centroid(positions) for positions in squad_positions.values()),
+        key=lambda pos: _dist(unit.position, pos),
+    )
+    if _dist(unit.position, nearest_pos) <= OFFICER_AURA_RANGE:
+        return None  # already within aura range — no pull needed
+
+    return nearest_pos
+
+
 def pick_move_intent(
     unit, friendly, enemy, map_, army_plan: Optional[str] = None,
     _phase_their_oc: Optional[Dict] = None,
@@ -2905,6 +2986,28 @@ def pick_move_intent(
         if counter_uid is not None and target.uid == counter_uid:
             s *= 1.5
         return s
+
+    # ----- SWEG_OFFICER_FOLLOW: Astra Militarum officer stay-near hook -----
+    # Officers that drift more than OFFICER_AURA_RANGE (6") from their host
+    # squad issue zero Orders past round 2. This hook pulls them back before
+    # any other intent fires. Gate: SWEG_OFFICER_FOLLOW (default-on since
+    # the wave-244 adoption; =0 is the kill-switch and restores the
+    # pre-wave-244 arm byte-identically — no change to any non-AM unit).
+    #
+    # Placement: BEFORE the MELEE early-exit so even a MELEE-classed officer
+    # (should be rare for AM CHARACTERs) uses the follow path when far from
+    # its host. The hook returns a move intent (squad centroid / closest model)
+    # tagged "officer_follow"; the MELEE path handles all non-officer MELEE
+    # units immediately below.
+    #
+    # Lord Solar Leontus is MOUNTED (Move 12") but has no MOUNTED-specific
+    # movement constraint in pick_move_intent — the hook fires identically.
+    # Cited as simulator.officer_follow_piloting in
+    # data/rule_citations.d/astra_militarum.json.
+    if __import__("os").environ.get("SWEG_OFFICER_FOLLOW", "1") == "1":
+        _officer_intent = _maybe_officer_follow(unit, friendly)
+        if _officer_intent is not None:
+            return _officer_intent, "officer_follow"
 
     # MELEE closes on the BEST melee target (the gunline / battlesuit /
     # support character whose squishy melee profile we can crack open),

@@ -1,7 +1,9 @@
 """Tests for code/archetypes.py — curated tournament list templates."""
 
+import os
 import random
 import unittest
+from unittest import mock
 
 from code.archetypes import (
     ARCHETYPES,
@@ -156,6 +158,244 @@ class ArchetypeAnchorSeedingTests(unittest.TestCase):
                 f"seed={seed}: Aeldari archetype missing Phoenix Lord anchors "
                 f"(expected both of {anchor_names}), got {sorted(names)}",
             )
+
+
+class LeaderStackPriorityTests(unittest.TestCase):
+    """Wave 244 — gated SWEG_SEED_LEADERS leader-stack seed priority.
+
+    Within the same template count, CHARACTER entries seed before
+    non-CHARACTER entries, so a template's documented character stack is
+    realized instead of losing the (-count, -cost) walk to the vehicle
+    spine. Motivating case: the Astra Militarum Combined Arms template
+    carries a three-officer leader stack (Cadian Castellan / Ursula Creed /
+    Lord Solar Leontus) that the un-gated walk drops to one (the cheapest,
+    rescued by the CHARACTER anchor).
+    """
+
+    AM_TEMPLATE = ARCHETYPES["Astra Militarum"]["Combined Arms"]
+    AM_OFFICER_KEYS = (
+        "astra_militarum_cadian_castellan",
+        "astra_militarum_ursula_creed",
+        "astra_militarum_lord_solar_leontus",
+        "astra_militarum_cadian_command_squad",
+    )
+
+    def test_gate_off_drops_creed_and_leontus(self):
+        """With the gate pinned off (SWEG_SEED_LEADERS=0 — since the
+        wave-244 default flip an unset environment means gate-ON), the seed
+        walk keeps only the cheapest officer — pins the wave-243 diagnostic
+        so this test fails loudly if the kill-switch arm ever shifts."""
+        from code.archetypes import _instantiate_template
+
+        with mock.patch.dict(os.environ, {"SWEG_SEED_LEADERS": "0"}):
+            scaled = _instantiate_template(
+                dict(self.AM_TEMPLATE), 2000.0, random.Random(0),
+                faction="Astra Militarum",
+            )
+        self.assertIn("astra_militarum_cadian_castellan", scaled)
+        self.assertNotIn("astra_militarum_ursula_creed", scaled)
+        self.assertNotIn("astra_militarum_lord_solar_leontus", scaled)
+
+    def test_gate_on_seeds_full_officer_stack(self):
+        """With the gate, all four template CHARACTERs (three officers plus
+        the Cadian Command Squad) are seeded at the 2000-point eval budget."""
+        from code.archetypes import _instantiate_template
+
+        with mock.patch.dict(os.environ, {"SWEG_SEED_LEADERS": "1"}):
+            scaled = _instantiate_template(
+                dict(self.AM_TEMPLATE), 2000.0, random.Random(0),
+                faction="Astra Militarum",
+            )
+        for key in self.AM_OFFICER_KEYS:
+            self.assertIn(key, scaled, f"officer {key} missing from seed")
+
+    def test_gate_on_preserves_multicopy_spine_priority(self):
+        """The tiebreak must NOT outrank template count: Thousand Sons
+        Rubric Marines (count=2 spine) still seed at the tight 1000-point
+        budget with the gate on — characters only jump equally-counted
+        non-characters."""
+        rubric_name = UNIT_CATALOG["thousand_sons_rubric_marines"].name
+        with mock.patch.dict(os.environ, {"SWEG_SEED_LEADERS": "1"}):
+            for seed in range(5):
+                rng = random.Random(seed)
+                army = build_faction_random_army(
+                    "T", "Thousand Sons", 1000.0, rng=rng, use_archetype=True,
+                )
+                names = {u.profile.name for u in army.units}
+                self.assertIn(
+                    rubric_name, names,
+                    f"seed={seed}: Rubric Marines dropped with gate on",
+                )
+
+    def test_gate_on_flagship_epic_hero_still_anchored(self):
+        """The tiebreak seeds Typhus (a cheap epic-hero CHARACTER) in the
+        regular walk; the EPIC HERO anchor must still force-seed the
+        flagship (Mortarion, the most expensive template epic hero) rather
+        than being satisfied by Typhus — the exact failure the anchor's
+        comment warns against."""
+        from code.archetypes import _instantiate_template
+
+        dg_template = ARCHETYPES["Death Guard"]["Virulent Vectorium"]
+        with mock.patch.dict(os.environ, {"SWEG_SEED_LEADERS": "1"}):
+            scaled = _instantiate_template(
+                dict(dg_template), 2000.0, random.Random(0),
+                faction="Death Guard",
+            )
+        self.assertIn("death_guard_mortarion", scaled)
+        self.assertIn("death_guard_typhus", scaled)
+
+    def test_gate_on_fraction_override_realizes_heavy_core(self):
+        """SEED_FRACTION_LEADER_STACK must restore the heavy half of the
+        cited core that the tiebreak squeezes out at the old fraction —
+        Grey Knights Nemesis Dreadknight and Land Raider at 0.72."""
+        from code.archetypes import _instantiate_template
+
+        gk_template = ARCHETYPES["Grey Knights"]["Teleport Strike Force"]
+        with mock.patch.dict(os.environ, {"SWEG_SEED_LEADERS": "1"}):
+            scaled = _instantiate_template(
+                dict(gk_template), 2000.0, random.Random(0),
+                faction="Grey Knights",
+            )
+        self.assertIn("grey_knights_nemesis_dreadknight", scaled)
+        self.assertIn("grey_knights_land_raider", scaled)
+
+    def test_gate_on_am_end_to_end_build_carries_officers(self):
+        """Full army build at 2000 points with the gate on carries the three
+        named officers (not just the instantiate step)."""
+        officer_names = {
+            UNIT_CATALOG[k].name
+            for k in (
+                "astra_militarum_cadian_castellan",
+                "astra_militarum_ursula_creed",
+                "astra_militarum_lord_solar_leontus",
+            )
+        }
+        with mock.patch.dict(os.environ, {"SWEG_SEED_LEADERS": "1"}):
+            for seed in range(3):
+                rng = random.Random(seed)
+                army = build_faction_random_army(
+                    "A", "Astra Militarum", 2000.0, rng=rng, use_archetype=True,
+                )
+                names = {u.profile.name for u in army.units}
+                self.assertEqual(
+                    names & officer_names, officer_names,
+                    f"seed={seed}: built army missing officers "
+                    f"(expected {officer_names}), got {sorted(names)}",
+                )
+
+
+class SeedFractionSupersetTests(unittest.TestCase):
+    """Wave 244 amendment — gate-on seeded set must be a superset of gate-off.
+
+    The leader-stack tiebreak (SWEG_SEED_LEADERS=1) seeds CHARACTER entries
+    ahead of non-CHARACTER entries within the same template count, so a lower
+    fraction can lose non-CHARACTER entries the gate-off walk would have
+    realized. SEED_FRACTION_LEADER_STACK was re-derived at threshold zero
+    (not the previous 150-point threshold) to guarantee the superset
+    invariant for every non-menu faction.
+
+    Menu factions (Imperial Knights, Chaos Knights, Chaos Daemons,
+    Emperor's Children, World Eaters, Aeldari) are excluded per the
+    wave-174 standing rule — and the gate itself is scoped off for them
+    (code/archetypes.py MENU_FACTIONS), so their gate-on build must be
+    IDENTICAL to gate-off, not merely a superset.
+    """
+
+    from code.archetypes import MENU_FACTIONS
+    BUDGET = 2000.0
+
+    @classmethod
+    def _seeded_set(cls, faction, arch_name, env_override):
+        """Return the set of unit keys seeded by _instantiate_template."""
+        from code.archetypes import _instantiate_template
+        template = ARCHETYPES[faction][arch_name]
+        with mock.patch.dict(os.environ, env_override, clear=False):
+            if "SWEG_SEED_LEADERS" not in env_override:
+                # Pin the gate off — since the wave-244 default flip an
+                # unset environment means gate-ON.
+                os.environ["SWEG_SEED_LEADERS"] = "0"
+            result = _instantiate_template(
+                dict(template), cls.BUDGET, random.Random(0), faction=faction,
+            )
+        return set(result.keys())
+
+    def _check_superset(self, faction, arch_name):
+        """Assert gate-on seeded set is a superset of gate-off for one archetype."""
+        off_set = self._seeded_set(faction, arch_name, {})
+        on_set = self._seeded_set(faction, arch_name, {"SWEG_SEED_LEADERS": "1"})
+        dropped = off_set - on_set
+        self.assertFalse(
+            dropped,
+            f"Faction {faction!r} archetype {arch_name!r}: gate-on is NOT a "
+            f"superset of gate-off at {self.BUDGET}pt. "
+            f"De-realized entries (in gate-off, missing from gate-on): "
+            f"{sorted(dropped)}.  "
+            f"gate-off={sorted(off_set)}  gate-on={sorted(on_set)}",
+        )
+
+    def test_superset_invariant_all_non_menu_factions(self):
+        """For every non-menu faction's archetype(s), gate-on seeded set is
+        a superset of gate-off seeded set at 2000 points."""
+        for faction, arch_dict in ARCHETYPES.items():
+            if faction in self.MENU_FACTIONS:
+                continue
+            for arch_name in arch_dict:
+                with self.subTest(faction=faction, archetype=arch_name):
+                    self._check_superset(faction, arch_name)
+
+    def test_menu_factions_gate_on_identical_to_gate_off(self):
+        """Menu factions are scoped OUT of the leader-stack gate entirely
+        (code/archetypes.py MENU_FACTIONS): the wave-244 probe found the
+        un-scoped tiebreak de-realized faithful menu entries (Aeldari Fire
+        Dragons, Emperor's Children Daemonettes, Chaos Daemons Flesh
+        Hounds / Beasts of Nurgle / Slaanesh Soul Grinder) with no
+        permitted seed-fraction fix. Gate-on seeded counts must equal
+        gate-off exactly."""
+        from code.archetypes import _instantiate_template
+        for faction in sorted(self.MENU_FACTIONS):
+            for arch_name, template in ARCHETYPES.get(faction, {}).items():
+                with self.subTest(faction=faction, archetype=arch_name):
+                    with mock.patch.dict(
+                        os.environ, {"SWEG_SEED_LEADERS": "0"}, clear=False
+                    ):
+                        off_result = _instantiate_template(
+                            dict(template), self.BUDGET,
+                            random.Random(0), faction=faction,
+                        )
+                    with mock.patch.dict(
+                        os.environ, {"SWEG_SEED_LEADERS": "1"}, clear=False
+                    ):
+                        on_result = _instantiate_template(
+                            dict(template), self.BUDGET,
+                            random.Random(0), faction=faction,
+                        )
+                    self.assertEqual(
+                        off_result, on_result,
+                        f"Menu faction {faction!r} archetype {arch_name!r}: "
+                        f"gate-on build differs from gate-off — the menu "
+                        f"scope-out is not holding",
+                    )
+
+    def test_adeptus_astartes_eradicator_squad_and_apothecary_both_seeded(self):
+        """Gate-on must seed BOTH the Eradicator Squad (90pt, non-CHARACTER)
+        AND the Apothecary (50pt, CHARACTER) — the motivating case for the
+        wave-244 amendment, where the CHARACTER tiebreak displaced the
+        documented anti-tank entry at the count=1 tier."""
+        eradicator_name = UNIT_CATALOG["space_marines_eradicator_squad"].name
+        apothecary_name = UNIT_CATALOG["space_marines_apothecary"].name
+        on_set = self._seeded_set(
+            "Adeptus Astartes", "Gladius Strike Force", {"SWEG_SEED_LEADERS": "1"}
+        )
+        on_names = {UNIT_CATALOG[k].name for k in on_set if k in UNIT_CATALOG}
+        self.assertIn(
+            eradicator_name, on_names,
+            "Eradicator Squad missing from gate-on seeded set (the displacement "
+            "the wave-244 amendment was built to fix)",
+        )
+        self.assertIn(
+            apothecary_name, on_names,
+            "Apothecary missing from gate-on seeded set",
+        )
 
 
 class ArchetypeFallbackTests(unittest.TestCase):

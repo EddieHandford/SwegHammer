@@ -65,6 +65,25 @@ class CatalogEntry:
     # the simulator can pick the correct value per attack mode. See
     # MappedUnit.melee_sustained_hits for the iter28-MS1 rationale.
     melee_sustained_hits: int = 0
+    # Melee-side [LETHAL HITS] — present in MappedUnit / parsed.json and on
+    # the per-model promotion path since wave-52, but PRE-WAVE-244 it was
+    # MISSING from this CatalogEntry, so the aggregate (squad-average) load
+    # path always carried melee_lethal_hits=False (only the per-model path at
+    # code.units._loadout_entry_to_weapon_fields read it). Added here so the
+    # aggregate path round-trips the real value. See MappedUnit.melee_lethal_hits.
+    melee_lethal_hits: bool = False
+    # Wave-244 melee mode-routing — ANTI-X / DEVASTATING WOUNDS / TWIN-LINKED
+    # sourced from the chosen MELEE weapon, kept distinct from the ranged-side
+    # fields below so the simulator can route by attack mode. Without these the
+    # five melee keyword values are dead data on the aggregate path. Basket
+    # fractions mirror the ranged devastating_wounds_basket_fraction /
+    # anti_keyword_basket_fractions. See MappedUnit for the contamination
+    # rationale.
+    melee_anti_keywords: Optional[Dict[str, int]] = None
+    melee_devastating_wounds: bool = False
+    melee_twin_linked: bool = False
+    melee_devastating_wounds_basket_fraction: float = 1.0
+    melee_anti_keyword_basket_fractions: Optional[Dict[str, float]] = None
     twin_linked: bool = False
     devastating_wounds: bool = False
     invuln_save: int = 7
@@ -295,6 +314,22 @@ class CatalogEntry:
             lethal_hits=bool(d.get("lethal_hits", False)),
             sustained_hits=int(d.get("sustained_hits", 0)),
             melee_sustained_hits=int(d.get("melee_sustained_hits", 0)),
+            # Wave-244 — melee keyword mode-routing fields. Explicit inert
+            # defaults (False / {} / 1.0) so any parsed.json or overrides.json
+            # entry that predates the mapper regen loads cleanly with NO melee
+            # keyword applied (the safe, contamination-free state). melee_lethal_hits
+            # was missing entirely pre-wave-244 (aggregate path always False);
+            # added here alongside the five new fields.
+            melee_lethal_hits=bool(d.get("melee_lethal_hits", False)),
+            melee_anti_keywords=dict(d.get("melee_anti_keywords") or {}),
+            melee_devastating_wounds=bool(d.get("melee_devastating_wounds", False)),
+            melee_twin_linked=bool(d.get("melee_twin_linked", False)),
+            melee_devastating_wounds_basket_fraction=float(
+                d.get("melee_devastating_wounds_basket_fraction", 1.0)
+            ),
+            melee_anti_keyword_basket_fractions=dict(
+                d.get("melee_anti_keyword_basket_fractions") or {}
+            ),
             twin_linked=bool(d.get("twin_linked", False)),
             devastating_wounds=bool(d.get("devastating_wounds", False)),
             invuln_save=int(d.get("invuln_save", 7)),
@@ -539,6 +574,26 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "lethal_hits": override.get("lethal_hits", base.lethal_hits),
         "sustained_hits": override.get("sustained_hits", base.sustained_hits),
         "melee_sustained_hits": override.get("melee_sustained_hits", base.melee_sustained_hits),
+        # Wave-244 melee mode-routing — pass the melee keyword fields through the
+        # override merge. Pre-wave-244 melee_lethal_hits was ABSENT from this
+        # merged dict (every unit re-built here lost it to the False default,
+        # which is why the aggregate path always produced False); the five new
+        # ANTI-X / DEVASTATING WOUNDS / TWIN-LINKED fields are added alongside it.
+        # Override fully replaces when present; base (mapper) value is the fallback.
+        "melee_lethal_hits": override.get("melee_lethal_hits", base.melee_lethal_hits),
+        "melee_anti_keywords": override.get("melee_anti_keywords", base.melee_anti_keywords),
+        "melee_devastating_wounds": override.get(
+            "melee_devastating_wounds", base.melee_devastating_wounds
+        ),
+        "melee_twin_linked": override.get("melee_twin_linked", base.melee_twin_linked),
+        "melee_devastating_wounds_basket_fraction": override.get(
+            "melee_devastating_wounds_basket_fraction",
+            base.melee_devastating_wounds_basket_fraction,
+        ),
+        "melee_anti_keyword_basket_fractions": override.get(
+            "melee_anti_keyword_basket_fractions",
+            base.melee_anti_keyword_basket_fractions,
+        ),
         "twin_linked": override.get("twin_linked", base.twin_linked),
         "devastating_wounds": override.get("devastating_wounds", base.devastating_wounds),
         "invuln_save": override.get("invuln_save", base.invuln_save),

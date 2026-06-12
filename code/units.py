@@ -443,6 +443,25 @@ class UnitProfile:
     # Mode-routed in Unit.attack so a ranged-only LETHAL HITS doesn't leak
     # into melee resolution and vice versa.
     melee_lethal_hits: bool = False
+    # Melee-side ANTI-X / DEVASTATING WOUNDS / TWIN-LINKED — the same split
+    # as melee_lethal_hits / melee_sustained_hits, populated by the mapper
+    # from the chosen MELEE weapon's keywords. Without these three fields the
+    # simulator read the ranged-primary `anti_keywords` / `devastating_wounds`
+    # / `twin_linked` in the Fight phase too, contaminating melee resolution
+    # on every unit whose ranged weapon carried one of these (e.g. a Wave
+    # Serpent's Twin Bright Lance leaking TWIN-LINKED into its melee, Howling
+    # Banshees' ranged ANTI-INFANTRY appearing on the powerblade). Mode-routed
+    # at the three Unit.attack resolution sites (`mode == "melee"`). The two
+    # melee basket fractions mirror the ranged
+    # `devastating_wounds_basket_fraction` / `anti_keyword_basket_fractions`
+    # so heterogeneous squads Bernoulli-gate the melee keyword per shot.
+    # Cited as `simulator.basket_fraction_gating` (the fraction gating) and
+    # the per-keyword citations these melee fields re-route already carry.
+    melee_anti_keywords: Tuple[Tuple[str, int], ...] = ()
+    melee_devastating_wounds: bool = False
+    melee_twin_linked: bool = False
+    melee_devastating_wounds_basket_fraction: float = 1.0
+    melee_anti_keyword_basket_fractions: Tuple[Tuple[str, float], ...] = ()
     twin_linked: bool = False                  # re-roll failed wound rolls
     devastating_wounds: bool = False           # critical wound (6 to wound) bypasses saves
     invuln_save: int = 7                       # invulnerable save (7 = none); use better of save-after-AP or invuln
@@ -1563,13 +1582,23 @@ class Unit:
                     "melee_sustained_hits": int(
                         _ed.get("sustained_hits", 0) or 0
                     ),
-                    # Weapon-level keyword flags reuse the same UnitProfile
-                    # field names that Unit.attack reads in the melee branch.
-                    "lethal_hits": bool(_ed.get("lethal_hits", False)),
-                    "devastating_wounds": bool(
+                    # Weapon-level keyword flags route to the MELEE-side
+                    # UnitProfile fields that Unit.attack reads in the Fight
+                    # phase. WAVE-244 BUG FIX: pre-wave-244 these three wrote to
+                    # the RANGED-named fields (lethal_hits / devastating_wounds /
+                    # twin_linked). After the wave-244 melee mode guards, the
+                    # melee resolution sites read melee_lethal_hits /
+                    # melee_devastating_wounds / melee_twin_linked, so an extra
+                    # melee weapon's LETHAL HITS / DEVASTATING WOUNDS / TWIN-
+                    # LINKED never fired (the swap overwrote the unread ranged
+                    # field). A single extra weapon is fully covered, so the
+                    # melee basket fractions are pinned to 1.0 here.
+                    "melee_lethal_hits": bool(_ed.get("lethal_hits", False)),
+                    "melee_devastating_wounds": bool(
                         _ed.get("devastating_wounds", False)
                     ),
-                    "twin_linked": bool(_ed.get("twin_linked", False)),
+                    "melee_twin_linked": bool(_ed.get("twin_linked", False)),
+                    "melee_devastating_wounds_basket_fraction": 1.0,
                     "lance": bool(_ed.get("lance", False)),
                     "precision": bool(_ed.get("precision", False)),
                     # EXTRA-MELEE-KEYWORD-PARITY — one_shot and hazardous were
@@ -1581,23 +1610,29 @@ class Unit:
                     # lack the key) behave identically to before the fix.
                     "one_shot": bool(_ed.get("one_shot", False)),
                     "hazardous": bool(_ed.get("hazardous", False)),
-                    # anti_keywords on an extra weapon profile replaces the
-                    # primary's anti_keywords during this extra's resolution
-                    # pass. Wave-52 MAPPER-EXTRA-MELEE-V1 populated this as
-                    # a dict in the extra dict template, but UnitProfile's
-                    # `anti_keywords` field is `Tuple[Tuple[str, int], ...]`
-                    # (tuple-of-tuples for dataclass hashability). The
-                    # downstream consumer at the attack-resolution site
-                    # (line ~2174 `for kw, thresh in p.anti_keywords`)
-                    # unpacks each element as a 2-tuple, so passing a dict
-                    # made dataclasses.replace produce a UnitProfile whose
-                    # anti_keywords iterated as keyword-strings —
-                    # ValueError: too many values to unpack. Convert to the
-                    # expected tuple-of-tuples shape here.
-                    "anti_keywords": tuple(
+                    # anti_keywords on an extra MELEE weapon profile replaces
+                    # the primary's melee anti_keywords during this extra's
+                    # resolution pass. WAVE-244 BUG FIX: this routes to
+                    # melee_anti_keywords now (the melee-mode guard at the
+                    # Anti-X site reads the melee field), not the ranged
+                    # `anti_keywords` it previously overwrote. UnitProfile's
+                    # field is `Tuple[Tuple[str, int], ...]` (tuple-of-tuples
+                    # for dataclass hashability); the downstream consumer
+                    # (`for kw, thresh in p.melee_anti_keywords`) unpacks each
+                    # element as a 2-tuple, so convert from the dict template
+                    # here. A single extra weapon is fully covered → the melee
+                    # anti basket fraction is 1.0 for each keyword.
+                    "melee_anti_keywords": tuple(
                         (_ed.get("anti_keywords") or {}).items()
                     ) if isinstance(_ed.get("anti_keywords"), dict)
                     else tuple(_ed.get("anti_keywords") or ()),
+                    "melee_anti_keyword_basket_fractions": tuple(
+                        (kw, 1.0)
+                        for kw in (_ed.get("anti_keywords") or {})
+                    ) if isinstance(_ed.get("anti_keywords"), dict)
+                    else tuple(
+                        (kw, 1.0) for kw, _ in (_ed.get("anti_keywords") or ())
+                    ),
                 })
             # Primary fires first (None) then each extra fires once.
             _profiles_to_fire = [None] + _melee_extras
@@ -2970,10 +3005,25 @@ class Unit:
             # = 1.0 so the gate always fires (legacy behaviour preserved).
             # Cited as `simulator.basket_fraction_gating`.
             _anti_applicable: list = []  # list of (thresh:int, fraction:float)
-            if p.anti_keywords and target.profile.unit_keywords:
+            # WAVE-244 melee mode-routing — Anti-X is a per-weapon keyword, so
+            # the Fight phase must read the MELEE weapon's Anti-X, not the
+            # ranged primary's. Pre-wave-244 this site read `p.anti_keywords`
+            # unconditionally; that field is populated from the ranged primary,
+            # so a ranged ANTI-INFANTRY (Howling Banshees' shuriken pistols)
+            # leaked the lowered crit-wound threshold onto every melee attack.
+            # `melee_anti_keywords` / `melee_anti_keyword_basket_fractions` are
+            # sourced from the chosen melee weapon and default empty — mirrors
+            # the melee_lethal_hits / melee_sustained_hits split.
+            _mode_anti = p.melee_anti_keywords if mode == "melee" else p.anti_keywords
+            _mode_anti_fractions = (
+                getattr(p, "melee_anti_keyword_basket_fractions", ())
+                if mode == "melee"
+                else getattr(p, "anti_keyword_basket_fractions", ())
+            )
+            if _mode_anti and target.profile.unit_keywords:
                 target_kw = set(target.profile.unit_keywords)
-                _anti_fractions = dict(getattr(p, "anti_keyword_basket_fractions", ()) or ())
-                for kw, thresh in p.anti_keywords:
+                _anti_fractions = dict(_mode_anti_fractions or ())
+                for kw, thresh in _mode_anti:
                     if kw in target_kw:
                         _frac = float(_anti_fractions.get(kw, 1.0) or 1.0)
                         _anti_applicable.append((int(thresh), _frac))
@@ -3550,6 +3600,17 @@ class Unit:
                 effective_sustained_hits = int(p.melee_sustained_hits or 0)
             else:
                 effective_sustained_hits = int(p.sustained_hits or 0)
+            # WAVE-244 melee mode-routing — TWIN-LINKED (re-roll a failed Wound
+            # roll) is a per-weapon keyword. Pre-wave-244 the per-shot wound
+            # loop read `p.twin_linked` (the ranged-primary field) in the Fight
+            # phase too, so a unit whose ranged weapon was TWIN-LINKED (e.g. a
+            # Wave Serpent's Twin Bright Lance) got a free melee wound re-roll.
+            # Resolve the mode-correct value once per attack here; the per-shot
+            # loop reads `_effective_twin_linked`. Mirrors the melee_lethal_hits
+            # / melee_sustained_hits split.
+            _effective_twin_linked = bool(
+                p.melee_twin_linked if mode == "melee" else p.twin_linked
+            )
             # LC1-A — generalised gate: any faction whose detachment carries
             # the `melee_sustained_hits_army_wide` flag triggers SUSTAINED
             # HITS 1 on melee. Currently only WAR_HORDE (Orks) sets this
@@ -3992,7 +4053,9 @@ class Unit:
                             rerolled = True
                             _chiv_wound_reroll = False
                         wound_succeeded = (wroll >= _shot_wound_target)
-                        if not wound_succeeded and p.twin_linked and not rerolled:
+                        # WAVE-244 — mode-routed TWIN-LINKED (computed once per
+                        # attack above as `_effective_twin_linked`).
+                        if not wound_succeeded and _effective_twin_linked and not rerolled:
                             wroll = random.randint(1, 6)
                             unmodified_wroll = wroll
                             wound_succeeded = (wroll >= _shot_wound_target)
@@ -4110,12 +4173,29 @@ class Unit:
                     # in simulator._apply_dark_pacts; gated SWEG_CSM_ABILITIES.
                     # Cited as `simulator.csm_unholy_bloodshed`.
                     _transient_dw = getattr(self, "transient_devastating_wounds", False)
-                    effective_dw = p.devastating_wounds or _leader_dw_melee or _transient_dw
+                    # WAVE-244 melee mode-routing — DEVASTATING WOUNDS is a
+                    # per-weapon keyword. Pre-wave-244 this read `p.devastating_wounds`
+                    # (the ranged-primary field) in the Fight phase too, so a
+                    # ranged DEVASTATING WOUNDS weapon (Daemonettes' contamination
+                    # case is the inverse — a melee-only DW that was correctly
+                    # sourced) leaked the save-bypass crit-wound onto melee. Read
+                    # the melee-side field + its basket fraction when mode ==
+                    # "melee". The leader-aura (`_leader_dw_melee`) and Dark-Pact
+                    # (`_transient_dw`) grants are already melee-scoped and
+                    # compose via OR. Mirrors the melee_lethal_hits split.
+                    _profile_dw = (
+                        p.melee_devastating_wounds if mode == "melee"
+                        else p.devastating_wounds
+                    )
+                    effective_dw = _profile_dw or _leader_dw_melee or _transient_dw
+                    _profile_dw_fraction = (
+                        getattr(p, "melee_devastating_wounds_basket_fraction", 1.0)
+                        if mode == "melee"
+                        else getattr(p, "devastating_wounds_basket_fraction", 1.0)
+                    )
                     _dw_fraction = (
-                        1.0 if (_leader_dw_melee or _transient_dw) and not p.devastating_wounds
-                        else float(
-                            getattr(p, "devastating_wounds_basket_fraction", 1.0) or 1.0
-                        )
+                        1.0 if (_leader_dw_melee or _transient_dw) and not _profile_dw
+                        else float(_profile_dw_fraction or 1.0)
                     )
                     if (
                         effective_dw
@@ -4592,6 +4672,11 @@ def _loadout_entry_to_weapon_fields(entry: Dict[str, Any]) -> Dict[str, Any]:
     melee_ranked = sorted(melee, key=_melee_weapon_ev, reverse=True)
     if melee_ranked:
         best_m = melee_ranked[0]
+        # Wave-244 — the promoted per-model melee weapon's ANTI-X is stored as a
+        # dict in the loadout weapon dict; convert to the tuple-of-tuples form
+        # UnitProfile expects (dataclasses.replace sets the field directly, no
+        # later conversion). Mirrors the ranged `ak` handling above.
+        mak = best_m.get("anti_keywords")
         fields.update({
             "melee_weapon": str(best_m.get("weapon", "") or ""),
             "melee_attacks": max(1, int(round(best_m.get("attacks", 1) or 1))),
@@ -4608,6 +4693,16 @@ def _loadout_entry_to_weapon_fields(entry: Dict[str, Any]) -> Dict[str, Any]:
             "melee_ap": int(best_m.get("ap", 0) or 0),
             "melee_sustained_hits": int(best_m.get("sustained_hits", 0) or 0),
             "melee_lethal_hits": bool(best_m.get("lethal_hits", False)),
+            # Wave-244 melee mode-routing — promote the melee weapon's
+            # TWIN-LINKED / DEVASTATING WOUNDS / ANTI-X onto the melee-side
+            # fields so the per-model firing path reads them in the Fight phase.
+            # No else-block zeroing (wave-243 ranged convention): a model with no
+            # melee weapon relies on the UnitProfile defaults via replace.
+            "melee_twin_linked": bool(best_m.get("twin_linked", False)),
+            "melee_devastating_wounds": bool(best_m.get("devastating_wounds", False)),
+            "melee_anti_keywords": (
+                tuple(mak.items()) if isinstance(mak, dict) else tuple(mak or ())
+            ),
             "extra_melee_profiles": _flatten_extra_profiles(melee_ranked[1:]),
         })
     else:
@@ -4747,6 +4842,25 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             lethal_hits=entry.lethal_hits,
             sustained_hits=entry.sustained_hits,
             melee_sustained_hits=entry.melee_sustained_hits,
+            # Wave-244 melee mode-routing — the melee-side LETHAL HITS plus the
+            # five new ANTI-X / DEVASTATING WOUNDS / TWIN-LINKED fields. dict→
+            # tuple-of-tuples conversion mirrors the ranged `anti_keywords`
+            # below (UnitProfile must stay hashable for the lru_cache in
+            # code/roles.py). melee_lethal_hits was previously absent from the
+            # aggregate load path (always False); it now round-trips.
+            melee_lethal_hits=entry.melee_lethal_hits,
+            melee_anti_keywords=tuple(
+                (k, v) for k, v in (entry.melee_anti_keywords or {}).items()
+            ),
+            melee_devastating_wounds=entry.melee_devastating_wounds,
+            melee_twin_linked=entry.melee_twin_linked,
+            melee_devastating_wounds_basket_fraction=(
+                entry.melee_devastating_wounds_basket_fraction
+            ),
+            melee_anti_keyword_basket_fractions=tuple(
+                (k, float(v))
+                for k, v in (entry.melee_anti_keyword_basket_fractions or {}).items()
+            ),
             twin_linked=entry.twin_linked,
             devastating_wounds=entry.devastating_wounds,
             invuln_save=entry.invuln_save,
