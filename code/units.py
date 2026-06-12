@@ -83,11 +83,14 @@ _INT_RE = re.compile(r"-?\d+")
 
 
 def _rolldmg_enabled() -> bool:
-    """True iff the `SWEG_ROLLDMG` env gate is set. Read per-call (not cached at
-    import) so tests can toggle it via os.environ within a process. When unset,
-    `roll_damage` draws NOTHING and returns the mean — keeping the OFF and
-    per-model-mean RNG streams byte-identical to legacy."""
-    return bool(os.environ.get("SWEG_ROLLDMG"))
+    """True unless the `SWEG_ROLLDMG` env gate is explicitly "0" (kill-switch).
+    Default ON since wave 247 (adopted per fidelity-first: real 10e rolls each
+    weapon's Damage characteristic; the expected-value path was the sim's
+    approximation). Read per-call (not cached at import) so tests can toggle it
+    via os.environ within a process. When killed (=0), `roll_damage` draws
+    NOTHING and returns the mean — keeping the OFF and per-model-mean RNG
+    streams byte-identical to the legacy expected-value frame."""
+    return os.environ.get("SWEG_ROLLDMG", "1") != "0"
 
 
 def roll_damage(dice_str: str, mean_fallback: float) -> float:
@@ -3528,19 +3531,19 @@ class Unit:
                     # Wave 243 made REGIMENT a first-class tracked keyword
                     # (BSData categoryLinks, 31 units) so the codex check is
                     # now possible.  The env gate SWEG_BORN_REGIMENT selects
-                    # which keyword is used:
-                    #   unset / "0": legacy BATTLELINE proxy (byte-identical
-                    #     to pre-wave-247 behaviour — catches the three core
-                    #     Cadian / Catachan / Krieg troop squads that happen
-                    #     to carry both BATTLELINE and REGIMENT, but misses
-                    #     non-BATTLELINE REGIMENT units such as Kasrkin,
-                    #     Heavy Weapons Squads, Attilan Rough Riders, etc.)
-                    #   "1": corrected REGIMENT check — the codex-literal
-                    #     gate; covers all 31 REGIMENT datasheets.
+                    # which keyword is used — default ON since wave 247:
+                    #   unset / "1": corrected REGIMENT check — the
+                    #     codex-literal gate; covers all 31 REGIMENT
+                    #     datasheets (Kasrkin, Heavy Weapons Squads, Attilan
+                    #     Rough Riders, etc.).
+                    #   "0" (kill-switch): legacy BATTLELINE proxy
+                    #     (byte-identical to pre-wave-247 behaviour — catches
+                    #     only the three core Cadian / Catachan / Krieg troop
+                    #     squads that carry both keywords).
                     # Read inline per-call (matching nearby gate idiom).
                     # Cited as `COMBINED_REGIMENT.am_born_soldiers_lethal_hits`.
                     _use_regiment_kw = (
-                        __import__("os").environ.get("SWEG_BORN_REGIMENT", "0") != "0"
+                        __import__("os").environ.get("SWEG_BORN_REGIMENT", "1") != "0"
                     )
                     _regiment_attacker = (
                         "REGIMENT" in attacker_kws

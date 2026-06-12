@@ -8,18 +8,21 @@ attack that targets a visible unit (excluding **^^Monsters^^** and
 
 Wave 243 made REGIMENT a first-class tracked keyword from BSData categoryLinks
 (31 units). This wave adds SWEG_BORN_REGIMENT to allow the simulator to check
-the codex-literal REGIMENT keyword rather than the legacy BATTLELINE proxy:
+the codex-literal REGIMENT keyword rather than the legacy BATTLELINE proxy.
+Default ON since the wave-247 close:
 
-  unset / "0": legacy BATTLELINE proxy (byte-identical to pre-wave-247)
-  "1":         corrected REGIMENT keyword check
+  unset / "1": corrected REGIMENT keyword check (the codex-literal gate)
+  "0":         kill-switch — legacy BATTLELINE proxy (byte-identical to
+               pre-wave-247)
 
 Tests cover the three gate states and the Vehicle/Monster exclusion:
-  (a) gate unset ("0" path): REGIMENT non-BATTLELINE attacker (Kasrkin) does
-      NOT get the lethal-hits leg; BATTLELINE attacker does (legacy pinned).
+  (a) gate unset (default-on path): REGIMENT non-BATTLELINE attacker
+      (Kasrkin) GETS the lethal-hits leg, same as gate "1".
   (b) gate "1": REGIMENT non-BATTLELINE attacker (Kasrkin) gets
       effective_lethal_hits vs an INFANTRY target; NOT vs a VEHICLE target;
       a VEHICLE-keyword attacker remains excluded.
-  (c) gate "0" explicit: identical to unset — legacy behaviour confirmed.
+  (c) gate "0" kill-switch: legacy BATTLELINE behaviour pinned — Kasrkin
+      excluded, Cadian Shock Troops (BATTLELINE) still granted.
 
 All tests operate at the unit-level (Unit.attack), no full battles.  Lethal
 hits are detected by a deterministic die-roll sequence: the hit roll is always
@@ -206,14 +209,15 @@ def _target_unit(profile: UnitProfile) -> Unit:
 
 
 # ---------------------------------------------------------------------------
-# (a) Gate unset / "0": legacy BATTLELINE proxy
+# (a) Gate unset (default-on REGIMENT) and "0" kill-switch (legacy BATTLELINE)
 # ---------------------------------------------------------------------------
 
-class GateUnsetLegacyBATTLELINETest(unittest.TestCase):
-    """With SWEG_BORN_REGIMENT unset (defaulting to the legacy BATTLELINE
-    path), a REGIMENT non-BATTLELINE attacker (Kasrkin) must NOT receive
-    the lethal-hits leg, and a BATTLELINE attacker (Cadian Shock Troops)
-    MUST receive it."""
+class GateDefaultAndKillSwitchTest(unittest.TestCase):
+    """With SWEG_BORN_REGIMENT unset the default is ON (wave-247 close): the
+    corrected REGIMENT check applies, so Kasrkin (REGIMENT, non-BATTLELINE)
+    receives the lethal-hits leg. The explicit "0" kill-switch pins the
+    legacy BATTLELINE proxy: Kasrkin excluded, Cadian Shock Troops
+    (BATTLELINE) still granted."""
 
     def _attack_damage(self, attacker_profile, target_profile, gate_value=None):
         """Run one attack with die sequence [6, 1] (crit hit, wound fail).
@@ -235,51 +239,52 @@ class GateUnsetLegacyBATTLELINETest(unittest.TestCase):
                 damage = attacker.attack(target, distance=12.0, mode="ranged")
         return damage
 
-    def test_gate_unset_kasrkin_no_lethal_hits(self):
-        # Kasrkin: REGIMENT but NOT BATTLELINE. Legacy proxy checks BATTLELINE.
-        # With SWEG_BORN_REGIMENT unset, the BATTLELINE check fails → lethal
-        # hits does NOT fire → wound roll fires (returns 1) → no damage.
+    def test_gate_unset_kasrkin_gets_lethal_hits(self):
+        # Kasrkin: REGIMENT but NOT BATTLELINE. Default is ON since wave 247:
+        # unset follows the corrected REGIMENT check → fires → wound roll
+        # skipped → damage > 0.
         dmg = self._attack_damage(
             _kasrkin_profile(), _infantry_target_profile(), gate_value=None,
         )
-        self.assertEqual(
+        self.assertGreater(
             dmg, 0.0,
-            "Gate unset (legacy BATTLELINE): Kasrkin (REGIMENT, non-BATTLELINE) "
-            "must NOT receive lethal hits — wound roll fires and fails on 1.",
+            "Gate unset (default-on REGIMENT): Kasrkin (REGIMENT, "
+            "non-BATTLELINE) MUST receive lethal hits — wound roll skipped.",
         )
 
     def test_gate_unset_cadian_gets_lethal_hits(self):
-        # Cadian Shock Troops: BATTLELINE + REGIMENT. Legacy proxy checks
-        # BATTLELINE → fires → wound roll skipped → damage > 0.
+        # Cadian Shock Troops: BATTLELINE + REGIMENT. Carries REGIMENT, so the
+        # default-on corrected check fires → wound roll skipped → damage > 0.
         dmg = self._attack_damage(
             _cadian_profile(), _infantry_target_profile(), gate_value=None,
         )
         self.assertGreater(
             dmg, 0.0,
-            "Gate unset (legacy BATTLELINE): Cadian Shock Troops (BATTLELINE) "
+            "Gate unset (default-on REGIMENT): Cadian Shock Troops (REGIMENT) "
             "MUST receive lethal hits — wound roll skipped, damage > 0.",
         )
 
     def test_gate_explicit_zero_kasrkin_no_lethal_hits(self):
-        # Explicit SWEG_BORN_REGIMENT="0" mirrors unset (same code path).
+        # Kill-switch SWEG_BORN_REGIMENT="0" pins the legacy BATTLELINE proxy.
         dmg = self._attack_damage(
             _kasrkin_profile(), _infantry_target_profile(), gate_value="0",
         )
         self.assertEqual(
             dmg, 0.0,
-            "Gate='0' (explicit legacy): Kasrkin (non-BATTLELINE) must NOT "
-            "receive lethal hits — byte-identical to unset behaviour.",
+            "Gate='0' (kill-switch, legacy BATTLELINE): Kasrkin "
+            "(non-BATTLELINE) must NOT receive lethal hits — wound roll "
+            "fires and fails on 1.",
         )
 
     def test_gate_explicit_zero_cadian_gets_lethal_hits(self):
-        # Explicit "0" with a BATTLELINE unit: still grants lethal hits.
+        # Kill-switch "0" with a BATTLELINE unit: legacy proxy still grants.
         dmg = self._attack_damage(
             _cadian_profile(), _infantry_target_profile(), gate_value="0",
         )
         self.assertGreater(
             dmg, 0.0,
-            "Gate='0' (explicit legacy): Cadian (BATTLELINE) must still receive "
-            "lethal hits — same as unset.",
+            "Gate='0' (kill-switch, legacy BATTLELINE): Cadian (BATTLELINE) "
+            "must still receive lethal hits under the legacy proxy.",
         )
 
 

@@ -1,6 +1,7 @@
 """
 Wave 247 lever 2: Cadian Castellan "Senior Officer" sustained hits grant
-(gated SWEG_CASTELLAN_SH, default-off).
+(gate SWEG_CASTELLAN_SH, default ON since the wave-247 close; "0" is the
+kill-switch).
 
 BSData verbatim (Imperium - Astra Militarum - Library.cat.gz, Abilities
 profile id a7f5-adb8-d1c9-2a2d):
@@ -13,9 +14,10 @@ Three test classes:
     and effective_buffs on a Cadian Shock Troops unit led by the Castellan
     carries sustained_hits_ranged >= 1.
 
-(b) Gate unset (default "0"): no grant — sustained_hits_ranged == 0.
+(b) Gate unset (default ON): grant active — sustained_hits_ranged == 1.
 
-(c) Gate "0": explicitly off — sustained_hits_ranged == 0.
+(c) Gate "0" (kill-switch): grant off — sustained_hits_ranged == 0,
+    byte-identical to the pre-wave-247 arm.
 """
 
 from __future__ import annotations
@@ -142,7 +144,7 @@ class TestGateOn(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# (b) Gate unset (default "0"): no grant
+# (b) Gate unset (default ON): grant active
 # ---------------------------------------------------------------------------
 
 class TestGateUnset(unittest.TestCase):
@@ -157,13 +159,13 @@ class TestGateUnset(unittest.TestCase):
         os.environ.pop("SWEG_OFFICER_FOLLOW", None)
         _reload_leaders()
 
-    def test_lookup_ability_sustained_hits_ranged_is_0_when_gate_unset(self):
+    def test_lookup_ability_sustained_hits_ranged_is_1_when_gate_unset(self):
         ab = self._leaders_mod.lookup_ability("Cadian Castellan")
         self.assertIsNotNone(ab, "Cadian Castellan must resolve from the registry")
         self.assertEqual(
-            ab.sustained_hits_ranged, 0,
-            f"sustained_hits_ranged should be 0 when SWEG_CASTELLAN_SH is unset "
-            f"(default-off), got {ab.sustained_hits_ranged}",
+            ab.sustained_hits_ranged, 1,
+            f"sustained_hits_ranged should be 1 when SWEG_CASTELLAN_SH is unset "
+            f"(default ON since wave 247), got {ab.sustained_hits_ranged}",
         )
 
 
