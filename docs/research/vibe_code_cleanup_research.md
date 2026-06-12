@@ -83,6 +83,7 @@ Cross-referencing with auto-memory: `SWEG_DISPLACE_FALLBACK` is adopted default-
 3. **Diag-script archive pass (effort: low).** Move `scripts/iter*.py`, `scripts/diag_*.py` tied to waves before wave 100, and superseded `scripts/auto_loop_iter*.py` into a `scripts/archive/` directory. These are historical artefacts; they add grep noise and inflate `vulture`'s false-positive rate. One pull request, pure code-motion, zero logic change — no behaviour-identity proof required beyond confirming `python run.py --cli` still exits cleanly.
 
 4. **docs/wf_wave*.log archival policy (effort: low).** The ~100 `docs/wf_wave*.log` files pre-date the `data/` convention. Move them to `data/archive/` or delete (they are superseded by the corresponding `data/wf_*.txt` evals). Codify in `AUTO_LOOP_PROCEDURE.md`: eval logs older than the last 20 waves live in `data/archive/`, not `docs/`.
+   **DONE 2026-06-12** — commit `e1ff37b`, pull request TBD (`claude/cleanup-evallog-archive` off `main`). One tracked file moved (`docs/wf_wave44_tson_n40.log` → `data/archive/`; the original ~100 files were already untracked and had not accumulated in the repo); `data/archive/README.md` created; `docs/AUTO_LOOP_PROCEDURE.md` prevention bullet expanded with named file patterns and `git mv` requirement; demonstration battle clean (exit 0).
 
 5. **deptry dependency audit (effort: low).** Run `deptry .` against `requirements.txt` to surface any packages imported by removed experiment code but still listed as dependencies. Low risk; one-line removals from the requirements file.
 
