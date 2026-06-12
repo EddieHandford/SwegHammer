@@ -1388,6 +1388,37 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
 
 _AM_OFFICER_FOLLOW_GATE: bool = os.environ.get("SWEG_OFFICER_FOLLOW", "1") == "1"
 
+# Wave-245 screen gate: extend Lord Solar's stay-near coverage to include the
+# five SQUADRON artillery/tank catalog keys so the officer-follow hook can pull
+# him toward unordered SQUADRON vehicles when infantry hosts are already
+# covered.  Default-off ("0") preserves byte-identical behaviour to the
+# pre-wave-245 arm.  Controlled by SWEG_SOLAR_SQUADRON.
+_AM_SOLAR_SQUADRON_GATE: bool = os.environ.get("SWEG_SOLAR_SQUADRON", "0") == "1"
+
+# Lord Solar Leontus has three Orders per round targeting REGIMENT, SQUADRON,
+# and TITANIC units (code/orders.py OFFICER_ORDER_PROFILES).  His seven codex
+# infantry attach-targets are the base host_keys.  When SWEG_SOLAR_SQUADRON=1
+# the five SQUADRON vehicle catalog keys are appended so the officer-follow
+# hook also pulls him toward unordered artillery/tanks sitting beyond his 6"
+# aura — preventing his SQUADRON Orders from wasting every round.
+# Catalog keys confirmed present in data/bsdata/parsed.json (rule 13 check).
+_LORD_SOLAR_SQUADRON_KEYS: Tuple[str, ...] = (
+    "astra_militarum_leman_russ_battle_tank",
+    "astra_militarum_leman_russ_demolisher",
+    "astra_militarum_rogal_dorn_battle_tank",
+    "astra_militarum_basilisk",
+    "astra_militarum_manticore",
+)
+_LORD_SOLAR_HOST_KEYS: Tuple[str, ...] = (
+    "astra_militarum_attilan_rough_riders",
+    "astra_militarum_cadian_shock_troops",
+    "astra_militarum_catachan_jungle_fighters",
+    "astra_militarum_death_korps_of_krieg",
+    "astra_militarum_death_riders",
+    "astra_militarum_kasrkin",
+    "astra_militarum_krieg_combat_engineers",
+) + (_LORD_SOLAR_SQUADRON_KEYS if _AM_SOLAR_SQUADRON_GATE else ())
+
 # These entries fold into the unconditional _REGISTRY when the gate itself is
 # removed at a future wave. Until then they are appended only when the gate is
 # on (the default), keeping SWEG_OFFICER_FOLLOW=0 as a working kill-switch.
@@ -1428,17 +1459,13 @@ _AM_OFFICER_REGISTRY_ENTRIES: Tuple[Tuple[str, LeaderAbility], ...] = (
     # MOUNTED keyword (Move 12") — routes through pick_move_intent exactly like
     # other officers; no MOUNTED-specific movement gate exists in the hook, so
     # Leontus is subject to the same officer-follow pull as INFANTRY officers.
-    # Seven hosts confirmed present in data/bsdata/parsed.json (rule 13 check).
+    # host_keys: seven BSData infantry attach-targets; when SWEG_SOLAR_SQUADRON=1
+    # also includes the five SQUADRON vehicle keys defined in
+    # _LORD_SOLAR_SQUADRON_KEYS above (wave-245 screen gate).
     # Cited as LeaderAbility.Lord Solar Leontus.leader_attachment.
     ("Lord Solar Leontus",    LeaderAbility(name="The Lord Solar",             aura_range=6.0,
                                             cp_discount_per_round=1,
-                                            host_keys=("astra_militarum_attilan_rough_riders",
-                                                       "astra_militarum_cadian_shock_troops",
-                                                       "astra_militarum_catachan_jungle_fighters",
-                                                       "astra_militarum_death_korps_of_krieg",
-                                                       "astra_militarum_death_riders",
-                                                       "astra_militarum_kasrkin",
-                                                       "astra_militarum_krieg_combat_engineers"))),
+                                            host_keys=_LORD_SOLAR_HOST_KEYS)),
 )
 
 if _AM_OFFICER_FOLLOW_GATE:
