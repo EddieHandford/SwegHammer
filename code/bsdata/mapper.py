@@ -2007,6 +2007,21 @@ class MappedUnit:
     # Bilesword carries [LETHAL HITS] in BSData but the prior single
     # `lethal_hits` field read from the ranged primary only.
     melee_lethal_hits: bool = False
+    # Wave-244 melee mode-routing — ANTI-X / DEVASTATING WOUNDS / TWIN-LINKED
+    # sourced from the chosen MELEE weapon's keywords. Mirrors the melee /
+    # ranged split already applied to sustained_hits and lethal_hits above.
+    # Without these three fields the simulator read the ranged-primary
+    # `anti_keywords` / `devastating_wounds` / `twin_linked` during the Fight
+    # phase, contaminating melee resolution on ~242 units. Serialized as dicts
+    # (not tuples) to match the JSON shape of the ranged-side anti_keywords /
+    # anti_keyword_basket_fractions; the tuple-of-tuples hashable form is
+    # produced in code.units._build_catalog. Basket fractions default 1.0 so
+    # single-weapon / non-heterogeneous units keep full-keyword behaviour.
+    melee_anti_keywords: dict = field(default_factory=dict)
+    melee_devastating_wounds: bool = False
+    melee_twin_linked: bool = False
+    melee_devastating_wounds_basket_fraction: float = 1.0
+    melee_anti_keyword_basket_fractions: Dict[str, float] = field(default_factory=dict)
     twin_linked: bool = False
     devastating_wounds: bool = False
     invuln_save: int = 7    # parsed from "Invulnerable Save (X+*)" infoLinks in the tree
@@ -2569,6 +2584,32 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         # melee-only LETHAL HITS like GUO's Bilesword). Mode-routed at the
         # attack-resolution site in code/units.py.
         melee_lethal_hits=(best_melee.lethal_hits if best_melee is not None else False),
+        # Wave-244 melee mode-routing — source ANTI-X / DEVASTATING WOUNDS /
+        # TWIN-LINKED + their basket fractions from the chosen MELEE weapon
+        # (the synthetic basket-average for heterogeneous squads, the single
+        # best melee weapon otherwise). best_melee is None for ranged-only
+        # units; those keep the inert defaults ((), False, 1.0). These feed the
+        # melee-mode guards in code/units.py so a ranged-only keyword no longer
+        # leaks into the Fight phase (e.g. Wave Serpent Twin Bright Lance).
+        melee_anti_keywords=(
+            dict(best_melee.anti_keywords) if best_melee is not None else {}
+        ),
+        melee_devastating_wounds=(
+            best_melee.devastating_wounds if best_melee is not None else False
+        ),
+        melee_twin_linked=(
+            best_melee.twin_linked if best_melee is not None else False
+        ),
+        melee_devastating_wounds_basket_fraction=(
+            best_melee.devastating_wounds_basket_fraction
+            if best_melee is not None
+            else 1.0
+        ),
+        melee_anti_keyword_basket_fractions=(
+            dict(best_melee.anti_keyword_basket_fractions)
+            if best_melee is not None
+            else {}
+        ),
         twin_linked=primary.twin_linked,
         devastating_wounds=primary.devastating_wounds,
         invuln_save=invuln,
