@@ -1345,6 +1345,29 @@ SEED_FRACTION_BY_FACTION: Dict[str, float] = {
     "Imperial Knights": 0.45,
 }
 
+# Wave 244 (gated SWEG_SEED_LEADERS) — fraction re-derivation under the
+# leader-stack tiebreak. The per-faction fractions above were each derived
+# as "the lowest that realizes the cited dropped core" (wave-174 method)
+# under the old (-count, -cost) walk. With the leader-stack tiebreak on,
+# characters seed ahead of equally-counted heavy support, so the same
+# fraction no longer realizes the heavy half of the cited core in four
+# non-menu factions (`scripts/diag_list_realism.py`, 2026-06-12): Astra
+# Militarum drops Manticore + Basilisk, Adepta Sororitas drops Castigator,
+# Grey Knights drop Nemesis Dreadknight + Land Raider, Thousand Sons drop
+# the Mutalith Vortex Beast. Each value below is the minimal fraction at
+# which the gate-on deterministic seed walk realizes that faction's
+# previously-dropped core (scanned in 0.01 steps at the 2000-point eval
+# budget) — realized-MATCHES-real, NOT chosen to move win rate. Menu
+# factions (Imperial/Chaos Knights, Daemons, Emperor's Children, World
+# Eaters, Aeldari) are left alone per the wave-174 rule. Consulted only
+# when the gate is on; fold into SEED_FRACTION_BY_FACTION at default-flip.
+SEED_FRACTION_LEADER_STACK: Dict[str, float] = {
+    "Astra Militarum": 0.67,
+    "Adepta Sororitas": 0.61,
+    "Grey Knights": 0.72,
+    "Thousand Sons": 0.37,
+}
+
 
 def _instantiate_template(
     template: Dict[str, int],
@@ -1376,7 +1399,16 @@ def _instantiate_template(
     if not template or points_budget <= 0:
         return {}
 
+    # Wave 244 leader-stack gate — read once, consulted by the sort-key
+    # tiebreak, the EPIC HERO anchor trigger, and the fraction override
+    # below (all three move together as one gated lever).
+    _leader_stack_priority = os.environ.get("SWEG_SEED_LEADERS") == "1"
+
     seed_fraction = SEED_FRACTION_BY_FACTION.get(faction or "", SEED_FRACTION)
+    if _leader_stack_priority:
+        seed_fraction = SEED_FRACTION_LEADER_STACK.get(
+            faction or "", seed_fraction
+        )
     seed_budget = points_budget * seed_fraction
 
     # DAEMONS-FIX-1 — Chaos Daemons mono-god Greater Daemon anchor.
@@ -1438,7 +1470,36 @@ def _instantiate_template(
     # We instantiate exactly one squad per template entry here — extra
     # copies past 1 are left to `_random_fill`, which keeps the seeded
     # slice tight and lets the random topup handle distribution.
+    #
+    # Wave 244 — leader-stack priority (gated SWEG_SEED_LEADERS, default
+    # OFF for the paired A/B; =1 enables). Within the SAME template count,
+    # CHARACTER entries seed before non-CHARACTER entries. Motivating
+    # failure (wave-243 orders diagnostic): the Astra Militarum Combined
+    # Arms template documents a three-officer leader stack (Cadian
+    # Castellan / Ursula Creed / Lord Solar Leontus — the cited real
+    # May-2026 composition), but the (-count, -cost) walk spends the
+    # 1100-point seed slice on the tank spine (running 1095), skips
+    # Leontus (130) and Creed (85), and the CHARACTER anchor below
+    # rescues only the cheapest officer (Castellan, 55) — the built army
+    # issues ~2 Orders a round against a template intent of ~8. Real
+    # tournament lists fix their character stack FIRST and scale the
+    # rest; encoding that as a TIEBREAK (not a pre-pass) keeps multi-copy
+    # spine entries (Rubric Marines at count=2) seeding ahead of
+    # characters, preserving small-budget anchor behaviour. List-realism
+    # fidelity (wave-174/175 precedent), not win-rate tuning.
+    def _is_character_key(key: str) -> bool:
+        profile = UNIT_CATALOG.get(key)
+        if profile is None:
+            return False
+        return "CHARACTER" in (profile.unit_keywords or ())
+
     def sort_key(key: str):
+        if _leader_stack_priority:
+            return (
+                -template.get(key, 0),
+                0 if _is_character_key(key) else 1,
+                -_squad_cost(key),
+            )
         return (-template.get(key, 0), -_squad_cost(key))
 
     for key in sorted(template, key=sort_key):
@@ -1476,8 +1537,26 @@ def _instantiate_template(
             return False
         return "EPIC HERO" in (profile.unit_keywords or ())
 
+    # Wave 244 (gated SWEG_SEED_LEADERS): the leader-stack tiebreak above
+    # exposes a hole in this anchor's trigger. With characters seeding
+    # first within the same template count, a CHEAP epic-hero character
+    # (Death Guard Typhus, 100pt) now lands in the regular walk, the
+    # "no epic hero seeded" condition is satisfied, and the FLAGSHIP
+    # (Mortarion, 380pt) is silently dropped — exactly the failure this
+    # anchor's comment warns about. Under the gate, fire the anchor
+    # whenever the flagship (most expensive template EPIC HERO) itself is
+    # unseeded, not merely when zero epic heroes are seeded. Un-gated
+    # behaviour is unchanged (the A/B OFF arm must stay byte-identical).
     epic_hero_keys = [k for k in template if _is_epic_hero_key(k)]
-    if epic_hero_keys and not any(k in scaled for k in epic_hero_keys):
+    if _leader_stack_priority:
+        _eh_anchor_needed = bool(epic_hero_keys) and (
+            max(epic_hero_keys, key=_squad_cost) not in scaled
+        )
+    else:
+        _eh_anchor_needed = bool(epic_hero_keys) and not any(
+            k in scaled for k in epic_hero_keys
+        )
+    if _eh_anchor_needed:
         # Pick the MOST EXPENSIVE template EPIC HERO as the centerpiece —
         # the priciest EPIC HERO is the archetype's flagship (Death Guard
         # Mortarion at 380pt over Typhus at 100pt). Falling back to the
@@ -1506,16 +1585,11 @@ def _instantiate_template(
     # CHARACTER in even if it overflows `seed_budget` slightly. The
     # overflow is bounded by `1.5 * seed_budget` so we don't blow past the
     # random_fill headroom at small budgets. Faction-neutral — any
-    # template entry with the CHARACTER keyword qualifies.
-    def _has_character(key: str) -> bool:
-        profile = UNIT_CATALOG.get(key)
-        if profile is None:
-            return False
-        return "CHARACTER" in (profile.unit_keywords or ())
-
-    any_char_seeded = any(_has_character(k) for k in scaled)
+    # template entry with the CHARACTER keyword qualifies (predicate
+    # `_is_character_key` shared with the wave-244 leader-stack tiebreak).
+    any_char_seeded = any(_is_character_key(k) for k in scaled)
     if not any_char_seeded:
-        char_keys = [k for k in template if _has_character(k)]
+        char_keys = [k for k in template if _is_character_key(k)]
         if char_keys:
             # Cheapest CHARACTER first so the overflow is minimal.
             cheapest_char = min(char_keys, key=_squad_cost)

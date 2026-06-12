@@ -1,7 +1,9 @@
 """Tests for code/archetypes.py — curated tournament list templates."""
 
+import os
 import random
 import unittest
+from unittest import mock
 
 from code.archetypes import (
     ARCHETYPES,
@@ -156,6 +158,130 @@ class ArchetypeAnchorSeedingTests(unittest.TestCase):
                 f"seed={seed}: Aeldari archetype missing Phoenix Lord anchors "
                 f"(expected both of {anchor_names}), got {sorted(names)}",
             )
+
+
+class LeaderStackPriorityTests(unittest.TestCase):
+    """Wave 244 — gated SWEG_SEED_LEADERS leader-stack seed priority.
+
+    Within the same template count, CHARACTER entries seed before
+    non-CHARACTER entries, so a template's documented character stack is
+    realized instead of losing the (-count, -cost) walk to the vehicle
+    spine. Motivating case: the Astra Militarum Combined Arms template
+    carries a three-officer leader stack (Cadian Castellan / Ursula Creed /
+    Lord Solar Leontus) that the un-gated walk drops to one (the cheapest,
+    rescued by the CHARACTER anchor).
+    """
+
+    AM_TEMPLATE = ARCHETYPES["Astra Militarum"]["Combined Arms"]
+    AM_OFFICER_KEYS = (
+        "astra_militarum_cadian_castellan",
+        "astra_militarum_ursula_creed",
+        "astra_militarum_lord_solar_leontus",
+        "astra_militarum_cadian_command_squad",
+    )
+
+    def test_gate_off_drops_creed_and_leontus(self):
+        """Without the gate, the seed walk keeps only the cheapest officer —
+        pins the wave-243 diagnostic so this test fails loudly if the
+        un-gated baseline ever shifts (the A/B OFF arm must stay stable)."""
+        from code.archetypes import _instantiate_template
+
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("SWEG_SEED_LEADERS", None)
+            scaled = _instantiate_template(
+                dict(self.AM_TEMPLATE), 2000.0, random.Random(0),
+                faction="Astra Militarum",
+            )
+        self.assertIn("astra_militarum_cadian_castellan", scaled)
+        self.assertNotIn("astra_militarum_ursula_creed", scaled)
+        self.assertNotIn("astra_militarum_lord_solar_leontus", scaled)
+
+    def test_gate_on_seeds_full_officer_stack(self):
+        """With the gate, all four template CHARACTERs (three officers plus
+        the Cadian Command Squad) are seeded at the 2000-point eval budget."""
+        from code.archetypes import _instantiate_template
+
+        with mock.patch.dict(os.environ, {"SWEG_SEED_LEADERS": "1"}):
+            scaled = _instantiate_template(
+                dict(self.AM_TEMPLATE), 2000.0, random.Random(0),
+                faction="Astra Militarum",
+            )
+        for key in self.AM_OFFICER_KEYS:
+            self.assertIn(key, scaled, f"officer {key} missing from seed")
+
+    def test_gate_on_preserves_multicopy_spine_priority(self):
+        """The tiebreak must NOT outrank template count: Thousand Sons
+        Rubric Marines (count=2 spine) still seed at the tight 1000-point
+        budget with the gate on — characters only jump equally-counted
+        non-characters."""
+        rubric_name = UNIT_CATALOG["thousand_sons_rubric_marines"].name
+        with mock.patch.dict(os.environ, {"SWEG_SEED_LEADERS": "1"}):
+            for seed in range(5):
+                rng = random.Random(seed)
+                army = build_faction_random_army(
+                    "T", "Thousand Sons", 1000.0, rng=rng, use_archetype=True,
+                )
+                names = {u.profile.name for u in army.units}
+                self.assertIn(
+                    rubric_name, names,
+                    f"seed={seed}: Rubric Marines dropped with gate on",
+                )
+
+    def test_gate_on_flagship_epic_hero_still_anchored(self):
+        """The tiebreak seeds Typhus (a cheap epic-hero CHARACTER) in the
+        regular walk; the EPIC HERO anchor must still force-seed the
+        flagship (Mortarion, the most expensive template epic hero) rather
+        than being satisfied by Typhus — the exact failure the anchor's
+        comment warns against."""
+        from code.archetypes import _instantiate_template
+
+        dg_template = ARCHETYPES["Death Guard"]["Virulent Vectorium"]
+        with mock.patch.dict(os.environ, {"SWEG_SEED_LEADERS": "1"}):
+            scaled = _instantiate_template(
+                dict(dg_template), 2000.0, random.Random(0),
+                faction="Death Guard",
+            )
+        self.assertIn("death_guard_mortarion", scaled)
+        self.assertIn("death_guard_typhus", scaled)
+
+    def test_gate_on_fraction_override_realizes_heavy_core(self):
+        """SEED_FRACTION_LEADER_STACK must restore the heavy half of the
+        cited core that the tiebreak squeezes out at the old fraction —
+        Grey Knights Nemesis Dreadknight and Land Raider at 0.72."""
+        from code.archetypes import _instantiate_template
+
+        gk_template = ARCHETYPES["Grey Knights"]["Teleport Strike Force"]
+        with mock.patch.dict(os.environ, {"SWEG_SEED_LEADERS": "1"}):
+            scaled = _instantiate_template(
+                dict(gk_template), 2000.0, random.Random(0),
+                faction="Grey Knights",
+            )
+        self.assertIn("grey_knights_nemesis_dreadknight", scaled)
+        self.assertIn("grey_knights_land_raider", scaled)
+
+    def test_gate_on_am_end_to_end_build_carries_officers(self):
+        """Full army build at 2000 points with the gate on carries the three
+        named officers (not just the instantiate step)."""
+        officer_names = {
+            UNIT_CATALOG[k].name
+            for k in (
+                "astra_militarum_cadian_castellan",
+                "astra_militarum_ursula_creed",
+                "astra_militarum_lord_solar_leontus",
+            )
+        }
+        with mock.patch.dict(os.environ, {"SWEG_SEED_LEADERS": "1"}):
+            for seed in range(3):
+                rng = random.Random(seed)
+                army = build_faction_random_army(
+                    "A", "Astra Militarum", 2000.0, rng=rng, use_archetype=True,
+                )
+                names = {u.profile.name for u in army.units}
+                self.assertEqual(
+                    names & officer_names, officer_names,
+                    f"seed={seed}: built army missing officers "
+                    f"(expected {officer_names}), got {sorted(names)}",
+                )
 
 
 class ArchetypeFallbackTests(unittest.TestCase):
