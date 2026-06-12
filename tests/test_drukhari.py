@@ -19,8 +19,9 @@ Implementation (wave 246):
     * Spend: Battle._apply_power_from_pain_spend — greedy, highest-DPA per
       round, dedup via _unit_budget_used keyed on squad_id. Sets
       transient_lethal_hits via _set_transient_squad.
-    * Gate: SWEG_PAIN_TOKENS env var (default "0" = OFF). All new code is
-      fully inert when unset.
+    * Gate: SWEG_PAIN_TOKENS env var (default ON since the wave-246 close
+      adoption; SWEG_PAIN_TOKENS=0 is the kill-switch and restores the fully
+      inert pre-adoption path).
     * Removed: obsolete per-unit `pain_tokens` field and the Below-Starting-
       Strength per-unit accrual block.
 
@@ -115,9 +116,10 @@ class PainTokenCommandPhaseAccrualTests(unittest.TestCase):
         )
 
     def test_gate_off_pool_stays_zero(self):
-        """With SWEG_PAIN_TOKENS unset (default OFF) the pool must stay at 0
-        for all three rounds — proving full gate-off inertness."""
-        os.environ.pop("SWEG_PAIN_TOKENS", None)
+        """With SWEG_PAIN_TOKENS=0 (the kill-switch; default flipped to ON at
+        the wave-246 close) the pool must stay at 0 for all three rounds —
+        proving the pre-adoption inert path stays recoverable."""
+        os.environ["SWEG_PAIN_TOKENS"] = "0"
         os.environ["SWEG_CMDSCORE"] = "0"
         try:
             random.seed(0)
@@ -181,8 +183,8 @@ class PainTokenEnemyDestroyedAccrualTests(unittest.TestCase):
         )
 
     def test_pool_not_awarded_when_gate_off(self):
-        """With SWEG_PAIN_TOKENS unset the helper must be a no-op."""
-        os.environ.pop("SWEG_PAIN_TOKENS", None)
+        """With SWEG_PAIN_TOKENS=0 (kill-switch) the helper must be a no-op."""
+        os.environ["SWEG_PAIN_TOKENS"] = "0"
         battle = _make_battle()
         victim = battle.b.units[0]
         victim.current_health = 0.0
@@ -287,9 +289,9 @@ class PainTokenSpendDedupTests(unittest.TestCase):
         )
 
     def test_spend_no_op_when_gate_off(self):
-        """With SWEG_PAIN_TOKENS unset, no spend fires and no transient flag
-        is set regardless of pool size."""
-        os.environ.pop("SWEG_PAIN_TOKENS", None)
+        """With SWEG_PAIN_TOKENS=0 (kill-switch), no spend fires and no
+        transient flag is set regardless of pool size."""
+        os.environ["SWEG_PAIN_TOKENS"] = "0"
         battle = _make_battle()
         battle.a.pain_token_pool = 99
         battle._apply_power_from_pain_spend(round_num=1)
@@ -318,8 +320,9 @@ class PainTokenSpendDedupTests(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class PainTokenGateOffInertTests(unittest.TestCase):
-    """Run a multi-round battle with gate OFF and confirm pain_token_pool stays
-    at 0 throughout — proving the gate-off path is fully inert."""
+    """Run a multi-round battle with the kill-switch engaged (=0; the default
+    flipped to ON at the wave-246 close) and confirm pain_token_pool stays
+    at 0 throughout — proving the inert path stays recoverable."""
 
     def setUp(self):
         os.environ["SWEG_CMDSCORE"] = "0"
@@ -329,7 +332,7 @@ class PainTokenGateOffInertTests(unittest.TestCase):
         os.environ.pop("SWEG_PAIN_TOKENS", None)
 
     def test_gate_off_pool_zero_throughout(self):
-        os.environ.pop("SWEG_PAIN_TOKENS", None)
+        os.environ["SWEG_PAIN_TOKENS"] = "0"
         random.seed(42)
         battle = _make_battle(drukhari_n=2, marine_n=2)
         for r in range(1, 4):

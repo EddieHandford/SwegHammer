@@ -6629,9 +6629,10 @@ class Battle:
         Dedup per codex unit per ROUND via the `_unit_budget_used` mechanism
         (reset each round at round start) keyed on squad_id (squad_id >= 0)
         or profile.name (fallback), so an Attached/multi-instance squad
-        spends ONCE. Gate: SWEG_PAIN_TOKENS.
+        spends ONCE. Gate: SWEG_PAIN_TOKENS (default ON since the wave-246
+        adoption; SWEG_PAIN_TOKENS=0 is the kill-switch).
         """
-        if os.environ.get("SWEG_PAIN_TOKENS", "0") == "0":
+        if os.environ.get("SWEG_PAIN_TOKENS", "1") == "0":
             return
         for army in (self.a, self.b):
             if army.pain_token_pool <= 0:
@@ -8450,11 +8451,12 @@ class Battle:
             # Codex rule: "1 Pain token each time an enemy unit fails a
             # Battle-shock test." The OPPOSING army earns 1 token if it
             # is Drukhari (i.e. the army that did NOT just fail the test).
-            # Gate: SWEG_PAIN_TOKENS must be active. Once per squad (not
+            # Gate: SWEG_PAIN_TOKENS must be active (default ON since the
+            # wave-246 adoption; =0 kill-switch). Once per squad (not
             # per model) — the single emit above represents one codex unit
             # failing, so one token is correct.
             # Cited as `simulator.power_from_pain.battleshock_accrual`.
-            if os.environ.get("SWEG_PAIN_TOKENS", "0") != "0":
+            if os.environ.get("SWEG_PAIN_TOKENS", "1") != "0":
                 _bs_opponent = self.b if army is self.a else self.a
                 if any(
                     u.profile.faction == "Drukhari"
@@ -9155,9 +9157,11 @@ class Battle:
         # accrual. One token is gained at the start of the Drukhari player's
         # Command phase if that army has at least one alive Drukhari unit
         # (mirrors the Sororitas Acts of Faith army-alive gate). Gated
-        # SWEG_PAIN_TOKENS (default OFF = "0"; gate-off path is fully inert).
+        # SWEG_PAIN_TOKENS (default ON since the wave-246 adoption;
+        # SWEG_PAIN_TOKENS=0 is the kill-switch and restores the fully
+        # inert pre-wave-246 path).
         # Cited as `simulator.power_from_pain.command_phase_accrual`.
-        _pfp_on = os.environ.get("SWEG_PAIN_TOKENS", "0") != "0"
+        _pfp_on = os.environ.get("SWEG_PAIN_TOKENS", "1") != "0"
         if _pfp_on:
             for army in (self.a, self.b):
                 if any(u.profile.faction == "Drukhari" for u in army.alive_units):
@@ -9326,8 +9330,8 @@ class Battle:
         # destroyed (_maybe_award_pain_token at kill sites), +1 per enemy
         # Battle-shock failure (_battleshock_test_squad fail branch). The
         # greedy AI spend fires here — same timing as Dark Pacts. Gate:
-        # SWEG_PAIN_TOKENS (default "0" = OFF). Cited as
-        # `simulator.power_from_pain`.
+        # SWEG_PAIN_TOKENS (default ON since the wave-246 adoption;
+        # =0 kill-switch). Cited as `simulator.power_from_pain`.
         self._apply_power_from_pain_spend(round_num)
         # ---- World Eaters Blessings of Khorne (10e army rule). At the
         # start of each battle round, roll 8D6 and activate up to two
@@ -12826,8 +12830,8 @@ class Battle:
         environ overhead). The callers already gate on the env flag.
         Cited as `simulator.power_from_pain.enemy_destroyed_accrual`.
         """
-        # Gate: SWEG_PAIN_TOKENS must be active.
-        if os.environ.get("SWEG_PAIN_TOKENS", "0") == "0":
+        # Gate: SWEG_PAIN_TOKENS must be active (default ON, =0 kill-switch).
+        if os.environ.get("SWEG_PAIN_TOKENS", "1") == "0":
             return
         # Only award when the KILLER army is Drukhari (they destroyed an
         # enemy unit). Victim-army-is-Drukhari (friendly death) is not a

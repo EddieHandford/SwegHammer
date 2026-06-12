@@ -2116,7 +2116,8 @@ def _displace_fall_back_buys_something(unit, enemies, engaged_enemies, map_) -> 
         by staying, a 2/3 escape survival strictly beats certain death, so the
         move still buys preservation (the Desperate Escape arm does not block).
 
-      * Squad-aware Desperate Escape (SWEG_SQUAD_ESCAPE, default OFF): the
+      * Squad-aware Desperate Escape (SWEG_SQUAD_ESCAPE, default ON since the
+        wave-246 adoption; SWEG_SQUAD_ESCAPE=0 is the kill-switch): the
         lone-unit suppression above is correct for a single model (a lone Land
         Raider risking ~1/3 self-destruction to buy one round of shooting is net-
         negative), but SwegHammer is one-Unit-per-model. For a five-model
@@ -2124,13 +2125,18 @@ def _displace_fall_back_buys_something(unit, enemies, engaged_enemies, map_) -> 
         expected losses ≈ 5 × (2/6) ≈ 1.67 models, recovering the whole squad's
         shooting next round — a trade real players take. The lone-unit suppression
         was treating every squad member as an independent vehicle and locking all
-        five in place. When the gate is ON and the unit belongs to a multi-model
-        squad (squad_id >= 0), we do NOT apply the lone-unit suppression; the
-        unit escapes if conditions 1 and 2 allow it. Lone models (squad_id < 0)
-        keep the conservative block unconditionally regardless of the gate.
-        Note: every member of a given squad has the same squad_id, so each model
-        instance independently takes the same code path — the decision is
-        inherently squad-consistent without needing a per-squad cache.
+        five in place. When the gate is ON and the unit belongs to a genuine
+        multi-model squad (more than one ALIVE member shares its squad_id — note
+        Army.add_unit() gives every lone model a one-model squad with its own
+        squad_id >= 0, so the id alone cannot distinguish them), we do NOT apply
+        the lone-unit suppression; the unit escapes if conditions 1 and 2 allow
+        it. Lone models, hand-built units with no army back-reference, and squads
+        whittled down to their last model keep the conservative block
+        unconditionally regardless of the gate.
+        Note: every member of a given squad has the same squad_id and the same
+        alive-member count, so each model instance independently takes the same
+        code path — the decision is inherently squad-consistent without needing
+        a per-squad cache.
 
     Returns True iff the Fall Back has a clear destination AND is not made
     net-negative by the Desperate Escape cost.
@@ -2143,15 +2149,30 @@ def _displace_fall_back_buys_something(unit, enemies, engaged_enemies, map_) -> 
     # blocked by this arm). The test fires only if the retreat must cross an
     # enemy; "surrounded" (3+ enemies in Engagement Range) is the proxy for that.
     if not (p.titanic or p.fly) and len(engaged_enemies) >= 3:
-        # SWEG_SQUAD_ESCAPE (wave 246, default OFF): multi-model squad members
-        # skip the lone-unit suppression. A squad of five with ~1.67 expected
-        # Desperate Escape losses recovers the whole squad's shooting — a trade
-        # real players take. Lone models (squad_id < 0) always take the
+        # SWEG_SQUAD_ESCAPE (wave 246, default ON; =0 kill-switch): multi-model
+        # squad members skip the lone-unit suppression. A squad of five with
+        # ~1.67 expected Desperate Escape losses recovers the whole squad's
+        # shooting — a trade real players take. Lone models always take the
         # conservative block regardless of the gate setting.
         _squad_escape = (
-            __import__("os").environ.get("SWEG_SQUAD_ESCAPE", "0") == "1"
+            __import__("os").environ.get("SWEG_SQUAD_ESCAPE", "1") != "0"
         )
-        _is_squad_member = getattr(unit, "squad_id", -1) >= 0
+        # A genuine multi-model squad = more than one ALIVE member shares this
+        # unit's squad_id. Army.add_unit() makes every lone model a one-model
+        # squad with its own squad_id >= 0, so squad_id alone cannot tell a
+        # Land Raider from a Hellblaster — count the living members instead.
+        # A squad whittled down to its last model is back on the lone-model
+        # math (1/3 self-destruction to recover one model's shooting) and
+        # keeps the block. army_ref is set by add_squad; a hand-built unit
+        # without it is treated as lone (conservative default, on purpose —
+        # the suppression is the long-standing wave-236 rail behaviour).
+        _army = getattr(unit, "army_ref", None)
+        _sid = getattr(unit, "squad_id", -1)
+        _is_squad_member = (
+            _sid >= 0
+            and _army is not None
+            and sum(1 for u in _army.alive_units if u.squad_id == _sid) > 1
+        )
         if not (_squad_escape and _is_squad_member):
             if not _displace_likely_destroyed_if_stays(unit, engaged_enemies):
                 # Survives by staying; a ~1/3 self-destruction on the way out to

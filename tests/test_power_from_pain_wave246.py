@@ -4,8 +4,9 @@ Covers:
   1. Pool accrual — all 3 triggers: command phase, enemy unit destroyed,
      enemy Battle-shock failure.
   2. Spend dedup — one spend per codex unit per phase (squad_id gate).
-  3. Gate-off inertness — pool stays 0 / no transient flag when
-     SWEG_PAIN_TOKENS is unset (the default).
+  3. Kill-switch inertness — pool stays 0 / no transient flag when
+     SWEG_PAIN_TOKENS=0 (the kill-switch; the default flipped to ON at
+     the wave-246 close, so unset now means active).
 
 BSData source: data/bsdata/cache/Aeldari - Aeldari Library.cat.gz,
 rule id 5e02-2ddc-f55-e6dd. Cited as `simulator.power_from_pain`.
@@ -184,8 +185,9 @@ class TestPoolAccrualEnemyDestroyed(unittest.TestCase):
                          "non-Drukhari killer must not receive Pain tokens")
 
     def test_kill_no_op_gate_off(self):
-        """With gate OFF the helper must be completely inert."""
-        os.environ.pop("SWEG_PAIN_TOKENS", None)
+        """With the kill-switch engaged (=0) the helper must be completely
+        inert."""
+        os.environ["SWEG_PAIN_TOKENS"] = "0"
         b = _battle()
         victim = b.b.units[0]
         victim.current_health = 0.0
@@ -307,13 +309,13 @@ class TestSpendDedup(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 3. Gate-off inertness
+# 3. Kill-switch inertness (SWEG_PAIN_TOKENS=0; default flipped ON wave 246)
 # ---------------------------------------------------------------------------
 
 class TestGateOffInertness(unittest.TestCase):
-    """Prove that with SWEG_PAIN_TOKENS unset (the default) the entire
-    Power From Pain economy is fully inert: pool stays 0, no transient flag
-    is set, no crash."""
+    """Prove that with SWEG_PAIN_TOKENS=0 (the kill-switch — the default
+    flipped to ON at the wave-246 close) the entire Power From Pain economy
+    is fully inert: pool stays 0, no transient flag is set, no crash."""
 
     def setUp(self):
         os.environ["SWEG_CMDSCORE"] = "0"
@@ -323,8 +325,8 @@ class TestGateOffInertness(unittest.TestCase):
         os.environ.pop("SWEG_CMDSCORE", None)
 
     def test_gate_off_pool_zero_after_full_battle(self):
-        """3 rounds of play with gate OFF: pool must stay at 0 throughout."""
-        os.environ.pop("SWEG_PAIN_TOKENS", None)
+        """3 rounds of play with the kill-switch engaged: pool stays at 0."""
+        os.environ["SWEG_PAIN_TOKENS"] = "0"
         random.seed(77)
         b = _battle(drukhari_n=2, marine_n=2)
         for r in range(1, 4):
@@ -339,9 +341,9 @@ class TestGateOffInertness(unittest.TestCase):
             )
 
     def test_gate_off_no_transient_lethal_hits(self):
-        """With gate OFF, _apply_power_from_pain_spend must not set
-        transient_lethal_hits on any unit even if pool is pre-filled."""
-        os.environ.pop("SWEG_PAIN_TOKENS", None)
+        """With the kill-switch engaged, _apply_power_from_pain_spend must not
+        set transient_lethal_hits on any unit even if pool is pre-filled."""
+        os.environ["SWEG_PAIN_TOKENS"] = "0"
         b = _battle()
         b.a.pain_token_pool = 99
         b._apply_power_from_pain_spend(round_num=1)
@@ -353,8 +355,9 @@ class TestGateOffInertness(unittest.TestCase):
                          "gate OFF must not consume pool")
 
     def test_gate_off_kill_helper_noop(self):
-        """With gate OFF, _maybe_award_pain_token must not increment pool."""
-        os.environ.pop("SWEG_PAIN_TOKENS", None)
+        """With the kill-switch engaged, _maybe_award_pain_token must not
+        increment the pool."""
+        os.environ["SWEG_PAIN_TOKENS"] = "0"
         b = _battle()
         victim = b.b.units[0]
         victim.current_health = 0.0

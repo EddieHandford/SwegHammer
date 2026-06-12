@@ -10,15 +10,16 @@ five models times two-sixths equals 1.67 models, recovering the whole squad's
 shooting next round — a trade real players take. Treating every squad member as
 an independent lone vehicle locks all five in place and lets melee armies farm them.
 
-The gate `SWEG_SQUAD_ESCAPE` (default OFF, "0") lifts the lone-unit suppression
+The gate `SWEG_SQUAD_ESCAPE` (default ON since the wave-246 close adoption;
+SWEG_SQUAD_ESCAPE=0 is the kill-switch) lifts the lone-unit suppression
 for squad members (squad_id >= 0) while leaving lone models (squad_id < 0) with
 the conservative block. Rail conditions 1 and 2 of the "fall back only when
 wasted" rail are untouched by the gate — a unit that holds or denies a marker
 still STAYS regardless of squad membership.
 
 Tests:
-  (a) gate-off inertness: the 3+ block still suppresses a squad member (current
-      behaviour preserved, gate OFF is byte-identical).
+  (a) kill-switch inertness: with =0 the 3+ block still suppresses a squad
+      member (pre-wave-246 behaviour recoverable); unset now means ON.
   (b) gate-on, squad member: engaged by 3+ enemies, surviving by staying, with no
       marker consequence and a clear destination → gets FALL_BACK.
   (c) gate-on, lone model (squad_id < 0): same setup → still suppressed by the
@@ -74,13 +75,30 @@ def _weak_melee_profile(oc: int = 1) -> UnitProfile:
 # ---------------------------------------------------------------------------
 
 def _make_army_with_unit(name: str, profile: UnitProfile, pos: tuple) -> tuple[Army, Unit]:
-    """Build a one-unit army and return the army and its first unit."""
+    """Build a one-unit army and return the army and its first unit.
+
+    Note: add_unit() makes a ONE-model squad (squad_id >= 0, single member),
+    so units built here are LONE MODELS under the alive-member-count predicate."""
     army = Army(name)
     army.add_unit(profile)
     u = army.units[0]
     u.uid = f"{name[0]}0"
     u.position = pos
     return army, u
+
+
+def _make_army_with_squad(
+    name: str, profile: UnitProfile, positions: list
+) -> tuple[Army, Unit]:
+    """Build an army whose units form ONE genuine multi-model squad (a shared
+    squad_id via add_squad, len(positions) alive members) and return the army
+    and the FIRST member, positioned at positions[0]."""
+    army = Army(name)
+    army.add_squad(profile, len(positions))
+    for i, (u, pos) in enumerate(zip(army.units, positions)):
+        u.uid = f"{name[0]}{i}"
+        u.position = pos
+    return army, army.units[0]
 
 
 def _make_enemy_at(*positions: tuple, profile: UnitProfile = None) -> Army:
@@ -125,45 +143,50 @@ def _set_round(*armies, round_num: int = 2) -> None:
 # exists) but the unit is 'surrounded' (three or more in Engagement Range).
 _THREE_ENEMY_POSITIONS = [(20.8, 19.6), (20.8, 20.0), (20.8, 20.4)]
 _UNIT_POS = (20.0, 20.0)
+# Second squad member: un-engaged, clear of the escape vector (which points
+# away from the enemies, toward -x), close enough to be the same fight.
+_SQUADMATE_POS = (20.0, 26.0)
 
 
 # ---------------------------------------------------------------------------
-# (a) Gate-off inertness — the 3+ block still suppresses a squad member
+# (a) Kill-switch inertness — with SWEG_SQUAD_ESCAPE=0 the 3+ block still
+#     suppresses a squad member (the pre-wave-246 behaviour is recoverable)
 # ---------------------------------------------------------------------------
 
 class GateOffInertTest(unittest.TestCase):
-    """With SWEG_SQUAD_ESCAPE unset (or "0"), the existing surroundedness block
-    fires for squad members just as it always has — no behaviour change."""
+    """With SWEG_SQUAD_ESCAPE=0 (the kill-switch; the default flipped to ON at
+    the wave-246 close), the existing surroundedness block fires for squad
+    members just as it did pre-wave-246 — the old behaviour stays recoverable."""
 
     def test_gate_off_squad_member_still_suppressed(self):
-        # A squad member (squad_id >= 0) in the same three-attacker surround
-        # that blocks a lone unit. Gate OFF must leave the suppression in place.
-        friendly, unit = _make_army_with_unit(
-            "Friend", _squad_shooty_profile(health=4.0), _UNIT_POS,
+        # A genuine two-member squad in the same three-attacker surround
+        # that blocks a lone unit. Kill-switch must restore the suppression.
+        friendly, unit = _make_army_with_squad(
+            "Friend", _squad_shooty_profile(health=4.0),
+            [_UNIT_POS, _SQUADMATE_POS],
         )
-        # Assign a squad_id as add_squad would — the unit is part of a squad.
-        unit.squad_id = 0
         enemy = _make_enemy_at(*_THREE_ENEMY_POSITIONS)
         map_ = _empty_map()
         _set_round(friendly, enemy)
 
-        # Ensure the gate is explicitly off.
+        # Ensure the kill-switch is explicitly engaged.
         with mock.patch.dict(os.environ, {"SWEG_SQUAD_ESCAPE": "0",
                                           "SWEG_DISPLACE_FALLBACK": "1"}):
             _, intent = pick_move_intent(unit, friendly, enemy, map_)
         self.assertNotEqual(
             intent, "FALL_BACK",
-            "Gate OFF: a surrounded-but-surviving squad member must still be "
-            "suppressed (byte-identical to pre-wave-246 behaviour).",
+            "Kill-switch (=0): a surrounded-but-surviving squad member must "
+            "still be suppressed (byte-identical to pre-wave-246 behaviour).",
         )
 
-    def test_gate_unset_squad_member_still_suppressed(self):
-        # Same test with the gate environment variable absent (not even "0"),
-        # confirming the default-OFF behaviour (os.environ.get returns "0").
-        friendly, unit = _make_army_with_unit(
-            "Friend", _squad_shooty_profile(health=4.0), _UNIT_POS,
+    def test_gate_unset_squad_member_escapes(self):
+        # Same setup with the gate environment variable absent entirely:
+        # the default is now ON (wave-246 close flip), so the squad member
+        # must receive FALL_BACK exactly as in the explicit =1 case.
+        friendly, unit = _make_army_with_squad(
+            "Friend", _squad_shooty_profile(health=4.0),
+            [_UNIT_POS, _SQUADMATE_POS],
         )
-        unit.squad_id = 0
         enemy = _make_enemy_at(*_THREE_ENEMY_POSITIONS)
         map_ = _empty_map()
         _set_round(friendly, enemy)
@@ -172,10 +195,10 @@ class GateOffInertTest(unittest.TestCase):
         env["SWEG_DISPLACE_FALLBACK"] = "1"
         with mock.patch.dict(os.environ, env, clear=True):
             _, intent = pick_move_intent(unit, friendly, enemy, map_)
-        self.assertNotEqual(
+        self.assertEqual(
             intent, "FALL_BACK",
-            "Gate unset (default OFF): a surrounded-but-surviving squad member "
-            "must still be suppressed.",
+            "Gate unset (default ON since the wave-246 close): a surrounded-"
+            "but-surviving squad member must now escape.",
         )
 
 
@@ -189,14 +212,15 @@ class GateOnSquadMemberTest(unittest.TestCase):
     destination, now receives the FALL_BACK intent."""
 
     def test_gate_on_squad_member_falls_back_when_surrounded(self):
-        # Squad member (squad_id >= 0) in the three-attacker surround, off
-        # any marker (condition 1 passes), surviving the token attackers
-        # (condition 2 satisfied via pinned-gun-platform arm), clear destination
-        # exists. Gate ON: the lone-unit suppression is lifted for squad members.
-        friendly, unit = _make_army_with_unit(
-            "Friend", _squad_shooty_profile(health=4.0), _UNIT_POS,
+        # A genuine two-member squad: the engaged member is in the three-
+        # attacker surround, off any marker (condition 1 passes), surviving
+        # the token attackers (condition 2 satisfied via pinned-gun-platform
+        # arm), clear destination exists. Gate ON: the lone-unit suppression
+        # is lifted for genuine multi-model squad members.
+        friendly, unit = _make_army_with_squad(
+            "Friend", _squad_shooty_profile(health=4.0),
+            [_UNIT_POS, _SQUADMATE_POS],
         )
-        unit.squad_id = 0  # multi-model squad
         enemy = _make_enemy_at(*_THREE_ENEMY_POSITIONS)
         map_ = _empty_map()
         _set_round(friendly, enemy)
@@ -250,6 +274,55 @@ class GateOnLoneModelTest(unittest.TestCase):
             "remain — lone models are never lifted by SWEG_SQUAD_ESCAPE.",
         )
 
+    def test_gate_on_one_model_squad_still_suppressed(self):
+        # The realistic lone-model case: add_unit() makes a ONE-model squad
+        # with squad_id >= 0 (a lone Land Raider is built exactly this way).
+        # The predicate counts ALIVE members sharing the id, so a single-
+        # member squad is on the lone-model math and keeps the block. This is
+        # the regression the wave-236 rail tests caught when the predicate
+        # was squad_id >= 0 alone.
+        friendly, unit = _make_army_with_unit(
+            "Friend", _squad_shooty_profile(health=4.0), _UNIT_POS,
+        )
+        self.assertGreaterEqual(
+            unit.squad_id, 0,
+            "Precondition: add_unit assigns a real squad_id (one-model squad).",
+        )
+        enemy = _make_enemy_at(*_THREE_ENEMY_POSITIONS)
+        map_ = _empty_map()
+        _set_round(friendly, enemy)
+
+        with mock.patch.dict(os.environ, {"SWEG_SQUAD_ESCAPE": "1",
+                                          "SWEG_DISPLACE_FALLBACK": "1"}):
+            _, intent = pick_move_intent(unit, friendly, enemy, map_)
+        self.assertNotEqual(
+            intent, "FALL_BACK",
+            "Gate ON but one-model squad (single alive member): the "
+            "conservative block must remain.",
+        )
+
+    def test_gate_on_last_survivor_of_squad_suppressed(self):
+        # A two-member squad whittled down to its last alive model is back on
+        # the lone-model math: the dead member must not count.
+        friendly, unit = _make_army_with_squad(
+            "Friend", _squad_shooty_profile(health=4.0),
+            [_UNIT_POS, _SQUADMATE_POS],
+        )
+        friendly.units[1].current_health = 0.0  # squadmate dead
+        friendly._invalidate_alive_cache()
+        enemy = _make_enemy_at(*_THREE_ENEMY_POSITIONS)
+        map_ = _empty_map()
+        _set_round(friendly, enemy)
+
+        with mock.patch.dict(os.environ, {"SWEG_SQUAD_ESCAPE": "1",
+                                          "SWEG_DISPLACE_FALLBACK": "1"}):
+            _, intent = pick_move_intent(unit, friendly, enemy, map_)
+        self.assertNotEqual(
+            intent, "FALL_BACK",
+            "Gate ON but the squad's last alive member: the conservative "
+            "block must remain (dead members do not count).",
+        )
+
 
 # ---------------------------------------------------------------------------
 # (d) Gate-on, squad member on a marker — rail condition 1 intact
@@ -262,31 +335,17 @@ class GateOnCondition1RailTest(unittest.TestCase):
     block inside condition 3."""
 
     def test_gate_on_squad_member_holding_marker_stays(self):
-        # Squad member (squad_id >= 0) sitting on the centre objective with
-        # Objective Control 2 vs a single enemy Objective Control 1 — WITH the
-        # unit we hold (2 > 1); WITHOUT it the enemy holds (0 < 1). Condition 1
-        # fails → STAY, regardless of the gate. Three attackers ensure the
-        # surroundedness block would fire without condition 1 intercepting first.
-        friendly, unit = _make_army_with_unit(
-            "Friend", _squad_shooty_profile(oc=2, health=4.0), (30.0, 30.0),
+        # A genuine two-member squad whose engaged member sits on the centre
+        # objective and IS the swing: with it we hold (4 vs 3); without it the
+        # enemy holds (0 vs 3). Condition 1 fails → STAY, regardless of the
+        # gate. Three attackers ensure the surroundedness block would fire
+        # without condition 1 intercepting first. The second squad member sits
+        # well outside the 3-inch control radius so the marker sums are
+        # untouched by its presence.
+        friendly2, unit2 = _make_army_with_squad(
+            "Friend2", _squad_shooty_profile(oc=4, health=4.0),
+            [(30.0, 30.0), (36.5, 30.0)],
         )
-        unit.squad_id = 0  # multi-model squad
-        # Three weak enemies on the marker too (enough to trigger the surroundedness
-        # proxy) but with low Objective Control so we still hold with the unit present.
-        enemy = _make_enemy_at(
-            (30.8, 29.6), (30.8, 30.0), (30.8, 30.4),
-            profile=_weak_melee_profile(oc=1),
-        )
-        # Enemy combined OC = 3, but each is a different unit instance with oc=1,
-        # and the summed enemy OC is 3 which exceeds our 2 — so the marker would
-        # flip contested to enemy-held without our unit. But with our unit: 2 vs 3
-        # → the enemy already holds (3 > 2) and we are not the swing. Adjust so
-        # we ARE the swing: use oc=4 for our unit so with us: 4 vs 3 (we hold);
-        # without us: 0 vs 3 (enemy holds). Rebuild.
-        friendly2, unit2 = _make_army_with_unit(
-            "Friend2", _squad_shooty_profile(oc=4, health=4.0), (30.0, 30.0),
-        )
-        unit2.squad_id = 0
         enemy2 = _make_enemy_at(
             (30.8, 29.6), (30.8, 30.0), (30.8, 30.4),
             profile=_weak_melee_profile(oc=1),
