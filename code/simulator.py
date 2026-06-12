@@ -13014,30 +13014,19 @@ class Battle:
         """Pre-game embark pass (10e core).
 
         For each army that owns at least one TRANSPORT, pick the highest-
-        threat INFANTRY unit that fits and embark it on the first available
-        transport. Repeats per transport so a list of Rhinos all get a
-        passenger if possible. Passengers are removed from the active
-        deployment line — their position becomes the transport's, and the
-        simulator's activation loop skips embarked units via the
-        `embarked_in` gate. Cited as `simulator.embark`.
+        threat INFANTRY unit that fits (1 model after squad-flattening) and
+        embark it on the first available transport. Repeats per transport so
+        a list of Rhinos all get a passenger if possible. Passengers are
+        removed from the active deployment line — their position becomes the
+        transport's, and the simulator's activation loop skips embarked units
+        via the `embarked_in` gate. Cited as `simulator.embark`.
 
         First-pass simplification: capacity is fixed at 12 INFANTRY models
-        per transport (Rhino-tier).
-
-        Gate SWEG_EMBARK_SQUAD (default OFF/"0"):
-          OFF — single-instance election (original behaviour, byte-for-byte
-                identical to the pre-gate code path). One Unit instance per
-                transport, the highest Lanchester-score individual model.
-          ON  — squad-level election. Eligible Unit instances are grouped by
-                squad_id (instances with squad_id < 0 form singleton groups
-                keyed by their object identity so they never merge). The
-                squad with the highest SUMMED profile.score whose alive-
-                instance count fits the remaining capacity is elected; all
-                its instances embark together via _embark one at a time.
-                A squad is never split across transports — if it does not
-                fit, the next-best squad is tried. This is faithful to 10e
-                core transport rules: "a unit can embark within a TRANSPORT"
-                treats the whole codex unit as the passenger.
+        per transport (Rhino-tier). SwegHammer models units as a single
+        Unit-per-model so we can fit up to 12 such Units inside one transport,
+        but for the pre-game pass we only embark ONE infantry instance per
+        transport (the most tactical-value passenger) to keep the pre-game
+        deterministic and easy to reason about.
         """
         for army in (self.a, self.b):
             transports = [u for u in army.units if self._is_transport(u)]
@@ -13057,53 +13046,16 @@ class Battle:
                     return False
                 return True
 
-            if os.environ.get("SWEG_EMBARK_SQUAD", "0") != "1":
-                # --- gate OFF: original single-instance behaviour ---
-                for transport in transports:
-                    if len(transport.passengers) >= self._TRANSPORT_CAPACITY:
-                        continue
-                    candidates = [u for u in army.units if _eligible(u)]
-                    if not candidates:
-                        break
-                    # Highest-Lanchester-score INFANTRY rides — biggest gun
-                    # benefits from the +6" pre-move the most.
-                    passenger = max(candidates, key=lambda u: u.profile.score)
-                    self._embark(passenger, transport)
-            else:
-                # --- gate ON: squad-level election ---
-                # Build squads from eligible instances.  Instances with a
-                # valid squad_id (>= 0) share one group; lone instances
-                # (squad_id < 0) each form a singleton keyed by id(u) so
-                # they never accidentally merge.
-                for transport in transports:
-                    remaining = self._TRANSPORT_CAPACITY - len(transport.passengers)
-                    if remaining <= 0:
-                        continue
-                    candidates = [u for u in army.units if _eligible(u)]
-                    if not candidates:
-                        break
-                    # Group by squad_id, preserving first-seen order.
-                    squads: dict = {}
-                    for u in candidates:
-                        key = u.squad_id if u.squad_id >= 0 else id(u)
-                        squads.setdefault(key, []).append(u)
-                    # Rank squads by summed profile.score (descending).
-                    ranked = sorted(
-                        squads.values(),
-                        key=lambda members: sum(m.profile.score for m in members),
-                        reverse=True,
-                    )
-                    # Elect the best squad that fits entirely in remaining
-                    # capacity — no splitting.
-                    elected = None
-                    for squad_members in ranked:
-                        if len(squad_members) <= remaining:
-                            elected = squad_members
-                            break
-                    if elected is None:
-                        continue
-                    for instance in elected:
-                        self._embark(instance, transport)
+            for transport in transports:
+                if len(transport.passengers) >= self._TRANSPORT_CAPACITY:
+                    continue
+                candidates = [u for u in army.units if _eligible(u)]
+                if not candidates:
+                    break
+                # Highest-Lanchester-score INFANTRY rides — biggest gun
+                # benefits from the +6" pre-move the most.
+                passenger = max(candidates, key=lambda u: u.profile.score)
+                self._embark(passenger, transport)
 
     def _embark(self, passenger: "Unit", transport: "Unit") -> None:
         """Place `passenger` inside `transport` (10e core embark step).
