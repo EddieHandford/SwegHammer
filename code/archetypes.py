@@ -1350,22 +1350,115 @@ SEED_FRACTION_BY_FACTION: Dict[str, float] = {
 # as "the lowest that realizes the cited dropped core" (wave-174 method)
 # under the old (-count, -cost) walk. With the leader-stack tiebreak on,
 # characters seed ahead of equally-counted heavy support, so the same
-# fraction no longer realizes the heavy half of the cited core in four
-# non-menu factions (`scripts/diag_list_realism.py`, 2026-06-12): Astra
-# Militarum drops Manticore + Basilisk, Adepta Sororitas drops Castigator,
-# Grey Knights drop Nemesis Dreadknight + Land Raider, Thousand Sons drop
-# the Mutalith Vortex Beast. Each value below is the minimal fraction at
-# which the gate-on deterministic seed walk realizes that faction's
-# previously-dropped core (scanned in 0.01 steps at the 2000-point eval
-# budget) — realized-MATCHES-real, NOT chosen to move win rate. Menu
-# factions (Imperial/Chaos Knights, Daemons, Emperor's Children, World
-# Eaters, Aeldari) are left alone per the wave-174 rule. Consulted only
-# when the gate is on; fold into SEED_FRACTION_BY_FACTION at default-flip.
+# fraction can no longer guarantee the gate-on seeded set is a superset of
+# the gate-off seeded set.
+#
+# Superset criterion (wave 244 amendment): gate-on seeded set must be a
+# strict superset of gate-off seeded set — no entry that the gate-off walk
+# realizes may be absent from the gate-on walk. Any missing entry is a
+# list-realism regression (the gate-on build loses a documented template
+# entry that the baseline build fielded). The original four entries were
+# derived against a 150-point screening threshold and missed cheaper
+# de-realizations (for example, Adeptus Astartes Apothecary at 50 points
+# displaces the Eradicator Squad at 90 points in the count=1 tier).
+#
+# Each value below is the minimal fraction at which the gate-on
+# deterministic seed walk realizes a superset of the gate-off seeded set
+# (scanned in 0.01 steps at the 2000-point eval budget). Derivation is
+# realized-MATCHES-real, NOT chosen to move win rate. Menu factions
+# (Imperial Knights, Chaos Knights, Chaos Daemons, Emperor's Children,
+# World Eaters, Aeldari) are left alone per the wave-174 rule. Consulted
+# only when the gate is on; fold into SEED_FRACTION_BY_FACTION at
+# default-flip.
+#
+# Fractions where the dict folds into SEED_FRACTION_BY_FACTION (gate-off
+# baseline) are also the fallback for gate-on when no entry is listed
+# here — any faction not listed below had no de-realization at 2000 points
+# and needs no extra headroom.
+#
+# Per-faction table (gate-off effective fraction -> gate-on minimal):
+#   Adeptus Astartes:  0.30 -> 0.31  restores Eradicator Squad (90pt)
+#   Necrons:           0.30 -> 0.34  restores Ghost Ark (115pt)
+#   T'au Empire:       0.55 -> 0.59  restores Devilfish (85pt)
+#   Death Guard:       0.30 -> 0.37  restores Deathshroud Terminators (160pt)
+#   Adeptus Custodes:  0.55 -> 0.58  restores Custodian Guard (160pt) +
+#                                    Prosecutors (40pt)
+#   Leagues of Votann: 0.40 -> 0.48  restores Hernkyn Pioneers (80pt) +
+#                                    Sagitaur (90pt)
+#   Drukhari:          0.30 -> 0.33  restores Ravager (110pt)
+#   Chaos Space Marines: 0.65 -> 0.66  restores Legionaries (90pt)
+#   Astra Militarum:   0.67 -> 0.72  restores Taurox Prime (90pt)
+#                                    (old 0.67 missed this sub-150pt drop)
+#   Adeptus Mechanicus: 0.65 -> 0.73  restores Pteraxii Sterylizors (80pt) +
+#                                    Sicarian Infiltrators (75pt)
+#   Adepta Sororitas:  0.61 -> 0.65  restores Seraphim Squad (80pt)
+#                                    (old 0.61 missed this sub-150pt drop)
+#   Grey Knights:      0.72 -> 0.78  restores Interceptor Squad (125pt)
+#                                    (old 0.72 missed this sub-150pt drop)
+#   Thousand Sons:     0.37 unchanged  already a superset at 0.37
+#   Genestealer Cults: 0.30 -> 0.49  restores Aberrants (135pt) +
+#                                    Achilles Ridgerunners (95pt) +
+#                                    Atalan Jackals (85pt) +
+#                                    Goliath Rockgrinder (120pt)
 SEED_FRACTION_LEADER_STACK: Dict[str, float] = {
-    "Astra Militarum": 0.67,
-    "Adepta Sororitas": 0.61,
-    "Grey Knights": 0.72,
+    # Adeptus Astartes: 0.30 -> 0.31; restores Eradicator Squad (90pt)
+    # displaced by the Apothecary CHARACTER tiebreak (50pt).
+    "Adeptus Astartes": 0.31,
+    # Necrons: 0.30 -> 0.34; restores Ghost Ark (115pt) displaced by
+    # the Overlord CHARACTER tiebreak (85pt).
+    "Necrons": 0.34,
+    # T'au Empire: 0.55 -> 0.59; restores Devilfish (85pt) displaced by
+    # the Commander in Enforcer Battlesuit CHARACTER tiebreak (95pt).
+    "T'au Empire": 0.59,
+    # Death Guard: 0.30 -> 0.37; restores Deathshroud Terminators (160pt)
+    # displaced by Foul Blightspawn (75pt) + Typhus (100pt) CHARACTER tiebreaks.
+    "Death Guard": 0.37,
+    # Adeptus Custodes: 0.55 -> 0.58; restores Custodian Guard (160pt) +
+    # Prosecutors (40pt) displaced by Blade Champion (120pt) + Allarus
+    # Custodians (110pt) tiebreaks.
+    "Adeptus Custodes": 0.58,
+    # Leagues of Votann: 0.40 -> 0.48; restores Hernkyn Pioneers (80pt) +
+    # Sagitaur (90pt) displaced by Einhyr Champion (70pt) + Brokhyr Iron
+    # Master (75pt) CHARACTER tiebreaks.
+    "Leagues of Votann": 0.48,
+    # Drukhari: 0.30 -> 0.33; restores Ravager (110pt) displaced by
+    # Archon CHARACTER tiebreak (80pt).
+    "Drukhari": 0.33,
+    # Chaos Space Marines: 0.65 -> 0.66; restores Legionaries (90pt)
+    # displaced by Dark Apostle CHARACTER tiebreak (65pt).
+    "Chaos Space Marines": 0.66,
+    # Astra Militarum: 0.67 -> 0.72; restores Taurox Prime (90pt)
+    # displaced by Cadian Command Squad (65pt) + Ursula Creed (85pt) +
+    # Lord Solar Leontus (130pt) CHARACTER tiebreaks. Old value 0.67
+    # restored the 150pt+ heavy core but missed this sub-150pt entry.
+    "Astra Militarum": 0.72,
+    # Adeptus Mechanicus: 0.65 -> 0.73; restores Pteraxii Sterylizors
+    # (80pt) + Sicarian Infiltrators (75pt) displaced by Skitarii Marshal
+    # (35pt) + Tech-Priest Manipulus (60pt) + Tech-Priest Dominus (65pt)
+    # CHARACTER tiebreaks.
+    "Adeptus Mechanicus": 0.73,
+    # Adepta Sororitas: 0.61 -> 0.65; restores Seraphim Squad (80pt)
+    # displaced by Canoness (60pt) + Palatine (50pt) + Junith Eruita (80pt)
+    # CHARACTER tiebreaks. Old value 0.61 restored the Castigator but
+    # missed this sub-150pt entry.
+    "Adepta Sororitas": 0.65,
+    # Grey Knights: 0.72 -> 0.78; restores Interceptor Squad (125pt)
+    # displaced by five CHARACTER tiebreaks (Brother Captain 90pt,
+    # Brotherhood Chaplain 65pt, Brotherhood Librarian 80pt, Brotherhood
+    # Champion 70pt, Grand Master 95pt) + Venerable Dreadnought (140pt).
+    # Old value 0.72 restored the Nemesis Dreadknight + Land Raider but
+    # missed this sub-150pt entry.
+    "Grey Knights": 0.78,
+    # Thousand Sons: 0.37 unchanged; gate-on seeded set is already a
+    # superset of gate-off seeded set at 0.37 (Mutalith Vortex Beast +
+    # Rubric Marines + Scarab Occult Terminators all realized).
     "Thousand Sons": 0.37,
+    # Genestealer Cults: 0.30 -> 0.49; restores Aberrants (135pt) +
+    # Achilles Ridgerunners (95pt) + Atalan Jackals (85pt) + Goliath
+    # Rockgrinder (120pt) displaced by six CHARACTER tiebreaks (Patriarch
+    # 75pt, Primus 70pt, Clamavus 50pt, Jackal Alphus 55pt, Kelermorph
+    # 60pt, Sanctus 50pt).
+    "Genestealer Cults": 0.49,
 }
 
 

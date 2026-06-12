@@ -284,6 +284,90 @@ class LeaderStackPriorityTests(unittest.TestCase):
                 )
 
 
+class SeedFractionSupersetTests(unittest.TestCase):
+    """Wave 244 amendment — gate-on seeded set must be a superset of gate-off.
+
+    The leader-stack tiebreak (SWEG_SEED_LEADERS=1) seeds CHARACTER entries
+    ahead of non-CHARACTER entries within the same template count, so a lower
+    fraction can lose non-CHARACTER entries the gate-off walk would have
+    realized. SEED_FRACTION_LEADER_STACK was re-derived at threshold zero
+    (not the previous 150-point threshold) to guarantee the superset
+    invariant for every non-menu faction.
+
+    Menu factions (Imperial Knights, Chaos Knights, Chaos Daemons,
+    Emperor's Children, World Eaters, Aeldari) are excluded per the
+    wave-174 standing rule.
+    """
+
+    MENU_FACTIONS = frozenset({
+        "Imperial Knights",
+        "Chaos Knights",
+        "Chaos Daemons",
+        "Emperor's Children",
+        "World Eaters",
+        "Aeldari",
+    })
+    BUDGET = 2000.0
+
+    @classmethod
+    def _seeded_set(cls, faction, arch_name, env_override):
+        """Return the set of unit keys seeded by _instantiate_template."""
+        from code.archetypes import _instantiate_template
+        template = ARCHETYPES[faction][arch_name]
+        with mock.patch.dict(os.environ, env_override, clear=False):
+            if "SWEG_SEED_LEADERS" not in env_override:
+                os.environ.pop("SWEG_SEED_LEADERS", None)
+            result = _instantiate_template(
+                dict(template), cls.BUDGET, random.Random(0), faction=faction,
+            )
+        return set(result.keys())
+
+    def _check_superset(self, faction, arch_name):
+        """Assert gate-on seeded set is a superset of gate-off for one archetype."""
+        off_set = self._seeded_set(faction, arch_name, {})
+        on_set = self._seeded_set(faction, arch_name, {"SWEG_SEED_LEADERS": "1"})
+        dropped = off_set - on_set
+        self.assertFalse(
+            dropped,
+            f"Faction {faction!r} archetype {arch_name!r}: gate-on is NOT a "
+            f"superset of gate-off at {self.BUDGET}pt. "
+            f"De-realized entries (in gate-off, missing from gate-on): "
+            f"{sorted(dropped)}.  "
+            f"gate-off={sorted(off_set)}  gate-on={sorted(on_set)}",
+        )
+
+    def test_superset_invariant_all_non_menu_factions(self):
+        """For every non-menu faction's archetype(s), gate-on seeded set is
+        a superset of gate-off seeded set at 2000 points."""
+        for faction, arch_dict in ARCHETYPES.items():
+            if faction in self.MENU_FACTIONS:
+                continue
+            for arch_name in arch_dict:
+                with self.subTest(faction=faction, archetype=arch_name):
+                    self._check_superset(faction, arch_name)
+
+    def test_adeptus_astartes_eradicator_squad_and_apothecary_both_seeded(self):
+        """Gate-on must seed BOTH the Eradicator Squad (90pt, non-CHARACTER)
+        AND the Apothecary (50pt, CHARACTER) — the motivating case for the
+        wave-244 amendment, where the CHARACTER tiebreak displaced the
+        documented anti-tank entry at the count=1 tier."""
+        eradicator_name = UNIT_CATALOG["space_marines_eradicator_squad"].name
+        apothecary_name = UNIT_CATALOG["space_marines_apothecary"].name
+        on_set = self._seeded_set(
+            "Adeptus Astartes", "Gladius Strike Force", {"SWEG_SEED_LEADERS": "1"}
+        )
+        on_names = {UNIT_CATALOG[k].name for k in on_set if k in UNIT_CATALOG}
+        self.assertIn(
+            eradicator_name, on_names,
+            "Eradicator Squad missing from gate-on seeded set (the displacement "
+            "the wave-244 amendment was built to fix)",
+        )
+        self.assertIn(
+            apothecary_name, on_names,
+            "Apothecary missing from gate-on seeded set",
+        )
+
+
 class ArchetypeFallbackTests(unittest.TestCase):
     def test_archetype_fallback_when_no_curated(self):
         """A faction not present in ARCHETYPES still builds an army via the
