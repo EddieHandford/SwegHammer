@@ -9430,7 +9430,10 @@ class Battle:
         # `simulator.voice_of_command_orders`.
         from .orders import dispatch_orders as _dispatch_orders
         for army in (self.a, self.b):
-            _issued = _dispatch_orders(army, self._battleshocked_this_round)
+            _enemy = self.b if army is self.a else self.a
+            _issued = _dispatch_orders(
+                army, self._battleshocked_this_round, enemy_army=_enemy
+            )
             if self.verbose and _issued:
                 for officer_name, target_name, order_name in _issued:
                     print(f"  ORDER: {officer_name} -> {target_name}: {order_name}")
