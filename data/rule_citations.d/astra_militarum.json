@@ -4,9 +4,9 @@
   "COMBINED_REGIMENT.am_born_soldiers_lethal_hits": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Born Soldiers (Combined Arms Detachment Rule)",
-    "quoted_text": "Each time a model in a REGIMENT unit from your army makes a ranged attack that targets a visible unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time a model in a SQUADRON unit from your army makes a ranged attack that targets a visible MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability.",
+    "quoted_text": "Each time a model in a **^^Regiment^^** unit from your army makes a ranged attack that targets a visible unit (excluding **^^Monsters^^** and **^^Vehicles^^**) that attack has the **[LETHAL HITS]** ability. Each time a model in a **^^Squadron^^** unit from your army makes a ranged attack that targets a visible **^^Monster^^** or **^^Vehicle^^** unit, that attack has the **[LETHAL HITS]** ability.",
     "trigger": "any ranged attack made by a friendly AM REGIMENT (vs non-VEHICLE/MONSTER target) OR SQUADRON (vs VEHICLE/MONSTER target)",
-    "effect": "the attack gains [LETHAL HITS] (Critical Hits auto-wound). Simulator gate: Unit.attack's `effective_lethal_hits` branch ORs in True when faction is Astra Militarum, mode is ranged, and the REGIMENT-vs-non-V/M or SQUADRON-vs-V/M matrix matches. APPROXIMATION: BSData v10.6.0 doesn't tag datasheets with the codex's REGIMENT / SQUADRON keywords. AM-DIAG-2 (2026-05-24) narrowed the REGIMENT proxy from INFANTRY → BATTLELINE after the INFANTRY mapping was found to over-grant LETHAL HITS to 40+ non-REGIMENT INFANTRY units (Tempestus Scions / Kasrkin / Aquilons / Ratlings / Ogryns / Bullgryns / Commissars / Yarrick / Tech-Priests / Sly Marbo / Ursula Creed / Cadian Castellan / Lord Solar Leontus / Command Squads / Heavy Weapons Squads / Inquisition agents). BATTLELINE catches the three core REGIMENT troops the rule was written for (Cadian Shock Troops, Catachan Jungle Fighters, Death Korps of Krieg); it does under-cover a few non-BATTLELINE REGIMENT squads (Heavy Weapons Squads / Command Squads) but this is the much smaller error. SQUADRON → attacker has VEHICLE is unchanged",
+    "effect": "the attack gains [LETHAL HITS] (Critical Hits auto-wound). Simulator gate: Unit.attack's `effective_lethal_hits` branch ORs in True when faction is Astra Militarum, mode is ranged, and the REGIMENT-vs-non-V/M or SQUADRON-vs-V/M matrix matches. LEGACY PROXY (default, SWEG_BORN_REGIMENT unset or '0'): AM-DIAG-2 (2026-05-24) narrowed the REGIMENT proxy from INFANTRY to BATTLELINE after the INFANTRY mapping over-granted LETHAL HITS to 40+ non-REGIMENT INFANTRY units (Tempestus Scions / Kasrkin / Aquilons / Ratlings / Ogryns / Bullgryns / Commissars etc.). BATTLELINE catches the three core REGIMENT troops the rule was written for (Cadian Shock Troops, Catachan Jungle Fighters, Death Korps of Krieg); it under-covers non-BATTLELINE REGIMENT units (Kasrkin, Heavy Weapons Squads, Attilan Rough Riders, Field Ordnance Battery, etc.). CORRECTED GATE (SWEG_BORN_REGIMENT='1', wave 247): wave 243 made REGIMENT a first-class tracked keyword from BSData categoryLinks (31 units), enabling the codex-literal 'REGIMENT' keyword check. With the gate enabled, all REGIMENT datasheets — including Kasrkin, Heavy Weapons Squads, Attilan Rough Riders, and other non-BATTLELINE REGIMENT units — correctly receive LETHAL HITS vs non-VEHICLE/MONSTER targets. BSData verbatim wording confirmed from local cache: Imperium - Astra Militarum - Library.cat.gz, rule id b65e-c54b-b8fe-e8e2. SQUADRON leg (name-allowlist, unchanged): attacker name is in _AM_BORN_SOLDIERS_SQUADRON_NAMES vs VEHICLE/MONSTER target.",
     "scope": "keyword-gated",
     "approximation": true
   },
@@ -16,7 +16,7 @@
     "rule_name": "Born Soldiers (Combined Arms Detachment Rule) — alias",
     "quoted_text": "Each time a model in a REGIMENT unit from your army makes a ranged attack that targets a visible unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time a model in a SQUADRON unit from your army makes a ranged attack that targets a visible MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability.",
     "trigger": "any ranged attack made by a friendly AM REGIMENT (vs non-VEHICLE/MONSTER target) OR SQUADRON (vs VEHICLE/MONSTER target)",
-    "effect": "alias of COMBINED_REGIMENT.am_born_soldiers_lethal_hits — both module-level symbols (COMBINED_REGIMENT, COMBINED_ARMS) point to the same Detachment instance after the iter-14 codex-name rename. See the COMBINED_REGIMENT.* entry above for the full effect notes; this duplicate citation exists because the rule auditor scans dir(det_module) and finds both symbol names. NOTE: the Born Soldiers gate in code/detachments.py still uses BATTLELINE as a proxy for REGIMENT/SQUADRON (separate from the Voice of Command keyword fix in wave 243 — Born Soldiers is in the detachments layer and uses a different gate path).",
+    "effect": "alias of COMBINED_REGIMENT.am_born_soldiers_lethal_hits — both module-level symbols (COMBINED_REGIMENT, COMBINED_ARMS) point to the same Detachment instance after the iter-14 codex-name rename. See the COMBINED_REGIMENT.* entry above for the full effect notes; this duplicate citation exists because the rule auditor scans dir(det_module) and finds both symbol names. NOTE: wave 247 added SWEG_BORN_REGIMENT gate — when set to '1', Born Soldiers checks the codex-literal REGIMENT keyword (wave 243 first-class tracked keyword) instead of the legacy BATTLELINE proxy.",
     "scope": "keyword-gated",
     "approximation": true
   },
@@ -122,11 +122,21 @@
   },
 
   "Stratagem.Reinforcements!": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/#Stratagems",
     "rule_name": "Reinforcements! (Combined Arms Stratagem)",
-    "quoted_text": "WHEN: Any phase. TARGET: One INFANTRY REGIMENT unit from your army that was just destroyed. EFFECT: Add a new unit to your army identical to your destroyed unit, in Strategic Reserves, at its Starting Strength.",
-    "trigger": "any phase, when an INFANTRY REGIMENT unit is just destroyed (once per battle)",
-    "effect": "(APPROXIMATION — catalogued-but-no-op) SwegHammer has no mid-battle unit-respawn / Strategic-Reserve injection primitive, so the dispatcher exits without spending CP or returning a unit to play. The stratagem entry is retained in COMBINED_ARMS_STRATAGEMS so the rule auditor lists the full six-stratagem set and the AI never accidentally substitutes a Core Stratagem for it. 2 CP per Combined Arms, once per battle. Wahapedia confirms the once-per-battle gate via the cumbersome respawn — implementation deferred behind the simulator's reserve-injection refactor",
+    "quoted_text": "WHEN: Any phase. TARGET: One INFANTRY REGIMENT unit from your army that was just destroyed. EFFECT: Add a new unit to your army identical to your destroyed unit, in Strategic Reserves, at its Starting Strength and with all of its wounds remaining.",
+    "trigger": "any phase, when an INFANTRY REGIMENT unit from an Astra Militarum Combined Arms army is just destroyed (once per battle, 2 CP)",
+    "effect": "(APPROXIMATION — gated SWEG_REINFORCEMENTS, default-off) wave 248 built the dispatcher: `_try_reinforcements` fires at round end (next to _apply_cult_ambush_resurgence in `_run_round_end`), scans `army.units` for dead INFANTRY REGIMENT non-CHARACTER units, picks the highest-points candidate, checks the AI gate (unit cost >= 60 pts) and the once-per-battle gate, spends 2 CP via `_fire_stratagem`, restores current_health to starting health, and injects the unit into `self._reserves[army.name]` so it arrives via the existing reserves-arrival pass (>9\" placement) on the next round. TIMING APPROXIMATION: codex trigger is reactive (\"any phase, just after\" destruction); SwegHammer fires at round end — the respawned unit arrives one round later than the codex allows. The once-per-battle constraint is enforced by `_fire_stratagem` (REINFORCEMENTS.once_per_battle=True).",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "simulator.reinforcements_stratagem": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/#Stratagems",
+    "rule_name": "Reinforcements! (Combined Arms Stratagem) — simulator gate",
+    "quoted_text": "WHEN: Any phase. TARGET: One INFANTRY REGIMENT unit from your army that was just destroyed. EFFECT: Add a new unit to your army identical to your destroyed unit, in Strategic Reserves, at its Starting Strength and with all of its wounds remaining.",
+    "trigger": "gate SWEG_REINFORCEMENTS=1; at round end, when an Astra Militarum Combined Arms army has at least one dead INFANTRY REGIMENT non-CHARACTER unit and >= 2 command points and has not yet fired Reinforcements! this battle",
+    "effect": "Picks the highest-points dead INFANTRY REGIMENT unit (cost >= 60 pts AI gate), restores it to full health, and injects it into `_reserves[army.name]` for arrival next round via the existing Deep Strike arrival pass (>9\" from all enemies). The injection does NOT immediately call `_add_live_unit` — the unit re-enters via the standard `_process_reserves` loop the following round, so it cannot act this round. TIMING APPROXIMATION: codex fires reactively mid-phase; simulator fires at round end after all combat. Once-per-battle enforced by `_fire_stratagem` (REINFORCEMENTS.once_per_battle=True). Default-off (SWEG_REINFORCEMENTS unset or '0' = zero extra RNG draws, zero CP spend, zero behaviour change).",
     "scope": "phase-gated",
     "approximation": true
   },
@@ -176,7 +186,7 @@
     "rule_name": "Leader (Cadian Castellan datasheet)",
     "quoted_text": "This model can be attached to the following units: **^^Cadian Shock Troops^^**, **^^Kasrkin^^**",
     "trigger": "Cadian Castellan is the leading CHARACTER for a Cadian Shock Troops or Kasrkin unit; the host squad is the Leader's bodyguard per the 10e Leader rule",
-    "effect": "Structural LeaderAbility registry entry (gated SWEG_OFFICER_FOLLOW). No offensive/defensive aura fields are set — the real 'Senior Officer' ability ([SUSTAINED HITS 1] on led unit's ranged weapons) is not expressible through the current LeaderAbility schema. The entry exists so lookup_ability resolves the Cadian Castellan cleanly per CLAUDE.md §13 and so the pick_move_intent officer-follow hook can identify host squads. BSData source: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id 2b49-4d03-aaf5-3532, Leader infoGroup profile id e668-97a7-2df8-6db3.",
+    "effect": "Structural LeaderAbility registry entry (gated SWEG_OFFICER_FOLLOW). The 'Senior Officer' ability ([SUSTAINED HITS 1] on led unit's ranged weapons) is now wired via sustained_hits_ranged=1 (gated SWEG_CASTELLAN_SH, default-off since wave 247). The entry also enables lookup_ability to resolve the Cadian Castellan cleanly per CLAUDE.md §13 and lets the pick_move_intent officer-follow hook identify host squads. BSData source: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id 2b49-4d03-aaf5-3532, Leader infoGroup profile id e668-97a7-2df8-6db3.",
     "scope": "unit-led"
   },
 
@@ -210,9 +220,9 @@
   "LeaderAbility.Senior Officer": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Castellan",
     "rule_name": "Senior Officer (Cadian Castellan Leader Ability)",
-    "quoted_text": "While this model is leading a unit, ranged weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
+    "quoted_text": "While this model is leading a unit, ranged weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability",
     "trigger": "Cadian Castellan is leading a Cadian Shock Troops or Kasrkin unit",
-    "effect": "Structural LeaderAbility registry entry only — [SUSTAINED HITS 1] on the led unit's ranged weapons is not expressible through the current LeaderAbility aura schema; the entry exists so lookup_ability resolves the Cadian Castellan cleanly (CLAUDE.md rule 13) and the officer-follow hook can identify host squads. BSData: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id 2b49-4d03-aaf5-3532.",
+    "effect": "Wired as sustained_hits_ranged=1 on the Cadian Castellan LeaderAbility entry (gated SWEG_CASTELLAN_SH, default-off since wave 247). When the gate is on, compute_army_buffs merges sustained_hits_ranged=1 into att_buffs via _merge_add; code/units.py (~line 3682) reads att_buffs['sustained_hits_ranged'] and adds it to effective_sustained_hits for ranged attacks made by the led unit. Gate-off value is 0, which the `if _aura_sh_r > 0` guard makes inert — byte-identical to pre-wave-247. BSData source: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id 2b49-4d03-aaf5-3532, Abilities profile id a7f5-adb8-d1c9-2a2d.",
     "scope": "unit-led"
   },
 

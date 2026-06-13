@@ -2,10 +2,11 @@
 (`code.units.roll_damage` + the `SWEG_ROLLDMG` env gate).
 
 Stage 4 rolls each weapon's REAL Damage dice per shot instead of using the
-expected-value mean. The change is gated by `SWEG_ROLLDMG` and rolls only on
-the per-model firing path (the only profiles that carry a raw `damage_dice`
-string), so the gate-OFF and per-model-mean RNG streams stay byte-identical to
-legacy.
+expected-value mean. The change is gated by `SWEG_ROLLDMG` (default ON since
+the wave-247 close; "0" is the kill-switch) and rolls only on the per-model
+firing path (the only profiles that carry a raw `damage_dice` string), so the
+killed-gate and per-model-mean RNG streams stay byte-identical to the legacy
+expected-value frame.
 
 The properties under test:
   (a) `roll_damage("", x)` returns x and draws NOTHING from `random`;
@@ -71,13 +72,14 @@ class RollDamageGrammarTests(unittest.TestCase):
             counter.draws, 0, "empty dice string must not draw any random die"
         )
 
-    def test_gate_unset_returns_mean_and_draws_nothing(self):
-        """With SWEG_ROLLDMG UNSET, even a real dice string returns the mean and
-        draws NOTHING — the determinism contract that keeps OFF / per-model-mean
-        byte-identical to legacy."""
+    def test_gate_killed_returns_mean_and_draws_nothing(self):
+        """With SWEG_ROLLDMG="0" (the kill-switch — default has been ON since
+        wave 247), even a real dice string returns the mean and draws NOTHING —
+        the determinism contract that keeps the killed arm / per-model-mean
+        byte-identical to the legacy expected-value frame."""
         import code.units as units
 
-        os.environ.pop("SWEG_ROLLDMG", None)
+        os.environ["SWEG_ROLLDMG"] = "0"
         counter = _CountingRandom(seed=1)
         orig = units.random
         units.random = counter
@@ -87,7 +89,7 @@ class RollDamageGrammarTests(unittest.TestCase):
         finally:
             units.random = orig
         self.assertEqual(
-            counter.draws, 0, "gate-unset must not draw any random die"
+            counter.draws, 0, "gate-killed must not draw any random die"
         )
 
     def test_flat_integer_returns_exact_value_and_draws_nothing(self):
@@ -232,7 +234,9 @@ class RolledDamageEndToEndTests(unittest.TestCase):
             if roll_on:
                 os.environ["SWEG_ROLLDMG"] = "1"
             else:
-                os.environ.pop("SWEG_ROLLDMG", None)
+                # Default is ON since wave 247 — the mean-path arm needs the
+                # explicit "0" kill-switch, not an unset gate.
+                os.environ["SWEG_ROLLDMG"] = "0"
             u = self._multi_melta_unit()
             random.seed(seed)
             total = 0.0

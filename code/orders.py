@@ -93,11 +93,30 @@ codex text is cited under `Order.<name>`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+import os
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
 if TYPE_CHECKING:
     from .army import Army
     from .units import Unit
+
+
+# ---------------------------------------------------------------------------
+# Lord Castellan two-Order exception gate (wave 248)
+# ---------------------------------------------------------------------------
+# Ursula Creed's "Lord Castellan" ability (BSData unit id b6b2-9971-ec0c-349e):
+# "While this model is leading a unit, that unit can be affected by up to two
+# different Orders at the same time."
+#
+# When SWEG_CREED_TWO_ORDERS=0 (the default) the gate is completely absent from
+# the dispatch loop; ordered_squads behaves byte-identically to the pre-248
+# code path. When SWEG_CREED_TWO_ORDERS=1 the squad Creed is leading may receive
+# a second, DIFFERENT Order (the same Order may not be stacked twice on that
+# unit). All other squads remain capped at one Order per round.
+#
+# Cited as "SWEG_CREED_TWO_ORDERS.lord_castellan_two_orders" in
+# data/rule_citations.json.
+_CREED_TWO_ORDERS: bool = os.environ.get("SWEG_CREED_TWO_ORDERS", "0") == "1"
 
 
 # ---------------------------------------------------------------------------
@@ -674,7 +693,51 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
             dpa += _unit_ranged_dpa(m) + _unit_melee_dpa(m)
         return cost + dpa * 10.0
 
+    # ordered_squads: the set of squad keys that have reached their per-round
+    # Order cap (1 for all squads, or 2 for the squad Ursula Creed is leading
+    # when SWEG_CREED_TWO_ORDERS=1). A squad key is added here once it is full.
+    #
+    # squad_orders_received: maps each squad key to the set of Order names it
+    # has been given this round. Used only when _CREED_TWO_ORDERS is True to
+    # enforce "two DIFFERENT Orders" (same Order may not stack twice on the led
+    # unit, and all other squads still cap at 1).
     ordered_squads: set = set()
+    squad_orders_received: Dict[object, Set[str]] = {}
+
+    # Resolve Creed's led-squad key once, before the officer loop.
+    # The led squad is the squad whose members carry a UNIT_CATALOG key listed
+    # in Creed's LeaderAbility.host_keys AND that has at least one model within
+    # Creed's aura range. If the gate is off, or Creed is absent / dead, this
+    # stays None and the logic below is entirely bypassed.
+    _creed_led_squad_key: Optional[object] = None
+    if _CREED_TWO_ORDERS:
+        # Find the Creed officer instance (she may already be in `officers` —
+        # find her directly from the alive army units to avoid iterating after
+        # de-dup, and to access her position independently of the officers list).
+        _creed_unit = next(
+            (u for u in army.alive_units if (u.profile.name or "") == "Ursula Creed"),
+            None,
+        )
+        if _creed_unit is not None:
+            from .leaders import lookup_ability, _name_to_catalog_keys
+            _creed_ability = lookup_ability("Ursula Creed")
+            if _creed_ability is not None and _creed_ability.host_keys:
+                _host_keys_set = set(_creed_ability.host_keys)
+                for _squad_key, _members in squads.items():
+                    # Check proximity first (at least one member in aura).
+                    if not any(
+                        _distance(_creed_unit.position, m.position) <= OFFICER_AURA_RANGE
+                        for m in _members
+                    ):
+                        continue
+                    # Check that this squad's members have a catalog key in host_keys.
+                    _member_keys = _name_to_catalog_keys(
+                        getattr(_members[0].profile, "name", "") or ""
+                    )
+                    if any(k in _host_keys_set for k in _member_keys):
+                        _creed_led_squad_key = _squad_key
+                        break  # only one squad can be led at a time
+
     for officer in officers:
         officer_name = officer.profile.name or ""
         # Per-datasheet caps and target-type restrictions sourced from
@@ -686,14 +749,14 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
         officer_types = _officer_target_types(officer_name)
 
         for _ in range(orders_this_officer):
-            # Find eligible unordered squads with at least one alive model
-            # within 6" of this Officer (range to a unit is measured to its
-            # closest model), filtered by:
-            #   - not already ordered this round (per squad, no stacking),
-            #   - satisfies this Officer's per-datasheet target-type
-            #     restriction OR falls under the Flexible Command SQUADRON
-            #     widening (the two gates are OR-ed per the codex: Flexible
-            #     Command overrides, it does not replace, per-Officer limits).
+            # Find eligible squads with at least one alive model within 6" of
+            # this Officer, filtered by:
+            #   - not already at their per-round Order cap (1 for all squads;
+            #     2 for the Creed-led squad when SWEG_CREED_TWO_ORDERS=1),
+            #   - satisfies this Officer's per-datasheet target-type restriction
+            #     OR falls under the Flexible Command SQUADRON widening (the two
+            #     gates are OR-ed per the codex: Flexible Command overrides, it
+            #     does not replace, per-Officer limits).
             # Keyword eligibility is per-datasheet, so testing one member
             # covers the squad.
             in_aura = [
@@ -710,15 +773,45 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
                 )
             ]
             if not in_aura:
-                break  # no more eligible unordered squads in aura — stop early
+                break  # no more eligible squads in aura — stop early
 
             key, members = max(in_aura, key=_squad_priority)
             order = _pick_order_for_target(
                 members[0], hp_frac_lost=_squad_hp_frac_lost(key, members)
             )
+
+            # Gate ON: reject a duplicate Order on the Creed-led squad.
+            # The codex wording is "two DIFFERENT Orders at the same time" —
+            # issuing the same Order twice does not count as a second slot.
+            # When this guard fires the issuance slot is consumed but no buff
+            # is applied and the squad is not counted as full (consistent with
+            # how a real player would resolve it: they simply cannot issue the
+            # same Order again, so a third issuance would be needed, which is
+            # outside the Officer's per-round cap anyway).
+            if _CREED_TWO_ORDERS and key == _creed_led_squad_key:
+                _already = squad_orders_received.get(key, set())
+                if order in _already:
+                    # Duplicate: mark the squad as full so subsequent
+                    # iterations stop trying it.
+                    ordered_squads.add(key)
+                    continue
+
             for m in members:
                 _apply_order(m, order)
-            ordered_squads.add(key)
+
+            # Track which Orders this squad has received this round.
+            if _CREED_TWO_ORDERS:
+                existing = squad_orders_received.setdefault(key, set())
+                existing.add(order)
+                # Determine this squad's cap: 2 if it is the Creed-led squad,
+                # else the normal cap of 1.
+                _cap = 2 if key == _creed_led_squad_key else 1
+                if len(existing) >= _cap:
+                    ordered_squads.add(key)
+            else:
+                # Gate off: original one-Order cap, byte-identical behaviour.
+                ordered_squads.add(key)
+
             issued.append((officer.profile.name, members[0].profile.name, order))
 
     return issued

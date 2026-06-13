@@ -5225,13 +5225,77 @@ class Battle:
             return
         self._set_transient_squad(target, "transient_plus_one_save")
 
-    # Reinforcements! — catalogued in COMBINED_ARMS_STRATAGEMS for the
-    # auditor + stratagems_for_army listing, but no `_try_reinforcements`
-    # dispatcher exists (catalogued-but-no-op APPROXIMATION). The codex
-    # effect (re-add a destroyed INFANTRY REGIMENT to Strategic Reserves
-    # at full strength) has no clean simulator hook (no mid-battle unit-
-    # respawn / reserve-injection primitive). The dispatch loop simply
-    # skips the entry, no CP spent.
+    def _try_reinforcements(self, army: Army, round_num: int) -> None:
+        """Reinforcements! (Combined Arms, 2 CP, once per battle).
+
+        Real rule (Wahapedia, https://wahapedia.ru/wh40k10ed/factions/
+        astra-militarum/#Stratagems): "WHEN: Any phase. TARGET: One INFANTRY
+        REGIMENT unit from your army that was just destroyed. EFFECT: Add a
+        new unit to your army identical to your destroyed unit, in Strategic
+        Reserves, at its Starting Strength and with all of its wounds
+        remaining."
+
+        GATE: env SWEG_REINFORCEMENTS. Unset or "0" → inert no-op (zero extra
+        RNG draws, zero CP spent, zero behaviour change). "1" → enabled.
+
+        APPROXIMATION: the codex trigger is reactive ("Any phase, just after"
+        destruction), but SwegHammer has no mid-activation destruction hook
+        suited to a unit-injection side-effect. This dispatcher fires at
+        round end (next to _apply_cult_ambush_resurgence), scanning for any
+        dead INFANTRY REGIMENT unit in the army roster. The respawned unit
+        enters self._reserves[army.name] and arrives via the existing
+        reserves-arrival pass (>9" placement) on the next round — one round
+        later than the codex's "Strategic Reserves" timing would allow in the
+        same battle round. Cited as `simulator.reinforcements_stratagem`.
+        """
+        if os.environ.get("SWEG_REINFORCEMENTS", "0") != "1":
+            return
+        # Only fire for AM armies (Combined Arms is an AM detachment).
+        if not any(
+            (u.profile.faction or "") == "Astra Militarum"
+            for u in army.units
+        ):
+            return
+        # Check once_per_battle gate BEFORE building candidates (avoids
+        # wasted work when already fired this battle).
+        already = self._stratagems_fired_this_battle.get(army.name, set())
+        if "Reinforcements!" in already:
+            return
+        if army.command_points < 2:
+            return
+        # Candidate pool: dead units carrying INFANTRY and REGIMENT keywords,
+        # excluding CHARACTERs (codex says "unit"; CHARACTERs are Epic Hero
+        # one-offs and their respawn is not modelled).
+        candidates = []
+        for u in army.units:
+            if u.is_alive:
+                continue
+            kw = set(u.profile.unit_keywords or ())
+            if "INFANTRY" not in kw or "REGIMENT" not in kw:
+                continue
+            if "CHARACTER" in kw:
+                continue
+            candidates.append(u)
+        if not candidates:
+            return
+        # Prefer the highest-points dead unit (best command-point-for-points
+        # value).
+        candidates.sort(key=lambda u: -float(u.profile.points_cost or 0.0))
+        revived = candidates[0]
+        ctx = {"revived": revived}
+        if not should_fire_stratagem(army, REINFORCEMENTS, ctx):
+            return
+        if not self._fire_stratagem(army, REINFORCEMENTS):
+            return
+        # Restore to full strength and inject into reserves for next-round
+        # arrival via the existing _process_reserves arrival pass.
+        revived.current_health = revived.profile.health
+        revived.moved_this_round = False
+        revived.fell_back_this_round = False
+        self._reserves.setdefault(army.name, []).append(revived)
+        army._invalidate_alive_cache()
+        # Position is left as-is (old death position); _pick_arrival_point
+        # will assign a legal >9" landing point when the unit arrives.
 
     # ----- ST-2 wave 3 — one stratagem per under-performing faction ----
     # Wahapedia citations live in data/rule_citations.d/stratagems.json.
@@ -9561,6 +9625,14 @@ class Battle:
         # Cited as `simulator.cult_ambush_resurgence`.
         self._apply_cult_ambush_resurgence(self.a, round_num)
         self._apply_cult_ambush_resurgence(self.b, round_num)
+
+        # Astra Militarum Reinforcements! (Combined Arms, 2 CP, once per
+        # battle). APPROXIMATION: codex fires reactively "any phase, just
+        # after" destruction; this fires at round end (same timing slot as
+        # cult_ambush_resurgence). Gate SWEG_REINFORCEMENTS; default-off.
+        # Cited as `simulator.reinforcements_stratagem`.
+        self._try_reinforcements(self.a, round_num)
+        self._try_reinforcements(self.b, round_num)
 
         if round_num > 1 and self.rules.cp_catchup_bonus:
             self._award_cp(self.a, self.b)

@@ -5183,8 +5183,21 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             return False
         return hp_frac > 0.2 and cost >= 60.0
 
-    # Reinforcements! — no AI gate; dispatcher has no implementation
-    # hook so should_fire return value never matters. Cataloguer-only.
+    if name == "Reinforcements!":
+        # ctx: {"revived": Unit}. Fire when the candidate unit's points cost
+        # justifies 2 CP: use the same 60-point floor as Inspired Command
+        # (60 pts ≈ minimum meaningful REGIMENT troop block — Cadian Shock
+        # Troops 65 pts, Death Korps of Krieg 65 pts, Catachan Jungle
+        # Fighters 65 pts). Once-per-battle gate is enforced by
+        # _fire_stratagem; this AI gate rules out trivial/cheap fillers.
+        revived = ctx.get("revived")
+        if revived is None:
+            return False
+        try:
+            cost = float(revived.profile.points_cost or 0.0)
+        except Exception:
+            return False
+        return cost >= 60.0
 
     # ----- ST-2 wave 3 — one stratagem per under-performing faction -----
 

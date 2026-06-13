@@ -83,11 +83,14 @@ _INT_RE = re.compile(r"-?\d+")
 
 
 def _rolldmg_enabled() -> bool:
-    """True iff the `SWEG_ROLLDMG` env gate is set. Read per-call (not cached at
-    import) so tests can toggle it via os.environ within a process. When unset,
-    `roll_damage` draws NOTHING and returns the mean — keeping the OFF and
-    per-model-mean RNG streams byte-identical to legacy."""
-    return bool(os.environ.get("SWEG_ROLLDMG"))
+    """True unless the `SWEG_ROLLDMG` env gate is explicitly "0" (kill-switch).
+    Default ON since wave 247 (adopted per fidelity-first: real 10e rolls each
+    weapon's Damage characteristic; the expected-value path was the sim's
+    approximation). Read per-call (not cached at import) so tests can toggle it
+    via os.environ within a process. When killed (=0), `roll_damage` draws
+    NOTHING and returns the mean — keeping the OFF and per-model-mean RNG
+    streams byte-identical to the legacy expected-value frame."""
+    return os.environ.get("SWEG_ROLLDMG", "1") != "0"
 
 
 def roll_damage(dice_str: str, mean_fallback: float) -> float:
@@ -3516,12 +3519,39 @@ class Unit:
                     target_is_vm = (
                         "VEHICLE" in target_kws or "MONSTER" in target_kws
                     )
-                    # REGIMENT leg: BATTLELINE-keyword attacker (the three
-                    # core Cadian / Catachan / Krieg troop squads, which all
-                    # carry the codex REGIMENT keyword) vs non-VEHICLE/MONSTER
-                    # target.
+                    # REGIMENT leg: attacker carries the REGIMENT keyword
+                    # (the codex rule's literal gate) vs non-VEHICLE/MONSTER
+                    # target.  BSData v10.6.0 verbatim (Astra Militarum -
+                    # Library.cat.gz, rule id b65e-c54b-b8fe-e8e2): "Each
+                    # time a model in a **^^Regiment^^** unit from your army
+                    # makes a ranged attack that targets a visible unit
+                    # (excluding **^^Monsters^^** and **^^Vehicles^^**) that
+                    # attack has the **[LETHAL HITS]** ability."
+                    #
+                    # Wave 243 made REGIMENT a first-class tracked keyword
+                    # (BSData categoryLinks, 31 units) so the codex check is
+                    # now possible.  The env gate SWEG_BORN_REGIMENT selects
+                    # which keyword is used — default ON since wave 247:
+                    #   unset / "1": corrected REGIMENT check — the
+                    #     codex-literal gate; covers all 31 REGIMENT
+                    #     datasheets (Kasrkin, Heavy Weapons Squads, Attilan
+                    #     Rough Riders, etc.).
+                    #   "0" (kill-switch): legacy BATTLELINE proxy
+                    #     (byte-identical to pre-wave-247 behaviour — catches
+                    #     only the three core Cadian / Catachan / Krieg troop
+                    #     squads that carry both keywords).
+                    # Read inline per-call (matching nearby gate idiom).
+                    # Cited as `COMBINED_REGIMENT.am_born_soldiers_lethal_hits`.
+                    _use_regiment_kw = (
+                        __import__("os").environ.get("SWEG_BORN_REGIMENT", "1") != "0"
+                    )
+                    _regiment_attacker = (
+                        "REGIMENT" in attacker_kws
+                        if _use_regiment_kw
+                        else "BATTLELINE" in attacker_kws
+                    )
                     if (
-                        "BATTLELINE" in attacker_kws
+                        _regiment_attacker
                         and "VEHICLE" not in attacker_kws
                         and "MONSTER" not in attacker_kws
                         and not target_is_vm

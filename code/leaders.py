@@ -1426,17 +1426,23 @@ _LORD_SOLAR_HOST_KEYS: Tuple[str, ...] = (
 # on (the default), keeping SWEG_OFFICER_FOLLOW=0 as a working kill-switch.
 _AM_OFFICER_REGISTRY_ENTRIES: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Cadian Castellan — "Senior Officer" ability (BSData id 2b49-4d03-aaf5-3532).
-    # BSData verbatim: "While this model is leading a unit, ranged weapons
-    # equipped by models in that unit have the [SUSTAINED HITS 1] ability."
-    # The [SUSTAINED HITS 1] grant is not expressible through the current
-    # LeaderAbility aura schema (no sustained_hits_ranged field on the
-    # dataclass). The entry is structural only — host_keys registers the
-    # legal hosts so lookup_ability resolves cleanly per CLAUDE.md §13 and
-    # the pick_move_intent officer-follow hook can identify the nearest host.
-    # Cited as LeaderAbility.Cadian Castellan.leader_attachment.
+    # BSData verbatim (Imperium - Astra Militarum - Library.cat.gz, Abilities
+    # profile id a7f5-adb8-d1c9-2a2d): "While this model is leading a unit,
+    # ranged weapons equipped by models in that unit have the [SUSTAINED HITS 1]
+    # ability"
+    # The grant is wired via sustained_hits_ranged=1 (gate SWEG_CASTELLAN_SH,
+    # default ON since wave 247; "0" is the kill-switch). Killed (=0) is
+    # byte-identical to the pre-wave-247 arm: the field default is 0, and the
+    # application site in code/units.py (~line 3682) guards with
+    # `if _aura_sh_r > 0`, so a 0 value produces no effect. Import-time
+    # evaluation is safe: evaluation processes set SWEG_CASTELLAN_SH before
+    # spawning the worker, and no battle is in flight at module load.
+    # Cited as LeaderAbility.Cadian Castellan.leader_attachment and
+    # LeaderAbility.Senior Officer in data/rule_citations.d/astra_militarum.json.
     ("Cadian Castellan",     LeaderAbility(name="Senior Officer",              aura_range=6.0,
                                             host_keys=("astra_militarum_cadian_shock_troops",
-                                                       "astra_militarum_kasrkin"))),
+                                                       "astra_militarum_kasrkin"),
+                                            sustained_hits_ranged=(1 if os.environ.get("SWEG_CASTELLAN_SH", "1") != "0" else 0))),
     # Cadian Command Squad — "Cadia Stands!" ability (BSData id 4d28-f2a7-67c1-eb2e).
     # BSData verbatim Leader text: "This model can be attached to the following
     # unit: Cadian Shock Troops". The Cadia Stands! ability grants Benefit of
@@ -1448,9 +1454,11 @@ _AM_OFFICER_REGISTRY_ENTRIES: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Ursula Creed — "Lord Castellan" ability (BSData id b6b2-9971-ec0c-349e).
     # BSData verbatim: "While this model is leading a unit, that unit can be
     # affected by up to two different Orders at the same time." The double-Order
-    # stacking mechanic is not modelled (the Order dispatcher's no-stack guard
-    # does not yet expose a per-unit exception slot). Structural only.
-    # Cited as LeaderAbility.Ursula Creed.leader_attachment.
+    # exception is gated by SWEG_CREED_TWO_ORDERS (default off, wave 248).
+    # When the gate is on, the Order dispatcher (code/orders.py) allows the
+    # squad Creed is leading to receive a second, different Order per round.
+    # Cited as SWEG_CREED_TWO_ORDERS.lord_castellan_two_orders in
+    # data/rule_citations.json.
     ("Ursula Creed",          LeaderAbility(name="Lord Castellan",             aura_range=6.0,
                                             host_keys=("astra_militarum_cadian_shock_troops",
                                                        "astra_militarum_kasrkin"))),
