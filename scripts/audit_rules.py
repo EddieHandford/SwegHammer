@@ -823,6 +823,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.secondary_assassination_tactical",
     "simulator.secondary_bring_it_down_tactical",
     "simulator.secondary_cull_the_horde_tactical",
+    # Wave 249 — 10e core end-of-battle win condition (env-gated SWEG_TABLING_VP,
+    # default OFF). When ON, the three survivor-count short-circuits in
+    # Battle._decide_winner are skipped; every game (including one-sided tablings)
+    # is decided purely by the accumulated VP totals. The run loop already plays
+    # out all five rounds on a one-sided tabling, so the VP totals are complete at
+    # decision time. Cited in data/rule_citations.d/core_win_condition.json.
+    "simulator.win_on_vp_not_tabling",
 )
 
 

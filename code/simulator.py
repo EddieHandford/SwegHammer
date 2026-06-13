@@ -787,13 +787,27 @@ class Battle:
           * Tied on both: draw.
         Survivor count is no longer a primary criterion — points + objectives
         capture military value much better than raw unit count.
+
+        SWEG_TABLING_VP (default OFF): when set to "1", the three survivor-count
+        short-circuits below are SKIPPED and every game — including one-sided
+        tablings — is decided purely by the VP totals accumulated over all five
+        battle rounds. The run loop already plays out all five rounds on a
+        one-sided tabling (see `simulator.battle_length_five_rounds` — only a
+        MUTUAL wipe ends the game early), so `self._a_vp`/`self._b_vp` already
+        hold COMPLETE end-of-game totals at this point. The survivor short-circuits
+        discard those complete VP totals; this gate lets the VP path win instead,
+        which is faithful to the 10e win condition ("the player with the most
+        Victory Points is the winner"). Cited as `simulator.win_on_vp_not_tabling`.
+        When OFF (default), behaviour is BYTE-IDENTICAL to prior; no extra RNG.
         """
-        if a_surv == 0 and b_surv == 0:
-            return None
-        if a_surv == 0:
-            return self.b.name
-        if b_surv == 0:
-            return self.a.name
+        _tabling_vp = __import__("os").environ.get("SWEG_TABLING_VP") == "1"
+        if not _tabling_vp:
+            if a_surv == 0 and b_surv == 0:
+                return None
+            if a_surv == 0:
+                return self.b.name
+            if b_surv == 0:
+                return self.a.name
         # Real Pariah Nexus caps total Secondary VP at 40 per game. The running
         # `_a_vp`/`_b_vp` totals mix primary + secondary and never enforced that
         # ceiling, so secondary-heavy shapes (e.g. Custodes ~39/game) could run
