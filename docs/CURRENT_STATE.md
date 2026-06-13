@@ -1,5 +1,16 @@
 # SwegHammer calibration — current state
 
+> **WAVE 250 IN PROGRESS (handover) — see [`docs/WAVE250_LIST_REALISM.md`](WAVE250_LIST_REALISM.md).**
+> User-approved melee-cluster archetype list-realism (all four factions, sourcing first). World
+> Eaters lever built + gated (`SWEG_WE_REALISM`, `71e270b`), default-OFF. **N=40 screen: gated
+> 6.86 → 6.96 (+0.10 mild adverse wash); World Eaters indeterminate (+0.64 ± 5.13 on 273 flips);
+> three other factions drift up. The anchor-swap is faithful but does NOT reduce the over-pole —
+> corroborates the per-model representation wall.** Emperor's Children / Death Guard / Chaos
+> Daemons sourced with cited real lists, rebuilds queued (not built — no new sims at hand-off).
+> The standing anchor sc12a (gated 5.78) is unchanged. **OPEN STRATEGIC QUESTION for the user: if
+> faithful list-realism does not move the melee over-pole, is it worth the three bigger rebuilds for
+> fidelity alone? See the handover doc.**
+
 **BRANCH `claude/sim-calibration-13` (2026-06-13) — wave 249 CLOSED. The wave-247 checkpoint is pull request #79 (waves 247 + 248 part one, OPEN, cleanly mergeable, pending Ed's review); `claude/sim-calibration-13` is the rolling branch stacked on its head (`5b312b5`). Own new work since that base: ~4 commits / ~1,000 lines (Fix Bayonets, wave-248 close, tabling-VP, wave-249 close) — within caps; the size hook's ~2,500-vs-main count is the stack on the unmerged #79, not new debt. Fold origin/main per procedure §H when #79 merges.**
 
 **STANDING ANCHOR: `data/_anchor_sc12a_n80_log.json` — gated 5.78, raw 9.14, 4/22 in band (the wave-247 flipped frame: rolling damage + Born Soldiers REGIMENT + Castellan sustained hits on top of sc11b; pull requests 77/78 folded). Carried forward UNCHANGED through waves 248 AND 249 — every lever in both waves measured byte-inert or near-inert (no flipped defaults), so the production frame did not move and no re-anchor was run.**
