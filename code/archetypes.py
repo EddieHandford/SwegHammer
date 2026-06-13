@@ -1512,6 +1512,31 @@ def _instantiate_template(
     if not template or points_budget <= 0:
         return {}
 
+    # Wave 250 (gated SWEG_WE_REALISM, default-off) — World Eaters list-realism
+    # anchor swap. The (-count, -cost) walk and the EPIC HERO anchor below
+    # force-seed the most expensive template EPIC HERO; for World Eaters that is
+    # Angron (the priciest WE epic hero), so the builder fields him in nearly
+    # every game. But three sourced May-2026 competitive Berzerker Warband lists
+    # are Khârn-anchored with no Angron, and dedicated Angron lists are a small
+    # minority at top tables:
+    #   https://grimhammertactics.com/top-10-competitive-warhammer-40k-lists-september-2025/
+    #   https://grimhammertactics.com/top-10-competitive-warhammer-40k-lists-october-2025/
+    #   https://grimhammertactics.com/top-10-competitive-warhammer-40k-lists-december-2025/
+    # (extracted from Best Coast Pairings tournament results). When the gate is
+    # on, drop Angron from the World Eaters template so the next-most-expensive
+    # EPIC HERO — Khârn the Betrayer — anchors instead, matching the cited lists.
+    # Faithful list-realism (wave-174/175 precedent), NOT win-rate tuning: the
+    # change matches the real list and accepts whatever metric direction results.
+    # OFF path (the default) is byte-identical to the pre-wave-250 build.
+    if (
+        os.environ.get("SWEG_WE_REALISM") == "1"
+        and (faction or "") == "World Eaters"
+        and "world_eaters_angron" in template
+    ):
+        template = {
+            k: v for k, v in template.items() if k != "world_eaters_angron"
+        }
+
     # Wave 244 leader-stack gate — read once, consulted by the sort-key
     # tiebreak, the EPIC HERO anchor trigger, and the fraction override
     # below (all three move together as one gated lever). Scoped to
@@ -1574,6 +1599,23 @@ def _instantiate_template(
     if mono_god_anchor is not None and mono_god_anchor in UNIT_CATALOG:
         scaled[mono_god_anchor] = 1
         running += _squad_cost(mono_god_anchor)
+
+    # Wave 250 (gated SWEG_WE_REALISM) — World Eaters Khârn anchor. The template
+    # filter above drops Angron when the gate is on; here we force-seed Khârn the
+    # Betrayer (mirroring the mono-god Greater Daemon anchor pre-pass) so the
+    # build is Khârn-anchored like the three sourced real lists (Khârn appears in
+    # all three; see the SWEG_WE_REALISM comment at the top of this function for
+    # the citations). World Eaters is a MENU faction, so the EPIC HERO anchor
+    # below only fires when no epic hero is seeded — without this pre-pass,
+    # dropping Angron would let an arbitrary character anchor instead of Khârn.
+    if (
+        os.environ.get("SWEG_WE_REALISM") == "1"
+        and (faction or "") == "World Eaters"
+        and "world_eaters_kh_rn_the_betrayer" in template
+        and "world_eaters_kh_rn_the_betrayer" in UNIT_CATALOG
+    ):
+        scaled["world_eaters_kh_rn_the_betrayer"] = 1
+        running += _squad_cost("world_eaters_kh_rn_the_betrayer")
 
     # Walk the template in (-template_count, -squad_cost) order so that
     # archetype-defining units land first:
