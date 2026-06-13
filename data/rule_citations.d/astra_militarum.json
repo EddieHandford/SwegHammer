@@ -122,11 +122,21 @@
   },
 
   "Stratagem.Reinforcements!": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/#Stratagems",
     "rule_name": "Reinforcements! (Combined Arms Stratagem)",
-    "quoted_text": "WHEN: Any phase. TARGET: One INFANTRY REGIMENT unit from your army that was just destroyed. EFFECT: Add a new unit to your army identical to your destroyed unit, in Strategic Reserves, at its Starting Strength.",
-    "trigger": "any phase, when an INFANTRY REGIMENT unit is just destroyed (once per battle)",
-    "effect": "(APPROXIMATION — catalogued-but-no-op) SwegHammer has no mid-battle unit-respawn / Strategic-Reserve injection primitive, so the dispatcher exits without spending CP or returning a unit to play. The stratagem entry is retained in COMBINED_ARMS_STRATAGEMS so the rule auditor lists the full six-stratagem set and the AI never accidentally substitutes a Core Stratagem for it. 2 CP per Combined Arms, once per battle. Wahapedia confirms the once-per-battle gate via the cumbersome respawn — implementation deferred behind the simulator's reserve-injection refactor",
+    "quoted_text": "WHEN: Any phase. TARGET: One INFANTRY REGIMENT unit from your army that was just destroyed. EFFECT: Add a new unit to your army identical to your destroyed unit, in Strategic Reserves, at its Starting Strength and with all of its wounds remaining.",
+    "trigger": "any phase, when an INFANTRY REGIMENT unit from an Astra Militarum Combined Arms army is just destroyed (once per battle, 2 CP)",
+    "effect": "(APPROXIMATION — gated SWEG_REINFORCEMENTS, default-off) wave 248 built the dispatcher: `_try_reinforcements` fires at round end (next to _apply_cult_ambush_resurgence in `_run_round_end`), scans `army.units` for dead INFANTRY REGIMENT non-CHARACTER units, picks the highest-points candidate, checks the AI gate (unit cost >= 60 pts) and the once-per-battle gate, spends 2 CP via `_fire_stratagem`, restores current_health to starting health, and injects the unit into `self._reserves[army.name]` so it arrives via the existing reserves-arrival pass (>9\" placement) on the next round. TIMING APPROXIMATION: codex trigger is reactive (\"any phase, just after\" destruction); SwegHammer fires at round end — the respawned unit arrives one round later than the codex allows. The once-per-battle constraint is enforced by `_fire_stratagem` (REINFORCEMENTS.once_per_battle=True).",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "simulator.reinforcements_stratagem": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/#Stratagems",
+    "rule_name": "Reinforcements! (Combined Arms Stratagem) — simulator gate",
+    "quoted_text": "WHEN: Any phase. TARGET: One INFANTRY REGIMENT unit from your army that was just destroyed. EFFECT: Add a new unit to your army identical to your destroyed unit, in Strategic Reserves, at its Starting Strength and with all of its wounds remaining.",
+    "trigger": "gate SWEG_REINFORCEMENTS=1; at round end, when an Astra Militarum Combined Arms army has at least one dead INFANTRY REGIMENT non-CHARACTER unit and >= 2 command points and has not yet fired Reinforcements! this battle",
+    "effect": "Picks the highest-points dead INFANTRY REGIMENT unit (cost >= 60 pts AI gate), restores it to full health, and injects it into `_reserves[army.name]` for arrival next round via the existing Deep Strike arrival pass (>9\" from all enemies). The injection does NOT immediately call `_add_live_unit` — the unit re-enters via the standard `_process_reserves` loop the following round, so it cannot act this round. TIMING APPROXIMATION: codex fires reactively mid-phase; simulator fires at round end after all combat. Once-per-battle enforced by `_fire_stratagem` (REINFORCEMENTS.once_per_battle=True). Default-off (SWEG_REINFORCEMENTS unset or '0' = zero extra RNG draws, zero CP spend, zero behaviour change).",
     "scope": "phase-gated",
     "approximation": true
   },
