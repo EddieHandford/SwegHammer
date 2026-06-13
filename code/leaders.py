@@ -1454,9 +1454,11 @@ _AM_OFFICER_REGISTRY_ENTRIES: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Ursula Creed — "Lord Castellan" ability (BSData id b6b2-9971-ec0c-349e).
     # BSData verbatim: "While this model is leading a unit, that unit can be
     # affected by up to two different Orders at the same time." The double-Order
-    # stacking mechanic is not modelled (the Order dispatcher's no-stack guard
-    # does not yet expose a per-unit exception slot). Structural only.
-    # Cited as LeaderAbility.Ursula Creed.leader_attachment.
+    # exception is gated by SWEG_CREED_TWO_ORDERS (default off, wave 248).
+    # When the gate is on, the Order dispatcher (code/orders.py) allows the
+    # squad Creed is leading to receive a second, different Order per round.
+    # Cited as SWEG_CREED_TWO_ORDERS.lord_castellan_two_orders in
+    # data/rule_citations.json.
     ("Ursula Creed",          LeaderAbility(name="Lord Castellan",             aura_range=6.0,
                                             host_keys=("astra_militarum_cadian_shock_troops",
                                                        "astra_militarum_kasrkin"))),
