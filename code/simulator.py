@@ -1533,17 +1533,20 @@ class Battle:
                 continue
             s["obj_rounds"] += 1
             circle_area = math.pi * obj.control_radius * obj.control_radius
-            area = sum(math.pi * _bc_model_radius_in(u.profile) ** 2 for u in near)
+            # Per-unit base radii computed once (byte-identical: same operators,
+            # just hoisted out of the sum and the O(n^2) overlap loop below).
+            near_radii = [_bc_model_radius_in(u.profile) for u in near]
+            area = sum(math.pi * r ** 2 for r in near_radii)
             packing = area / circle_area if circle_area else 0.0
             s["packing_sum"] += packing
             s["packing_n"] += 1
             if packing > 1.0:
                 s["packing_over100"] += 1
             for i in range(len(near)):
-                ri = _bc_model_radius_in(near[i].profile)
+                ri = near_radii[i]
                 pi = near[i].position
                 for j in range(i + 1, len(near)):
-                    rj = _bc_model_radius_in(near[j].profile)
+                    rj = near_radii[j]
                     pj = near[j].position
                     if (pi[0] - pj[0]) ** 2 + (pi[1] - pj[1]) ** 2 < (ri + rj) ** 2:
                         s["overlap_pairs"] += 1
@@ -7612,11 +7615,15 @@ class Battle:
             for u in army.units:
                 if u.embarked_in is None:
                     ordered.append(u)
+        # Per-unit base radii, computed once. Byte-identical to the per-iteration
+        # _bc_model_radius_in calls this used to make inside the O(passes*n^2)
+        # nested loops below — the radius is a pure function of the immutable
+        # profile, so hoisting it out of the hot loop changes nothing but speed.
+        radii = [_bc_model_radius_in(u.profile) for u in ordered]
 
-        def _clamp(u, x: float, y: float):
+        def _clamp(u, x: float, y: float, r: float):
             """Clamp (x, y) inside map bounds and, for non-infiltrators,
             inside the army's deployment zone. Returns clamped (x, y)."""
-            r = _bc_model_radius_in(u.profile)
             # Map bounds (leave a base-radius margin so the base sits on-table).
             x = min(max(x, r), map_w - r)
             y = min(max(y, r), map_h - r)
@@ -7640,11 +7647,11 @@ class Battle:
             for i in range(len(ordered)):
                 u_i = ordered[i]
                 xi, yi = u_i.position
-                ri = _bc_model_radius_in(u_i.profile)
+                ri = radii[i]
                 for j in range(i + 1, len(ordered)):
                     u_j = ordered[j]
                     xj, yj = u_j.position
-                    rj = _bc_model_radius_in(u_j.profile)
+                    rj = radii[j]
                     min_sep = ri + rj + EPSILON_IN
                     dx = xj - xi
                     dy = yj - yi
@@ -7661,7 +7668,7 @@ class Battle:
                     push = min_sep - dist   # positive: how much to push j away
                     nx = xj + (dx / dist) * push
                     ny = yj + (dy / dist) * push
-                    nx, ny = _clamp(u_j, nx, ny)
+                    nx, ny = _clamp(u_j, nx, ny, rj)
                     u_j.position = (nx, ny)
                     moved = True
             if not moved:
@@ -7673,11 +7680,11 @@ class Battle:
             for i in range(len(ordered)):
                 u_i = ordered[i]
                 xi, yi = u_i.position
-                ri = _bc_model_radius_in(u_i.profile)
+                ri = radii[i]
                 for j in range(i + 1, len(ordered)):
                     u_j = ordered[j]
                     xj, yj = u_j.position
-                    rj = _bc_model_radius_in(u_j.profile)
+                    rj = radii[j]
                     dx = xj - xi
                     dy = yj - yi
                     dist2 = dx * dx + dy * dy
