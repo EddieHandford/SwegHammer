@@ -1537,6 +1537,46 @@ def _instantiate_template(
             k: v for k, v in template.items() if k != "world_eaters_angron"
         }
 
+    # Wave 251 (gated SWEG_AM_REALISM, default-off) — Astra Militarum list-realism.
+    # The current "Combined Arms" template hard-seeds 7 vehicles + 3 characters
+    # (~1600pt); the (-count, -cost) walk seeds the expensive tanks first, so the
+    # seed budget is exhausted before the infantry and the build fields only
+    # ~20-33 infantry bodies / ~28-63 total models with 59-75% of points in hulls
+    # — the hull-spam variant the meta rates C-D tier (40-44% win rate), not the
+    # competitive shape. Real competitive Astra Militarum (Combined Arms / Grizzled
+    # Company) fields ~55-75 INFANTRY bodies + 4-6 vehicles; the LVO XII champion
+    # (Recon Element, 9-0-1) ran ~184 infantry and a single vehicle:
+    #   https://bladesandbolts.com/2025/10/06/astra-militarum-warhammer-40k-lvo/
+    #   https://grimhammertactics.com/top-10-competitive-warhammer-40k-lists-november-2025/
+    #   https://spikeybits.com/top-40k-tournament-army-lists-rise-of-the-empire-gt/
+    # (extracted from Best Coast Pairings / tournament results). When the gate is
+    # on, seed an infantry-heavy Combined Arms spine — high BATTLELINE counts so the
+    # count-ordered walk seeds the BODIES first — and cut the vehicle seed to four
+    # (2 Leman Russ + Rogal Dorn + a Chimera transport), dropping the surplus
+    # artillery (Basilisk / Manticore / Taurox Prime / Rough Riders). Faithful
+    # list-realism (wave-250 precedent), NOT win-rate tuning — matches the cited
+    # lists and accepts whatever metric direction results. OFF path (the default)
+    # is byte-identical to the pre-wave-251 build.
+    if (
+        os.environ.get("SWEG_AM_REALISM") == "1"
+        and (faction or "") == "Astra Militarum"
+    ):
+        template = {
+            "astra_militarum_cadian_shock_troops": 3,
+            "astra_militarum_death_korps_of_krieg": 2,
+            "astra_militarum_kasrkin": 3,
+            "astra_militarum_tempestus_scions": 1,
+            "astra_militarum_cadian_command_squad": 1,
+            "astra_militarum_cadian_heavy_weapons_squad": 1,
+            "astra_militarum_leman_russ_battle_tank": 1,
+            "astra_militarum_leman_russ_demolisher": 1,
+            "astra_militarum_rogal_dorn_battle_tank": 1,
+            "astra_militarum_chimera": 1,
+            "astra_militarum_cadian_castellan": 1,
+            "astra_militarum_ursula_creed": 1,
+            "astra_militarum_lord_solar_leontus": 1,
+        }
+
     # Wave 244 leader-stack gate — read once, consulted by the sort-key
     # tiebreak, the EPIC HERO anchor trigger, and the fraction override
     # below (all three move together as one gated lever). Scoped to
