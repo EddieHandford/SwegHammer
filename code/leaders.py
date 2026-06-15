@@ -1751,6 +1751,21 @@ def bump_buffs_generation() -> None:
     _buffs_cache.clear()
 
 
+def _arrived_via_deep_strike_this_round(attacker) -> bool:
+    """True if *attacker* arrived from reserves this battle round — the proxy
+    for the Grey Knights Fury of Titan 'set up via Deep Strike, until end of
+    turn' window. Reads the Battle's `_fresh_arrivals` set via the unit's army
+    back-reference; returns False outside a running Battle (catalogue / unit
+    tests), keeping the fidelity gate inert there. `_fresh_arrivals` is reset
+    each round, so membership means 'arrived this round' = 'until end of turn'."""
+    army = getattr(attacker, "army_ref", None)
+    battle = getattr(army, "_battle_ref", None) if army is not None else None
+    fresh = getattr(battle, "_fresh_arrivals", None) if battle is not None else None
+    if not fresh:
+        return False
+    return getattr(attacker, "uid", None) in fresh
+
+
 def effective_buffs(attacker: "Unit") -> Dict[str, object]:
     """
     Merge the attacker's detachment passives with every in-range friendly
@@ -1813,8 +1828,23 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         except Exception:
             det = None
         if det is not None:
-            _merge_bool(buffs, det, "reroll_hit_ones")
-            _merge_bool(buffs, det, "reroll_wound_ones")
+            # Grey Knights Fury of Titan deep-strike gate (SWEG_GK_FURY_FAITHFUL,
+            # default OFF). The codex grants the re-roll-1s-to-hit-and-wound only
+            # to a unit that arrived via Deep Strike this turn; the detachment
+            # otherwise models it army-wide always-on (documented approximation).
+            # When the gate is set and the detachment flags
+            # `reroll_ones_requires_deep_strike`, merge the two rerolls ONLY for
+            # an attacker that arrived from reserves this round. OFF path (gate
+            # unset) runs the unconditional merge → byte-identical; the gate is
+            # also inert for any detachment that does not set the flag.
+            _ds_gated = (
+                __import__("os").environ.get("SWEG_GK_FURY_FAITHFUL") == "1"
+                and getattr(det, "reroll_ones_requires_deep_strike", False)
+                and not _arrived_via_deep_strike_this_round(attacker)
+            )
+            if not _ds_gated:
+                _merge_bool(buffs, det, "reroll_hit_ones")
+                _merge_bool(buffs, det, "reroll_wound_ones")
             _merge_bool(buffs, det, "plus_one_to_hit")
             _merge_bool(buffs, det, "plus_one_to_wound")
             _merge_bool(buffs, det, "plus_one_save")

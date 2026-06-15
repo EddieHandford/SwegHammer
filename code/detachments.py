@@ -69,6 +69,11 @@ class Detachment:
     # Shooting / melee modifiers
     reroll_hit_ones: bool = False        # Re-roll natural 1s to hit (army-wide)
     reroll_wound_ones: bool = False      # Re-roll natural 1s to wound
+    # When True, the reroll_hit_ones / reroll_wound_ones above are NOT army-wide
+    # always-on but gate on the attacker having ARRIVED via Deep Strike this
+    # turn (Grey Knights Fury of Titan). Honoured only under the fidelity gate
+    # SWEG_GK_FURY_FAITHFUL; default-off path treats them as always-on (legacy).
+    reroll_ones_requires_deep_strike: bool = False
     plus_one_to_hit: bool = False        # +1 to hit rolls (capped at 2+ canon)
     plus_one_to_wound: bool = False      # +1 to wound rolls
     plus_one_attack: int = 0             # Extra attacks per weapon (rare)
@@ -880,16 +885,19 @@ TELEPORT_STRIKE_FORCE = Detachment(
         "Fury of Titan (Wahapedia): 'Each time a unit from your army is "
         "set up using the Deep Strike ability, until the end of the turn, "
         "each time a model in that unit makes an attack, re-roll a Hit "
-        "roll of 1 and re-roll a Wound roll of 1.' Approximation: the "
-        "deep-strike-turn gate is dropped (modelled as army-wide always-on "
-        "re-roll hit 1s + wound 1s). Prior to SC5-6 only the wound-1 half "
-        "was wired; the hit-1 half is restored here to match the quoted "
-        "rule text. Real rule also includes bespoke psychic / teleport "
-        "redeploy mechanics that the simulator does not yet model. "
+        "roll of 1 and re-roll a Wound roll of 1.' The legacy default path "
+        "drops the deep-strike-turn gate (army-wide always-on re-roll hit 1s "
+        "+ wound 1s, an over-application). FIDELITY GATE SWEG_GK_FURY_FAITHFUL "
+        "(default off): with `reroll_ones_requires_deep_strike` set, the two "
+        "rerolls apply ONLY to a unit that arrived from reserves this round "
+        "(`_fresh_arrivals` proxy for the deep-strike-this-turn window), "
+        "restoring the codex gate. Real rule also includes bespoke psychic / "
+        "teleport redeploy mechanics that the simulator does not yet model. "
         "Source: https://wahapedia.ru/wh40k10ed/factions/grey-knights/#Fury-of-Titan"
     ),
     reroll_hit_ones=True,
     reroll_wound_ones=True,
+    reroll_ones_requires_deep_strike=True,
     stratagems=TELEPORT_STRIKE_FORCE_STRATAGEMS,
     preferred_composition="infantry",
 )
