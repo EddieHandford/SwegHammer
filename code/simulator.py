@@ -3925,6 +3925,17 @@ class Battle:
             return
         if not self._fire_stratagem(army, FIRE_AND_FADE):
             return
+        # FIDELITY (gate SWEG_AELDARI_FNF_FAITHFUL, default OFF): the real Fire
+        # and Fade is a post-shoot D6+1" Normal MOVE (repositioning only, zero
+        # combat-roll impact) — a grid-free sim cannot express it, and the
+        # legacy `transient_reroll_hits_shooting` is a fabricated OFFENSIVE
+        # proxy mechanically unrelated to the rule (the citation itself says
+        # so). The gate drops the fabricated uplift while KEEPING the faithful
+        # command-point expenditure above (the stratagem IS used every round in
+        # real Aeldari play), so the only thing removed is the over-model.
+        # OFF path applies the legacy buff unchanged → byte-identical.
+        if __import__("os").environ.get("SWEG_AELDARI_FNF_FAITHFUL") == "1":
+            return
         self._set_transient_squad(attacker, "transient_reroll_hits_shooting")
 
     def _try_skyborne_sanctuary(self, army: Army, opponent: Army) -> None:
