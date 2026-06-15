@@ -184,6 +184,14 @@
     "effect": "+1 to the armour save - the SAME single Benefit of Cover as LIGHT_COVER. There is no terrain -1-to-hit in current 10e (the stale 9th-edition Heavy-Cover / Dense-Cover -1-to-hit was removed): HEAVY_COVER and RUIN no longer differ from LIGHT_COVER for the combat effect. The in_heavy_cover flag is still toggled by Battle._do_shoot but no longer changes the Hit roll.",
     "scope": "phase-gated"
   },
+  "simulator.masters_of_camouflage": {
+    "source": "https://www.goonhammer.com/detachment-focus-recon-element/",
+    "rule_name": "Masters of Camouflage (Astra Militarum Recon Element detachment rule)",
+    "quoted_text": "Astra Militarum Walker and Regiment models from your army have the Benefit of Cover.",
+    "trigger": "a ranged attack targets an Astra Militarum INFANTRY or WALKER model while the Recon Element detachment rule is active (gated SWEG_AM_RECON, default-off)",
+    "effect": "the target receives the Benefit of Cover (+1 to its armour save versus ranged attacks; the AP0 / 3+-save exception and the universal 2+ floor still apply). APPROXIMATION: 'Regiment' is not a BSData v10.6.0 keyword (the same gap Born Soldiers proxies), so the gate fires on Astra Militarum INFANTRY or WALKER models; the big VEHICLE tanks are excluded (conservative) and the in-cover stacking-to-3+ half is not modelled (the engine caps cover at a single +1 pip). Implemented in code.units.Unit.attack.",
+    "scope": "army-wide"
+  },
   "simulator.deep_strike": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Strategic-Reserves",
     "rule_name": "Deep Strike",

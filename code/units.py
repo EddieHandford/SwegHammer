@@ -3055,9 +3055,28 @@ class Unit:
                 # 3+; a lower number is a better save).
                 ap == 0 and target.profile.save <= 3
             )
+            # Recon Element "Masters of Camouflage" (gated SWEG_AM_RECON, default-off
+            # -> byte-identical). Detachment rule: "Astra Militarum Walker and
+            # Regiment models from your army have the Benefit of Cover." (Recon
+            # Element is the meta's top Guard detachment and the LVO XII champion's
+            # list; the simulator otherwise models the offence detachment Combined
+            # Arms, missing the durability that lets cheap T3 bodies survive on
+            # objectives — the diagnosed driver of the Astra Militarum under-pole.)
+            # APPROXIMATION: "Regiment" is not a BSData v10.6.0 keyword (same gap
+            # Born Soldiers faces), so the proxy is Astra Militarum INFANTRY or
+            # WALKER models; the big VEHICLE tanks are excluded (conservative), and
+            # the in-cover stacking-to-3+ half is not modelled (the engine caps
+            # cover at the single +1 pip). Ranged-only, like all Benefit of Cover.
+            # Cited as `simulator.masters_of_camouflage`.
+            _recon_cover = (
+                (target.profile.faction or "") == "Astra Militarum"
+                and ("INFANTRY" in (target.profile.unit_keywords or ())
+                     or "WALKER" in (target.profile.unit_keywords or ()))
+                and __import__("os").environ.get("SWEG_AM_RECON", "0") == "1"
+            )
             if (
                 mode != "melee"
-                and (target.in_cover or indirect_fire_attack)
+                and (target.in_cover or indirect_fire_attack or _recon_cover)
                 and not ignore_cover
                 and not precision_pierces_cover
                 and not cover_blocked_by_ap0_exception
