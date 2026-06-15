@@ -1,19 +1,28 @@
 # SwegHammer calibration — current state
 
-> **WAVE 250 IN PROGRESS (handover) — see [`docs/WAVE250_LIST_REALISM.md`](WAVE250_LIST_REALISM.md).**
-> User-approved melee-cluster archetype list-realism (all four factions, sourcing first). World
-> Eaters lever built + gated (`SWEG_WE_REALISM`, `71e270b`), default-OFF. **N=40 screen: gated
-> 6.86 → 6.96 (+0.10 mild adverse wash); World Eaters indeterminate (+0.64 ± 5.13 on 273 flips);
-> three other factions drift up. The anchor-swap is faithful but does NOT reduce the over-pole —
-> corroborates the per-model representation wall.** Emperor's Children / Death Guard / Chaos
-> Daemons sourced with cited real lists, rebuilds queued (not built — no new sims at hand-off).
-> The standing anchor sc12a (gated 5.78) is unchanged. **OPEN STRATEGIC QUESTION for the user: if
-> faithful list-realism does not move the melee over-pole, is it worth the three bigger rebuilds for
-> fidelity alone? See the handover doc.**
+> **WAVE 251 (2026-06-15, autonomous hands-off) — melee/AM on-table avenue CLOSED; two held fidelity fixes banked.**
+> Two threads. **(1) The melee over-pole / Astra Militarum under-pole (~70 of the 5.78 MAE) is now
+> conclusively the OFF-TABLE durability-in-contest representation/scoring wall — needs user auth, parked.**
+> The last two on-table leads died: cover asymmetry REFUTED (`diag_cover`: a symmetric ~46% output tax,
+> over-pole defenders 46.5% vs field 46.1%, not skewed); a defensive screening move-AI BUILT + REJECTED
+> (`SWEG_SCREEN_AI`, `diag_screen_ab`: fires actively but decisively wrong-direction — AM 25.0→16.7,
+> every melee over-pole up; AM's cheap bodies ARE its objective-holders so screening cedes the board).
+> That is FIVE on-table AI levers refuted (mass-bodies, mass-tanks, gunline-hold, focus-fire, screening)
+> plus cover — the on-table lever family is exhausted. **(2) Fabrication-removal on addressable over-poles
+> (the auth-free path).** Aeldari +7.52 is NOT the representation wall (63.7 models) → addressable: Fire
+> and Fade fabricated re-roll proxy removed (`SWEG_AELDARI_FNF_FAITHFUL`, `bdd531d`), Aeldari 52.2→50.2
+> (paired −1.93), headline 5.78→5.74. A bounded triage then ranked Grey Knights #1: Teleport Strike Force
+> applied Fury of Titan army-wide always-on instead of the codex deep-strike-turn gate — gated fix
+> (`SWEG_GK_FURY_FAITHFUL`, `4134e9c`), GK 55.7→46.2 (paired −9.48 decisive), headline 5.78→5.66. Both
+> KEPT fidelity-first, default-OFF, OFF byte-identical (sim_motion_proof unchanged), **held for the next
+> re-anchor.** Standing anchor sc12a (gated 5.78) UNCHANGED (both fixes default-off). Wave-250 list-realism
+> rebuilds (Emperor's Children / Death Guard / Chaos Daemons) remain queued in `docs/WAVE250_LIST_REALISM.md`.
 
-**BRANCH `claude/sim-calibration-13` (2026-06-13) — wave 249 CLOSED. The wave-247 checkpoint is pull request #79 (waves 247 + 248 part one, OPEN, cleanly mergeable, pending Ed's review); `claude/sim-calibration-13` is the rolling branch stacked on its head (`5b312b5`). Own new work since that base: ~4 commits / ~1,000 lines (Fix Bayonets, wave-248 close, tabling-VP, wave-249 close) — within caps; the size hook's ~2,500-vs-main count is the stack on the unmerged #79, not new debt. Fold origin/main per procedure §H when #79 merges.**
+**BRANCH `claude/sim-calibration-13` (2026-06-13) — wave 251 CLOSED (local commits only, NOT pushed). The wave-247 checkpoint is pull request #79 (waves 247 + 248 part one, OPEN, cleanly mergeable, pending Ed's review); `claude/sim-calibration-13` is the rolling branch stacked on its head (`5b312b5`). Own new work since that base: ~6 commits / ~1,070 lines (Fix Bayonets, wave-248 close, tabling-VP, wave-249 close, Aeldari Fire and Fade `bdd531d`, Grey Knights Fury gate `4134e9c`) — within caps; the size hook's ~2,500-vs-main count is the stack on the unmerged #79, not new debt. Fold origin/main per procedure §H when #79 merges. The two wave-251 fixes are gated default-OFF (production frame unmoved); they fold at the next re-anchor.**
 
-**STANDING ANCHOR: `data/_anchor_sc12a_n80_log.json` — gated 5.78, raw 9.14, 4/22 in band (the wave-247 flipped frame: rolling damage + Born Soldiers REGIMENT + Castellan sustained hits on top of sc11b; pull requests 77/78 folded). Carried forward UNCHANGED through waves 248 AND 249 — every lever in both waves measured byte-inert or near-inert (no flipped defaults), so the production frame did not move and no re-anchor was run.**
+**STANDING ANCHOR: `data/_anchor_sc12a_n80_log.json` — gated 5.78, raw 9.14, 4/22 in band (the wave-247 flipped frame: rolling damage + Born Soldiers REGIMENT + Castellan sustained hits on top of sc11b; pull requests 77/78 folded). Carried forward UNCHANGED through waves 248–251 — the wave-251 fixes are gated default-OFF, so the production frame did not move and no re-anchor was run.**
+
+**NEXT LEVERS (wave 252):** (1) **RE-ANCHOR folding the held faithful fixes** (needs user "go" for the default-flips, per CLAUDE.md §3): batch-flip `SWEG_AELDARI_FNF_FAITHFUL` + `SWEG_GK_FURY_FAITHFUL` + `SWEG_AM_REALISM` + `SWEG_AM_RECON` + `SWEG_TABLING_VP`, single N=80 re-anchor (batch-screens-single-reanchor pattern). Standalone deltas: Aeldari −1.93, Grey Knights −9.48, headline ~5.78→~5.5s (levers do NOT compose additively — measure the combined frame). (2) **Continue fabrication-removal (auth-free, the proven wave-251 path):** Necrons Protocol of the Conquering Tyrant drops the codex HALF-RANGE gate on its hit-reroll (`code/simulator.py` ~4316, triage candidate #2, moderate); Aeldari Blitzing Firepower fires [SUSTAINED HITS 1] with no 12" gate; Aeldari Lightning-Fast Reactions +1-save proxy for −1-to-hit (minor). (3) **Grey Knights psychic / teleport-redeploy modelling** — lifts the GK under-side the Fury gate revealed (the always-on reroll was proxying these). (4) **PARKED — needs user auth (the ONLY path to sub-2.0 MAE):** the off-table durability-in-contest representation/scoring work for the melee over-pole (Death Guard 14.9 / World Eaters 14.2 / Emperor's Children 11.9 / Chaos Daemons 11.2) + Astra Militarum −19.9 — every on-table lever (5 AI + cover + list + orders) is exhausted. Adeptus Custodes +9.89 is the same elite-low-model representation wall. STRATEGIC NOTE for the user: on-table calibration is near-exhausted; the dominant ~70-point residual cannot close without the reserved off-table work.**
 
 ---
 
