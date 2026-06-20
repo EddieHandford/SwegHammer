@@ -79,11 +79,11 @@
     "approximation": true
   },
   "Stratagem.Creeping Blight": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
+    "source": "https://www.goonhammer.com/hammer-of-math-death-guard-virulent-vectorium/ (Wahapedia unreachable at build time; Goonhammer datasheet readout confirms rule text)",
     "rule_name": "Creeping Blight (Virulent Vectorium Stratagem)",
     "quoted_text": "WHEN: Your Shooting phase. TARGET: One DEATH GUARD INFANTRY unit from your army that has not been selected to shoot this phase. EFFECT: Until the end of the phase, each time a model in your unit makes a ranged attack that targets an Afflicted unit, you can re-roll the Hit roll and you can re-roll the Wound roll.",
-    "trigger": "own Shooting phase, on a DG INFANTRY unit that has not yet shot this phase, targeting an Afflicted enemy",
-    "effect": "ST-1: the simulator has no Afflicted enemy state (Putrid Detonation's rider clause is also dropped), so the gate fires unconditionally on the chosen DG INFANTRY unit. The wound-reroll half is now wired via `transient_reroll_wounds` (added ST-1) — the buff lands at full strength on both hit and wound legs, matching the codex. Picks the highest-DPA DG INFANTRY unit with a HEAVY-class target via the standard shooting heuristic",
+    "trigger": "own Shooting phase, on a DG INFANTRY unit that has not yet shot this phase; re-rolls apply ONLY when the target is an Afflicted enemy unit",
+    "effect": "SWEG_CREEPING_AFFLICTED gate (default OFF): when ON, the hit- and wound-reroll buff (transient_reroll_hits_shooting + transient_reroll_wounds) is only applied to the chosen DG INFANTRY unit when the selected target is Afflicted — within 3\" of any DEATH GUARD model, reusing the existing `_is_near_enemy_dg_model(target, radius=3.0)` helper (code/units.py line 163). When OFF (legacy), the buff is applied unconditionally. The command point is always spent regardless of the gate — do not move the spend inside the Afflicted check (gating the firing would reallocate the saved command point and backfire, per the Conquering Tyrant lesson). Approximation: Afflicted = within 3\" of a DG model (Nurgle's Gift proxy); the exact in-game Afflicted tracking (per-unit state set by Contagions of Nurgle abilities) is not modelled beyond this spatial proxy.",
     "scope": "phase-gated",
     "approximation": true
   },

@@ -3853,14 +3853,24 @@ class Battle:
     def _try_creeping_blight(self, army: Army, opponent: Army) -> None:
         """Creeping Blight (Virulent Vectorium, 1 CP): re-roll Hit AND Wound
         rolls on a DG INFANTRY unit's ranged attacks vs Afflicted enemies.
-        APPROXIMATION: we don't model Afflicted enemy state, so we route the
-        effect through transient_reroll_hits_shooting AND
-        transient_reroll_wounds on the DG INFANTRY unit (the full hit+wound
-        reroll grant the codex describes; ST-1 added the wound leg via the
-        new transient_reroll_wounds flag — previously only the hit leg
-        landed). Picks the highest-DPA friendly DG INFANTRY that has the
-        gate's other prerequisite (not yet shot this phase, which is
-        implicit at round-start dispatch)."""
+
+        SWEG_CREEPING_AFFLICTED (default OFF):
+          - OFF (legacy): the transient re-roll flags are applied to the DG
+            INFANTRY unit unconditionally, as before.  Byte-identical to
+            pre-gate behaviour.
+          - ON: the re-roll flags are only applied when the chosen target is
+            Afflicted — i.e. within 3" of any DEATH GUARD model from the DG
+            army — matching the real codex condition (Nurgle's Gift / Afflicted
+            = enemy unit within 3" of a DG model).  Detection reuses the
+            existing `_is_near_enemy_dg_model(target, radius=3.0)` helper in
+            code/units.py (the same helper that gates Contagions of Nurgle /
+            Fulminating Plague).  The command point is spent either way — do
+            NOT move this spend inside the gate; gating the firing reallocates
+            the saved command point and causes back-fire (Conquering Tyrant
+            lesson, 868f9a4).  Only the transient buff application is gated.
+
+        Picks the highest-DPA friendly DG INFANTRY that has not yet shot this
+        phase (implicit at round-start dispatch)."""
         candidate = None
         best_dpa = 0.0
         for u in army.alive_units:
@@ -3884,8 +3894,20 @@ class Battle:
             return
         if not self._fire_stratagem(army, CREEPING_BLIGHT):
             return
-        self._set_transient_squad(candidate, "transient_reroll_hits_shooting")
-        self._set_transient_squad(candidate, "transient_reroll_wounds")
+        # SWEG_CREEPING_AFFLICTED: when ON, only grant the re-roll buff if the
+        # chosen target is Afflicted (within 3" of any DEATH GUARD model).
+        # When OFF the buff is applied unconditionally (legacy behaviour).
+        _afflicted_gate_on = (
+            os.environ.get("SWEG_CREEPING_AFFLICTED", "0") == "1"
+        )
+        if _afflicted_gate_on:
+            from .units import _is_near_enemy_dg_model
+            target_is_afflicted = _is_near_enemy_dg_model(target, radius=3.0)
+        else:
+            target_is_afflicted = True  # OFF path: unconditional (legacy)
+        if target_is_afflicted:
+            self._set_transient_squad(candidate, "transient_reroll_hits_shooting")
+            self._set_transient_squad(candidate, "transient_reroll_wounds")
 
     def _try_lightning_fast_reactions(self, army: Army, opponent: Army) -> None:
         """Lightning-Fast Reactions (Warhost): +1 save on the most
