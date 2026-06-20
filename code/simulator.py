@@ -454,6 +454,16 @@ class Battle:
         # Objective ("control an objective the opponent controlled at the start
         # of the turn"). Refreshed in the round-start snapshot.
         self._obj_controller_at_round_start: dict = {}
+        # Challenger cards (Chapter Approved 2025-26 catch-up, env-gated
+        # SWEG_CHALLENGER_CARDS). `_challenger_card_this_round` is the (side,
+        # card_key) the trailing side drew at the start of the current round, or
+        # None if nobody trailed by 6+. `_a_challenger_vp` / `_b_challenger_vp`
+        # are the lifetime challenger contributions, each capped at ~12 VP in
+        # `_decide_winner`. Off-path leaves all three untouched (byte-identical).
+        # See data/rule_citations.d/core_challenger_cards.json.
+        self._challenger_card_this_round = None
+        self._a_challenger_vp: int = 0
+        self._b_challenger_vp: int = 0
         # Iter-4 A5: flag set TRUE while inside `_apply_detachment_stratagems`
         # so `_fire_stratagem` knows whether to increment the per-army
         # per-Command-phase counter. Always False outside that scope —
@@ -695,6 +705,17 @@ class Battle:
         for rnd in range(1, MAX_ROUNDS + 1):
             rounds_played = rnd
             self._emit(RoundStarted(round_num=rnd))
+            # Challenger cards (Chapter Approved 2025-26 catch-up, env-gated
+            # SWEG_CHALLENGER_CARDS). At the START of a battle round (rounds 2-5)
+            # the side trailing by 6+ victory points may draw one extra scoring
+            # card for that round. The gap is read from the running totals here,
+            # which still hold the PREVIOUS round's end-of-round totals (this
+            # round's primary/secondary has not been scored yet). The card is
+            # SCORED at end of round through the existing achievement machinery
+            # (see `_score_secondaries`). Off-path: `_decide_challenger_draw` is a
+            # no-op that consumes no RNG and leaves `_challenger_card_this_round`
+            # None, so the whole mechanic is byte-identical.
+            self._decide_challenger_draw(rnd)
             # 10e: Primary VP first scores at end of Command phase 2.
             # Rounds 2-5 score (4 opportunities × 15 VP = 60 VP max before
             # any total cap). Round 1 is purely movement / alpha-strike.
@@ -710,6 +731,12 @@ class Battle:
             # cmd_score: Primary was already scored per Command phase inside the
             # round (in _run_round_vanilla_turns); nothing to do here.
             self._score_secondaries(rnd)
+            # Challenger cards (Chapter Approved 2025-26, env-gated). Score the
+            # extra card the trailing side drew at this round's start, through the
+            # existing achievement machinery. Runs in BOTH secondary paths (the
+            # deck-on early-return inside `_score_secondaries` does not skip this).
+            # No-op / byte-identical when the gate is off.
+            self._score_challenger_card(rnd)
             self._emit(RoundEnded(
                 round_num=rnd,
                 a_vp_total=self._a_vp,
@@ -824,13 +851,23 @@ class Battle:
         # SWEG_PRIMARY_CAP_50=0 to disable for the isolation A/B. Cited as
         # `simulator.primary_vp_cap_50`.
         _cap_primary = __import__("os").environ.get("SWEG_PRIMARY_CAP_50") != "0"
-        a_primary = self._a_vp - self._a_secondary_vp
-        b_primary = self._b_vp - self._b_secondary_vp
+        # Challenger VP (Chapter Approved 2025-26) is a THIRD scoring track,
+        # separate from primary (50 cap) and secondary (40 cap): the deck's
+        # combined primary + secondary + challenger is capped at 90, with the
+        # challenger lifetime contribution capped at ~12 (already enforced at
+        # award time in `_score_challenger_card`). Peel it out of the running
+        # total so it is subject to NEITHER the primary nor the secondary cap,
+        # then add it back lifetime-capped. When the gate is off both challenger
+        # tallies are 0, so this is arithmetically identical to the prior code.
+        a_primary = self._a_vp - self._a_secondary_vp - self._a_challenger_vp
+        b_primary = self._b_vp - self._b_secondary_vp - self._b_challenger_vp
         if _cap_primary:
             a_primary = min(a_primary, 50)
             b_primary = min(b_primary, 50)
-        a_vp = a_primary + min(self._a_secondary_vp, 40)
-        b_vp = b_primary + min(self._b_secondary_vp, 40)
+        a_vp = (a_primary + min(self._a_secondary_vp, 40)
+                + min(self._a_challenger_vp, self._CHALLENGER_LIFETIME_CAP))
+        b_vp = (b_primary + min(self._b_secondary_vp, 40)
+                + min(self._b_challenger_vp, self._CHALLENGER_LIFETIME_CAP))
         if a_vp > b_vp:
             return self.a.name
         if b_vp > a_vp:
@@ -2665,6 +2702,105 @@ class Battle:
         if "area_denial" in chosen:
             total += self._score_area_denial(army, opponent)
         return total
+
+    # ------------------------------------------------------------------
+    # Challenger cards (Chapter Approved 2025-26 trailing-player catch-up).
+    # Env-gated SWEG_CHALLENGER_CARDS; default OFF byte-identical.
+    # See data/rule_citations.d/core_challenger_cards.json#simulator.challenger_cards.
+    # ------------------------------------------------------------------
+
+    _CHALLENGER_GAP: int = 6        # trail by this many VP to be eligible
+    _CHALLENGER_LIFETIME_CAP: int = 12   # ~12 VP practical lifetime cap per side
+
+    def _challenger_enabled(self) -> bool:
+        """Chapter Approved 2025-26 challenger cards. Read EXACTLY the documented
+        gate so OFF is unambiguous. Unset/anything-but-"1" → the mechanic is
+        inert: no draw, no scoring, no RNG consumed (byte-identical OFF path)."""
+        return __import__("os").environ.get("SWEG_CHALLENGER_CARDS", "0") == "1"
+
+    def _decide_challenger_draw(self, round_num: int) -> None:
+        """At the start of a battle round, if one side trails by >= 6 victory
+        points, have THAT side (the trailing one — never the leader) draw ONE
+        extra challenger scoring card for the round. Records (side, card_key) in
+        `self._challenger_card_this_round`; it is scored at end of round through
+        the existing achievement machinery in `_score_secondaries`.
+
+        Even-handed: whichever side is trailing by 6+ draws, by the identical
+        rule — no per-faction branch. The gap is read from the running totals
+        (`self._a_vp`/`self._b_vp`), which at round start hold the previous
+        round's end totals. Challenger scoring opens in round 2 (no round-1
+        primary means no meaningful round-1 gap), matching the simulator's
+        secondary/primary scoring window.
+
+        Determinism: the drawn card is chosen by a pure function of the matchup
+        identity + round (a zlib.crc32 over both rosters' sorted unit-name
+        multisets, the same global-RNG-free technique `_init_tactical_deck`
+        uses), so it reproduces under PYTHONHASHSEED=0 and NEVER touches the
+        global `random` stream — the ON path's downstream movement/combat RNG is
+        untouched relative to itself, and the OFF path consumes nothing here."""
+        self._challenger_card_this_round = None
+        if not self._challenger_enabled():
+            return
+        if round_num < 2:
+            return
+        gap = self._a_vp - self._b_vp
+        if abs(gap) < self._CHALLENGER_GAP:
+            return
+        trailing_side = "a" if gap < 0 else "b"
+        # If the trailing side has already hit its lifetime challenger cap, do
+        # not draw — further awards would be truncated to nothing anyway, and a
+        # spent deck draws no card.
+        spent = (self._a_challenger_vp if trailing_side == "a"
+                 else self._b_challenger_vp)
+        if spent >= self._CHALLENGER_LIFETIME_CAP:
+            return
+        import zlib
+        from .secondaries import TACTICAL_DECK_POOL
+
+        def _roster_sig(a) -> str:
+            return "|".join(sorted((u.profile.name or "") for u in a.units))
+        matchup_sig = f"{_roster_sig(self.a)}##{_roster_sig(self.b)}#{round_num}"
+        idx = (zlib.crc32(matchup_sig.encode("utf-8")) & 0xFFFFFFFF) % len(
+            TACTICAL_DECK_POOL)
+        self._challenger_card_this_round = (trailing_side, TACTICAL_DECK_POOL[idx])
+
+    def _score_challenger_card(self, round_num: int) -> None:
+        """End-of-round: score the challenger card the trailing side drew at the
+        start of this round, through the SAME achievement scorer the Tactical
+        deck uses (`_score_one_card`). An army that cannot physically achieve the
+        drawn objective scores 0 from it — fragile armies get NO free points. The
+        award is truncated by the ~12-VP lifetime cap per side. No-op when the
+        gate is off or nobody drew (byte-identical OFF path)."""
+        if not self._challenger_enabled():
+            return
+        drawn = self._challenger_card_this_round
+        if drawn is None:
+            return
+        side, card_key = drawn
+        if side == "a":
+            scoring_army, other_army, own_is_a = self.a, self.b, True
+            already = self._a_challenger_vp
+        else:
+            scoring_army, other_army, own_is_a = self.b, self.a, False
+            already = self._b_challenger_vp
+        remaining = self._CHALLENGER_LIFETIME_CAP - already
+        if remaining <= 0:
+            return
+        # Reuse the existing per-card achievement scorer: it returns 0 when the
+        # army cannot complete the objective (e.g. controls no qualifying
+        # objective marker). This is the SAME machinery the Tactical deck scores
+        # through — NOT a flat injection.
+        vp = self._score_one_card(card_key, scoring_army, other_army,
+                                  own_is_a, round_num)
+        vp = max(0, min(vp, remaining))   # apply the lifetime cap
+        if vp <= 0:
+            return
+        if side == "a":
+            self._a_vp += vp
+            self._a_challenger_vp += vp
+        else:
+            self._b_vp += vp
+            self._b_challenger_vp += vp
 
     # ------------------------------------------------------------------
     # M2 (wave 119) — the real 2-card Tactical secondary deck (env-gated

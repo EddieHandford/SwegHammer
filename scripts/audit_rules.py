@@ -725,6 +725,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Wave 137 — a 10e battle lasts five battle rounds; a one-sided tabling does
     # NOT end it early (only a mutual wipe does). data/rule_citations.d/core_battle_length.json.
     "simulator.battle_length_five_rounds",
+    # Challenger cards (Chapter Approved 2025-26 catch-up mechanic, env-gated
+    # SWEG_CHALLENGER_CARDS). At the start of a battle round, the side trailing by
+    # 6+ victory points draws ONE extra scoring card and scores it through the
+    # existing Tactical achievement machinery (Battle._score_one_card); lifetime
+    # challenger contribution capped at ~12 VP per side. Even-handed; OFF
+    # byte-identical. See data/rule_citations.d/core_challenger_cards.json.
+    "simulator.challenger_cards",
     # LC-5 — Warlord designation. First CHARACTER in deploy order is
     # the Warlord; killing it grants +1 Assassination VP per real
     # Pariah Nexus rule.
