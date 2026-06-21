@@ -37,6 +37,15 @@
     "scope": "army-wide"
   },
 
+  "simulator.power_from_pain.pfp_embarked_filter": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Drukhari-Army-Rule",
+    "rule_name": "Power From Pain — AI targeting improvement (embarked-unit filter)",
+    "quoted_text": "Each Pain ability will state when you can spend Pain tokens to Empower that unit. When you do, until the end of the phase, that unit is Empowered and all Pain abilities it has take effect.",
+    "trigger": "SWEG_DRUKHARI_PFP_EMBARKED=1 (default OFF, wave 249); fires inside _apply_power_from_pain_spend when the gate is ON, filtering the drukhari_units candidate list to exclude units whose embarked_in is not None",
+    "effect": "AI play-quality improvement only — NOT a change to the codex rule. The Power From Pain codex rule does not restrict which unit may be Empowered; this filter embodies competent play (a player never spends an Empower token on a unit that cannot act this round because it is inside a transport). When OFF the spend considers all alive Drukhari units including embarked passengers, which can waste the buff. This strictly improves the AI's token economy without pulling any unit back or playing more passively.",
+    "scope": "army-wide"
+  },
+
   "simulator.skysplinter_rain_of_cruelty": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Skysplinter-Assault",
     "rule_name": "Skysplinter Assault — Rain of Cruelty",

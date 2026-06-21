@@ -1288,13 +1288,24 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # [SUSTAINED HITS 1] to melee weapons — a weapon-keyword grant, not
     # a Hit-roll re-roll aura. Both proxies were always-on, ungated, and
     # contributed to Drukhari's +20.5pt gated overshoot. Dropped to NO-FLAG
-    # + host_keys-only, matching the SC5-1 Skysplinter pattern. Restore
-    # narrowly when (a) Pain-token economy lands and (b) SUSTAINED HITS is
-    # modelled. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/drukhari/
+    # + host_keys-only, matching the SC5-1 Skysplinter pattern.
+    #
+    # SWEG_DRUKHARI_SUCCUBUS_SUSTAIN (default OFF, wave 249): restores the
+    # Succubus "Storm of Blades" leader ability via the already-wired
+    # `sustained_hits_melee` field in LeaderAbility (code/units.py:3726-3729
+    # merges the field into `effective_sustained_hits` for melee attacks only,
+    # routing it through the led-unit host_keys gate). This is a faithful
+    # weapon-keyword grant: "While this model is leading a unit, melee weapons
+    # equipped by models in that unit have the [SUSTAINED HITS 1] ability."
+    # (Wahapedia: https://wahapedia.ru/wh40k10ed/factions/drukhari/Succubus,
+    # rule name "Storm of Blades".) Default OFF preserves byte-identical
+    # baseline; ON enables the real rule. Cited as LeaderAbility.Precision Blows
+    # in data/rule_citations.d/drukhari.json (updated effect text).
     ("Archon",             LeaderAbility(name="Overlord of Commorragh",     aura_range=6.0,
                                           host_keys=("aeldari_drukhari_kabalite_warriors",))),
     ("Succubus",           LeaderAbility(name="Precision Blows",            aura_range=6.0,
-                                          host_keys=("aeldari_drukhari_wyches",))),
+                                          host_keys=("aeldari_drukhari_wyches",),
+                                          sustained_hits_melee=(1 if os.environ.get("SWEG_DRUKHARI_SUCCUBUS_SUSTAIN", "0") == "1" else 0))),
     # Genestealer Cults
     # PATRIARCH — "Might From Beyond": while leading a unit, melee weapons
     # equipped by models in that unit have the [DEVASTATING WOUNDS] ability.

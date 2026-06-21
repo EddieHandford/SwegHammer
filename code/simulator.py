@@ -6748,6 +6748,20 @@ class Battle:
         """
         if os.environ.get("SWEG_PAIN_TOKENS", "1") == "0":
             return
+        # SWEG_DRUKHARI_PFP_EMBARKED (default OFF, wave 249): when ON, the
+        # Power From Pain Empower spend filters out Drukhari units that are
+        # embarked in a transport. An embarked unit cannot shoot or fight
+        # this round, so the transient_lethal_hits buff would expire unused
+        # — a competent Drukhari player never Empowers an embarked passenger.
+        # This is an AI play-quality improvement: the Empower token goes to a
+        # unit that will actually act. It does NOT change any codex rule; the
+        # Power From Pain spend itself is unchanged. Default OFF preserves
+        # byte-identical baseline. Cited as
+        # simulator.power_from_pain.pfp_embarked_filter in
+        # data/rule_citations.d/drukhari.json.
+        _pfp_embarked_filter: bool = (
+            os.environ.get("SWEG_DRUKHARI_PFP_EMBARKED", "0") == "1"
+        )
         for army in (self.a, self.b):
             if army.pain_token_pool <= 0:
                 continue
@@ -6755,6 +6769,7 @@ class Battle:
                 u for u in army.alive_units
                 if (u.profile.faction or "") == "Drukhari"
                 and u.uid not in self._battleshocked_this_round
+                and (not _pfp_embarked_filter or u.embarked_in is None)
             ]
             if not drukhari_units:
                 continue

@@ -1,4 +1,14 @@
-"""Tests for the Drukhari army rule Power From Pain (wave 246, #1).
+"""Tests for Drukhari army rules and leader abilities.
+
+Covers:
+  - Power From Pain (wave 246, #1) — token accrual, spend, and gate-off
+    inertness.
+  - SWEG_DRUKHARI_SUCCUBUS_SUSTAIN (wave 249, gate 1) — Succubus "Storm of
+    Blades" leader ability: `sustained_hits_melee=1` on melee attacks made
+    by a led Wyches unit. Default OFF; ON sets the field on the registry entry.
+  - SWEG_DRUKHARI_PFP_EMBARKED (wave 249, gate 2) — Power From Pain Empower
+    spend filters out embarked units when ON so the token goes to a unit that
+    can actually act. Default OFF leaves the spend behaviour unchanged.
 
 Power From Pain (10e Drukhari codex, BSData rule id 5e02-2ddc-f55-e6dd):
     Tokens accrue into an army-wide pool:
@@ -30,8 +40,11 @@ Cited as `simulator.power_from_pain`.
 
 from __future__ import annotations
 
+import importlib
 import os
 import random
+import sys
+import types
 import unittest
 
 from code.army import Army
@@ -345,6 +358,231 @@ class PainTokenGateOffInertTests(unittest.TestCase):
                 battle.b.pain_token_pool, 0,
                 f"gate OFF: opponent pool must be 0 after round {r}",
             )
+
+
+# ---------------------------------------------------------------------------
+# SWEG_DRUKHARI_SUCCUBUS_SUSTAIN — Succubus "Storm of Blades" (gate 1, wave 249)
+# ---------------------------------------------------------------------------
+
+def _reload_leaders(gate_value: str) -> types.ModuleType:
+    """Force-reload code.leaders with SWEG_DRUKHARI_SUCCUBUS_SUSTAIN set to
+    `gate_value`. Necessary because the LeaderAbility registry is constructed
+    at module import time using os.environ.get(...) inline — the field value is
+    baked in at that point. Removing code.leaders from sys.modules causes the
+    next importlib.import_module call to re-execute the module body and pick up
+    the new env value. The lookup_ability LRU cache lives on the reloaded module
+    object, so it is fresh per reload.
+    """
+    os.environ["SWEG_DRUKHARI_SUCCUBUS_SUSTAIN"] = gate_value
+    mod_name = "code.leaders"
+    if mod_name in sys.modules:
+        del sys.modules[mod_name]
+    if "code" in sys.modules and hasattr(sys.modules["code"], "leaders"):
+        delattr(sys.modules["code"], "leaders")
+    return importlib.import_module(mod_name)
+
+
+class SuccubusSustainGateTests(unittest.TestCase):
+    """Verify SWEG_DRUKHARI_SUCCUBUS_SUSTAIN wires sustained_hits_melee=1 on
+    the Succubus LeaderAbility when ON, and is 0 (inert) when OFF.
+
+    Gate 1 (wave 249) — rule-fidelity fix: Wahapedia "Storm of Blades"
+    (https://wahapedia.ru/wh40k10ed/factions/drukhari/Succubus):
+    "While this model is leading a unit, melee weapons equipped by models in
+    that unit have the [SUSTAINED HITS 1] ability."
+    """
+
+    def tearDown(self):
+        # Clean up the env var and restore a known-good leaders module.
+        os.environ.pop("SWEG_DRUKHARI_SUCCUBUS_SUSTAIN", None)
+        # Reload with the default (OFF) so subsequent tests share a clean state.
+        _reload_leaders("0")
+
+    def test_gate_off_sustained_hits_melee_is_zero(self):
+        """With SWEG_DRUKHARI_SUCCUBUS_SUSTAIN=0 (the default) the Succubus
+        LeaderAbility must have sustained_hits_melee == 0, byte-identical to
+        the pre-gate registry entry."""
+        leaders_mod = _reload_leaders("0")
+        ability = leaders_mod.lookup_ability("Succubus")
+        self.assertIsNotNone(ability, "Succubus must be in the leader registry")
+        self.assertEqual(
+            ability.sustained_hits_melee, 0,
+            "gate OFF: Succubus sustained_hits_melee must be 0 (inert)",
+        )
+        # No other offensive flags should be set on the Succubus entry.
+        self.assertFalse(ability.reroll_hit_ones,
+                         "Succubus must not carry reroll_hit_ones (DRK-DIAG-3 drop)")
+        self.assertFalse(ability.plus_one_to_hit,
+                         "Succubus must not carry plus_one_to_hit")
+
+    def test_gate_on_sustained_hits_melee_is_one(self):
+        """With SWEG_DRUKHARI_SUCCUBUS_SUSTAIN=1 the Succubus LeaderAbility must
+        have sustained_hits_melee == 1, implementing the real 'Storm of Blades'
+        rule: melee weapons in the led unit gain [SUSTAINED HITS 1]."""
+        leaders_mod = _reload_leaders("1")
+        ability = leaders_mod.lookup_ability("Succubus")
+        self.assertIsNotNone(ability, "Succubus must be in the leader registry")
+        self.assertEqual(
+            ability.sustained_hits_melee, 1,
+            "gate ON: Succubus sustained_hits_melee must be 1",
+        )
+        # No other offensive flags should be set — the gate is narrowly scoped.
+        self.assertFalse(ability.reroll_hit_ones,
+                         "Succubus must not carry reroll_hit_ones when gate is ON")
+        self.assertFalse(ability.plus_one_to_hit,
+                         "Succubus must not carry plus_one_to_hit when gate is ON")
+        self.assertEqual(ability.sustained_hits_ranged, 0,
+                         "Succubus must not grant ranged sustained hits (melee-only rule)")
+
+    def test_gate_off_byte_identical_to_base(self):
+        """The OFF state (SWEG_DRUKHARI_SUCCUBUS_SUSTAIN=0) must produce
+        sustained_hits_melee == 0, confirming it is byte-identical to the
+        pre-wave-249 baseline (no flag set on the Succubus ability)."""
+        leaders_mod_off = _reload_leaders("0")
+        ab_off = leaders_mod_off.lookup_ability("Succubus")
+        # Verify host_keys and name are unchanged.
+        self.assertEqual(ab_off.name, "Precision Blows")
+        self.assertIn("aeldari_drukhari_wyches", ab_off.host_keys,
+                      "host_keys must still restrict the aura to led Wyches")
+        self.assertEqual(ab_off.sustained_hits_melee, 0)
+
+
+# ---------------------------------------------------------------------------
+# SWEG_DRUKHARI_PFP_EMBARKED — Power From Pain embarked-unit filter (gate 2, wave 249)
+# ---------------------------------------------------------------------------
+
+class PFPEmbarkFilterGateTests(unittest.TestCase):
+    """Verify SWEG_DRUKHARI_PFP_EMBARKED causes _apply_power_from_pain_spend to
+    skip embarked Drukhari units when ON, directing the Empower buff to units
+    that can actually act this round.
+
+    Gate 2 (wave 249) — AI play-quality improvement: an embarked unit cannot
+    shoot or fight, so spending a Power From Pain token to Empower it wastes
+    the buff. The filter is an AI targeting improvement; the codex rule (Power
+    From Pain spend is unrestricted by transport status) is unchanged.
+    Cited as simulator.power_from_pain.pfp_embarked_filter in
+    data/rule_citations.d/drukhari.json.
+    """
+
+    def setUp(self):
+        os.environ["SWEG_PAIN_TOKENS"] = "1"
+
+    def tearDown(self):
+        os.environ.pop("SWEG_PAIN_TOKENS", None)
+        os.environ.pop("SWEG_DRUKHARI_PFP_EMBARKED", None)
+
+    def _make_battle_with_transport(self) -> Battle:
+        """Build a battle where army A has two Drukhari units: one
+        embarked (cannot act) and one on-board (can act). The embarked
+        unit has higher raw DPA so without the filter it would be elected."""
+        # High-DPA embarked unit (would win the max() without the filter).
+        embarked_profile = UnitProfile(
+            name="Drukhari Passenger",
+            health=2, damage=1, hit_probability=5 / 6,
+            ap=0, save=5, strength=5, toughness=3,
+            attacks=6, weapon_damage_per_shot=2.0, range_inches=18,
+            leadership=7,
+            faction="Drukhari",
+            unit_keywords=("INFANTRY",),
+            melee_attacks=6, melee_damage_per_shot=2.0,
+            melee_hit_probability=5 / 6, melee_strength=5, melee_ap=0,
+        )
+        # Low-DPA on-board unit (should be elected when filter is ON).
+        onboard_profile = UnitProfile(
+            name="Drukhari On Board",
+            health=2, damage=1, hit_probability=2 / 3,
+            ap=0, save=5, strength=4, toughness=3,
+            attacks=2, weapon_damage_per_shot=1.0, range_inches=18,
+            leadership=7,
+            faction="Drukhari",
+            unit_keywords=("INFANTRY",),
+            melee_attacks=2, melee_damage_per_shot=1.0,
+            melee_hit_probability=2 / 3, melee_strength=4, melee_ap=0,
+        )
+        transport_profile = UnitProfile(
+            name="Drukhari Transport",
+            health=8, damage=1, hit_probability=2 / 3,
+            ap=0, save=4, strength=4, toughness=6,
+            attacks=1, weapon_damage_per_shot=1.0, range_inches=24,
+            leadership=7,
+            faction="Drukhari",
+            unit_keywords=("VEHICLE",),
+        )
+        marines_profile = UnitProfile(
+            name="Marine",
+            health=2, damage=1, hit_probability=2 / 3,
+            ap=0, save=3, strength=4, toughness=4,
+            attacks=2, weapon_damage_per_shot=1.0, range_inches=24,
+            leadership=7,
+            faction="Adeptus Astartes",
+            unit_keywords=("INFANTRY",),
+        )
+        drukhari = Army("Drukhari")
+        drukhari.add_unit(embarked_profile)
+        drukhari.add_unit(onboard_profile)
+        drukhari.add_unit(transport_profile)
+        marines = Army("Marines")
+        marines.add_unit(marines_profile)
+        battle = Battle(drukhari, marines)
+        battle._assign_uids()
+        # Manually set the passenger as embarked in the transport.
+        passenger = drukhari.units[0]  # high-DPA
+        transport = drukhari.units[2]
+        passenger.embarked_in = transport
+        return battle
+
+    def test_gate_off_embarked_unit_eligible_for_spend(self):
+        """With SWEG_DRUKHARI_PFP_EMBARKED=0 (default OFF) the embarked unit
+        is included in the candidate list. Since it has higher DPA it is elected
+        and receives transient_lethal_hits — demonstrating the waste this gate
+        addresses."""
+        os.environ["SWEG_DRUKHARI_PFP_EMBARKED"] = "0"
+        battle = self._make_battle_with_transport()
+        battle.a.pain_token_pool = 5
+        battle._apply_power_from_pain_spend(round_num=1)
+        passenger = battle.a.units[0]  # high-DPA embarked unit
+        self.assertTrue(
+            getattr(passenger, "transient_lethal_hits", False),
+            "gate OFF: high-DPA embarked unit should be elected (demonstrating waste)",
+        )
+
+    def test_gate_on_embarked_unit_excluded_spend_goes_to_on_board(self):
+        """With SWEG_DRUKHARI_PFP_EMBARKED=1 the embarked unit is excluded from
+        the candidate list. The on-board unit is elected despite its lower DPA,
+        so the Empower buff goes to a unit that will actually fight or shoot."""
+        os.environ["SWEG_DRUKHARI_PFP_EMBARKED"] = "1"
+        battle = self._make_battle_with_transport()
+        battle.a.pain_token_pool = 5
+        battle._apply_power_from_pain_spend(round_num=1)
+        passenger = battle.a.units[0]   # high-DPA embarked unit
+        onboard = battle.a.units[1]     # low-DPA on-board unit
+        self.assertFalse(
+            getattr(passenger, "transient_lethal_hits", False),
+            "gate ON: embarked unit must NOT receive transient_lethal_hits",
+        )
+        self.assertTrue(
+            getattr(onboard, "transient_lethal_hits", False),
+            "gate ON: on-board unit must receive transient_lethal_hits",
+        )
+
+    def test_gate_on_embarked_unit_never_receives_buff(self):
+        """With SWEG_DRUKHARI_PFP_EMBARKED=1, an embarked unit must never
+        receive transient_lethal_hits even when it has a higher DPA than all
+        non-embarked alternatives. This directly proves the filter removes
+        embarked units from the electorate regardless of their DPA rank."""
+        os.environ["SWEG_DRUKHARI_PFP_EMBARKED"] = "1"
+        battle = self._make_battle_with_transport()
+        battle.a.pain_token_pool = 5
+        # Run the spend multiple times to exhaust the pool; the embarked unit
+        # must never accumulate the buff across any spend.
+        for round_num in (1, 2, 3):
+            battle._apply_power_from_pain_spend(round_num=round_num)
+        passenger = battle.a.units[0]  # high-DPA but embarked
+        self.assertFalse(
+            getattr(passenger, "transient_lethal_hits", False),
+            "gate ON: embarked unit must never receive transient_lethal_hits "
+            "even with the highest DPA in the army",
+        )
 
 
 if __name__ == "__main__":
