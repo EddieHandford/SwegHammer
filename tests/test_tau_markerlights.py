@@ -25,11 +25,13 @@ Test coverage:
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
+from unittest import mock
 
 from code.army import Army
-from code.detachments import MONTKA
+from code.detachments import Detachment, MONTKA
 from code.simulator import Battle
 from code.units import Unit, UnitProfile
 
@@ -300,6 +302,237 @@ class GuidedLethalHitsApplyTests(unittest.TestCase):
         # the universal Command Re-Roll budget above). Net damage = 0.
         self.assertEqual(damage, 0.0)
         self.assertEqual(after_hp, before_hp)
+
+
+# ---------------------------------------------------------------------------
+# GATE 1 — SWEG_TAU_MARKERLIGHT_ALL_DETACH
+# ---------------------------------------------------------------------------
+
+
+def _build_battle_non_montka_tau():
+    """T'au army on a NON-Mont'ka detachment (lethal_hits_on_guided=False),
+    so the base sim's early-exit skips _run_markerlight_phase entirely."""
+    a = Army("T'au")
+    # A minimal non-Mont'ka T'au detachment — all flags default, so
+    # lethal_hits_on_guided is False (Mont'ka is the only T'au detachment
+    # in the registry that sets it True).
+    a.detachment = Detachment(name="Kauyon-stub", faction="T'au Empire")
+    a.add_unit(_pathfinder_profile())
+    a.add_unit(_crisis_profile())
+    b = Army("Enemy")
+    b.add_unit(_target_profile())
+    random.seed(2026)
+    battle = Battle(a, b)
+    battle._assign_uids()
+    a.units[0].position = (10.0, 30.0)
+    a.units[1].position = (12.0, 30.0)
+    b.units[0].position = (22.0, 30.0)
+    return battle, a, b
+
+
+def _force_d6(value, count=40):
+    """Return a (patched_randint, restore) pair forcing the next `count`
+    random.randint calls to `value`, falling back to the real randint after."""
+    rolls = iter([value] * count)
+    original = random.randint
+
+    def patched(a_, b_):
+        try:
+            return next(rolls)
+        except StopIteration:
+            return original(a_, b_)
+
+    return patched, original
+
+
+class MarkerlightAllDetachGateTests(unittest.TestCase):
+    """GATE 1 — SWEG_TAU_MARKERLIGHT_ALL_DETACH. When ON, the base Markerlight
+    phase runs for ALL T'au detachments, not just Mont'ka. When OFF (default),
+    a non-Mont'ka detachment short-circuits and marks nothing — byte-identical
+    to base."""
+
+    def test_off_non_montka_marks_nothing(self):
+        """Default OFF: non-Mont'ka T'au detachment hits the
+        lethal_hits_on_guided early-exit, so no Guided tokens are granted
+        even though a Pathfinder carrier is in 36" + line of sight."""
+        battle, a, b = _build_battle_non_montka_tau()
+        patched, original = _force_d6(6)
+        random.randint = patched
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("SWEG_TAU_MARKERLIGHT_ALL_DETACH", None)
+            try:
+                battle._run_markerlight_phase(a, b)
+            finally:
+                random.randint = original
+        self.assertEqual(a.guided_enemy_uids, set())
+
+    def test_on_non_montka_marks_target(self):
+        """Gate ON: the base Markerlight phase runs for the non-Mont'ka
+        detachment, so the BS4+ Pathfinder (dice forced to 6) marks the
+        enemy as Guided."""
+        battle, a, b = _build_battle_non_montka_tau()
+        patched, original = _force_d6(6)
+        random.randint = patched
+        with mock.patch.dict(
+            os.environ, {"SWEG_TAU_MARKERLIGHT_ALL_DETACH": "1"}, clear=False
+        ):
+            try:
+                battle._run_markerlight_phase(a, b)
+            finally:
+                random.randint = original
+        self.assertIn(b.units[0].uid, a.guided_enemy_uids)
+
+    def test_on_still_returns_when_no_detachment(self):
+        """Gate ON but no resolved detachment (no detachment set and no
+        units to derive a faction default from after we strip them) — the
+        phase still returns without error and marks nothing."""
+        a = Army("T'au")
+        a.detachment = None  # force resolve_detachment() -> None (no units)
+        b = Army("Enemy")
+        b.add_unit(_target_profile())
+        random.seed(2026)
+        battle = Battle(a, b)
+        battle._assign_uids()
+        b.units[0].position = (22.0, 30.0)
+        with mock.patch.dict(
+            os.environ, {"SWEG_TAU_MARKERLIGHT_ALL_DETACH": "1"}, clear=False
+        ):
+            battle._run_markerlight_phase(a, b)
+        self.assertEqual(a.guided_enemy_uids, set())
+
+    def test_on_montka_still_uses_hit_roll_path(self):
+        """Gate ON must not change Mont'ka behaviour: with dice forced to a
+        miss (1), the BS4+ carrier still marks nothing — the per-carrier
+        hit roll in guided_enemy_uids is unchanged by Gate 1."""
+        battle, a, b = _build_battle_with_markerlight()  # Mont'ka
+        patched, original = _force_d6(1)
+        random.randint = patched
+        with mock.patch.dict(
+            os.environ, {"SWEG_TAU_MARKERLIGHT_ALL_DETACH": "1"}, clear=False
+        ):
+            try:
+                battle._run_markerlight_phase(a, b)
+            finally:
+                random.randint = original
+        self.assertEqual(a.guided_enemy_uids, set())
+
+
+# ---------------------------------------------------------------------------
+# GATE 2 — SWEG_TAU_MARKERLIGHT_BASE_LOS
+# ---------------------------------------------------------------------------
+
+
+class MarkerlightBaseLosGateTests(unittest.TestCase):
+    """GATE 2 — SWEG_TAU_MARKERLIGHT_BASE_LOS. When ON, the base Guided buff
+    is gated on a line-of-sight marked set (Army.guided_los_enemy_uids) built
+    WITHOUT a per-carrier to-hit roll. When OFF (default), that set stays empty
+    and Unit.attack reads guided_enemy_uids exactly as before."""
+
+    def test_off_los_set_empty_even_on_a_marked_phase(self):
+        """Default OFF: running the phase populates guided_enemy_uids (via the
+        hit roll) but never touches guided_los_enemy_uids — it stays empty and
+        the base buff continues to read guided_enemy_uids."""
+        battle, a, b = _build_battle_with_markerlight()
+        patched, original = _force_d6(6)
+        random.randint = patched
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("SWEG_TAU_MARKERLIGHT_BASE_LOS", None)
+            try:
+                battle._run_markerlight_phase(a, b)
+            finally:
+                random.randint = original
+        self.assertEqual(a.guided_los_enemy_uids, set())
+
+    def test_on_los_set_populated_without_hit_roll(self):
+        """Gate ON: even with every carrier hit roll forced to MISS (1), the
+        line-of-sight set still marks the in-range, in-line-of-sight enemy —
+        proving the LoS set does not depend on the to-hit roll. The hit-roll
+        gated guided_enemy_uids correctly remains empty under the forced miss."""
+        battle, a, b = _build_battle_with_markerlight()
+        patched, original = _force_d6(1)  # every Markerlight to-hit MISSES
+        random.randint = patched
+        with mock.patch.dict(
+            os.environ, {"SWEG_TAU_MARKERLIGHT_BASE_LOS": "1"}, clear=False
+        ):
+            try:
+                battle._run_markerlight_phase(a, b)
+            finally:
+                random.randint = original
+        # Hit-roll set empty (all misses); line-of-sight set marks the target.
+        self.assertEqual(a.guided_enemy_uids, set())
+        self.assertIn(b.units[0].uid, a.guided_los_enemy_uids)
+
+    def test_on_attack_reads_los_set_for_base_buff(self):
+        """Gate ON: a T'au attacker whose target is ONLY in the line-of-sight
+        set (not in guided_enemy_uids) still gets the base +1-to-Hit /
+        [SUSTAINED HITS 1] buff. We compare damage with the target in the LoS
+        set vs. not in it, forcing identical dice, so the only difference is
+        the base buff."""
+        battle, a, b = _build_battle_with_markerlight()
+        attacker = a.units[1]   # Crisis Battlesuits
+        target = b.units[0]
+        # Force every die to a natural 6: each Crisis attack crits to hit, so
+        # the base buff's [SUSTAINED HITS 1] yields one extra hit per crit
+        # (doubling the landed hits) while the unbuffed run lands only the
+        # base hits. Wounds (S5 vs T4 -> 3+) and saves (7+, never) resolve
+        # identically in both runs, so the damage delta is the sustained-hits
+        # buff alone. 4 attacks x 2.0 dmg: unbuffed ~8, buffed ~16, both well
+        # under the target's 20 HP so neither run is HP-capped.
+        with mock.patch.dict(
+            os.environ, {"SWEG_TAU_MARKERLIGHT_BASE_LOS": "1"}, clear=False
+        ):
+            # Buffed: target in the LoS set only (hit-roll set empty).
+            a.guided_enemy_uids = set()
+            a.guided_los_enemy_uids = {target.uid}
+            patched, original = _force_d6(6, count=400)
+            random.randint = patched
+            try:
+                target.current_health = target.profile.health
+                dmg_buffed = attacker.attack(target, mode="ranged")
+            finally:
+                random.randint = original
+            # Unbuffed: target in NEITHER set, same forced dice.
+            a.guided_los_enemy_uids = set()
+            patched, original = _force_d6(6, count=400)
+            random.randint = patched
+            try:
+                target.current_health = target.profile.health
+                dmg_unbuffed = attacker.attack(target, mode="ranged")
+            finally:
+                random.randint = original
+        self.assertGreater(dmg_buffed, dmg_unbuffed)
+
+    def test_off_attack_reads_hit_roll_set(self):
+        """Default OFF: the base buff reads guided_enemy_uids, NOT the LoS set.
+        A target present only in guided_los_enemy_uids gets no buff when the
+        gate is off (byte-identical to base)."""
+        battle, a, b = _build_battle_with_markerlight()
+        attacker = a.units[1]
+        target = b.units[0]
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("SWEG_TAU_MARKERLIGHT_BASE_LOS", None)
+            # Target only in the LoS set; OFF path ignores it. Force natural
+            # 6s so that, were the buff (wrongly) to fire, [SUSTAINED HITS 1]
+            # would add extra hits and the two runs would diverge.
+            a.guided_enemy_uids = set()
+            a.guided_los_enemy_uids = {target.uid}
+            patched, original = _force_d6(6, count=400)
+            random.randint = patched
+            try:
+                target.current_health = target.profile.health
+                dmg_los_only = attacker.attack(target, mode="ranged")
+            finally:
+                random.randint = original
+            # Target in NEITHER set, same dice -> must be identical (no buff).
+            a.guided_los_enemy_uids = set()
+            patched, original = _force_d6(6, count=400)
+            random.randint = patched
+            try:
+                target.current_health = target.profile.health
+                dmg_none = attacker.attack(target, mode="ranged")
+            finally:
+                random.randint = original
+        self.assertEqual(dmg_los_only, dmg_none)
 
 
 if __name__ == "__main__":

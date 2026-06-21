@@ -9641,6 +9641,12 @@ class Battle:
         # `_run_markerlight_phase` repopulates cleanly without stale uids.
         self.a.guided_enemy_uids = set()
         self.b.guided_enemy_uids = set()
+        # GATE 2 — SWEG_TAU_MARKERLIGHT_BASE_LOS: clear the line-of-sight marked
+        # set on the same end-of-turn cadence so the base buff doesn't leak
+        # across rounds. When the gate is OFF these sets are always empty, so
+        # this is a no-op assignment and the path stays byte-identical.
+        self.a.guided_los_enemy_uids = set()
+        self.b.guided_los_enemy_uids = set()
 
         # Protocol of the Undying Legions (Awakened Dynasty, 1 CP, #194):
         # one extra reanimation pulse before the routine Reanimation
@@ -12585,7 +12591,26 @@ class Battle:
                 not in ("t'au empire", "tau empire")):
             return
         det = army.resolve_detachment()
-        if det is None or not getattr(det, "lethal_hits_on_guided", False):
+        # GATE 1 — SWEG_TAU_MARKERLIGHT_ALL_DETACH (default OFF, byte-identical
+        # when unset). The base Markerlights army rule (Guided: +1 to Hit and
+        # [SUSTAINED HITS 1] vs the marked target) is army-wide for EVERY T'au
+        # detachment and round, but the early-exit below restricts the phase to
+        # detachments carrying the Mont'ka-only `lethal_hits_on_guided` flag —
+        # so non-Mont'ka T'au (e.g. Kauyon) got ZERO Guided uptime even though
+        # the units.py consumer reads `guided_enemy_uids` without gating on that
+        # flag. When the gate is ON, the phase runs for ALL T'au detachments
+        # (we still return on `det is None`, since there is no detachment to
+        # attribute the army rule to). The Mont'ka-specific Lethal-Hits-on-
+        # Guided still only applies where `lethal_hits_on_guided` is set (that
+        # gate lives in Unit.attack, unchanged here). Cited as
+        # `simulator.tau_markerlight_all_detach`.
+        _ml_all_detach = (
+            __import__("os").environ.get("SWEG_TAU_MARKERLIGHT_ALL_DETACH") == "1"
+        )
+        if _ml_all_detach:
+            if det is None:
+                return
+        elif det is None or not getattr(det, "lethal_hits_on_guided", False):
             return
         alive_enemies = opponent.alive_units
         if not alive_enemies:
@@ -12675,6 +12700,43 @@ class Battle:
             if roll >= hit_target:
                 marked.add(target.uid)
         army.guided_enemy_uids = marked
+        # GATE 2 — SWEG_TAU_MARKERLIGHT_BASE_LOS (default OFF, byte-identical
+        # when unset). The real base Markerlights/Guided rule grants the +1-to-
+        # Hit and [SUSTAINED HITS 1] on a markerlight-token / line-of-sight
+        # condition, NOT a per-attacker BS hit roll: "ranged weapons ... have
+        # their Ballistic Skill characteristic improved by 1 and have the
+        # [SUSTAINED HITS 1] ability while targeting an enemy unit that is
+        # visible to one or more friendly MARKERLIGHT units". The `marked` set
+        # above gates each token on the carrier's d6 to-hit, firing the base
+        # buff only ~half the time it should. When the gate is ON we build a
+        # SEPARATE line-of-sight marked set: every alive enemy that is in 36" +
+        # line of sight + a legal target of AT LEAST ONE markerlight carrier
+        # (no to-hit roll, no distinct-target exclusion — the verbatim rule
+        # marks "an enemy unit that is visible to one or more friendly
+        # MARKERLIGHT units"). The Mont'ka [LETHAL HITS] consumer keeps reading
+        # `guided_enemy_uids` (the hit-roll set), so this gate only changes how
+        # the BASE buff is gated. The whole computation is skipped when the gate
+        # is OFF — `guided_los_enemy_uids` stays empty and is never read, so the
+        # OFF path is byte-identical. No `random` calls here, so even the ON
+        # path leaves the RNG stream untouched. Cited as
+        # `simulator.tau_markerlight_base_los`.
+        if __import__("os").environ.get("SWEG_TAU_MARKERLIGHT_BASE_LOS") == "1":
+            los_marked: set = set()
+            for mk in markerlight_units:
+                for e in alive_enemies:
+                    if e.uid in los_marked:
+                        continue
+                    if (
+                        _distance(mk.position, e.position) <= markerlight_range
+                        and self.map.has_line_of_sight(
+                            mk.position, e.position,
+                            attacker_keywords=mk.profile.unit_keywords or (),
+                            target_keywords=e.profile.unit_keywords or (),
+                        )
+                        and can_target_for_ranged(mk, e, alive_enemies)
+                    ):
+                        los_marked.add(e.uid)
+            army.guided_los_enemy_uids = los_marked
 
     def _pick_oath_target(
         self, army: Army, opponent: Army, round_num: int,

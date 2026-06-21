@@ -2773,11 +2773,30 @@ class Unit:
             # MARKERLIGHT unit (a conservative under-approximation of "any
             # target visible to a Markerlight unit"). Cited as
             # `simulator.markerlights`.
+            # GATE 2 — SWEG_TAU_MARKERLIGHT_BASE_LOS (default OFF, byte-identical
+            # when unset). The base Guided buff (+1 to Hit here, [SUSTAINED HITS
+            # 1] in the sustained-hits branch below) is gated on the Marked set
+            # populated by Battle._run_markerlight_phase. The base sim gates it
+            # on `guided_enemy_uids`, which is gated on a per-carrier BS to-hit
+            # roll — firing the base buff only ~half the time the real rule
+            # (a line-of-sight / markerlight-token condition) does. When the
+            # gate is ON, read the line-of-sight set `guided_los_enemy_uids`
+            # instead (built without the to-hit roll). Mont'ka [LETHAL HITS]
+            # still reads `guided_enemy_uids` elsewhere, so only the base buff
+            # changes. When OFF this resolves to `guided_enemy_uids` exactly as
+            # before. Cited as `simulator.tau_markerlight_base_los`.
+            _ml_guided_attr = (
+                "guided_los_enemy_uids"
+                if __import__("os").environ.get(
+                    "SWEG_TAU_MARKERLIGHT_BASE_LOS"
+                ) == "1"
+                else "guided_enemy_uids"
+            )
             _tau_markerlight_guided = (
                 mode != "melee"
                 and (p.faction or "").lower() in ("t'au empire", "tau empire")
                 and target.uid in getattr(
-                    getattr(self, "army_ref", None), "guided_enemy_uids", set()
+                    getattr(self, "army_ref", None), _ml_guided_attr, set()
                 )
             )
             if _tau_markerlight_guided:

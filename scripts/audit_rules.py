@@ -493,6 +493,22 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Lone Operative) check. Replaces the pre-iter27 auto-Guided pipeline
     # which gave every MARKERLIGHT-keyword unit a free mark with no roll.
     "simulator.markerlight_emission",
+    # GATE 1 — SWEG_TAU_MARKERLIGHT_ALL_DETACH (default OFF). Bypasses the
+    # lethal_hits_on_guided early-exit in Battle._run_markerlight_phase so the
+    # base Markerlights army rule (Guided +1 to Hit + [SUSTAINED HITS 1]) runs
+    # for ALL T'au detachments, not just the Mont'ka detachment that carries
+    # the Lethal-Hits-on-Guided flag. The Mont'ka-specific [LETHAL HITS] still
+    # only applies where that flag is set. Cited in
+    # data/rule_citations.d/tau_empire.json.
+    "simulator.tau_markerlight_all_detach",
+    # GATE 2 — SWEG_TAU_MARKERLIGHT_BASE_LOS (default OFF). Gates the base
+    # Guided buff on a line-of-sight marked set (Army.guided_los_enemy_uids,
+    # built in _run_markerlight_phase without a per-carrier to-hit roll) rather
+    # than the hit-roll-gated guided_enemy_uids set, matching the verbatim
+    # "while targeting an enemy unit that is visible to one or more friendly
+    # MARKERLIGHT units" condition. The Mont'ka [LETHAL HITS] consumer keeps
+    # reading guided_enemy_uids. Cited in data/rule_citations.d/tau_empire.json.
+    "simulator.tau_markerlight_base_los",
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
     # hard cap, but real-player CP economy averages ~1 stratagem per
