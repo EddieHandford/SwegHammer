@@ -829,6 +829,19 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # detachment-flag citation CURSED_LEGION.relentless_onslaught is auto-required
     # via RULE_BEARING_FIELDS. Both live in data/rule_citations.d/necrons.json.
     "simulator.relentless_onslaught",
+    # Leagues of Votann — Prioritised Efficiency (army rule, current 10e codex,
+    # env-gated SWEG_VOTANN_PRIORITISED_EFFICIENCY, default OFF). The +1-to-Hit
+    # gate in Unit.attack: a Leagues of Votann attacker (Army.is_votann_army)
+    # adds 1 to the Hit roll when the target is within range of an objective
+    # marker (target.on_objective) — the Hostile Acquisition clause, the same
+    # near-objective shape as simulator.relentless_onslaught above. Re-introduces
+    # the army-wide combat buff the codex grants Votann, which was entirely
+    # absent after the retired Eye of the Ancestors rule was zeroed. APPROXIMATION:
+    # only the Hostile Acquisition state is modelled (not the Yield-Point economy,
+    # the Fortify Takeover switch, or the Advance-and-Charge re-roll) — see the
+    # notes in data/rule_citations.d/votann.json. Cited there as
+    # simulator.prioritised_efficiency.
+    "simulator.prioritised_efficiency",
     "unit.necrodermis",
     # Wave 181 — CA-2025-26 Tactical-track flat kill card VP values.
     # When a TACTICAL-track army (SWEG_TAC_DECK path) draws one of these three
