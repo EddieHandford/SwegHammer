@@ -31,7 +31,9 @@
 > re-anchor.** Standing anchor sc12a (gated 5.78) UNCHANGED (both fixes default-off). Wave-250 list-realism
 > rebuilds (Emperor's Children / Death Guard / Chaos Daemons) remain queued in `docs/WAVE250_LIST_REALISM.md`.
 
-**BRANCH `claude/sim-calibration-13` (2026-06-13) — wave 251 CLOSED (local commits only, NOT pushed). The wave-247 checkpoint is pull request #79 (waves 247 + 248 part one, OPEN, cleanly mergeable, pending Ed's review); `claude/sim-calibration-13` is the rolling branch stacked on its head (`5b312b5`). Own new work since that base: ~6 commits / ~1,070 lines (Fix Bayonets, wave-248 close, tabling-VP, wave-249 close, Aeldari Fire and Fade `bdd531d`, Grey Knights Fury gate `4134e9c`) — within caps; the size hook's ~2,500-vs-main count is the stack on the unmerged #79, not new debt. Fold origin/main per procedure §H when #79 merges. The two wave-251 fixes are gated default-OFF (production frame unmoved); they fold at the next re-anchor.**
+**BRANCH `claude/sim-calibration-13` (2026-06-13) — wave 252 CLOSED and PUSHED (`origin/claude/sim-calibration-13` at `bc9159d`, in sync). The wave-247 checkpoint is pull request #79 (waves 247 + 248 part one, OPEN, pending Ed's review); `claude/sim-calibration-13` is the rolling branch stacked on its head (`5b312b5`). Fold origin/main per procedure §H when #79 merges.**
+
+**⚠️ §14 ROLLING-BRANCH CHECKPOINT DUE (raised wave 252).** Both thresholds are exceeded: 21 commits versus origin/main and ~2,938 hand-written lines versus origin/main (the bulk is the stack on the still-open #79, not new debt). Per the standing sim-calibration-6→7 pattern: once #79 merges, fold origin/main and start wave 253 on a fresh `claude/sim-calibration-14`. Do NOT keep stacking new waves on -13 beyond what is in flight.
 
 **STANDING ANCHOR (wave 252): `data/_anchor_sc13a_n80_log.json` — gated 4.86, N=80 (the wave-252 flipped frame: the faithful fidelity batch + Challenger catch-up cards, all flipped default-on, on top of the sc12a frame). Pre-adoption true base preserved as `data/_anchor_sc13a_base_off_n80_log.json` — gated 5.89. Clean paired improvement 5.89 → 4.86 (delta −1.04).**
 
