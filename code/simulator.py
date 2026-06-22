@@ -872,7 +872,14 @@ class Battle:
             return self.a.name
         if b_vp > a_vp:
             return self.b.name
-        # VP tied — fall back to remaining points
+        # VP tied. Faithful matched-play (Chapter Approved 2025-26 Determine
+        # Victor): "If the players are tied, the battle is a draw." The legacy
+        # surviving-points tiebreaker (>1.10x remaining points) is unfaithful —
+        # it awards close games to durable survivors. Gated SWEG_VP_TIE_DRAW.
+        # Cited as simulator.vp_tie_draw.
+        if __import__("os").environ.get("SWEG_VP_TIE_DRAW", "0") == "1":
+            return None  # faithful: tied victory points is a draw
+        # Legacy surviving-points fall-back (gate off, byte-identical).
         if a_pts > b_pts * 1.10:
             return self.a.name
         if b_pts > a_pts * 1.10:
