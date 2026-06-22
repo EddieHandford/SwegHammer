@@ -2474,7 +2474,7 @@ class Unit:
             # byte-identical to the pre-change baseline. Cited as
             # `simulator.prioritised_efficiency`.
             if (
-                os.environ.get("SWEG_VOTANN_PRIORITISED_EFFICIENCY", "0") != "0"
+                os.environ.get("SWEG_VOTANN_PRIORITISED_EFFICIENCY", "1") != "0"
                 and getattr(target, "on_objective", False)
             ):
                 _own_army_pe = getattr(self, "army_ref", None)

@@ -1305,7 +1305,7 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("aeldari_drukhari_kabalite_warriors",))),
     ("Succubus",           LeaderAbility(name="Precision Blows",            aura_range=6.0,
                                           host_keys=("aeldari_drukhari_wyches",),
-                                          sustained_hits_melee=(1 if os.environ.get("SWEG_DRUKHARI_SUCCUBUS_SUSTAIN", "0") == "1" else 0))),
+                                          sustained_hits_melee=(1 if os.environ.get("SWEG_DRUKHARI_SUCCUBUS_SUSTAIN", "1") != "0" else 0))),
     # Genestealer Cults
     # PATRIARCH — "Might From Beyond": while leading a unit, melee weapons
     # equipped by models in that unit have the [DEVASTATING WOUNDS] ability.
@@ -1849,7 +1849,7 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
             # unset) runs the unconditional merge → byte-identical; the gate is
             # also inert for any detachment that does not set the flag.
             _ds_gated = (
-                __import__("os").environ.get("SWEG_GK_FURY_FAITHFUL") == "1"
+                __import__("os").environ.get("SWEG_GK_FURY_FAITHFUL", "1") != "0"
                 and getattr(det, "reroll_ones_requires_deep_strike", False)
                 and not _arrived_via_deep_strike_this_round(attacker)
             )

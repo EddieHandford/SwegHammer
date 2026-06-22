@@ -1,3 +1,34 @@
+# ⛔ CORRECTION (2026-06-21) — the "loser cannot hold" premise below is an INVENTED rule. DO NOT BUILD Stages 2/3.
+
+A code-and-rules triple-check (5-agent run `wf_85cc5a6e`, verified at commit `868f9a4`) found that the central
+premise of §1/§3 — that "real 10e displaces an out-fought army off a marker / the loser cannot hold under threat
+of being charged" — **is not a 10th-edition rule.** In real 10e the ONLY things that remove or zero a *living*
+unit's Objective Control are: (1) **death** (model destroyed, leaves play); (2) **Battle-shock** (every model's OC
+becomes 0 until its next Command phase — the only OC-zeroing branch in the sim, `simulator.py:966-967`); and
+(3) **moving out of range** (e.g. choosing to Fall Back). A non-Battle-shocked unit that *loses* a melee but
+*survives* keeps its full Objective Control and holds normally (Wahapedia / datacard.app "Level of Control").
+There is no "out-fought survivor is displaced / cannot hold" mechanic to build, and one would **contradict** the
+already-shipped faithful tarpit (`SWEG_DISPLACE_FALLBACK`, default-on, `strategy.py:1954+`, self-labelled "an AI
+heuristic, NOT a 10e rule" — it deliberately makes a durable out-fought unit *die on the marker*).
+
+**What IS true and stays:** the simulator genuinely represents one `Unit` object per physical model
+(triple-confirmed: `army.py:684-741`, `units.py:874-882/1145/1155`), and the per-model summed-Objective-Control
+contest is faithful 10e. The "positional spread" geometry observation is real. Only the *loser-cannot-hold
+inference* drawn from it is invented.
+
+**Redirect displacement-flavoured work to two faithful, citable levers instead:** (a) **Battle-shock application
+rate** after melee attrition — if too few below-half units fail the test, durable survivors over-hold markers they
+would realistically lose to OC-0; (b) **melee lethality** — if the sim under-kills, the OC of un-killed models is
+missing from the contest. The only faithful fix to positional spread is AI massing (`SWEG_MASS` class), never an
+OC-counting knob.
+
+**Disposition of the stages below:** Stage 0 (the read-only `displace_instr` measurement) and Stage 1 (the
+faithful-tarpit Fall-Back narrowing) already SHIPPED and are fine — keep. **Stages 2 (swarm-charge) and 3
+(cleared-position loser-removal) target the invented rule — do not build them.** See `DECISION_LEDGER.md`
+2026-06-21 ground-truth correction.
+
+---
+
 # Displacement substrate — design plan (avenue 2 completion)
 
 **Status: GREENLIT 2026-06-10.** The user authorised the build contingent on a final-pass review

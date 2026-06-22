@@ -827,7 +827,7 @@ class Battle:
         Victory Points is the winner"). Cited as `simulator.win_on_vp_not_tabling`.
         When OFF (default), behaviour is BYTE-IDENTICAL to prior; no extra RNG.
         """
-        _tabling_vp = __import__("os").environ.get("SWEG_TABLING_VP") == "1"
+        _tabling_vp = __import__("os").environ.get("SWEG_TABLING_VP", "1") != "0"
         if not _tabling_vp:
             if a_surv == 0 and b_surv == 0:
                 return None
@@ -2716,7 +2716,7 @@ class Battle:
         """Chapter Approved 2025-26 challenger cards. Read EXACTLY the documented
         gate so OFF is unambiguous. Unset/anything-but-"1" → the mechanic is
         inert: no draw, no scoring, no RNG consumed (byte-identical OFF path)."""
-        return __import__("os").environ.get("SWEG_CHALLENGER_CARDS", "0") == "1"
+        return __import__("os").environ.get("SWEG_CHALLENGER_CARDS", "1") != "0"
 
     def _decide_challenger_draw(self, round_num: int) -> None:
         """At the start of a battle round, if one side trails by >= 6 victory
@@ -4034,7 +4034,7 @@ class Battle:
         # chosen target is Afflicted (within 3" of any DEATH GUARD model).
         # When OFF the buff is applied unconditionally (legacy behaviour).
         _afflicted_gate_on = (
-            os.environ.get("SWEG_CREEPING_AFFLICTED", "0") == "1"
+            os.environ.get("SWEG_CREEPING_AFFLICTED", "1") != "0"
         )
         if _afflicted_gate_on:
             from .units import _is_near_enemy_dg_model
@@ -4092,7 +4092,7 @@ class Battle:
         # command-point expenditure above (the stratagem IS used every round in
         # real Aeldari play), so the only thing removed is the over-model.
         # OFF path applies the legacy buff unchanged → byte-identical.
-        if __import__("os").environ.get("SWEG_AELDARI_FNF_FAITHFUL") == "1":
+        if __import__("os").environ.get("SWEG_AELDARI_FNF_FAITHFUL", "1") != "0":
             return
         self._set_transient_squad(attacker, "transient_reroll_hits_shooting")
 
@@ -6896,7 +6896,7 @@ class Battle:
         # simulator.power_from_pain.pfp_embarked_filter in
         # data/rule_citations.d/drukhari.json.
         _pfp_embarked_filter: bool = (
-            os.environ.get("SWEG_DRUKHARI_PFP_EMBARKED", "0") == "1"
+            os.environ.get("SWEG_DRUKHARI_PFP_EMBARKED", "1") != "0"
         )
         for army in (self.a, self.b):
             if army.pain_token_pool <= 0:
@@ -12756,7 +12756,7 @@ class Battle:
         # gate lives in Unit.attack, unchanged here). Cited as
         # `simulator.tau_markerlight_all_detach`.
         _ml_all_detach = (
-            __import__("os").environ.get("SWEG_TAU_MARKERLIGHT_ALL_DETACH") == "1"
+            __import__("os").environ.get("SWEG_TAU_MARKERLIGHT_ALL_DETACH", "1") != "0"
         )
         if _ml_all_detach:
             if det is None:
@@ -12871,7 +12871,7 @@ class Battle:
         # OFF path is byte-identical. No `random` calls here, so even the ON
         # path leaves the RNG stream untouched. Cited as
         # `simulator.tau_markerlight_base_los`.
-        if __import__("os").environ.get("SWEG_TAU_MARKERLIGHT_BASE_LOS") == "1":
+        if __import__("os").environ.get("SWEG_TAU_MARKERLIGHT_BASE_LOS", "1") != "0":
             los_marked: set = set()
             for mk in markerlight_units:
                 for e in alive_enemies:
