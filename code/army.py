@@ -428,6 +428,19 @@ class Army:
         # Cited as `simulator.markerlights`.
         # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights
         self.guided_enemy_uids: Set[str] = set()
+        # GATE 2 — SWEG_TAU_MARKERLIGHT_BASE_LOS (default OFF). A SECOND marked
+        # set, populated by `_run_markerlight_phase` ONLY when that gate is ON.
+        # The real base Markerlights/Guided buff (+1 to Hit and [SUSTAINED HITS
+        # 1]) is granted on a line-of-sight / markerlight-token condition, NOT a
+        # per-attacker hit roll; the sim's `guided_enemy_uids` is gated on a BS
+        # to-hit roll inside `_run_markerlight_phase`, firing the base buff only
+        # ~half the time it should. When the gate is ON, the base buff branches
+        # in Unit.attack read THIS set (every markerlight-eligible target in
+        # line of sight, no to-hit roll) instead of `guided_enemy_uids`; the
+        # Mont'ka [LETHAL HITS] consumer keeps reading `guided_enemy_uids`. When
+        # OFF this stays an empty set and is never read, so behaviour is
+        # byte-identical to base. Cited as `simulator.tau_markerlight_base_los`.
+        self.guided_los_enemy_uids: Set[str] = set()
         # SECONDARY-SELECTION-V1 — Pariah Nexus Fixed + Tactical secondary
         # choice. Real 10e CA-2025-26 tournament play picks exactly TWO Fixed
         # Secondaries from the pool {bring_it_down, cull_the_horde,

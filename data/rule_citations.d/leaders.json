@@ -450,10 +450,10 @@
 
   "LeaderAbility.Precision Blows": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/Succubus",
-    "rule_name": "Storm of Blades — NO-FLAG (DRK-DIAG-3 drop)",
+    "rule_name": "Storm of Blades",
     "quoted_text": "While this model is leading a unit, melee weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
-    "trigger": "attacker's unit is led by a Succubus (melee attacks only, weapon-keyword grant — NOT modelled, sim has no SUSTAINED HITS weapon keyword)",
-    "effect": "no flag wired (DRK-DIAG-3, 2026-05-23). Previous `reroll_hit_ones=True` proxy was an always-on Hit-roll re-roll aura rather than the real per-weapon SUSTAINED HITS 1 grant on melee only. Restore narrowly (melee-only, weapon-keyword gated) when SUSTAINED HITS lands.",
+    "trigger": "attacker's unit is led by a Succubus AND is making a melee attack; gated SWEG_DRUKHARI_SUCCUBUS_SUSTAIN=1 (default OFF, wave 249)",
+    "effect": "sustained_hits_melee=1 on the Succubus LeaderAbility, resolved via code/units.py:3726-3729 (effective_sustained_hits += att_buffs['sustained_hits_melee'] when mode == 'melee'). When SWEG_DRUKHARI_SUCCUBUS_SUSTAIN=0 (the default) the field is 0 and the path is inert, byte-identical to the pre-gate baseline. Previous DRK-DIAG-3 drop (2026-05-23) noted that `reroll_hit_ones=True` was an always-on proxy; this wiring uses the canonical sustained_hits_melee field (already present on LeaderAbility, used by Locus-bearing Heralds) so the grant is melee-only and led-unit-gated via host_keys.",
     "scope": "unit-led"
   },
 

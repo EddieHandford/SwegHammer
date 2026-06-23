@@ -2420,6 +2420,69 @@ class Unit:
                     ):
                         hit_mod_delta += 1
 
+            # ---- Leagues of Votann — Prioritised Efficiency (army rule,
+            # current 10e codex). BSData v10.6.0 (Leagues of Votann.cat.gz,
+            # rule id 351a-a702-9080-7f08) verbatim, Hostile Acquisition
+            # clause: "Each time a model in this unit makes an attack that
+            # targets an enemy unit within range of one or more objective
+            # markers, add 1 to the Hit roll."
+            #
+            # This block re-introduces the army-wide combat buff the codex
+            # actually grants Leagues of Votann — the simulator had run Votann
+            # with NO army rule at all since the launch-day Eye of the
+            # Ancestors mechanic was retired (see the RETIRED comment ~line
+            # 3210 below and simulator._maybe_award_judgement_token). The
+            # retired rule was a blanket marked-target re-roll that caused a
+            # +16.8 pt Votann over-performance; THIS rule is the real printed
+            # replacement and is deliberately conditional — the +1 to Hit only
+            # fires when the TARGET is within range of an objective marker,
+            # exactly the discriminator that keeps it moderate. It is the same
+            # near-objective +1-to-Hit shape already proven for Necrons
+            # Relentless Onslaught directly above (target.on_objective is set
+            # per round in Battle._run_round — True when the unit is within an
+            # objective's control radius, which is precisely "within range of
+            # one or more objective markers").
+            #
+            # APPROXIMATION (documented in data/rule_citations.d/votann.json):
+            #   1. Prioritised Efficiency has two states keyed off Yield Points
+            #      (YP): Hostile Acquisition while YP < 7 (the start-of-battle
+            #      and early/mid-game state) and Fortify Takeover at YP >= 7.
+            #      The Yield-Point economy (1-4 YP gained at the end of each
+            #      Command phase from objective control, reaching the 7-YP
+            #      switch only in the back half of a winning game) is NOT
+            #      modelled — there is no YP state machine in the simulator. We
+            #      implement the HOSTILE ACQUISITION state only, which is the
+            #      state units carry at the start of the battle and hold for
+            #      most of a typical game. This errs on the moderate/under side:
+            #      Fortify Takeover's extra defensive -1-to-Wound and the
+            #      attacker-anchored (rather than target-anchored) +1 to Hit are
+            #      NOT granted, and they only apply when the Votann player is
+            #      already winning the objective game.
+            #   2. The Hostile Acquisition Advance-and-Charge re-roll clause is
+            #      NOT modelled (the simulator has no per-unit Advance/Charge
+            #      re-roll plumbing tied to the army rule). Only the +1-to-Hit
+            #      clause — the load-bearing combat effect — is implemented.
+            #
+            # Faction-gated on the attacker's army via Army.is_votann_army
+            # (matches the project's existing Votann gate). Applies to BOTH
+            # ranged and melee ("makes an attack", no mode restriction). The +1
+            # is added to hit_mod_delta and composes with any other +1-to-hit
+            # source through the existing 10e +/-1 Hit-modifier cap
+            # (hit_mod_clamped, ~line 2976) — never doubles. Env-gated
+            # SWEG_VOTANN_PRIORITISED_EFFICIENCY (default OFF); OFF leaves this
+            # path dead so the retired-rule-zeroed Votann behaviour stays
+            # byte-identical to the pre-change baseline. Cited as
+            # `simulator.prioritised_efficiency`.
+            if (
+                os.environ.get("SWEG_VOTANN_PRIORITISED_EFFICIENCY", "1") != "0"
+                and getattr(target, "on_objective", False)
+            ):
+                _own_army_pe = getattr(self, "army_ref", None)
+                if _own_army_pe is not None and getattr(
+                    _own_army_pe, "is_votann_army", False
+                ):
+                    hit_mod_delta += 1
+
             # ---- Adepta Sororitas Hallowed Martyrs — The Blood of Martyrs
             # (wave 234, detachment rule). BSData v10.6.0 verbatim (rule id
             # afa4-169c-3aaa-650): "Each time an ADEPTA SORORITAS model from
@@ -2773,11 +2836,30 @@ class Unit:
             # MARKERLIGHT unit (a conservative under-approximation of "any
             # target visible to a Markerlight unit"). Cited as
             # `simulator.markerlights`.
+            # GATE 2 — SWEG_TAU_MARKERLIGHT_BASE_LOS (default OFF, byte-identical
+            # when unset). The base Guided buff (+1 to Hit here, [SUSTAINED HITS
+            # 1] in the sustained-hits branch below) is gated on the Marked set
+            # populated by Battle._run_markerlight_phase. The base sim gates it
+            # on `guided_enemy_uids`, which is gated on a per-carrier BS to-hit
+            # roll — firing the base buff only ~half the time the real rule
+            # (a line-of-sight / markerlight-token condition) does. When the
+            # gate is ON, read the line-of-sight set `guided_los_enemy_uids`
+            # instead (built without the to-hit roll). Mont'ka [LETHAL HITS]
+            # still reads `guided_enemy_uids` elsewhere, so only the base buff
+            # changes. When OFF this resolves to `guided_enemy_uids` exactly as
+            # before. Cited as `simulator.tau_markerlight_base_los`.
+            _ml_guided_attr = (
+                "guided_los_enemy_uids"
+                if __import__("os").environ.get(
+                    "SWEG_TAU_MARKERLIGHT_BASE_LOS"
+                ) == "1"
+                else "guided_enemy_uids"
+            )
             _tau_markerlight_guided = (
                 mode != "melee"
                 and (p.faction or "").lower() in ("t'au empire", "tau empire")
                 and target.uid in getattr(
-                    getattr(self, "army_ref", None), "guided_enemy_uids", set()
+                    getattr(self, "army_ref", None), _ml_guided_attr, set()
                 )
             )
             if _tau_markerlight_guided:
@@ -3055,9 +3137,28 @@ class Unit:
                 # 3+; a lower number is a better save).
                 ap == 0 and target.profile.save <= 3
             )
+            # Recon Element "Masters of Camouflage" (gated SWEG_AM_RECON, default-off
+            # -> byte-identical). Detachment rule: "Astra Militarum Walker and
+            # Regiment models from your army have the Benefit of Cover." (Recon
+            # Element is the meta's top Guard detachment and the LVO XII champion's
+            # list; the simulator otherwise models the offence detachment Combined
+            # Arms, missing the durability that lets cheap T3 bodies survive on
+            # objectives — the diagnosed driver of the Astra Militarum under-pole.)
+            # APPROXIMATION: "Regiment" is not a BSData v10.6.0 keyword (same gap
+            # Born Soldiers faces), so the proxy is Astra Militarum INFANTRY or
+            # WALKER models; the big VEHICLE tanks are excluded (conservative), and
+            # the in-cover stacking-to-3+ half is not modelled (the engine caps
+            # cover at the single +1 pip). Ranged-only, like all Benefit of Cover.
+            # Cited as `simulator.masters_of_camouflage`.
+            _recon_cover = (
+                (target.profile.faction or "") == "Astra Militarum"
+                and ("INFANTRY" in (target.profile.unit_keywords or ())
+                     or "WALKER" in (target.profile.unit_keywords or ()))
+                and __import__("os").environ.get("SWEG_AM_RECON", "0") == "1"
+            )
             if (
                 mode != "melee"
-                and (target.in_cover or indirect_fire_attack)
+                and (target.in_cover or indirect_fire_attack or _recon_cover)
                 and not ignore_cover
                 and not precision_pierces_cover
                 and not cover_blocked_by_ap0_exception

@@ -454,6 +454,16 @@ class Battle:
         # Objective ("control an objective the opponent controlled at the start
         # of the turn"). Refreshed in the round-start snapshot.
         self._obj_controller_at_round_start: dict = {}
+        # Challenger cards (Chapter Approved 2025-26 catch-up, env-gated
+        # SWEG_CHALLENGER_CARDS). `_challenger_card_this_round` is the (side,
+        # card_key) the trailing side drew at the start of the current round, or
+        # None if nobody trailed by 6+. `_a_challenger_vp` / `_b_challenger_vp`
+        # are the lifetime challenger contributions, each capped at ~12 VP in
+        # `_decide_winner`. Off-path leaves all three untouched (byte-identical).
+        # See data/rule_citations.d/core_challenger_cards.json.
+        self._challenger_card_this_round = None
+        self._a_challenger_vp: int = 0
+        self._b_challenger_vp: int = 0
         # Iter-4 A5: flag set TRUE while inside `_apply_detachment_stratagems`
         # so `_fire_stratagem` knows whether to increment the per-army
         # per-Command-phase counter. Always False outside that scope —
@@ -695,6 +705,17 @@ class Battle:
         for rnd in range(1, MAX_ROUNDS + 1):
             rounds_played = rnd
             self._emit(RoundStarted(round_num=rnd))
+            # Challenger cards (Chapter Approved 2025-26 catch-up, env-gated
+            # SWEG_CHALLENGER_CARDS). At the START of a battle round (rounds 2-5)
+            # the side trailing by 6+ victory points may draw one extra scoring
+            # card for that round. The gap is read from the running totals here,
+            # which still hold the PREVIOUS round's end-of-round totals (this
+            # round's primary/secondary has not been scored yet). The card is
+            # SCORED at end of round through the existing achievement machinery
+            # (see `_score_secondaries`). Off-path: `_decide_challenger_draw` is a
+            # no-op that consumes no RNG and leaves `_challenger_card_this_round`
+            # None, so the whole mechanic is byte-identical.
+            self._decide_challenger_draw(rnd)
             # 10e: Primary VP first scores at end of Command phase 2.
             # Rounds 2-5 score (4 opportunities × 15 VP = 60 VP max before
             # any total cap). Round 1 is purely movement / alpha-strike.
@@ -710,6 +731,12 @@ class Battle:
             # cmd_score: Primary was already scored per Command phase inside the
             # round (in _run_round_vanilla_turns); nothing to do here.
             self._score_secondaries(rnd)
+            # Challenger cards (Chapter Approved 2025-26, env-gated). Score the
+            # extra card the trailing side drew at this round's start, through the
+            # existing achievement machinery. Runs in BOTH secondary paths (the
+            # deck-on early-return inside `_score_secondaries` does not skip this).
+            # No-op / byte-identical when the gate is off.
+            self._score_challenger_card(rnd)
             self._emit(RoundEnded(
                 round_num=rnd,
                 a_vp_total=self._a_vp,
@@ -787,13 +814,27 @@ class Battle:
           * Tied on both: draw.
         Survivor count is no longer a primary criterion — points + objectives
         capture military value much better than raw unit count.
+
+        SWEG_TABLING_VP (default OFF): when set to "1", the three survivor-count
+        short-circuits below are SKIPPED and every game — including one-sided
+        tablings — is decided purely by the VP totals accumulated over all five
+        battle rounds. The run loop already plays out all five rounds on a
+        one-sided tabling (see `simulator.battle_length_five_rounds` — only a
+        MUTUAL wipe ends the game early), so `self._a_vp`/`self._b_vp` already
+        hold COMPLETE end-of-game totals at this point. The survivor short-circuits
+        discard those complete VP totals; this gate lets the VP path win instead,
+        which is faithful to the 10e win condition ("the player with the most
+        Victory Points is the winner"). Cited as `simulator.win_on_vp_not_tabling`.
+        When OFF (default), behaviour is BYTE-IDENTICAL to prior; no extra RNG.
         """
-        if a_surv == 0 and b_surv == 0:
-            return None
-        if a_surv == 0:
-            return self.b.name
-        if b_surv == 0:
-            return self.a.name
+        _tabling_vp = __import__("os").environ.get("SWEG_TABLING_VP", "1") != "0"
+        if not _tabling_vp:
+            if a_surv == 0 and b_surv == 0:
+                return None
+            if a_surv == 0:
+                return self.b.name
+            if b_surv == 0:
+                return self.a.name
         # Real Pariah Nexus caps total Secondary VP at 40 per game. The running
         # `_a_vp`/`_b_vp` totals mix primary + secondary and never enforced that
         # ceiling, so secondary-heavy shapes (e.g. Custodes ~39/game) could run
@@ -810,13 +851,23 @@ class Battle:
         # SWEG_PRIMARY_CAP_50=0 to disable for the isolation A/B. Cited as
         # `simulator.primary_vp_cap_50`.
         _cap_primary = __import__("os").environ.get("SWEG_PRIMARY_CAP_50") != "0"
-        a_primary = self._a_vp - self._a_secondary_vp
-        b_primary = self._b_vp - self._b_secondary_vp
+        # Challenger VP (Chapter Approved 2025-26) is a THIRD scoring track,
+        # separate from primary (50 cap) and secondary (40 cap): the deck's
+        # combined primary + secondary + challenger is capped at 90, with the
+        # challenger lifetime contribution capped at ~12 (already enforced at
+        # award time in `_score_challenger_card`). Peel it out of the running
+        # total so it is subject to NEITHER the primary nor the secondary cap,
+        # then add it back lifetime-capped. When the gate is off both challenger
+        # tallies are 0, so this is arithmetically identical to the prior code.
+        a_primary = self._a_vp - self._a_secondary_vp - self._a_challenger_vp
+        b_primary = self._b_vp - self._b_secondary_vp - self._b_challenger_vp
         if _cap_primary:
             a_primary = min(a_primary, 50)
             b_primary = min(b_primary, 50)
-        a_vp = a_primary + min(self._a_secondary_vp, 40)
-        b_vp = b_primary + min(self._b_secondary_vp, 40)
+        a_vp = (a_primary + min(self._a_secondary_vp, 40)
+                + min(self._a_challenger_vp, self._CHALLENGER_LIFETIME_CAP))
+        b_vp = (b_primary + min(self._b_secondary_vp, 40)
+                + min(self._b_challenger_vp, self._CHALLENGER_LIFETIME_CAP))
         if a_vp > b_vp:
             return self.a.name
         if b_vp > a_vp:
@@ -1519,17 +1570,20 @@ class Battle:
                 continue
             s["obj_rounds"] += 1
             circle_area = math.pi * obj.control_radius * obj.control_radius
-            area = sum(math.pi * _bc_model_radius_in(u.profile) ** 2 for u in near)
+            # Per-unit base radii computed once (byte-identical: same operators,
+            # just hoisted out of the sum and the O(n^2) overlap loop below).
+            near_radii = [_bc_model_radius_in(u.profile) for u in near]
+            area = sum(math.pi * r ** 2 for r in near_radii)
             packing = area / circle_area if circle_area else 0.0
             s["packing_sum"] += packing
             s["packing_n"] += 1
             if packing > 1.0:
                 s["packing_over100"] += 1
             for i in range(len(near)):
-                ri = _bc_model_radius_in(near[i].profile)
+                ri = near_radii[i]
                 pi = near[i].position
                 for j in range(i + 1, len(near)):
-                    rj = _bc_model_radius_in(near[j].profile)
+                    rj = near_radii[j]
                     pj = near[j].position
                     if (pi[0] - pj[0]) ** 2 + (pi[1] - pj[1]) ** 2 < (ri + rj) ** 2:
                         s["overlap_pairs"] += 1
@@ -2648,6 +2702,105 @@ class Battle:
         if "area_denial" in chosen:
             total += self._score_area_denial(army, opponent)
         return total
+
+    # ------------------------------------------------------------------
+    # Challenger cards (Chapter Approved 2025-26 trailing-player catch-up).
+    # Env-gated SWEG_CHALLENGER_CARDS; default OFF byte-identical.
+    # See data/rule_citations.d/core_challenger_cards.json#simulator.challenger_cards.
+    # ------------------------------------------------------------------
+
+    _CHALLENGER_GAP: int = 6        # trail by this many VP to be eligible
+    _CHALLENGER_LIFETIME_CAP: int = 12   # ~12 VP practical lifetime cap per side
+
+    def _challenger_enabled(self) -> bool:
+        """Chapter Approved 2025-26 challenger cards. Read EXACTLY the documented
+        gate so OFF is unambiguous. Unset/anything-but-"1" → the mechanic is
+        inert: no draw, no scoring, no RNG consumed (byte-identical OFF path)."""
+        return __import__("os").environ.get("SWEG_CHALLENGER_CARDS", "1") != "0"
+
+    def _decide_challenger_draw(self, round_num: int) -> None:
+        """At the start of a battle round, if one side trails by >= 6 victory
+        points, have THAT side (the trailing one — never the leader) draw ONE
+        extra challenger scoring card for the round. Records (side, card_key) in
+        `self._challenger_card_this_round`; it is scored at end of round through
+        the existing achievement machinery in `_score_secondaries`.
+
+        Even-handed: whichever side is trailing by 6+ draws, by the identical
+        rule — no per-faction branch. The gap is read from the running totals
+        (`self._a_vp`/`self._b_vp`), which at round start hold the previous
+        round's end totals. Challenger scoring opens in round 2 (no round-1
+        primary means no meaningful round-1 gap), matching the simulator's
+        secondary/primary scoring window.
+
+        Determinism: the drawn card is chosen by a pure function of the matchup
+        identity + round (a zlib.crc32 over both rosters' sorted unit-name
+        multisets, the same global-RNG-free technique `_init_tactical_deck`
+        uses), so it reproduces under PYTHONHASHSEED=0 and NEVER touches the
+        global `random` stream — the ON path's downstream movement/combat RNG is
+        untouched relative to itself, and the OFF path consumes nothing here."""
+        self._challenger_card_this_round = None
+        if not self._challenger_enabled():
+            return
+        if round_num < 2:
+            return
+        gap = self._a_vp - self._b_vp
+        if abs(gap) < self._CHALLENGER_GAP:
+            return
+        trailing_side = "a" if gap < 0 else "b"
+        # If the trailing side has already hit its lifetime challenger cap, do
+        # not draw — further awards would be truncated to nothing anyway, and a
+        # spent deck draws no card.
+        spent = (self._a_challenger_vp if trailing_side == "a"
+                 else self._b_challenger_vp)
+        if spent >= self._CHALLENGER_LIFETIME_CAP:
+            return
+        import zlib
+        from .secondaries import TACTICAL_DECK_POOL
+
+        def _roster_sig(a) -> str:
+            return "|".join(sorted((u.profile.name or "") for u in a.units))
+        matchup_sig = f"{_roster_sig(self.a)}##{_roster_sig(self.b)}#{round_num}"
+        idx = (zlib.crc32(matchup_sig.encode("utf-8")) & 0xFFFFFFFF) % len(
+            TACTICAL_DECK_POOL)
+        self._challenger_card_this_round = (trailing_side, TACTICAL_DECK_POOL[idx])
+
+    def _score_challenger_card(self, round_num: int) -> None:
+        """End-of-round: score the challenger card the trailing side drew at the
+        start of this round, through the SAME achievement scorer the Tactical
+        deck uses (`_score_one_card`). An army that cannot physically achieve the
+        drawn objective scores 0 from it — fragile armies get NO free points. The
+        award is truncated by the ~12-VP lifetime cap per side. No-op when the
+        gate is off or nobody drew (byte-identical OFF path)."""
+        if not self._challenger_enabled():
+            return
+        drawn = self._challenger_card_this_round
+        if drawn is None:
+            return
+        side, card_key = drawn
+        if side == "a":
+            scoring_army, other_army, own_is_a = self.a, self.b, True
+            already = self._a_challenger_vp
+        else:
+            scoring_army, other_army, own_is_a = self.b, self.a, False
+            already = self._b_challenger_vp
+        remaining = self._CHALLENGER_LIFETIME_CAP - already
+        if remaining <= 0:
+            return
+        # Reuse the existing per-card achievement scorer: it returns 0 when the
+        # army cannot complete the objective (e.g. controls no qualifying
+        # objective marker). This is the SAME machinery the Tactical deck scores
+        # through — NOT a flat injection.
+        vp = self._score_one_card(card_key, scoring_army, other_army,
+                                  own_is_a, round_num)
+        vp = max(0, min(vp, remaining))   # apply the lifetime cap
+        if vp <= 0:
+            return
+        if side == "a":
+            self._a_vp += vp
+            self._a_challenger_vp += vp
+        else:
+            self._b_vp += vp
+            self._b_challenger_vp += vp
 
     # ------------------------------------------------------------------
     # M2 (wave 119) — the real 2-card Tactical secondary deck (env-gated
@@ -3836,14 +3989,24 @@ class Battle:
     def _try_creeping_blight(self, army: Army, opponent: Army) -> None:
         """Creeping Blight (Virulent Vectorium, 1 CP): re-roll Hit AND Wound
         rolls on a DG INFANTRY unit's ranged attacks vs Afflicted enemies.
-        APPROXIMATION: we don't model Afflicted enemy state, so we route the
-        effect through transient_reroll_hits_shooting AND
-        transient_reroll_wounds on the DG INFANTRY unit (the full hit+wound
-        reroll grant the codex describes; ST-1 added the wound leg via the
-        new transient_reroll_wounds flag — previously only the hit leg
-        landed). Picks the highest-DPA friendly DG INFANTRY that has the
-        gate's other prerequisite (not yet shot this phase, which is
-        implicit at round-start dispatch)."""
+
+        SWEG_CREEPING_AFFLICTED (default OFF):
+          - OFF (legacy): the transient re-roll flags are applied to the DG
+            INFANTRY unit unconditionally, as before.  Byte-identical to
+            pre-gate behaviour.
+          - ON: the re-roll flags are only applied when the chosen target is
+            Afflicted — i.e. within 3" of any DEATH GUARD model from the DG
+            army — matching the real codex condition (Nurgle's Gift / Afflicted
+            = enemy unit within 3" of a DG model).  Detection reuses the
+            existing `_is_near_enemy_dg_model(target, radius=3.0)` helper in
+            code/units.py (the same helper that gates Contagions of Nurgle /
+            Fulminating Plague).  The command point is spent either way — do
+            NOT move this spend inside the gate; gating the firing reallocates
+            the saved command point and causes back-fire (Conquering Tyrant
+            lesson, 868f9a4).  Only the transient buff application is gated.
+
+        Picks the highest-DPA friendly DG INFANTRY that has not yet shot this
+        phase (implicit at round-start dispatch)."""
         candidate = None
         best_dpa = 0.0
         for u in army.alive_units:
@@ -3867,8 +4030,20 @@ class Battle:
             return
         if not self._fire_stratagem(army, CREEPING_BLIGHT):
             return
-        self._set_transient_squad(candidate, "transient_reroll_hits_shooting")
-        self._set_transient_squad(candidate, "transient_reroll_wounds")
+        # SWEG_CREEPING_AFFLICTED: when ON, only grant the re-roll buff if the
+        # chosen target is Afflicted (within 3" of any DEATH GUARD model).
+        # When OFF the buff is applied unconditionally (legacy behaviour).
+        _afflicted_gate_on = (
+            os.environ.get("SWEG_CREEPING_AFFLICTED", "1") != "0"
+        )
+        if _afflicted_gate_on:
+            from .units import _is_near_enemy_dg_model
+            target_is_afflicted = _is_near_enemy_dg_model(target, radius=3.0)
+        else:
+            target_is_afflicted = True  # OFF path: unconditional (legacy)
+        if target_is_afflicted:
+            self._set_transient_squad(candidate, "transient_reroll_hits_shooting")
+            self._set_transient_squad(candidate, "transient_reroll_wounds")
 
     def _try_lightning_fast_reactions(self, army: Army, opponent: Army) -> None:
         """Lightning-Fast Reactions (Warhost): +1 save on the most
@@ -3907,6 +4082,17 @@ class Battle:
         if not should_fire_stratagem(army, FIRE_AND_FADE, ctx):
             return
         if not self._fire_stratagem(army, FIRE_AND_FADE):
+            return
+        # FIDELITY (gate SWEG_AELDARI_FNF_FAITHFUL, default OFF): the real Fire
+        # and Fade is a post-shoot D6+1" Normal MOVE (repositioning only, zero
+        # combat-roll impact) — a grid-free sim cannot express it, and the
+        # legacy `transient_reroll_hits_shooting` is a fabricated OFFENSIVE
+        # proxy mechanically unrelated to the rule (the citation itself says
+        # so). The gate drops the fabricated uplift while KEEPING the faithful
+        # command-point expenditure above (the stratagem IS used every round in
+        # real Aeldari play), so the only thing removed is the over-model.
+        # OFF path applies the legacy buff unchanged → byte-identical.
+        if __import__("os").environ.get("SWEG_AELDARI_FNF_FAITHFUL", "1") != "0":
             return
         self._set_transient_squad(attacker, "transient_reroll_hits_shooting")
 
@@ -6698,6 +6884,20 @@ class Battle:
         """
         if os.environ.get("SWEG_PAIN_TOKENS", "1") == "0":
             return
+        # SWEG_DRUKHARI_PFP_EMBARKED (default OFF, wave 249): when ON, the
+        # Power From Pain Empower spend filters out Drukhari units that are
+        # embarked in a transport. An embarked unit cannot shoot or fight
+        # this round, so the transient_lethal_hits buff would expire unused
+        # — a competent Drukhari player never Empowers an embarked passenger.
+        # This is an AI play-quality improvement: the Empower token goes to a
+        # unit that will actually act. It does NOT change any codex rule; the
+        # Power From Pain spend itself is unchanged. Default OFF preserves
+        # byte-identical baseline. Cited as
+        # simulator.power_from_pain.pfp_embarked_filter in
+        # data/rule_citations.d/drukhari.json.
+        _pfp_embarked_filter: bool = (
+            os.environ.get("SWEG_DRUKHARI_PFP_EMBARKED", "1") != "0"
+        )
         for army in (self.a, self.b):
             if army.pain_token_pool <= 0:
                 continue
@@ -6705,6 +6905,7 @@ class Battle:
                 u for u in army.alive_units
                 if (u.profile.faction or "") == "Drukhari"
                 and u.uid not in self._battleshocked_this_round
+                and (not _pfp_embarked_filter or u.embarked_in is None)
             ]
             if not drukhari_units:
                 continue
@@ -7598,11 +7799,15 @@ class Battle:
             for u in army.units:
                 if u.embarked_in is None:
                     ordered.append(u)
+        # Per-unit base radii, computed once. Byte-identical to the per-iteration
+        # _bc_model_radius_in calls this used to make inside the O(passes*n^2)
+        # nested loops below — the radius is a pure function of the immutable
+        # profile, so hoisting it out of the hot loop changes nothing but speed.
+        radii = [_bc_model_radius_in(u.profile) for u in ordered]
 
-        def _clamp(u, x: float, y: float):
+        def _clamp(u, x: float, y: float, r: float):
             """Clamp (x, y) inside map bounds and, for non-infiltrators,
             inside the army's deployment zone. Returns clamped (x, y)."""
-            r = _bc_model_radius_in(u.profile)
             # Map bounds (leave a base-radius margin so the base sits on-table).
             x = min(max(x, r), map_w - r)
             y = min(max(y, r), map_h - r)
@@ -7626,11 +7831,11 @@ class Battle:
             for i in range(len(ordered)):
                 u_i = ordered[i]
                 xi, yi = u_i.position
-                ri = _bc_model_radius_in(u_i.profile)
+                ri = radii[i]
                 for j in range(i + 1, len(ordered)):
                     u_j = ordered[j]
                     xj, yj = u_j.position
-                    rj = _bc_model_radius_in(u_j.profile)
+                    rj = radii[j]
                     min_sep = ri + rj + EPSILON_IN
                     dx = xj - xi
                     dy = yj - yi
@@ -7647,7 +7852,7 @@ class Battle:
                     push = min_sep - dist   # positive: how much to push j away
                     nx = xj + (dx / dist) * push
                     ny = yj + (dy / dist) * push
-                    nx, ny = _clamp(u_j, nx, ny)
+                    nx, ny = _clamp(u_j, nx, ny, rj)
                     u_j.position = (nx, ny)
                     moved = True
             if not moved:
@@ -7659,11 +7864,11 @@ class Battle:
             for i in range(len(ordered)):
                 u_i = ordered[i]
                 xi, yi = u_i.position
-                ri = _bc_model_radius_in(u_i.profile)
+                ri = radii[i]
                 for j in range(i + 1, len(ordered)):
                     u_j = ordered[j]
                     xj, yj = u_j.position
-                    rj = _bc_model_radius_in(u_j.profile)
+                    rj = radii[j]
                     dx = xj - xi
                     dy = yj - yi
                     dist2 = dx * dx + dy * dy
@@ -9430,7 +9635,10 @@ class Battle:
         # `simulator.voice_of_command_orders`.
         from .orders import dispatch_orders as _dispatch_orders
         for army in (self.a, self.b):
-            _issued = _dispatch_orders(army, self._battleshocked_this_round)
+            _enemy = self.b if army is self.a else self.a
+            _issued = _dispatch_orders(
+                army, self._battleshocked_this_round, enemy_army=_enemy
+            )
             if self.verbose and _issued:
                 for officer_name, target_name, order_name in _issued:
                     print(f"  ORDER: {officer_name} -> {target_name}: {order_name}")
@@ -9584,6 +9792,12 @@ class Battle:
         # `_run_markerlight_phase` repopulates cleanly without stale uids.
         self.a.guided_enemy_uids = set()
         self.b.guided_enemy_uids = set()
+        # GATE 2 — SWEG_TAU_MARKERLIGHT_BASE_LOS: clear the line-of-sight marked
+        # set on the same end-of-turn cadence so the base buff doesn't leak
+        # across rounds. When the gate is OFF these sets are always empty, so
+        # this is a no-op assignment and the path stays byte-identical.
+        self.a.guided_los_enemy_uids = set()
+        self.b.guided_los_enemy_uids = set()
 
         # Protocol of the Undying Legions (Awakened Dynasty, 1 CP, #194):
         # one extra reanimation pulse before the routine Reanimation
@@ -12528,7 +12742,26 @@ class Battle:
                 not in ("t'au empire", "tau empire")):
             return
         det = army.resolve_detachment()
-        if det is None or not getattr(det, "lethal_hits_on_guided", False):
+        # GATE 1 — SWEG_TAU_MARKERLIGHT_ALL_DETACH (default OFF, byte-identical
+        # when unset). The base Markerlights army rule (Guided: +1 to Hit and
+        # [SUSTAINED HITS 1] vs the marked target) is army-wide for EVERY T'au
+        # detachment and round, but the early-exit below restricts the phase to
+        # detachments carrying the Mont'ka-only `lethal_hits_on_guided` flag —
+        # so non-Mont'ka T'au (e.g. Kauyon) got ZERO Guided uptime even though
+        # the units.py consumer reads `guided_enemy_uids` without gating on that
+        # flag. When the gate is ON, the phase runs for ALL T'au detachments
+        # (we still return on `det is None`, since there is no detachment to
+        # attribute the army rule to). The Mont'ka-specific Lethal-Hits-on-
+        # Guided still only applies where `lethal_hits_on_guided` is set (that
+        # gate lives in Unit.attack, unchanged here). Cited as
+        # `simulator.tau_markerlight_all_detach`.
+        _ml_all_detach = (
+            __import__("os").environ.get("SWEG_TAU_MARKERLIGHT_ALL_DETACH", "1") != "0"
+        )
+        if _ml_all_detach:
+            if det is None:
+                return
+        elif det is None or not getattr(det, "lethal_hits_on_guided", False):
             return
         alive_enemies = opponent.alive_units
         if not alive_enemies:
@@ -12618,6 +12851,43 @@ class Battle:
             if roll >= hit_target:
                 marked.add(target.uid)
         army.guided_enemy_uids = marked
+        # GATE 2 — SWEG_TAU_MARKERLIGHT_BASE_LOS (default OFF, byte-identical
+        # when unset). The real base Markerlights/Guided rule grants the +1-to-
+        # Hit and [SUSTAINED HITS 1] on a markerlight-token / line-of-sight
+        # condition, NOT a per-attacker BS hit roll: "ranged weapons ... have
+        # their Ballistic Skill characteristic improved by 1 and have the
+        # [SUSTAINED HITS 1] ability while targeting an enemy unit that is
+        # visible to one or more friendly MARKERLIGHT units". The `marked` set
+        # above gates each token on the carrier's d6 to-hit, firing the base
+        # buff only ~half the time it should. When the gate is ON we build a
+        # SEPARATE line-of-sight marked set: every alive enemy that is in 36" +
+        # line of sight + a legal target of AT LEAST ONE markerlight carrier
+        # (no to-hit roll, no distinct-target exclusion — the verbatim rule
+        # marks "an enemy unit that is visible to one or more friendly
+        # MARKERLIGHT units"). The Mont'ka [LETHAL HITS] consumer keeps reading
+        # `guided_enemy_uids` (the hit-roll set), so this gate only changes how
+        # the BASE buff is gated. The whole computation is skipped when the gate
+        # is OFF — `guided_los_enemy_uids` stays empty and is never read, so the
+        # OFF path is byte-identical. No `random` calls here, so even the ON
+        # path leaves the RNG stream untouched. Cited as
+        # `simulator.tau_markerlight_base_los`.
+        if __import__("os").environ.get("SWEG_TAU_MARKERLIGHT_BASE_LOS", "1") != "0":
+            los_marked: set = set()
+            for mk in markerlight_units:
+                for e in alive_enemies:
+                    if e.uid in los_marked:
+                        continue
+                    if (
+                        _distance(mk.position, e.position) <= markerlight_range
+                        and self.map.has_line_of_sight(
+                            mk.position, e.position,
+                            attacker_keywords=mk.profile.unit_keywords or (),
+                            target_keywords=e.profile.unit_keywords or (),
+                        )
+                        and can_target_for_ranged(mk, e, alive_enemies)
+                    ):
+                        los_marked.add(e.uid)
+            army.guided_los_enemy_uids = los_marked
 
     def _pick_oath_target(
         self, army: Army, opponent: Army, round_num: int,

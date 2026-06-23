@@ -1,0 +1,11 @@
+{
+  "_comment": "Citation for the 10e core end-of-battle Victory Points win condition, implemented as an env-gated path in Battle._decide_winner (SWEG_TABLING_VP). Source: Wahapedia matched play rules (https://wahapedia.ru/wh40k10ed/the-rules/matched-play/). Added wave 249.",
+  "simulator.win_on_vp_not_tabling": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/matched-play/",
+    "rule_name": "Determine Victor",
+    "quoted_text": "At the end of the battle, the player with the most victory points is the winner. If players are tied, the battle is a draw.",
+    "trigger": "end of the battle (after all five battle rounds have been played or a mutual wipe ends the game early); evaluated once in Battle._decide_winner. Gate SWEG_TABLING_VP=1 enables this path: the three survivor-count short-circuits (tabling = auto-win) are skipped and the result is determined solely by the accumulated Victory Points totals (primary + secondary, with the existing caps enforced).",
+    "effect": "When SWEG_TABLING_VP=1: a one-sided tabling is no longer an automatic win for the surviving army; instead the player with the higher end-of-game Victory Points total wins, which may be the tabled side if it accumulated more Victory Points before being destroyed. Mutual wipe falls through to the existing VP comparison (equal VP = draw). When SWEG_TABLING_VP unset (default): behaviour is byte-identical to before this gate was added — one-sided tabling returns the survivor's name outright, mutual wipe returns None.",
+    "scope": "army-wide"
+  }
+}

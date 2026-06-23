@@ -261,5 +261,15 @@
     "effect": "ARTIFICIAL-INTELLIGENCE PILOTING HEURISTIC — not a 10e rules claim. Inserts a move-intent override in pick_move_intent (code/strategy.py) that directs drifted officers toward their nearest eligible host squad before any other intent fires. This preserves the 6\" Order-issuance range required by Voice of Command so Orders do not silently drop to zero after round 2 (the drift diagnostic measured 8.5-14.2\" separation by round 3 → zero Orders). The heuristic does not override the hold-objective intent (that fires earlier in pick_move_intent) and does not fire when the officer is already within 6\" of its host. Multi-model squads (Cadian Command Squad, 5 models) use the squad centroid rather than a single model position. Wave-245 extension (SWEG_SOLAR_SQUADRON=1): Lord Solar Leontus's host coverage expands to also include five SQUADRON vehicle catalog keys (Leman Russ Battle Tank, Leman Russ Demolisher, Rogal Dorn Battle Tank, Basilisk, Manticore) so the hook can pull him toward unordered SQUADRON vehicles when no infantry host pull applies — preventing his three SQUADRON Orders per round from wasting because he is held mid-table by the infantry pull.",
     "scope": "phase-gated",
     "approximation": false
+  },
+
+  "SWEG_FIXBAYONETS.fix_bayonets_engagement": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Fix Bayonets! (Astra Militarum Order) — engagement-range routing guard",
+    "quoted_text": "Improve the Weapon Skill characteristic of melee weapons equipped by models in this unit by 1.",
+    "trigger": "SWEG_FIXBAYONETS=1; AM OFFICER issues an Order to a melee-statted squad (melee damage-per-activation > 0.5, ranged damage-per-activation < 0.3) during the Command phase",
+    "effect": "ARTIFICIAL-INTELLIGENCE PILOTING HEURISTIC — not a 10e rules claim. The Fix Bayonets! Order's weapon-skill buff (codex text above; BSData: Imperium - Astra Militarum - Library.cat.gz, verbatim from the Voice of Command Orders table) only delivers value when the recipient squad is actively fighting in melee. Issuing the Order to an unengaged squad wastes the slot because the weapon-skill improvement cannot fire until the squad enters Engagement Range. When SWEG_FIXBAYONETS=1, the Order scorer in _pick_order_for_target skips ORDER_FIX_BAYONETS for squads that have no member within 1.0\" base-edge Engagement Range of any live enemy (computed via code.sim.geometry._er_gap, the same function used for all Engagement Range checks in the simulator); those squads fall through to the next-best Order (Take Aim! or First Rank, Fire! Second Rank, Fire! if they have ranged weapons, else Take Aim!). Engaged squads and the gate-off path are byte-identical to pre-248. Gate default-off (SWEG_FIXBAYONETS=0).",
+    "scope": "phase-gated",
+    "approximation": false
   }
 }

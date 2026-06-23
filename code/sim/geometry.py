@@ -407,20 +407,46 @@ def _er_gap(pos_a, profile_a, pos_b, profile_b) -> float:
 
 def _bc_model_radius_in(profile) -> float:
     """Base-footprint radius in INCHES for a model (read-only instrument helper).
-    NOTE: deliberately NOT lru_cache'd — UnitProfile is a large frozen dataclass
-    (carries the model_loadouts tuple), so hashing it per call costs MORE than this
-    arithmetic (measured: caching slowed the dense-horde bench). The per-phase occupant
-    grid is the right place to avoid the O(models^2) repetition, not a per-call cache.
+
+    PERF: memoised on the profile object itself. This helper is one of the hottest
+    in the game (millions of calls per battle from the O(models^2) collision /
+    packing loops, the per-mover occupant build, and the per-pair Engagement-Range
+    test in `_er_gap`), and the radius is a pure function of the profile's three
+    immutable base-dimension fields. The result is stashed in a NON-field cache
+    attribute via object.__setattr__ (UnitProfile is a frozen dataclass WITHOUT
+    __slots__, so it has a __dict__). This is byte-identical and safe:
+      * the cache attribute is not a dataclass field, so __eq__ / __hash__
+        (field-based) and dataclasses.asdict / replace (field-based) all ignore it;
+      * a profile produced by dataclasses.replace carries no stash and recomputes
+        on first use (a cache MISS, never a stale read);
+      * the cache lives and dies with the profile (no global table → no leak), and
+        the simulator is single-threaded per process (the eval parallelises across
+        PROCESSES), so there is no race on the stash.
+    Earlier this was deliberately NOT lru_cache'd because hashing the large frozen
+    dataclass by value cost more than the arithmetic; the per-profile id-stash here
+    sidesteps that — a hit is a single getattr, cheaper than the three getattrs plus
+    arithmetic it replaces (measured: the old caution was about value-hash caching).
+
     25.4 mm/in. CRITICAL: oval/rect bases (Knights, big VEHICLEs) store their real
     footprint in base_width_mm x base_length_mm while base_diameter_mm holds a 32mm
     PLACEHOLDER — so take the LARGER of the circle-derived and the width/length-
     derived radius (a 170mm Knight must not be mis-sized as a 32mm infantry base,
     which 4x-undercounts its footprint area and hides the marker-denial it causes).
     Defaults to ~32mm round (0.63") only if no base data at all."""
+    cached = getattr(profile, "_bc_radius_in_cache", None)
+    if cached is not None:
+        return cached
     d = getattr(profile, "base_diameter_mm", 0) or 0
     w = getattr(profile, "base_width_mm", 0) or 0
     ln = getattr(profile, "base_length_mm", 0) or 0
     r_circle = (d / 25.4) / 2.0 if d > 0 else 0.0
     r_wl = ((w + ln) / 2.0 / 25.4) / 2.0 if (w and ln) else 0.0
     r = max(r_circle, r_wl)
-    return r if r > 0 else 0.63
+    r = r if r > 0 else 0.63
+    try:
+        object.__setattr__(profile, "_bc_radius_in_cache", r)
+    except (AttributeError, TypeError):
+        # Duck-typed / slotted profile without a writable __dict__: skip caching;
+        # the computed value is still returned and correct.
+        pass
+    return r

@@ -1512,6 +1512,71 @@ def _instantiate_template(
     if not template or points_budget <= 0:
         return {}
 
+    # Wave 250 (gated SWEG_WE_REALISM, default-off) — World Eaters list-realism
+    # anchor swap. The (-count, -cost) walk and the EPIC HERO anchor below
+    # force-seed the most expensive template EPIC HERO; for World Eaters that is
+    # Angron (the priciest WE epic hero), so the builder fields him in nearly
+    # every game. But three sourced May-2026 competitive Berzerker Warband lists
+    # are Khârn-anchored with no Angron, and dedicated Angron lists are a small
+    # minority at top tables:
+    #   https://grimhammertactics.com/top-10-competitive-warhammer-40k-lists-september-2025/
+    #   https://grimhammertactics.com/top-10-competitive-warhammer-40k-lists-october-2025/
+    #   https://grimhammertactics.com/top-10-competitive-warhammer-40k-lists-december-2025/
+    # (extracted from Best Coast Pairings tournament results). When the gate is
+    # on, drop Angron from the World Eaters template so the next-most-expensive
+    # EPIC HERO — Khârn the Betrayer — anchors instead, matching the cited lists.
+    # Faithful list-realism (wave-174/175 precedent), NOT win-rate tuning: the
+    # change matches the real list and accepts whatever metric direction results.
+    # OFF path (the default) is byte-identical to the pre-wave-250 build.
+    if (
+        os.environ.get("SWEG_WE_REALISM") == "1"
+        and (faction or "") == "World Eaters"
+        and "world_eaters_angron" in template
+    ):
+        template = {
+            k: v for k, v in template.items() if k != "world_eaters_angron"
+        }
+
+    # Wave 251 (gated SWEG_AM_REALISM, default-off) — Astra Militarum list-realism.
+    # The current "Combined Arms" template hard-seeds 7 vehicles + 3 characters
+    # (~1600pt); the (-count, -cost) walk seeds the expensive tanks first, so the
+    # seed budget is exhausted before the infantry and the build fields only
+    # ~20-33 infantry bodies / ~28-63 total models with 59-75% of points in hulls
+    # — the hull-spam variant the meta rates C-D tier (40-44% win rate), not the
+    # competitive shape. Real competitive Astra Militarum (Combined Arms / Grizzled
+    # Company) fields ~55-75 INFANTRY bodies + 4-6 vehicles; the LVO XII champion
+    # (Recon Element, 9-0-1) ran ~184 infantry and a single vehicle:
+    #   https://bladesandbolts.com/2025/10/06/astra-militarum-warhammer-40k-lvo/
+    #   https://grimhammertactics.com/top-10-competitive-warhammer-40k-lists-november-2025/
+    #   https://spikeybits.com/top-40k-tournament-army-lists-rise-of-the-empire-gt/
+    # (extracted from Best Coast Pairings / tournament results). When the gate is
+    # on, seed an infantry-heavy Combined Arms spine — high BATTLELINE counts so the
+    # count-ordered walk seeds the BODIES first — and cut the vehicle seed to four
+    # (2 Leman Russ + Rogal Dorn + a Chimera transport), dropping the surplus
+    # artillery (Basilisk / Manticore / Taurox Prime / Rough Riders). Faithful
+    # list-realism (wave-250 precedent), NOT win-rate tuning — matches the cited
+    # lists and accepts whatever metric direction results. OFF path (the default)
+    # is byte-identical to the pre-wave-251 build.
+    if (
+        os.environ.get("SWEG_AM_REALISM") == "1"
+        and (faction or "") == "Astra Militarum"
+    ):
+        template = {
+            "astra_militarum_cadian_shock_troops": 3,
+            "astra_militarum_death_korps_of_krieg": 2,
+            "astra_militarum_kasrkin": 3,
+            "astra_militarum_tempestus_scions": 1,
+            "astra_militarum_cadian_command_squad": 1,
+            "astra_militarum_cadian_heavy_weapons_squad": 1,
+            "astra_militarum_leman_russ_battle_tank": 1,
+            "astra_militarum_leman_russ_demolisher": 1,
+            "astra_militarum_rogal_dorn_battle_tank": 1,
+            "astra_militarum_chimera": 1,
+            "astra_militarum_cadian_castellan": 1,
+            "astra_militarum_ursula_creed": 1,
+            "astra_militarum_lord_solar_leontus": 1,
+        }
+
     # Wave 244 leader-stack gate — read once, consulted by the sort-key
     # tiebreak, the EPIC HERO anchor trigger, and the fraction override
     # below (all three move together as one gated lever). Scoped to
@@ -1574,6 +1639,23 @@ def _instantiate_template(
     if mono_god_anchor is not None and mono_god_anchor in UNIT_CATALOG:
         scaled[mono_god_anchor] = 1
         running += _squad_cost(mono_god_anchor)
+
+    # Wave 250 (gated SWEG_WE_REALISM) — World Eaters Khârn anchor. The template
+    # filter above drops Angron when the gate is on; here we force-seed Khârn the
+    # Betrayer (mirroring the mono-god Greater Daemon anchor pre-pass) so the
+    # build is Khârn-anchored like the three sourced real lists (Khârn appears in
+    # all three; see the SWEG_WE_REALISM comment at the top of this function for
+    # the citations). World Eaters is a MENU faction, so the EPIC HERO anchor
+    # below only fires when no epic hero is seeded — without this pre-pass,
+    # dropping Angron would let an arbitrary character anchor instead of Khârn.
+    if (
+        os.environ.get("SWEG_WE_REALISM") == "1"
+        and (faction or "") == "World Eaters"
+        and "world_eaters_kh_rn_the_betrayer" in template
+        and "world_eaters_kh_rn_the_betrayer" in UNIT_CATALOG
+    ):
+        scaled["world_eaters_kh_rn_the_betrayer"] = 1
+        running += _squad_cost("world_eaters_kh_rn_the_betrayer")
 
     # Walk the template in (-template_count, -squad_cost) order so that
     # archetype-defining units land first:

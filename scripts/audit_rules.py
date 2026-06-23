@@ -493,6 +493,22 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Lone Operative) check. Replaces the pre-iter27 auto-Guided pipeline
     # which gave every MARKERLIGHT-keyword unit a free mark with no roll.
     "simulator.markerlight_emission",
+    # GATE 1 — SWEG_TAU_MARKERLIGHT_ALL_DETACH (default OFF). Bypasses the
+    # lethal_hits_on_guided early-exit in Battle._run_markerlight_phase so the
+    # base Markerlights army rule (Guided +1 to Hit + [SUSTAINED HITS 1]) runs
+    # for ALL T'au detachments, not just the Mont'ka detachment that carries
+    # the Lethal-Hits-on-Guided flag. The Mont'ka-specific [LETHAL HITS] still
+    # only applies where that flag is set. Cited in
+    # data/rule_citations.d/tau_empire.json.
+    "simulator.tau_markerlight_all_detach",
+    # GATE 2 — SWEG_TAU_MARKERLIGHT_BASE_LOS (default OFF). Gates the base
+    # Guided buff on a line-of-sight marked set (Army.guided_los_enemy_uids,
+    # built in _run_markerlight_phase without a per-carrier to-hit roll) rather
+    # than the hit-roll-gated guided_enemy_uids set, matching the verbatim
+    # "while targeting an enemy unit that is visible to one or more friendly
+    # MARKERLIGHT units" condition. The Mont'ka [LETHAL HITS] consumer keeps
+    # reading guided_enemy_uids. Cited in data/rule_citations.d/tau_empire.json.
+    "simulator.tau_markerlight_base_los",
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
     # hard cap, but real-player CP economy averages ~1 stratagem per
@@ -709,6 +725,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Wave 137 — a 10e battle lasts five battle rounds; a one-sided tabling does
     # NOT end it early (only a mutual wipe does). data/rule_citations.d/core_battle_length.json.
     "simulator.battle_length_five_rounds",
+    # Challenger cards (Chapter Approved 2025-26 catch-up mechanic, env-gated
+    # SWEG_CHALLENGER_CARDS). At the start of a battle round, the side trailing by
+    # 6+ victory points draws ONE extra scoring card and scores it through the
+    # existing Tactical achievement machinery (Battle._score_one_card); lifetime
+    # challenger contribution capped at ~12 VP per side. Even-handed; OFF
+    # byte-identical. See data/rule_citations.d/core_challenger_cards.json.
+    "simulator.challenger_cards",
     # LC-5 — Warlord designation. First CHARACTER in deploy order is
     # the Warlord; killing it grants +1 Assassination VP per real
     # Pariah Nexus rule.
@@ -813,6 +836,19 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # detachment-flag citation CURSED_LEGION.relentless_onslaught is auto-required
     # via RULE_BEARING_FIELDS. Both live in data/rule_citations.d/necrons.json.
     "simulator.relentless_onslaught",
+    # Leagues of Votann — Prioritised Efficiency (army rule, current 10e codex,
+    # env-gated SWEG_VOTANN_PRIORITISED_EFFICIENCY, default OFF). The +1-to-Hit
+    # gate in Unit.attack: a Leagues of Votann attacker (Army.is_votann_army)
+    # adds 1 to the Hit roll when the target is within range of an objective
+    # marker (target.on_objective) — the Hostile Acquisition clause, the same
+    # near-objective shape as simulator.relentless_onslaught above. Re-introduces
+    # the army-wide combat buff the codex grants Votann, which was entirely
+    # absent after the retired Eye of the Ancestors rule was zeroed. APPROXIMATION:
+    # only the Hostile Acquisition state is modelled (not the Yield-Point economy,
+    # the Fortify Takeover switch, or the Advance-and-Charge re-roll) — see the
+    # notes in data/rule_citations.d/votann.json. Cited there as
+    # simulator.prioritised_efficiency.
+    "simulator.prioritised_efficiency",
     "unit.necrodermis",
     # Wave 181 — CA-2025-26 Tactical-track flat kill card VP values.
     # When a TACTICAL-track army (SWEG_TAC_DECK path) draws one of these three
@@ -823,6 +859,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.secondary_assassination_tactical",
     "simulator.secondary_bring_it_down_tactical",
     "simulator.secondary_cull_the_horde_tactical",
+    # Wave 249 — 10e core end-of-battle win condition (env-gated SWEG_TABLING_VP,
+    # default OFF). When ON, the three survivor-count short-circuits in
+    # Battle._decide_winner are skipped; every game (including one-sided tablings)
+    # is decided purely by the accumulated VP totals. The run loop already plays
+    # out all five rounds on a one-sided tabling, so the VP totals are complete at
+    # decision time. Cited in data/rule_citations.d/core_win_condition.json.
+    "simulator.win_on_vp_not_tabling",
 )
 
 

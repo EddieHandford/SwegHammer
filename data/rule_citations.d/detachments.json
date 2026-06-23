@@ -46,7 +46,7 @@
     "rule_name": "Fury of Titan",
     "quoted_text": "Each time a unit from your army is set up using the Deep Strike ability, until the end of the turn, each time a model in that unit makes an attack, re-roll a Hit roll of 1 and re-roll a Wound roll of 1.",
     "trigger": "any friendly Grey Knights hit roll",
-    "effect": "re-roll hit rolls of 1 (approximation of the Fury of Titan deep-strike-turn gated buff, applied army-wide always-on; the wound-1 half is wired separately as TELEPORT_STRIKE_FORCE.reroll_wound_ones). Restored in SC5-6 — the cited quoted_text already covered the hit-1 half but only the wound-1 flag was wired on the detachment.",
+    "effect": "re-roll hit rolls of 1 (approximation of the Fury of Titan deep-strike-turn gated buff, applied army-wide always-on; the wound-1 half is wired separately as TELEPORT_STRIKE_FORCE.reroll_wound_ones). Restored in SC5-6 — the cited quoted_text already covered the hit-1 half but only the wound-1 flag was wired on the detachment. FIDELITY GATE SWEG_GK_FURY_FAITHFUL (default off, detachment flag reroll_ones_requires_deep_strike): restores the codex deep-strike-turn gate — the reroll applies only to a unit that arrived from reserves this round (_fresh_arrivals proxy). A/B (Grey Knights-scoped N=80 into sc12a): Grey Knights 55.7 -> 46.2 (paired -9.48), headline 5.78 -> 5.66; built-and-held.",
     "scope": "army-wide",
     "approximation": true
   },
@@ -56,7 +56,7 @@
     "rule_name": "Fury of Titan",
     "quoted_text": "Each time a unit from your army is set up using the Deep Strike ability, until the end of the turn, each time a model in that unit makes an attack, re-roll a Hit roll of 1 and re-roll a Wound roll of 1.",
     "trigger": "any friendly Grey Knights wound roll",
-    "effect": "re-roll wound rolls of 1 (approximation of the Fury of Titan deep-strike-turn gated buff, applied army-wide always-on; the hit-1 half is wired separately as TELEPORT_STRIKE_FORCE.reroll_hit_ones).",
+    "effect": "re-roll wound rolls of 1 (approximation of the Fury of Titan deep-strike-turn gated buff, applied army-wide always-on; the hit-1 half is wired separately as TELEPORT_STRIKE_FORCE.reroll_hit_ones). Gated to the codex deep-strike-turn window under SWEG_GK_FURY_FAITHFUL (see the reroll_hit_ones entry).",
     "scope": "army-wide",
     "approximation": true
   },

@@ -1288,13 +1288,24 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # [SUSTAINED HITS 1] to melee weapons — a weapon-keyword grant, not
     # a Hit-roll re-roll aura. Both proxies were always-on, ungated, and
     # contributed to Drukhari's +20.5pt gated overshoot. Dropped to NO-FLAG
-    # + host_keys-only, matching the SC5-1 Skysplinter pattern. Restore
-    # narrowly when (a) Pain-token economy lands and (b) SUSTAINED HITS is
-    # modelled. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/drukhari/
+    # + host_keys-only, matching the SC5-1 Skysplinter pattern.
+    #
+    # SWEG_DRUKHARI_SUCCUBUS_SUSTAIN (default OFF, wave 249): restores the
+    # Succubus "Storm of Blades" leader ability via the already-wired
+    # `sustained_hits_melee` field in LeaderAbility (code/units.py:3726-3729
+    # merges the field into `effective_sustained_hits` for melee attacks only,
+    # routing it through the led-unit host_keys gate). This is a faithful
+    # weapon-keyword grant: "While this model is leading a unit, melee weapons
+    # equipped by models in that unit have the [SUSTAINED HITS 1] ability."
+    # (Wahapedia: https://wahapedia.ru/wh40k10ed/factions/drukhari/Succubus,
+    # rule name "Storm of Blades".) Default OFF preserves byte-identical
+    # baseline; ON enables the real rule. Cited as LeaderAbility.Precision Blows
+    # in data/rule_citations.d/drukhari.json (updated effect text).
     ("Archon",             LeaderAbility(name="Overlord of Commorragh",     aura_range=6.0,
                                           host_keys=("aeldari_drukhari_kabalite_warriors",))),
     ("Succubus",           LeaderAbility(name="Precision Blows",            aura_range=6.0,
-                                          host_keys=("aeldari_drukhari_wyches",))),
+                                          host_keys=("aeldari_drukhari_wyches",),
+                                          sustained_hits_melee=(1 if os.environ.get("SWEG_DRUKHARI_SUCCUBUS_SUSTAIN", "1") != "0" else 0))),
     # Genestealer Cults
     # PATRIARCH — "Might From Beyond": while leading a unit, melee weapons
     # equipped by models in that unit have the [DEVASTATING WOUNDS] ability.
@@ -1751,6 +1762,21 @@ def bump_buffs_generation() -> None:
     _buffs_cache.clear()
 
 
+def _arrived_via_deep_strike_this_round(attacker) -> bool:
+    """True if *attacker* arrived from reserves this battle round — the proxy
+    for the Grey Knights Fury of Titan 'set up via Deep Strike, until end of
+    turn' window. Reads the Battle's `_fresh_arrivals` set via the unit's army
+    back-reference; returns False outside a running Battle (catalogue / unit
+    tests), keeping the fidelity gate inert there. `_fresh_arrivals` is reset
+    each round, so membership means 'arrived this round' = 'until end of turn'."""
+    army = getattr(attacker, "army_ref", None)
+    battle = getattr(army, "_battle_ref", None) if army is not None else None
+    fresh = getattr(battle, "_fresh_arrivals", None) if battle is not None else None
+    if not fresh:
+        return False
+    return getattr(attacker, "uid", None) in fresh
+
+
 def effective_buffs(attacker: "Unit") -> Dict[str, object]:
     """
     Merge the attacker's detachment passives with every in-range friendly
@@ -1813,8 +1839,23 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         except Exception:
             det = None
         if det is not None:
-            _merge_bool(buffs, det, "reroll_hit_ones")
-            _merge_bool(buffs, det, "reroll_wound_ones")
+            # Grey Knights Fury of Titan deep-strike gate (SWEG_GK_FURY_FAITHFUL,
+            # default OFF). The codex grants the re-roll-1s-to-hit-and-wound only
+            # to a unit that arrived via Deep Strike this turn; the detachment
+            # otherwise models it army-wide always-on (documented approximation).
+            # When the gate is set and the detachment flags
+            # `reroll_ones_requires_deep_strike`, merge the two rerolls ONLY for
+            # an attacker that arrived from reserves this round. OFF path (gate
+            # unset) runs the unconditional merge → byte-identical; the gate is
+            # also inert for any detachment that does not set the flag.
+            _ds_gated = (
+                __import__("os").environ.get("SWEG_GK_FURY_FAITHFUL", "1") != "0"
+                and getattr(det, "reroll_ones_requires_deep_strike", False)
+                and not _arrived_via_deep_strike_this_round(attacker)
+            )
+            if not _ds_gated:
+                _merge_bool(buffs, det, "reroll_hit_ones")
+                _merge_bool(buffs, det, "reroll_wound_ones")
             _merge_bool(buffs, det, "plus_one_to_hit")
             _merge_bool(buffs, det, "plus_one_to_wound")
             _merge_bool(buffs, det, "plus_one_save")

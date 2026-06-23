@@ -1,5 +1,13 @@
 # 10e Core Rules Audit — Wahapedia vs SwegHammer (Track A)
 
+> **2026-06-21 refresh (run wf_a26548fe):** The rows for Pile-In, Consolidate,
+> modifier ±1 cap, and Datasheet FIGHTS FIRST have been updated from MISSING/WRONG
+> to IMPLEMENTED per the 2026-05-31 core-rules audit pass — verified live at the
+> cited lines before marking. The Heroic Intervention row has been updated
+> separately: see the note on that row. Do **not** re-flag any of these as open
+> calibration levers — they are closed. Remaining MISSING/WRONG rows in this file
+> are genuinely open.
+
 HEAD `b4b2bd1`. Compared https://wahapedia.ru/wh40k10ed/the-rules/core-rules/
 against `code/simulator.py` + `code/units.py` + `code/map.py` + `code/army.py`.
 Supersedes `docs/CORE_RULES_AUDIT.md` (HEAD 945c840) for items now landed.
@@ -28,17 +36,17 @@ fix would produce. Complexity: **S** ≈ ≤30 LOC, **M** ≈ 30-150 LOC,
 | Strategic Reserves (general, non-DS) | up to 25% of army may be placed in Strategic Reserves; arrives R2-4 with 9" rule depending on board edge | **MISSING** — only Deep Strike-flagged units enter reserves. Generic Strategic Reserves (Infiltrators/Marines/Guard often hold a unit) has no entry point. | MISSING | low-med | M |
 | Reinforcements timing | Generic "Reinforcements" rule for units returning to play | Conflated with Reanimation / DS arrival paths. No general reinforcements gate. | MISSING | low | S |
 | Towering | LoS through everything; can be drawn through walls for shooting | **MISSING** — `Map.has_line_of_sight` does not check Towering. Affects Knights, C'tan, Wraithknights, Mortarion, Greater Daemons. | MISSING | medium | M |
-| Pile-In (3" toward closest enemy at start of Fight) | mandatory free 3" pile-in | **MISSING** — `_do_fight` (sim:3964) attacks straight from current position; no pile-in step. Means engagement that's "almost" within 1.5" never resolves into combat. | MISSING | medium | M |
-| Consolidate (3" after Fight) | mandatory 3" toward closest enemy / objective | **MISSING** — no post-fight reposition. Hurts melee factions on objective grabs after the fight. | MISSING | medium | M |
-| Heroic Intervention (3" core move, not strat) | core ability for CHARACTERS, 3" into 1" of charger | Implemented as **stratagem** via `_try_heroic_intervention` (sim:4661, 1 CP). Real 10e: it's an end-of-charge core action with no CP cost. | WRONG | low | S |
+| Pile-In (3" toward closest enemy at start of Fight) | mandatory free 3" pile-in | **IMPLEMENTED** — `_do_fight` (simulator.py:12321) moves attacker up to 3" toward the nearest enemy before attacks resolve; gated on being in engagement range or having charged (`_charging_this_round`). Verified 2026-06-21. | FULL | — | — |
+| Consolidate (3" after Fight) | mandatory 3" toward closest enemy / objective | **IMPLEMENTED** — `_do_fight` (simulator.py:12434) moves attacker up to 3" toward nearest surviving enemy after fights resolve; when no enemies survive, moves toward nearest objective marker provided the move ends within `control_radius` (consolidate-onto-objective path). Verified 2026-06-21. | FULL | — | — |
+| Heroic Intervention (3" core move, not strat) | not a 10e rule — was a 9e mechanic deleted at 10e launch | **REMOVED** (2026-05-31 audit). The prior stratagem form (`_try_heroic_intervention`, 1 command point) was a fabricated mechanic — Wahapedia 10e core rules contain no Heroic Intervention rule. Both the stratagem call site (simulator.py:12296, comment "CORE-RULES-AUDIT 2026-05-31: REMOVED") and the method itself (simulator.py:13582, "_do_heroic_intervention REMOVED") are deleted. The old "WRONG: it's a stratagem" row is closed — there is nothing to implement. Verified 2026-06-21. | N/A | — | — |
 
 ## Combat — to-hit, to-wound, save, AP
 
 | Mechanic | Wahapedia | SwegHammer | Class | MAE Δ | Cmplx |
 |---|---|---|---|---|---|
 | Hit / Wound rolls | nat 1 fails, nat 6 succeeds + Critical | nat 1 fail / nat 6 = `crit_hit`/`crit_wound` (units 1123, 1148). | FULL | — | — |
-| Modifier cap ±1 to hit | hit-roll modifiers cannot stack past ±1 | DG Contagion R3+ check guards against stacking with prior penalty (units 885-891) **only**. Heavy + Big Guns + Indirect + Heavy Cover + Stealth ALL compound without cap (each adds `min(7, hit_target+1)` unconditionally). | WRONG | low-med | S |
-| Modifier cap ±1 to wound | same +/- cap on wound rolls | Not enforced. +1-to-wound buffs (Twist of Fate, Plague Weapons, Lance, WAAAGH!) stack with detachment +1; -1 (All Is Dust) stacks with everything. | WRONG | low | S |
+| Modifier cap ±1 to hit | hit-roll modifiers cannot stack past ±1 | **IMPLEMENTED** — `units.py:2976`: `hit_mod_clamped = max(-1, min(1, hit_mod_delta))` applied before computing `hit_target`. Cap covers all hit-roll sources (Heavy, Big Guns, Indirect, Heavy Cover, Stealth, Contagion). Verified 2026-06-21. | FULL | — | — |
+| Modifier cap ±1 to wound | same +/- cap on wound rolls | **IMPLEMENTED** — `units.py:2977`: `wound_mod_clamped = max(-1, min(1, wound_mod_delta))` applied before computing `wound_target`. Covers all wound-roll sources (Plague Weapons, Lance, WAAAGH!, All Is Dust, detachment buffs). Verified 2026-06-21. | FULL | — | — |
 | AP / save / cover / invuln stacking | save + AP + cover (max +1), invuln vs effective save min | `save_probability` + cover +1 (`units:127`); invuln via `min(save_after_ap, invuln)` (units:930). Cover stacks with `tgt_buffs[plus_one_save]` + `transient_plus_one_save` — both lower save_after_ap independently (no +1 cap). | PARTIAL/WRONG | low | S |
 | Lethal Hits | crit-to-hit auto-wounds | First crit per shot auto-wounds (units 1127). Sustained extras don't auto-wound. | FULL | — | — |
 | Sustained Hits N | crit-to-hit = +N normal hits | `effective_sustained_hits` (units 1124). | FULL | — | — |
@@ -81,10 +89,10 @@ fix would produce. Complexity: **S** ≈ ≤30 LOC, **M** ≈ 30-150 LOC,
 |---|---|---|---|---|---|
 | Command phase: CP +1, battleshock, rituals, doctrines, oath | drip CP, rituals, doctrines | `_run_round` does: CP drip (sim:3116), WAAAGH! decl, PFP tokens, Doctrina, Oath of Moment, Blood Tithe, transient clear, battle-shock, detachment strats, cabal rituals, markerlights. | FULL | — | — |
 | Battle round = I-go-you-go | Player A whole turn, then Player B | Default `RulesConfig.vanilla_10e` uses `_run_round_vanilla_turns` (sim:3438) — true I-go-you-go. SwegHammer mode optional alternating. | FULL | — | — |
-| Pile-in (3") | start of Fight phase, mandatory | **MISSING** — see Movement table. | MISSING | medium | M |
-| Consolidate (3") | end of fight per unit | **MISSING** — see Movement table. | MISSING | medium | M |
-| Heroic Intervention (3" core, free) | core CHARACTER 3" ability when an enemy ends a charge within 6" | Implemented as 1 CP stratagem (`_try_heroic_intervention`). Wrong cost model. | WRONG | low | S |
-| Fights First (charged) | charger fights first sub-phase | `_charging_this_round` is tracked and (post CORE-RULE-FIX-1) used to sort chargers ahead of non-chargers within `_run_round_vanilla_turns`' active player fight pass. `_run_round_alternating` still resolves fights pair-by-pair, no two-pass sequencing there. Datasheet-level FIGHTS FIRST (Wyches, Custodian Wardens) still not flagged. | PARTIAL | medium | M |
+| Pile-in (3") | start of Fight phase, mandatory | **IMPLEMENTED** — see Movement table (simulator.py:12321). Verified 2026-06-21. | FULL | — | — |
+| Consolidate (3") | end of fight per unit | **IMPLEMENTED** — see Movement table (simulator.py:12434). Includes consolidate-onto-objective path. Verified 2026-06-21. | FULL | — | — |
+| Heroic Intervention (3" core, free) | not a 10e rule — was a 9e mechanic deleted at 10e launch | **REMOVED** — see Movement table (simulator.py:12296, 13582). The rule does not exist in 10th edition; the old stratagem form has been deleted. Row closed. Verified 2026-06-21. | N/A | — | — |
+| Fights First (charged + datasheet keyword) | charger fights first sub-phase; datasheet FIGHTS FIRST keyword applies every Fight phase | **IMPLEMENTED** — `_fight_priority` (simulator.py:10026-10028) reads `profile.fights_first` and buckets both chargers (`_charging_this_round`) and units with the datasheet keyword into priority tier 0 (fights before all others). Battle-shocked units sorted into tier 1 between Fights First and normal units. `_run_round_alternating` still pair-by-pair (no sub-phase there). Verified 2026-06-21. | FULL (vanilla turns) / PARTIAL (alternating) | — | — |
 | Fights First (other sources) | abilities like Marines Litany, Eldar power | Not implemented as a separate flag. Treated as plain activation. | MISSING | low | S |
 | Counter-Offensive (2 CP, defender's out-of-sequence fight) | out-of-sequence fight after attacker's fight | `_try_counter_offensive` (sim:4019) fires after attacker fights AND kills. Real rule: fires regardless of kill, on any enemy fight, defender unit eligible. Eligibility gate is too restrictive. | PARTIAL | low | S |
 
@@ -125,10 +133,12 @@ fix would produce. Complexity: **S** ≈ ≤30 LOC, **M** ≈ 30-150 LOC,
 
 ## Other findings
 
-- `pile-in`, `consolidate`, generic Reinforcements: no implementation.
-- Heroic Intervention as core: implemented as stratagem.
-- Modifier ±1 caps: only enforced for DG Contagion stacking; otherwise compound.
-- Engagement-range geometry uses 1.5" instead of 1".
+- Generic Reinforcements: no implementation.
+- Pile-In, Consolidate: **IMPLEMENTED** (2026-05-31 audit, simulator.py:12321 + 12434).
+- Heroic Intervention: **REMOVED** — not a 10e rule; old stratagem form deleted (simulator.py:12296, 13582).
+- Modifier ±1 caps: **IMPLEMENTED** for both hit and wound (units.py:2976-2977).
+- Datasheet FIGHTS FIRST keyword: **IMPLEMENTED** (simulator.py:10028).
+- Engagement-range geometry uses 1.5" instead of 1" — still open (WRONG row in Movement table).
 - Look Out Sir / Lone Operative: FULL (army.can_target_for_ranged).
 - Embarked transports: FULL (embark/disembark/firing deck wired, sim:3502, 4508).
 - Combat Doctrines (Marines Gladius): FULL (movement utility only — iter-9 fix removed fabricated wound buff).
@@ -140,14 +150,14 @@ fix would produce. Complexity: **S** ≈ ≤30 LOC, **M** ≈ 30-150 LOC,
 | # | Mechanic | Class | MAE Δ direction | Complexity |
 |---|---|---|---|---|
 | 1 | **Ruins INFANTRY-through-walls LoS** | MISSING | LARGE — affects every Marine/Guard/Sisters/Custodes vs vehicles match. Currently both sides equally LoS-blind but real rule asymmetrically buffs INFANTRY return fire. | M-L |
-| 2 | **Modifier ±1 cap on hit and wound rolls** | WRONG | MEDIUM-LARGE — five hit-roll penalties (Heavy cover + Stealth + Indirect + Big Guns + Contagion) currently stack to -4/-5; real cap is -1. Inflates miss rate on debuffed targets, deflates on stacked-buff attackers. | S |
-| 3 | **Pile-In + Consolidate** | MISSING | MEDIUM — melee units 1.5"-3" from target never resolve combat; objective-flip plays after melee never happen. Affects melee factions (Orks, World Eaters, Custodes, Aeldari Banshees). | M |
+| 2 | ~~**Modifier ±1 cap on hit and wound rolls**~~ | ~~WRONG~~ | **IMPLEMENTED 2026-05-31** — units.py:2976-2977. Closed. | — |
+| 3 | ~~**Pile-In + Consolidate**~~ | ~~MISSING~~ | **IMPLEMENTED 2026-05-31** — simulator.py:12321 (pile-in) + 12434 (consolidate incl. onto-objective). Closed. | — |
 | 4 | **Secondary objectives (Pariah suite, fixed + tactical)** | MISSING | MEDIUM — secondaries are ~half the real VP economy. Currently every game is decided on primary alone → favours objective-camping armies, hurts mobility/scoring archetypes (GSC, Drukhari, Aeldari). | M-L |
 | 5 | **Battle-shock from R1, not R2+** | WRONG | SMALL-MEDIUM — wounded R1 units never battle-shock-tested. Mostly nudges sim toward more aggressive R1 attrition, no battleshock fail = OC denial in R1. | S |
-| 6 | **Fights First proper sequencing (chargers in first sub-phase)** | WRONG | SMALL-MEDIUM — currently activation-order dictates fight order, so a non-charger can fight before a charger if it activates first. Hurts chargers vs counter-chargers. | M |
+| 6 | ~~**Fights First proper sequencing (chargers in first sub-phase)**~~ | ~~WRONG~~ | **IMPLEMENTED 2026-05-31** — simulator.py:10026-10028 reads `profile.fights_first`; both chargers and datasheet FIGHTS FIRST keyword now in tier 0. Closed. | — |
 | 7 | **Primary VP cap (15 per round)** | WRONG | SMALL-MEDIUM — armies holding 4-5 objectives currently score 20-25 VP/round instead of 15. Inflates objective-flooding archetypes. | S |
 | 8 | **Engagement range 1" not 1.5"** | WRONG | SMALL — overstates the "locked in melee" radius by ~33% area. Small but pervasive. | S |
-| 9 | **Heroic Intervention as core 3" move (not stratagem)** | WRONG | SMALL — currently costs 1 CP to fire; real rule is free for any CHARACTER. Underuses HI, leaks CP on a non-charge phase. | S |
+| 9 | ~~**Heroic Intervention as core 3" move (not stratagem)**~~ | ~~WRONG~~ | **REMOVED 2026-05-31** — not a 10e rule. Old stratagem form deleted (simulator.py:12296, 13582). No replacement needed. Closed. | — |
 | 10 | **Towering keyword (LoS through everything)** | MISSING | SMALL-MEDIUM — affects ~10 datasheets across all factions (Knights, C'tan, Greater Daemons, Mortarion). Direction: buffs Towering-bearing big-base factions. | M |
 
 ### Honourable mentions (deferred / lower-confidence)

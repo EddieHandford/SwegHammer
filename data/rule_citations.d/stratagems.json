@@ -79,11 +79,11 @@
     "approximation": true
   },
   "Stratagem.Creeping Blight": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
+    "source": "https://www.goonhammer.com/hammer-of-math-death-guard-virulent-vectorium/ (Wahapedia unreachable at build time; Goonhammer datasheet readout confirms rule text)",
     "rule_name": "Creeping Blight (Virulent Vectorium Stratagem)",
     "quoted_text": "WHEN: Your Shooting phase. TARGET: One DEATH GUARD INFANTRY unit from your army that has not been selected to shoot this phase. EFFECT: Until the end of the phase, each time a model in your unit makes a ranged attack that targets an Afflicted unit, you can re-roll the Hit roll and you can re-roll the Wound roll.",
-    "trigger": "own Shooting phase, on a DG INFANTRY unit that has not yet shot this phase, targeting an Afflicted enemy",
-    "effect": "ST-1: the simulator has no Afflicted enemy state (Putrid Detonation's rider clause is also dropped), so the gate fires unconditionally on the chosen DG INFANTRY unit. The wound-reroll half is now wired via `transient_reroll_wounds` (added ST-1) — the buff lands at full strength on both hit and wound legs, matching the codex. Picks the highest-DPA DG INFANTRY unit with a HEAVY-class target via the standard shooting heuristic",
+    "trigger": "own Shooting phase, on a DG INFANTRY unit that has not yet shot this phase; re-rolls apply ONLY when the target is an Afflicted enemy unit",
+    "effect": "SWEG_CREEPING_AFFLICTED gate (default OFF): when ON, the hit- and wound-reroll buff (transient_reroll_hits_shooting + transient_reroll_wounds) is only applied to the chosen DG INFANTRY unit when the selected target is Afflicted — within 3\" of any DEATH GUARD model, reusing the existing `_is_near_enemy_dg_model(target, radius=3.0)` helper (code/units.py line 163). When OFF (legacy), the buff is applied unconditionally. The command point is always spent regardless of the gate — do not move the spend inside the Afflicted check (gating the firing would reallocate the saved command point and backfire, per the Conquering Tyrant lesson). Approximation: Afflicted = within 3\" of a DG model (Nurgle's Gift proxy); the exact in-game Afflicted tracking (per-unit state set by Contagions of Nurgle abilities) is not modelled beyond this spatial proxy.",
     "scope": "phase-gated",
     "approximation": true
   },
@@ -92,7 +92,7 @@
     "rule_name": "Fire and Fade (Warhost Stratagem)",
     "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE, JUST AFTER AN AELDARI INFANTRY UNIT FROM YOUR ARMY HAS SHOT. THAT UNIT CAN MAKE A NORMAL MOVE OF UP TO D6+1\". IT CANNOT DECLARE A CHARGE OR EMBARK WITHIN A TRANSPORT THIS TURN.",
     "trigger": "shooting phase, just after a friendly AELDARI INFANTRY unit has shot",
-    "effect": "approximation: a grid-free sim can't usefully model post-shoot D6+1\" repositioning (the unit can't break LoS in a way our LoS model would notice), so we route the offensive value through a re-roll natural-1s-to-hit on the shoot itself. Originally we routed it as re-roll ANY failed hit but that over-buffed Aeldari by +5 pts vs the meta target — the 1s-only re-roll is a third the strength and lands closer to the real stratagem's mobility upside. The unit's `transient_reroll_hits_shooting` flag is set when fired at start of round",
+    "effect": "approximation: a grid-free sim can't usefully model post-shoot D6+1\" repositioning (the unit can't break LoS in a way our LoS model would notice), so we route the offensive value through a re-roll natural-1s-to-hit on the shoot itself. Originally we routed it as re-roll ANY failed hit but that over-buffed Aeldari by +5 pts vs the meta target — the 1s-only re-roll is a third the strength and lands closer to the real stratagem's mobility upside. The unit's `transient_reroll_hits_shooting` flag is set when fired at start of round. FIDELITY GATE SWEG_AELDARI_FNF_FAITHFUL (default off): when set, the command point is still spent (the stratagem is used every round in real play) but the fabricated offensive proxy is NOT applied — the faithful representation of a pure-mobility stratagem with no grid-free in-sim analogue. A/B (Aeldari-scoped N=80 merged into sc12a): Aeldari 52.2 -> 50.2 (paired -1.93), headline 5.78 -> 5.74; built-and-held for the next re-anchor",
     "scope": "phase-gated",
     "approximation": true
   },

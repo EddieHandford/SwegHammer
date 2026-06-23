@@ -4,63 +4,12 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
-## Wave 247 (2026-06-13, CLOSED) — third batch-screen wave, first on `claude/sim-calibration-12`: rolling damage default-flipped after one hundred forty-seven waves dormant (fidelity-first), Born Soldiers REGIMENT keyword gate adopted, Cadian Castellan Senior Officer sustained-hits grant adopted — ALL THREE ADOPTED. Eighty-battle re-anchor gated 5.78 with every faction paired-flat against the previous frame and the in-band count up to four.
+## Wave 249 (2026-06-13, CLOSED) — diagnostic-heavy wave on `claude/sim-calibration-13`: one win-condition lever built, screened, and held; and a four-step diagnostic chain on the melee over-pole cluster (Death Guard, World Eaters, Emperor's Children, Chaos Daemons) that ruled out four candidate mechanisms in sequence and localized the residual to archetype-composition fidelity or the per-model representation limit. The standing anchor `data/_anchor_sc12a_n80_log.json` (gated 5.78) carries forward unchanged — no re-anchor run.
 
-**1. Lever 1 — Born Soldiers REGIMENT keyword gate: WASH-KEEP.** Cherry-picked `d3f8576`
-(`SWEG_BORN_REGIMENT`). The army-rule Lethal Hits leg now gates on the codex-literal REGIMENT
-keyword (31 datasheets — Kasrkin, Heavy Weapons Squads, Tempestus Scions, Field Ordnance, Rough
-Riders and the rest) instead of the legacy BATTLELINE proxy (3 datasheets). Paired forty-battle
-screen against the shared `data/wf_w246_keeperset_fixed_n40.json` anchor (gated 6.78): 6.75
-(−0.03), every faction flat; Astra Militarum +0.31 ± 1.91 on 55 flipped games (the faction-scoped
-gate flips almost only its own games). Codex-literal rule replacing a proxy — kept on fidelity, the
-solar-squadron precedent.
+**Lever 1 — tabling decides on Victory Points, not an automatic win (`SWEG_TABLING_VP`): FAITHFUL, near-inert, built-and-held.** Cherry-picked `ca3cba5` → `f59930f`. `code/simulator.py` `_decide_winner` short-circuited the result on survivor count (a tabled opponent was an automatic loss) before comparing Victory Points — but the run loop already plays out all five battle rounds on a one-sided tabling (cited `simulator.battle_length_five_rounds`), so the Victory-Point totals are complete at decision time and the auto-win override contradicts that cited behaviour. The gate, when on, drops the survivor short-circuits and decides purely on Victory Points (then remaining points, then draw); the tenth-edition rule is the player with the most Victory Points wins (verbatim Wahapedia matched-play, `data/rule_citations.d/core_win_condition.json`). Forty-battle paired screen against `data/wf_w247_keeperset_n40.json` (gated 6.86): 6.91 (+0.05 wash), only ~21 of 18,480 games flipped, the whole melee cluster flat with zero flips, and the two decisive movers tiny and away (World Eaters +0.36, Genestealer Cults +0.41). The hypothesis that the auto-win inflates the melee cluster is REFUTED — because the play-out-all-rounds fix already aligns the Victory-Point totals with the tabling outcome, removing the auto-win flips only the rare tabled-but-ahead-on-points edge case. Faithful, so kept built; near-inert with a tiny adverse tilt, so held default-off (not flipped off a forty-battle read of twenty-one flips with two wrong-direction movers); flagged for a free eighty-battle confirm at the next natural re-anchor.
 
-**2. Lever 2 — Cadian Castellan Senior Officer sustained hits: WASH-KEEP.** Cherry-picked
-`1a4a229` (`SWEG_CASTELLAN_SH`). The Castellan now grants [SUSTAINED HITS 1] to the led unit's
-ranged weapons per the BSData ability text (Abilities profile id `a7f5-adb8-d1c9-2a2d`); the
-registry entry's old "no such dataclass field" comment was stale. Screen: 6.75 (−0.03), every
-faction flat; Astra Militarum +0.33 ± 0.36 on six flipped games, a whisker from decisive-toward.
+**Melee over-pole diagnostic chain — four mechanisms ruled out, residual localized.** (1) Durability mis-application: REFUTED — the realized-saves probe (`diag_durability`) shows the durable infantry class's effective save is explained by the armour-penetration it faces; the per-datasheet Feel No Pain values are faithful (the fabricated army-wide Death Guard Feel No Pain was removed back at `code/units.py:1381-1395`). (2) Kill-efficiency: REFUTED — `diag_overshooter` shows Death Guard deals exactly field-average damage; it is not an output outlier. (3) Model-count list-inflation: REFUTED by hard-sourced tournament lists. A first diagnostic ESTIMATED the archetype builds two-to-three times the real model count; a sourcing pass that actually fetched real May-2026 competitive lists (Best Coast Pairings via Grimhammer Tactics, with sources) found the opposite for the top two over-poles — World Eaters real ~67 models versus the sim's ~61, Death Guard real ~48-58 versus the sim's ~39 (both UNDER real count), Emperor's Children ~46 versus ~54 (mild over), Chaos Daemons ~25-43 versus ~52 (over). Raising the army-builder seed fraction on the estimate would have cut World Eaters and Death Guard models — making them less realistic to lower the metric, the forbidden metric-tuning. The discipline of refusing to reshape the calibration frame without a CITED real-list anchor (the wave-174 method's requirement) caught the mistake. (4) Order/stratagem throughput was already ruled out in wave 248.
 
-**3. Lever 3 — rolling damage default flip: KEEP per fidelity-first.** `SWEG_ROLLDMG` — the
-user-approved wave-100 build (each weapon's REAL Damage characteristic rolled per shot on the
-per-model firing path, cited `simulator.rolled_damage`) had never been default-flipped and no eval
-invocation set the gate, so every production anchor to date was an expected-value-damage frame; the
-wave-100 default-off choice predates the fidelity-first ruling. Screen-only lever (no build):
-gated 6.92 (+0.14, wash-grade); sole decisive mover Chaos Space Marines +5.84 ± 4.30 away. One
-decisive away-mover at a wash headline is not the embark-class decisive rejection — the faithful
-core mechanic is adopted.
+**Redirect (now cited): the real list-realism issue is archetype COMPOSITION / detachment, not model count.** World Eaters fields the 500-point Angron, but three sourced competitive lists are Khârn-anchored (130 points) with no Angron; the sim also fields units absent from real lists (Bloodletters, Bloodcrushers, Chaos Terminators, Helbrute). Emperor's Children carries a detachment name ("Slaaneshi Excess") that does not exist in tenth edition (the real detachments are Coterie of the Conceited, Court of the Phoenician, Peerless Bladesmen). Chaos Daemons runs four mono-god sub-archetypes, but the competitive meta is Be'lakor-anchored Scintillating Legion (Tzeentch). These are metric-direction-neutral, genuinely faithful corrections — but each is a deliberate per-faction archetype rebuild, held for careful next-wave handling, not a seed-fraction knob. One research over-claim was corrected in code: the Emperor's Children archetype seeding Slaanesh daemon datasheets is FAITHFUL tenth-edition codex design (the codex includes them as native datasheets, as World Eaters gets Khorne daemons and Death Guard gets Nurglings), not a faction-boundary bug.
 
-**4. Combined keeper set: PASS → defaults flipped.** Gated 6.78 → 6.86 (+0.08), the exact sum of
-the three solo screens; sole decisive mover Chaos Space Marines +6.27 (the rolling-damage
-signature); Astra Militarum nets +1.21 toward target. All three defaults flipped ON in one commit
-(`67d124a`), every gate keeping `"0"` as a working kill-switch; the three test files converted to
-the kill-switch convention (gate-unset asserts the adopted behaviour, explicit-`"0"` pins the
-legacy path). Full suite 1674 green with the flipped defaults, demonstration battle clean.
-
-**5. Diagnostic adjudication — flip-count forensics as the inertness oracle (method note
-banked).** A deep-dive agent dispatched on the Chaos Space Marines screen response concluded the
-rolling-damage gate was "functionally inert" (top-level `damage_dice` empty catalogue-wide plus a
-stale GATE-INERT comment at `code/units.py:724`) and the +5.84 a statistical false positive.
-REFUTED from evidence already in hand: a truly inert gate gives byte-identical arms and ZERO
-flipped games in the deterministic paired join — the near-inert Born and Castellan screens showed
-zero-to-seven flips for most factions, while the rolling-damage screen flipped roughly two hundred
-games per faction. The contrast is the oracle, and the end-to-end variance test passed in the same
-suite run. Post-flip coverage verification closed the agent's one open question: per-model
-promotion defaults ON (`code/army.py:701`), all 1384 catalogue entries carry `model_loadouts` with
-a `damage_dice` string in every weapon block, and 499 units field at least one variable-damage
-weapon — coverage adequate, no "wire damage dice for non-promoted paths" lever exists because no
-non-promoted firing path exists in production. Salvaged from the agent: Chaos Space Marines carries
-the field's highest dice-damage-weapon density (77 dice weapons across 112 loadout slots, 17.4
-percent) — the faithful explanation for its outsized screen response. The stale comment at
-`code/units.py:724` is queued as a trivial comment-only fix.
-
-**6. Fold, re-anchor.** origin/main folded mid-wave (`71c9fbf` — pull requests 77 and 78 merged by
-Ed; housekeeping files only, anchors stayed valid). Eighty-battle re-anchor on the flipped frame:
-**gated 5.78, raw 9.14, 4/22 in band — `data/_anchor_sc12a_n80_log.json` promoted as the standing
-anchor** (the honest rolled-damage frame; +0.05 vs sc11b, authorized fidelity cost). Paired join
-against sc11b (36,960 matched games): ALL twenty-two factions flat — the three-lever flip is
-metric-neutral at eighty battles, and the Chaos Space Marines watch item largely dissolves (+1.38
-± 3.18 at eighty vs +5.84 ± 4.30 at forty — an edge-of-interval forty-battle read regressing to
-the mean; the watch stays open at low priority). Non-decisive toward-movers: World Eaters −3.01,
-Imperial Knights −2.75, Emperor's Children −2.27. Non-decisive away: Death Guard +3.03 — now the
-top over-pole at 14.90. Adepta Sororitas enters the noise band.
+**Method notes banked.** Estimate-versus-hard-data: a diagnostic conclusion resting on an estimated real-list model count was overturned by actually sourcing the lists — measure, do not rule-read, and cross-check a quantitative claim before acting on it. Research-agent claims are grounded in code before action: the faction-boundary "bug" was a research over-claim refuted by the catalogue plus the tenth-edition codex design.

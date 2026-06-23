@@ -120,6 +120,27 @@ _CREED_TWO_ORDERS: bool = os.environ.get("SWEG_CREED_TWO_ORDERS", "0") == "1"
 
 
 # ---------------------------------------------------------------------------
+# Fix Bayonets! engagement-range routing guard (wave 248)
+# ---------------------------------------------------------------------------
+# The Fix Bayonets! Order improves Weapon Skill for melee weapons; it only
+# delivers value when the ordered squad is actually fighting in melee (i.e.
+# within Engagement Range of at least one enemy unit). Issuing the Order to
+# an unengaged squad is a wasted slot — the melee hit-roll buff cannot fire
+# until the squad is charged or charges, which may not happen this round.
+#
+# When SWEG_FIXBAYONETS=0 (the default): the scorer picks Fix Bayonets!
+# purely from damage-per-activation statistics, byte-identical to the
+# pre-248 code path. When SWEG_FIXBAYONETS=1: the scorer only returns
+# ORDER_FIX_BAYONETS when the candidate squad has at least one member within
+# Engagement Range (1.0" base-edge gap via _er_gap) of a live enemy unit;
+# unengaged melee squads fall through to the next-best order instead.
+#
+# Cited as "SWEG_FIXBAYONETS.fix_bayonets_engagement" in
+# data/rule_citations.d/astra_militarum.json.
+_FIXBAYONETS_GUARD: bool = os.environ.get("SWEG_FIXBAYONETS", "0") == "1"
+
+
+# ---------------------------------------------------------------------------
 # Order eligibility helpers
 # ---------------------------------------------------------------------------
 
@@ -484,7 +505,9 @@ def _unit_has_rapid_fire(u: "Unit") -> bool:
 
 
 def _pick_order_for_target(
-    target: "Unit", hp_frac_lost: Optional[float] = None
+    target: "Unit",
+    hp_frac_lost: Optional[float] = None,
+    squad_is_engaged: bool = False,
 ) -> str:
     """Greedy: pick the Order that maximises expected value for `target`.
 
@@ -492,7 +515,10 @@ def _pick_order_for_target(
       * If the unit has been damaged (>20% HP loss), prefer Take Cover! —
         the +1 save preserves the remaining points.
       * Else if the unit has meaningful melee DPA AND no ranged DPA,
-        pick Fix Bayonets! (no shoot-relevant alternative).
+        pick Fix Bayonets! when the squad is engaged (or the engagement
+        guard is off). Unengaged melee squads fall through to Take Aim!
+        when SWEG_FIXBAYONETS=1, because the weapon-skill buff only
+        fires if the squad actually fights in melee this round.
       * Else if the unit has real ranged DPA AND carries at least one
         Rapid Fire weapon, pick First Rank Fire / Second Rank Fire
         (matches the codex use case for Cadians / Krieg / Catachan
@@ -505,6 +531,11 @@ def _pick_order_for_target(
     Lasgun-heavy REGIMENT squads typically have ranged_dpa > 0 and
     melee_dpa < 0.5; the FRFSRF branch fires on them as intended.
     Bullgryns/Ogryns (melee-only) hit the Fix Bayonets! branch.
+
+    `squad_is_engaged`: when SWEG_FIXBAYONETS=1, the dispatcher passes
+    True if at least one squad member is within Engagement Range of a
+    live enemy. On the default (gate OFF) path this parameter is unused
+    and the function is byte-identical to the pre-248 code path.
     """
     if hp_frac_lost is None:
         # Explicit default (CLAUDE.md rule 13): None means "single-model
@@ -528,7 +559,13 @@ def _pick_order_for_target(
     melee_dpa = _unit_melee_dpa(target)
 
     if melee_dpa > 0.5 and ranged_dpa < 0.3:
-        return ORDER_FIX_BAYONETS
+        # Gate ON: only issue Fix Bayonets! when the squad is engaged —
+        # the weapon-skill buff has no effect on an unengaged unit. When
+        # the gate is off, or the squad is engaged, this branch fires
+        # normally (byte-identical to the pre-248 path when gate is off).
+        if not _FIXBAYONETS_GUARD or squad_is_engaged:
+            return ORDER_FIX_BAYONETS
+        # Fall through: unengaged melee squad gets the next-best order.
 
     if ranged_dpa >= 0.5 and _unit_has_rapid_fire(target):
         # FRFSRF is the canonical Lasgun-block Order — pick it on any
@@ -549,13 +586,24 @@ def _pick_order_for_target(
 # Dispatch — called once per army at the start of each Command phase
 # ---------------------------------------------------------------------------
 
-def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, str, str]]:
+def dispatch_orders(
+    army: "Army",
+    battleshocked_uids: set,
+    enemy_army: Optional["Army"] = None,
+) -> List[Tuple[str, str, str]]:
     """Issue Orders for each AM OFFICER for this Command phase.
 
     Returns a list of (officer_name, target_name, order_name) triples for
     event-log / verbose printing. Empty list when the army isn't AM,
     has no Officers, has no eligible targets, or no OFFICER is within
     aura range of any eligible target.
+
+    `enemy_army`: when SWEG_FIXBAYONETS=1, the dispatcher computes
+    per-squad engagement state (at least one squad member within 1.0"
+    base-edge gap of a live enemy) and passes it to _pick_order_for_target
+    so that Fix Bayonets! is only issued to engaged squads. When
+    SWEG_FIXBAYONETS=0 (the default), enemy_army is unused and the
+    function is byte-identical to the pre-248 code path.
 
     Wahapedia rules respected:
       * Battle-shocked Officers cannot issue Orders (`battleshocked_uids`).
@@ -776,8 +824,29 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
                 break  # no more eligible squads in aura — stop early
 
             key, members = max(in_aura, key=_squad_priority)
+
+            # Compute squad engagement state for the Fix Bayonets! guard.
+            # Gate OFF: skip entirely — zero extra computation on the default
+            # path. Gate ON: a squad is engaged when at least one of its alive
+            # members is within 1.0" base-edge gap of any live enemy. Uses
+            # _er_gap from sim.geometry (the same base-edge measurement used
+            # throughout the simulator for Engagement Range checks).
+            _engaged = False
+            if _FIXBAYONETS_GUARD and enemy_army is not None:
+                from .sim.geometry import _er_gap as _geo_er_gap
+                _enemy_alive = enemy_army.alive_units
+                for _m in members:
+                    if any(
+                        _geo_er_gap(_m.position, _m.profile, _e.position, _e.profile) <= 1.0
+                        for _e in _enemy_alive
+                    ):
+                        _engaged = True
+                        break
+
             order = _pick_order_for_target(
-                members[0], hp_frac_lost=_squad_hp_frac_lost(key, members)
+                members[0],
+                hp_frac_lost=_squad_hp_frac_lost(key, members),
+                squad_is_engaged=_engaged,
             )
 
             # Gate ON: reject a duplicate Order on the Creed-led squad.
