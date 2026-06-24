@@ -1,0 +1,10 @@
+{
+  "simulator.vp_tie_draw": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/",
+    "rule_name": "Determine Victor",
+    "quoted_text": "At the end of the battle, the player with the most victory points is the winner. If the players are tied, the battle is a draw.",
+    "trigger": "end of the battle, both players have equal victory points",
+    "effect": "the battle is a draw; no surviving-army-points tiebreaker is applied",
+    "scope": "army-wide"
+  }
+}
