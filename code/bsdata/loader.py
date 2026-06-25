@@ -180,6 +180,15 @@ class CatalogEntry:
     # roll and add 1 to the Wound roll." Set per-unit via overrides.json.
     # Cited as `simulator.righteous_paragons`.
     righteous_paragons: bool = False
+    # T'AU EMPIRE — Sunforge (Crisis Sunforge Battlesuits datasheet ability).
+    # Cited as `simulator.tau_sunforge`.
+    tau_sunforge: bool = False
+    # T'AU EMPIRE — Armour Hunter (Hammerhead Gunship datasheet ability).
+    # Cited as `simulator.tau_armour_hunter`.
+    tau_armour_hunter: bool = False
+    # T'AU EMPIRE — Targeting Array (Hammerhead Gunship datasheet ability).
+    # Cited as `simulator.tau_targeting_array`.
+    tau_targeting_array: bool = False
     # NECRONS-CTAN — Necrodermis (C'tan datasheet ability). Halves the
     # Damage characteristic of each allocated attack (rounding up); D1
     # attacks deal 0 damage. Set per-unit via overrides.json (the BSData
@@ -373,6 +382,9 @@ class CatalogEntry:
             murderers_cowl=bool(d.get("murderers_cowl", False)),
             gloam_rot=bool(d.get("gloam_rot", False)),
             righteous_paragons=bool(d.get("righteous_paragons", False)),
+            tau_sunforge=bool(d.get("tau_sunforge", False)),
+            tau_armour_hunter=bool(d.get("tau_armour_hunter", False)),
+            tau_targeting_array=bool(d.get("tau_targeting_array", False)),
             necrodermis=bool(d.get("necrodermis", False)),
             reanimates_with_army=bool(d.get("reanimates_with_army", False)),
             unit_keywords=list(d.get("unit_keywords") or []),
@@ -650,6 +662,9 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "murderers_cowl": override.get("murderers_cowl", base.murderers_cowl),
         "gloam_rot": override.get("gloam_rot", base.gloam_rot),
         "righteous_paragons": override.get("righteous_paragons", base.righteous_paragons),
+        "tau_sunforge": override.get("tau_sunforge", base.tau_sunforge),
+        "tau_armour_hunter": override.get("tau_armour_hunter", base.tau_armour_hunter),
+        "tau_targeting_array": override.get("tau_targeting_array", base.tau_targeting_array),
         "necrodermis": override.get("necrodermis", base.necrodermis),
         "reanimates_with_army": override.get("reanimates_with_army", base.reanimates_with_army),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),

@@ -93,6 +93,21 @@ def _rolldmg_enabled() -> bool:
     return os.environ.get("SWEG_ROLLDMG", "1") != "0"
 
 
+def _tau_battlesuit_weapons_enabled() -> bool:
+    """True when SWEG_TAU_BATTLESUIT_WEAPONS != '0' (adopted default-on, wave 256).
+    Restores the BSData-dropped simultaneously-equipped battlesuit weapons:
+    the Crisis Fireknife missile pod (a 2nd additive ranged profile alongside
+    the plasma rifle) and the Crisis Sunforge second fusion blaster (modelled as
+    attacks=2 on the single mapped fusion-blaster profile, because a duplicate
+    'fusion blaster' extra_ranged_profile collapses into one mutex group under
+    _strip_mode_suffix). Read per-build (not cached) so tests can toggle it via
+    os.environ within a process; when set to 0, _build_catalog skips the injection
+    block entirely and the two units are byte-identical to the legacy catalogue.
+    See data/rule_citations.d/tau_empire.json keys simulator.tau_crisis_fireknife_missile_pod
+    and simulator.tau_crisis_sunforge_second_fusion_blaster."""
+    return os.environ.get("SWEG_TAU_BATTLESUIT_WEAPONS", "1") != "0"
+
+
 def roll_damage(dice_str: str, mean_fallback: float) -> float:
     """Roll a weapon's real Damage characteristic for ONE shot.
 
@@ -620,6 +635,33 @@ class UnitProfile:
     # makes against qualifying targets. Cited as
     # `simulator.righteous_paragons`.
     righteous_paragons: bool = False
+    # T'AU EMPIRE — Sunforge (Crisis Sunforge Battlesuits datasheet ability,
+    # 10e). Wahapedia verbatim: "Each time a model in this unit makes a ranged
+    # attack that targets a MONSTER or VEHICLE unit, you can re-roll the Wound
+    # roll and you can re-roll the Damage roll." Ranged-only, target-keyword-
+    # gated. Wound re-roll reuses att_reroll_all_wounds; damage re-roll is a
+    # per-shot Damage-dice re-roll. Set on the Crisis Sunforge Battlesuits
+    # UnitProfile via overrides.json. Gated SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES
+    # (adopted default-on, wave 256; set to 0 to disable). Cited as `simulator.tau_sunforge`.
+    tau_sunforge: bool = False
+    # T'AU EMPIRE — Armour Hunter (Hammerhead Gunship datasheet ability, 10e).
+    # Wahapedia verbatim: "Each time this model makes an attack that targets a
+    # MONSTER or VEHICLE, add 1 to the Hit roll." Mirrors righteous_paragons'
+    # hit-half but +1-to-Hit ONLY (no wound bonus) and applies to both ranged
+    # and melee. Set on the Hammerhead Gunship UnitProfile via overrides.json.
+    # Gated SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES (adopted default-on, wave 256;
+    # set to 0 to disable). Cited as `simulator.tau_armour_hunter`.
+    tau_armour_hunter: bool = False
+    # T'AU EMPIRE — Targeting Array (Hammerhead Gunship datasheet ability, 10e).
+    # Wahapedia verbatim: "Each time this model is selected to shoot, you can
+    # re-roll one Hit roll or you can re-roll one Wound roll when resolving
+    # those attacks." One re-roll of a single Hit OR Wound die per shooting
+    # activation — modelled by reusing the existing single-slot Code-Chivalric
+    # re-roll machinery (one Wound-die re-roll per activation). Set on the
+    # Hammerhead Gunship UnitProfile via overrides.json. Gated
+    # SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES (adopted default-on, wave 256;
+    # set to 0 to disable). Cited as `simulator.tau_targeting_array`.
+    tau_targeting_array: bool = False
     # MAP-4 — per-unit Reanimation Protocols eligibility flag.
     # 10e Necron datasheets all CARRY the "Reanimation Protocols" ability, but
     # the ability text excludes CHARACTER / MONSTER / VEHICLE models from
@@ -3298,6 +3340,33 @@ class Unit:
             # a full failure re-roll, not just nat-1s.
             att_reroll_all_wounds = False
 
+            # ---- T'au Empire Sunforge + Armour Hunter (datasheet abilities,
+            # 10e). Gated SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES (adopted default-on,
+            # wave 256; set to 0 to disable).
+            # Sunforge (Crisis Sunforge Battlesuits): ranged attacks vs MONSTER/
+            #   VEHICLE may re-roll the Wound roll AND re-roll the Damage roll.
+            # Armour Hunter (Hammerhead Gunship): +1 to Hit vs MONSTER/VEHICLE
+            #   (both ranged and melee), modelled exactly like Righteous Paragons'
+            #   hit-half (no wound bonus).
+            # _sunforge_vs_armour is set True here and consumed at the per-shot
+            # damage-roll site below; it must start False so the damage re-roll
+            # branch is skipped entirely when the gate is off.
+            _sunforge_vs_armour = False
+            if (p.tau_sunforge or p.tau_armour_hunter) and \
+                    os.environ.get("SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES", "1") != "0":
+                _tau_tgt_kws = set(target.profile.unit_keywords or ())
+                _tau_vs_armour = ("MONSTER" in _tau_tgt_kws or "VEHICLE" in _tau_tgt_kws)
+                if _tau_vs_armour:
+                    if p.tau_armour_hunter:
+                        hit_mod_delta += 1
+                    if p.tau_sunforge and mode != "melee":
+                        # Sunforge wound re-roll — reuse the existing full-failed-
+                        # wound re-roll plumbing (consumed in the wound loop).
+                        att_reroll_all_wounds = True
+                        # Flag the per-shot Damage re-roll for the ranged damage
+                        # loop (the one novel branch). Ranged-only per the rule.
+                        _sunforge_vs_armour = True
+
             # Resolve the attacker's owning Army once; downstream gates
             # (Oath of Moment, Votann tokens) all read it.
             own_army = getattr(self, "army_ref", None)
@@ -3403,6 +3472,18 @@ class Unit:
                 and (p.faction or "") == "Imperial Knights"
             )
             _chiv_wound_reroll = _chiv_hit_reroll
+
+            # T'au Empire Targeting Array (Hammerhead Gunship) — one Hit-or-Wound
+            # re-roll per shooting activation. Reuse the single-slot Code-Chivalric
+            # Wound re-roll: grant one per-activation Wound-die re-roll (ranged).
+            # APPROXIMATION: the rule allows re-rolling EITHER one Hit OR one Wound
+            # die; we always spend it on a Wound die (the higher-value choice for an
+            # anti-armour Railgun where the wound roll is the bottleneck).
+            # Gated SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES (adopted default-on, wave 256;
+            # set to 0 to disable).
+            if (mode != "melee" and p.tau_targeting_array and
+                    os.environ.get("SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES", "1") != "0"):
+                _chiv_wound_reroll = True
 
             # Fire and Fade (Aeldari Warhost stratagem) — transient
             # re-roll hit rolls of 1 on shooting attacks for the round.
@@ -3945,6 +4026,20 @@ class Unit:
                         roll_damage(_dmg_dice, _dmg_dice_mean)
                         + (per_shot_dmg - _dmg_dice_mean)
                     )
+                # T'au Sunforge — re-roll the Damage roll vs MONSTER/VEHICLE
+                # (ranged). 10e 'you can re-roll the Damage roll': re-roll once
+                # and keep the new result. We exercise the option when the first
+                # roll is below the dice mean (an attacker maximises damage), so
+                # the re-roll is the optional 'you can'. Only fires when the
+                # gate-set _sunforge_vs_armour flag is on AND real dice were
+                # rolled (flat-damage weapons draw nothing and are untouched).
+                if _sunforge_vs_armour and _roll_dmg_active and _dmg_dice:
+                    _dice_only = _shot_dmg - (per_shot_dmg - _dmg_dice_mean)
+                    if _dice_only < _dmg_dice_mean:
+                        _shot_dmg = (
+                            roll_damage(_dmg_dice, _dmg_dice_mean)
+                            + (per_shot_dmg - _dmg_dice_mean)
+                        )
                 # MAP-3-FIX — per-shot Bernoulli gating for partial-coverage
                 # weapon keywords. Lance and Anti-X resolve their per-shot value
                 # here so a heterogeneous squad's specialist-weapon keyword fires
@@ -5053,6 +5148,9 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             gloam_rot=entry.gloam_rot,
             necrodermis=entry.necrodermis,
             righteous_paragons=entry.righteous_paragons,
+            tau_sunforge=entry.tau_sunforge,
+            tau_armour_hunter=entry.tau_armour_hunter,
+            tau_targeting_array=entry.tau_targeting_array,
             reanimates_with_army=entry.reanimates_with_army,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,
@@ -5141,6 +5239,45 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             base_width_mm=entry.base_width_mm,
             base_length_mm=entry.base_length_mm,
         )
+
+        # TAU-BATTLESUIT-WEAPONS (default-OFF, SWEG_TAU_BATTLESUIT_WEAPONS): the
+        # BSData v10.6.0 mapper drops the simultaneously-equipped battlesuit
+        # weapons. Fireknife models carry plasma rifle AND missile pod but only
+        # the plasma rifle is mapped; Sunforge models carry 2 fusion blasters but
+        # only 1 (attacks=1) is mapped. Re-add them here, GATED, so OFF is
+        # byte-identical (this whole block is skipped when the env gate is unset).
+        # Faithful per data/rule_citations.d/tau_empire.json. Done in code (not
+        # overrides.json) because overrides merge unconditionally and could not be
+        # held behind a default-off screening gate.
+        if _tau_battlesuit_weapons_enabled():
+            from dataclasses import replace
+            if key == "t_au_empire_crisis_fireknife_battlesuits":
+                # Missile pod as a 2nd ranged profile. Distinct weapon root from
+                # 'plasma rifle' under _strip_mode_suffix, so the multi-root
+                # firing loop in Unit.attack fires both additively (mirrors the
+                # Hammerhead multi-weapon override). damage_dice='' -> mean D2.
+                _missile_pod = _flatten_extra_profiles([{
+                    "weapon": "missile pod",
+                    "attacks": 2,
+                    "weapon_damage_per_shot": 2.0,
+                    "damage_dice": "",
+                    "hit_probability": 0.5,
+                    "ap": -1,
+                    "strength": 7,
+                    "range_inches": 30,
+                }])
+                catalog[key] = replace(
+                    catalog[key],
+                    extra_ranged_profiles=(
+                        catalog[key].extra_ranged_profiles + _missile_pod
+                    ),
+                )
+            elif key == "t_au_empire_crisis_sunforge_battlesuits":
+                # Second fusion blaster = double the primary fusion-blaster
+                # attacks (a duplicate 'fusion blaster' extra collapses into one
+                # mutex group under _strip_mode_suffix and only the higher-EV copy
+                # would fire). All other fusion-blaster characteristics unchanged.
+                catalog[key] = replace(catalog[key], attacks=2)
     return catalog
 
 

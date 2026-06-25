@@ -842,6 +842,10 @@
       "invuln_save": 4,
       "notes": "iter20 variant-invuln mapper-gap: 4++ Battlesuit Shield Generator. BSData v10.6.0 only encodes the Invulnerable-Save infoLink on the Sunforge entry; Fireknife/Starscythe sibling entries miss the infoLink. Per Wahapedia all three Crisis variants share the gear. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Crisis-Battlesuits"
     },
+    "t_au_empire_crisis_sunforge_battlesuits": {
+      "tau_sunforge": true,
+      "notes": "Rank-4 lever: Sunforge datasheet ability. Wahapedia verbatim: 'Each time a model in this unit makes a ranged attack that targets a MONSTER or VEHICLE unit, you can re-roll the Wound roll and you can re-roll the Damage roll.' Gated SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES (default OFF). Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Crisis-Sunforge-Battlesuits.html"
+    },
     "t_au_empire_crisis_starscythe_battlesuits": {
       "invuln_save": 4,
       "notes": "iter20 variant-invuln mapper-gap: 4++ Battlesuit Shield Generator. Companion fix to Fireknife. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Crisis-Battlesuits"
@@ -2591,6 +2595,8 @@
           "pistol": false
         }
       ],
+            "tau_armour_hunter": true,
+      "tau_targeting_array": true,
       "notes": "MUTEX-SWEEP: Hammerhead Gunship main gun is Railgun OR Ion cannon per codex (BSData selectionEntryGroup Main gun, max=1). Mapper packed Ion cannon (overcharge) into primary, Railgun into secondary, Ion cannon (standard) into extras so the simulator was firing all three every Shooting phase. Set primary to Railgun (meta anti-tank choice, Devastating Wounds), cleared secondary, dropped the Ion cannon standard profile from extras. Kept Seeker missile (one-shot) and Accelerator burst cannon (always-carried hull weapon). Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Hammerhead-Gunship | T-AU-DIAG-3 (2026-05-24): hit_probability values reverted 0.667 -> 0.5 across primary + extras. Hammerhead Gunship is BS 4+ (0.5) per Wahapedia datasheet stat line; MUTEX-SWEEP accidentally copy-pasted the BS 3+ (0.667) value from the Aeldari / Space Marines vehicle overrides where that BS is canonical. T'au battlesuits and vehicles are BS 4+ across the board, with the only BS 3+ exception being characters / specialists (e.g. Farsight, Shadowsun). Seeker missile extra also reverted 0.833 -> 0.5 (a Seeker missile uses the carrier's BS, not its own implicit BS 2+ â same rule as a Hunter-Killer Missile)."
     },
     "t_au_empire_stormsurge": {

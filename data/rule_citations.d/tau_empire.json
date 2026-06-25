@@ -14,5 +14,45 @@
     "trigger": "a T'au Empire (non-KROOT) unit shoots an enemy unit that is visible (line of sight) to one or more friendly MARKERLIGHT units — gated by env var SWEG_TAU_MARKERLIGHT_BASE_LOS (ADOPTED default-on, wave 254; SWEG_TAU_MARKERLIGHT_BASE_LOS=0 is the kill-switch restoring the legacy hit-roll-gated `guided_enemy_uids`). The verbatim rule grants the buff on the line-of-sight / markerlight-token condition (\"while targeting an enemy unit that is visible to one or more friendly MARKERLIGHT units\"), NOT on a per-attacker Ballistic-Skill hit roll. The base sim instead gates the buff on `Army.guided_enemy_uids`, which is populated only when a per-carrier d6 to-hit roll succeeds inside Battle._run_markerlight_phase — firing the base buff only about half the time the real rule should.",
     "effect": "GATE 2 (SWEG_TAU_MARKERLIGHT_BASE_LOS, ADOPTED default-on wave 254, byte-identical to the legacy behaviour when =0): at the default (or =1), Battle._run_markerlight_phase builds `Army.guided_los_enemy_uids` — every alive enemy unit within 36\" + line of sight + a legal target (Look Out Sir / Lone Operative) of AT LEAST ONE friendly MARKERLIGHT carrier, with NO per-carrier to-hit roll — and the base Guided buff branches in Unit.attack (the +1-to-Hit hit-modifier branch and the [SUSTAINED HITS 1] sustained-hits branch) read this line-of-sight set instead of `guided_enemy_uids`. The Mont'ka [LETHAL HITS] consumer keeps reading the hit-roll-gated `guided_enemy_uids`, so only the BASE buff's gating changes. When =0 (kill-switch), `guided_los_enemy_uids` is never populated or read and the base buff continues to read `guided_enemy_uids` exactly as the legacy sim did. APPROXIMATION: the simulator has no physical Markerlight token object, so visibility-to-a-MARKERLIGHT-unit is modelled as the carrier's own line of sight + 36\" range + target eligibility (the same geometry the per-shot emission gate uses), which is the most defensible faithful reading of \"visible to one or more friendly MARKERLIGHT units\".",
     "scope": "phase-gated"
+  },
+  "simulator.tau_crisis_fireknife_missile_pod": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Crisis-Fireknife-Battlesuits.html",
+    "rule_name": "Crisis Fireknife Battlesuits — wargear (plasma rifle + missile pod equipped simultaneously)",
+    "quoted_text": "Every model is equipped with: plasma rifle; missile pod; battlesuit fists. [Missile pod: Range 30\", A 2, BS 4+, S 7, AP -1, D 2] [Plasma rifle: Range 18\", A 1, BS 4+, S 8, AP -3, D 3]",
+    "trigger": "a Crisis Fireknife Battlesuits unit shoots — every model carries BOTH the plasma rifle and the missile pod as standard wargear and fires both each Shooting phase; gated by env var SWEG_TAU_BATTLESUIT_WEAPONS (adopted default-on, wave 256; set to 0 to disable). BSData v10.6.0 maps only the plasma rifle (parsed.json extra_ranged_profiles is empty), dropping the missile pod — a mapper gap.",
+    "effect": "By default (or when SWEG_TAU_BATTLESUIT_WEAPONS=1), _build_catalog appends a 'missile pod' profile (Attacks 2, S7, AP-1, Damage 2 mean, Range 30\", Ballistic Skill 4+/hit_probability 0.5) to t_au_empire_crisis_fireknife_battlesuits.extra_ranged_profiles. 'missile pod' strips to a distinct weapon root from 'plasma rifle' under _strip_mode_suffix, so the multi-root firing loop in Unit.attack fires both additively (no per-attack code change; mirrors the Hammerhead multi-weapon override). Setting SWEG_TAU_BATTLESUIT_WEAPONS=0 is byte-identical to the legacy behaviour (extra_ranged_profiles stays empty, only the plasma rifle fires).",
+    "scope": "weapon-keyword"
+  },
+  "simulator.tau_crisis_sunforge_second_fusion_blaster": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Crisis-Sunforge-Battlesuits.html",
+    "rule_name": "Crisis Sunforge Battlesuits — wargear (2 fusion blasters equipped simultaneously)",
+    "quoted_text": "Every model is equipped with: 2 fusion blasters; battlesuit fists. [Fusion blaster: Range 12\", A 1, BS 4+, S 9, AP -4, D D6]",
+    "trigger": "a Crisis Sunforge Battlesuits unit shoots — every model carries TWO fusion blasters as standard wargear; gated by env var SWEG_TAU_BATTLESUIT_WEAPONS (adopted default-on, wave 256; set to 0 to disable). BSData v10.6.0 maps only one fusion blaster with attacks=1, dropping the second — a mapper gap. A duplicate 'fusion blaster' extra_ranged_profile would collapse into one mutex group under _strip_mode_suffix, so the second blaster is modelled as attacks=2 on the primary profile.",
+    "effect": "By default (or when SWEG_TAU_BATTLESUIT_WEAPONS=1), _build_catalog sets attacks=2 on t_au_empire_crisis_sunforge_battlesuits via dataclasses.replace (doubling the attack count of the single mapped fusion-blaster profile). All other fusion-blaster characteristics (S9, AP-4, Damage D6) are unchanged. Setting SWEG_TAU_BATTLESUIT_WEAPONS=0 is byte-identical to the legacy behaviour (attacks stays at the BSData-mapped value of 1).",
+    "scope": "weapon-keyword"
+  },
+  "simulator.tau_sunforge": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Crisis-Sunforge-Battlesuits.html",
+    "rule_name": "Sunforge (Crisis Sunforge Battlesuits datasheet ability, 10e)",
+    "quoted_text": "Each time a model in this unit makes a ranged attack that targets a MONSTER or VEHICLE unit, you can re-roll the Wound roll and you can re-roll the Damage roll.",
+    "trigger": "a Crisis Sunforge Battlesuits model makes a ranged attack that targets a unit with the MONSTER or VEHICLE keyword; gated by env var SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES (adopted default-on, wave 256; set to 0 to disable) AND tau_sunforge=true on the bearer's UnitProfile (set via overrides.json).",
+    "effect": "By default (or when SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES=1) and the target carries MONSTER or VEHICLE: att_reroll_all_wounds is set True (re-roll all failed Wound rolls, reusing the existing plumbing); a _sunforge_vs_armour flag is set True which drives a per-shot Damage-dice re-roll in the ranged damage loop (re-roll once if the first dice roll is below the dice mean, the optimal exercise of 'you can re-roll'). Melee attacks are unaffected (ranged-only per the rule). Setting SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES=0 is byte-identical to the legacy behaviour (_sunforge_vs_armour stays False, zero extra random draws).",
+    "scope": "weapon-keyword"
+  },
+  "simulator.tau_armour_hunter": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Hammerhead-Gunship.html",
+    "rule_name": "Armour Hunter (Hammerhead Gunship datasheet ability, 10e)",
+    "quoted_text": "Each time this model makes an attack that targets a MONSTER or VEHICLE, add 1 to the Hit roll.",
+    "trigger": "a Hammerhead Gunship model makes any attack (ranged or melee) that targets a unit with the MONSTER or VEHICLE keyword; gated by env var SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES (adopted default-on, wave 256; set to 0 to disable) AND tau_armour_hunter=true on the bearer's UnitProfile (set via overrides.json).",
+    "effect": "By default (or when SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES=1) and the target carries MONSTER or VEHICLE: hit_mod_delta is incremented by 1 (same mechanism as Righteous Paragons' hit-half, but with no wound bonus). Applies to both ranged and melee attacks per the rule. Setting SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES=0 is byte-identical to the legacy behaviour (hit_mod_delta is unaffected).",
+    "scope": "weapon-keyword"
+  },
+  "simulator.tau_targeting_array": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Hammerhead-Gunship.html",
+    "rule_name": "Targeting Array (Hammerhead Gunship datasheet ability, 10e)",
+    "quoted_text": "Each time this model is selected to shoot, you can re-roll one Hit roll or you can re-roll one Wound roll when resolving those attacks.",
+    "trigger": "a Hammerhead Gunship model is selected to shoot (ranged attacks only); gated by env var SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES (adopted default-on, wave 256; set to 0 to disable) AND tau_targeting_array=true on the bearer's UnitProfile (set via overrides.json).",
+    "effect": "By default (or when SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES=1): _chiv_wound_reroll is set True once per shooting activation, granting one per-activation Wound-die re-roll via the existing single-slot Code-Chivalric Wound re-roll machinery. APPROXIMATION: the rule allows re-rolling EITHER one Hit OR one Wound die; we always spend it on a Wound die (the higher-value choice for an anti-armour Railgun where the wound roll is the bottleneck). Setting SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES=0 is byte-identical to the legacy behaviour (_chiv_wound_reroll is unaffected by this gate).",
+    "scope": "phase-gated"
   }
 }
