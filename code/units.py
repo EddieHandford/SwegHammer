@@ -2836,23 +2836,34 @@ class Unit:
             # MARKERLIGHT unit (a conservative under-approximation of "any
             # target visible to a Markerlight unit"). Cited as
             # `simulator.markerlights`.
-            # GATE 2 — SWEG_TAU_MARKERLIGHT_BASE_LOS (default OFF, byte-identical
-            # when unset). The base Guided buff (+1 to Hit here, [SUSTAINED HITS
+            # GATE 2 — SWEG_TAU_MARKERLIGHT_BASE_LOS (ADOPTED default-on wave 254;
+            # =0 is the byte-identical kill-switch). The base Guided buff (+1 to Hit here, [SUSTAINED HITS
             # 1] in the sustained-hits branch below) is gated on the Marked set
-            # populated by Battle._run_markerlight_phase. The base sim gates it
-            # on `guided_enemy_uids`, which is gated on a per-carrier BS to-hit
-            # roll — firing the base buff only ~half the time the real rule
-            # (a line-of-sight / markerlight-token condition) does. When the
-            # gate is ON, read the line-of-sight set `guided_los_enemy_uids`
-            # instead (built without the to-hit roll). Mont'ka [LETHAL HITS]
-            # still reads `guided_enemy_uids` elsewhere, so only the base buff
-            # changes. When OFF this resolves to `guided_enemy_uids` exactly as
-            # before. Cited as `simulator.tau_markerlight_base_los`.
+            # populated by Battle._run_markerlight_phase. The legacy sim gated it
+            # on `guided_enemy_uids`, which is gated on a per-carrier Ballistic
+            # Skill to-hit roll — firing the base buff only ~half the time the
+            # real rule does. The verbatim rule grants the buff purely on the
+            # line-of-sight / markerlight-token condition ("while targeting an
+            # enemy unit that is visible to one or more friendly MARKERLIGHT
+            # units"), with NO per-attacker to-hit roll, so the line-of-sight
+            # set `guided_los_enemy_uids` (built without the to-hit roll) is the
+            # faithful Marked set. ADOPTED default-on (wave 254): this completes
+            # wave 252, which made the PRODUCER (simulator.py) build the
+            # line-of-sight set default-on but left this CONSUMER gate-read at
+            # `== "1"` (default-off), so the line-of-sight set was built every
+            # Shooting phase and silently discarded at the production default.
+            # Paired N=80 (T'au-scoped, merged into the sc14a anchor): gated mean
+            # absolute error 4.20 -> 3.96 (-0.24); T'au +3.81 (43.6 -> 47.4),
+            # moving the under-pole toward its real 54.3. SWEG_TAU_MARKERLIGHT_BASE_LOS=0
+            # is the kill-switch restoring the legacy to-hit-gated `guided_enemy_uids`
+            # (byte-identical to pre-adoption). Mont'ka [LETHAL HITS] still reads
+            # `guided_enemy_uids` elsewhere, so only the base buff changes.
+            # Cited as `simulator.tau_markerlight_base_los`.
             _ml_guided_attr = (
                 "guided_los_enemy_uids"
                 if __import__("os").environ.get(
-                    "SWEG_TAU_MARKERLIGHT_BASE_LOS"
-                ) == "1"
+                    "SWEG_TAU_MARKERLIGHT_BASE_LOS", "1"
+                ) != "0"
                 else "guided_enemy_uids"
             )
             _tau_markerlight_guided = (
