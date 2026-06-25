@@ -971,6 +971,16 @@ class Unit:
         #       `orders._apply_order`; cleared with all other transient flags.
         #       Cited as `Order.First Rank, Fire! Second Rank, Fire!`.
         "transient_frfsrf_active",
+        # Astra Militarum Voice of Command Order — Duty and Honour!:
+        #   transient_plus_one_oc — Duty and Honour! Order. While True, the
+        #       affected unit's models add 1 to their Objective Control
+        #       characteristic (and, in the faithful rule, Leadership — see
+        #       note in _effective_oc; Leadership is not read by the scoring
+        #       path so only the OC half is modelled). Set by
+        #       `orders._apply_order`; cleared with all other transient flags.
+        #       Read by `Battle._effective_oc` behind SWEG_AM_DUTY_AND_HONOUR.
+        #       Cited as `Order.Duty and Honour!`.
+        "transient_plus_one_oc",
         "transient_plus_one_to_wound_shooting",
         "transient_invuln_4",
         "transient_minus_one_damage_taken",
@@ -1204,6 +1214,10 @@ class Unit:
         # First Rank, Fire! Second Rank, Fire! (AM Order): +1 Attacks for
         # Rapid Fire weapons (unconditional, any range). Cleared per round.
         self.transient_frfsrf_active: bool = False
+        # Duty and Honour! (AM Order): +1 Objective Control on the affected
+        # unit's models for the round. Read by Battle._effective_oc behind
+        # SWEG_AM_DUTY_AND_HONOUR; cleared per round. Default False = no-op.
+        self.transient_plus_one_oc: bool = False
         # Saim-Hann (Aeldari) per-round stratagem flag.
         self.transient_halve_damage: bool = False
         # Awakened Dynasty (Necrons) Protocol of the Undying Legions: integer

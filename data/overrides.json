@@ -2951,6 +2951,10 @@
       "secondary_assault": false,
       "notes": "MUTEX-SWEEP: Predator Destructor sponsons are 2x Lascannons OR 2x Heavy Bolters per codex (BSData selectionEntryGroup Side sponsons, max=1 for the pair). Mapper put a single Lascannon profile into secondary and Heavy Bolter into extras, so the simulator was firing both sponson options as if the tank had heterogeneous sponsons. Cleared the lascannon secondary (Predator Destructor is the anti-infantry variant; heavy bolter sponsons match the autocannon turret theme and are the more common loadout). Heavy Bolter remains in extras representing the sponson pair; Hunter-killer and Storm bolter unchanged. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Predator-Destructor"
     },
+    "astra_militarum_cadian_shock_troops": {
+      "sticky_objective": true,
+      "notes": "Shock Troops (10e Cadian Shock Troops datasheet ability): at the end of the Command phase, if the unit is within range of an objective marker it controls, that marker stays controlled even after the unit leaves, until the opponent controls it. Modelled via the existing sticky_objective profile flag (same machinery as Necron Warriors / Genestealer Cults Acolytes). Source: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Shock-Troops. ADOPTED default-on (wave 255, paired N=80 AM-scoped: Astra Militarum +1.87, gated mean absolute error 3.96 to 3.86) via the key-scoped guard in code/bsdata/loader.py _apply_override; SWEG_AM_STICKY_CADIAN=0 is the byte-identical kill-switch that ignores this flag and loads the unit exactly as before."
+    },
     "astra_militarum_cadian_heavy_weapons_squad": {
       "indirect_fire": true,
       "blast": true,

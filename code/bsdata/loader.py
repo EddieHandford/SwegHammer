@@ -19,6 +19,7 @@ hand-rolled). Those entries must include all required fields.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -631,7 +632,20 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "deadly_demise": override.get("deadly_demise", base.deadly_demise),
         "firing_deck": override.get("firing_deck", base.firing_deck),
         "fnp": override.get("fnp", base.fnp),
-        "sticky_objective": override.get("sticky_objective", base.sticky_objective),
+        # SWEG_AM_STICKY_CADIAN (rank-8 lever) — ADOPTED default-on (wave 255).
+        # Cadian Shock Troops carry the 'Shock Troops' sticky-objective ability
+        # (Wahapedia: Cadian-Shock-Troops). The override sets sticky_objective
+        # True for astra_militarum_cadian_shock_troops; honoured by default,
+        # with SWEG_AM_STICKY_CADIAN=0 the byte-identical kill-switch (restores
+        # base.sticky_objective=False for this unit). Paired N=80 (AM-scoped):
+        # Astra Militarum +1.87 (25.9 -> 27.8), gated mean absolute error
+        # 3.96 -> 3.86. Every other unit takes the unchanged merge regardless.
+        "sticky_objective": (
+            override.get("sticky_objective", base.sticky_objective)
+            if (key != "astra_militarum_cadian_shock_troops"
+                or os.environ.get("SWEG_AM_STICKY_CADIAN", "1") != "0")
+            else base.sticky_objective
+        ),
         "resolute_will": override.get("resolute_will", base.resolute_will),
         "murderers_cowl": override.get("murderers_cowl", base.murderers_cowl),
         "gloam_rot": override.get("gloam_rot", base.gloam_rot),

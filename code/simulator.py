@@ -1424,6 +1424,19 @@ class Battle:
         cleanly reads −5. RESOLVED (watchdog Q9): use the cache −5 — BSData
         rule-6 governs; the −4 came from an unreliable web summary."""
         base = getattr(u.profile, "oc", 1) or 1
+        # Duty and Honour! (Astra Militarum Voice of Command Order): while the
+        # unit is affected by this Order, improve each model's Objective
+        # Control by 1 (the codex also improves Leadership; Leadership is not
+        # read by any scoring path so only the OC half is modelled — a
+        # faithful partial mapping). Gated SWEG_AM_DUTY_AND_HONOUR (default
+        # OFF). When the gate is unset this branch is skipped entirely and
+        # _effective_oc is byte-identical to production. Cited as
+        # `Order.Duty and Honour!`.
+        if (
+            __import__("os").environ.get("SWEG_AM_DUTY_AND_HONOUR", "0") == "1"
+            and getattr(u, "transient_plus_one_oc", False)
+        ):
+            base = base + 1
         # 10e Damaged-bracket Objective-Control reduction — data-driven from the
         # real per-datasheet "Damaged: 1-X Wounds Remaining" bracket
         # (UnitProfile.damaged_oc_penalty, BSData-extracted via the link-resolving
@@ -3225,6 +3238,9 @@ class Battle:
             u.transient_plus_one_to_hit_shooting = False
             # First Rank, Fire! Second Rank, Fire! (AM Order) per-round flag.
             u.transient_frfsrf_active = False
+            # Duty and Honour! (AM Order) per-round flag. Mirrors the codex
+            # 'until the start of your next Command phase' Order duration.
+            u.transient_plus_one_oc = False
             u.transient_halve_damage = False
             u.transient_undying_legions_pulse = 0
             # ST-1 proper-keyword transient flags.

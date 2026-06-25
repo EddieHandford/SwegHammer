@@ -1,6 +1,16 @@
 {
   "_comment": "Astra Militarum citations (iter-14). Covers the Combined Arms detachment rule (Born Soldiers), the Voice of Command army-wide Order economy, the four wired Officer Orders (Take Aim!, Fix Bayonets!, FRFSRF, Take Cover!), and the six Combined Arms detachment stratagems (Coordinated Action, Reinforcements!, Flexible Command, Fields of Fire, Inspired Command, Stalwart Protector). All entries cite the Wahapedia AM faction page; per-stratagem quoted_text fields are codex-verbatim quotes captured from the Wahapedia detachment block.",
 
+  "simulator.sticky_objective.astra_militarum_cadian_shock_troops": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Shock-Troops",
+    "rule_name": "Shock Troops (Cadian Shock Troops datasheet ability)",
+    "quoted_text": "At the end of your Command phase, if this unit is within range of an objective marker you control, that objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn.",
+    "trigger": "ADOPTED default-on (wave 255; SWEG_AM_STICKY_CADIAN=0 is the byte-identical kill-switch); at the end of the controlling player's Command phase, the Cadian Shock Troops unit is within range of and controls an objective marker (strictly greater Level of Control than the opponent)",
+    "effect": "Sets the existing sticky_objective profile flag True for astra_militarum_cadian_shock_troops via data/overrides.json, honoured by default (key-scoped guard in code/bsdata/loader.py _apply_override; SWEG_AM_STICKY_CADIAN=0 is the byte-identical kill-switch that leaves sticky_objective=False, identical to the flag being absent). With the gate on, the simulator's _score_objectives sticky mechanic (simulator.py ~1058-1211) records the unit as sticky when it wins the objective, persists ownership across rounds even after the unit leaves, and clears it only when an opposing unit takes strictly-greater Level of Control. Same machinery as Necron Warriors (Their Number Is Legion) and Genestealer Cults Acolyte Hybrids (Cult Ambush). Approximation: the profile flag treats sticky as permanent-while-flagged rather than re-checking the within-range-at-end-of-Command-phase condition each round, matching the existing simulator.sticky_objective approximation.",
+    "scope": "keyword-gated",
+    "approximation": true
+  },
+
   "COMBINED_REGIMENT.am_born_soldiers_lethal_hits": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Born Soldiers (Combined Arms Detachment Rule)",
@@ -107,6 +117,16 @@
     "quoted_text": "Improve the Save characteristic of models in this unit by 1 (this cannot improve a model's Save to better than 3+).",
     "trigger": "Order issued by an AM OFFICER during the Command phase to an eligible REGIMENT or SQUADRON target within 6\"",
     "effect": "sets `Unit.transient_plus_one_save` on the target for the round (Unit.attack reads the flag when computing save_after_ap and lowers the save target by 1, capped at 2+ via the existing transient_plus_one_save plumbing). APPROXIMATION: the codex caps at 3+, SwegHammer's flag caps at 2+ — the wider cap rarely binds for AM REGIMENT units (saves are 5+/4+ across Cadians/Krieg/Catachan/Kasrkin/Scions). The AI picks Take Cover! when the target has lost more than 20% of starting HP (defensive priority)",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Order.Duty and Honour!": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Duty and Honour! (Astra Militarum Order)",
+    "quoted_text": "Improve the Leadership and Objective Control characteristics of models in this unit by 1.",
+    "trigger": "Order issued by an AM OFFICER during the Command phase to an eligible REGIMENT or SQUADRON target within 6\" that is sitting on / contesting an objective marker",
+    "effect": "sets `Unit.transient_plus_one_oc` on the target for the round; `Battle._effective_oc` reads the flag (behind SWEG_AM_DUTY_AND_HONOUR) and adds 1 to each model's Objective Control before the damaged-bracket reduction. APPROXIMATION: the codex Order also improves Leadership by 1, but Leadership is not read by any scoring path in the simulator, so only the Objective Control half is modelled. The AI dispatcher picks this Order ahead of the offensive Orders when the target squad has at least one alive member within an objective's control_radius",
     "scope": "phase-gated",
     "approximation": true
   },
