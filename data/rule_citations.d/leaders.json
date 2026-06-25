@@ -479,8 +479,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/K-hl",
     "rule_name": "Kindred Hero",
     "quoted_text": "While this model is leading a unit, weapons equipped by models in that unit have the [LETHAL HITS] ability.",
-    "trigger": "attacker's unit is led by a Leagues of Votann Kâhl in aura range",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Kindred Hero grants LETHAL HITS to all weapons in the led unit — Critical Hits auto-wound. The simulator does not model the LETHAL HITS keyword. VOTANN-JUDGEMENT-TOKENS-V1 (2026-05-28) downgraded the earlier +1-to-hit proxy to re-roll Hit 1s: on a BS4+ shooter LETHAL HITS yields ~+17% wounds, the +1-to-hit proxy yielded ~+33% wounds — a roughly 2× over-buff. Re-roll Hit 1s matches LETHAL HITS magnitude on BS4+ and is strictly weaker on melee against high-T targets, erring on the under-buff side)",
+    "trigger": "attacker's unit is led by a Leagues of Votann Kâhl in aura range (host_keys: Hearthkyn Warriors or Einhyr Hearthguard)",
+    "effect": "the led unit's weapons (ranged AND melee) gain the [LETHAL HITS] ability — a Critical Hit (natural 6 to Hit) automatically wounds. Implemented via lethal_hits_ranged=True (consumed code/units.py attack() ranged side, mode != 'melee' guard) and lethal_hits_melee=True (consumed code/units.py attack() melee side, mode == 'melee' guard), both gated by SWEG_VOTANN_KAHL_LETHAL (default-OFF). host_keys gates the aura to the Kâhl's two legal attach targets: Hearthkyn Warriors and Einhyr Hearthguard. When the gate is OFF the entry falls back to the prior reroll_hit_ones proxy (re-roll Hit rolls of 1) on Hearthkyn Warriors only. NOTE: turning the gate ON removes the led Hearthkyn's re-roll-1s, so it pairs with the rank-11 native re-roll-1s lever.",
     "scope": "unit-led"
   },
 

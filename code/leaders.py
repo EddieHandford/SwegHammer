@@ -160,6 +160,11 @@ class LeaderAbility:
     sustained_hits_melee: int = 0
     # Galvanic Field (AdMech Manipulus): led unit's ranged weapons gain [LETHAL HITS]
     lethal_hits_ranged: bool = False
+    # Kindred Hero (Leagues of Votann Kâhl): led unit's MELEE weapons gain
+    # [LETHAL HITS]. Mirrors lethal_hits_ranged for the melee half (the Kâhl
+    # grant covers all weapons). Consumed in code/units.py attack() on the
+    # melee side (mode == "melee" guard) alongside p.melee_lethal_hits.
+    lethal_hits_melee: bool = False
     extra_invuln: int = 7                   # 7 = none
     fnp: int = 7                            # 7 = none
     # End-of-round healing: restore N HP to the nearest wounded friendly in
@@ -381,6 +386,12 @@ _TAU_CMD_FIX = os.environ.get("SWEG_TAU_CMD", "1") != "0"
 # the fabrication onto the core squad. It is handled in a separate wave.
 # Set SWEG_CSM_LEADERS=0 to revert to the prior (mis-routed) host_keys for the A/B.
 _CSM_LEADER_FIX = os.environ.get("SWEG_CSM_LEADERS", "1") != "0"
+# VOTANN-KAHL-LETHAL (rank-7 lever, default OFF). When True, the Kâhl's
+# Kindred Hero aura switches from the reroll_hit_ones proxy to the real
+# [LETHAL HITS] grant (ranged + melee) and widens host_keys to include
+# Einhyr Hearthguard. OFF is byte-identical to the prior single-host
+# reroll_hit_ones entry. Cited as `LeaderAbility.Warrior-Forged Leadership`.
+_VOTANN_KAHL_LETHAL_GATE: bool = os.environ.get("SWEG_VOTANN_KAHL_LETHAL", "0") == "1"
 _CSM_APOSTLE_HOSTS = (
     ("chaos_space_marines_legionaries", "chaos_space_marines_chosen",
      "chaos_space_marines_cultist_mob")
@@ -1360,8 +1371,22 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # change feeds through the most-played unit. Cited as
     # `LeaderAbility.Warrior-Forged Leadership`.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/K-hl
-    ("Kâhl",               LeaderAbility(name="Warrior-Forged Leadership",  aura_range=6.0, reroll_hit_ones=True,
-                                          host_keys=("leagues_of_votann_hearthkyn_warriors",))),
+    #
+    # VOTANN-KAHL-LETHAL (rank-7 lever, gate SWEG_VOTANN_KAHL_LETHAL default-OFF):
+    # corrects the reroll_hit_ones proxy to the real Kindred Hero [LETHAL HITS]
+    # grant (ranged + melee), and widens the legal host list to the Kâhl's two
+    # Wahapedia attach targets (Hearthkyn Warriors + Einhyr Hearthguard).
+    # rule_name stays "Warrior-Forged Leadership". OFF: byte-identical to the
+    # prior single-host reroll_hit_ones entry. NOTE: ON removes the led
+    # Hearthkyn's re-roll-1s — pairs with the rank-11 native re-roll-1s lever.
+    ("Kâhl",               LeaderAbility(name="Warrior-Forged Leadership",  aura_range=6.0,
+                                          reroll_hit_ones=(not _VOTANN_KAHL_LETHAL_GATE),
+                                          lethal_hits_ranged=_VOTANN_KAHL_LETHAL_GATE,
+                                          lethal_hits_melee=_VOTANN_KAHL_LETHAL_GATE,
+                                          host_keys=(("leagues_of_votann_hearthkyn_warriors",
+                                                      "leagues_of_votann_einhyr_hearthguard")
+                                                     if _VOTANN_KAHL_LETHAL_GATE
+                                                     else ("leagues_of_votann_hearthkyn_warriors",)))),
 )
 
 # ---------------------------------------------------------------------------
@@ -1591,6 +1616,10 @@ _NEUTRAL_BUFFS: Dict[str, object] = {
     # [LETHAL HITS]. Default False; only True when a Tech-Priest Manipulus is
     # alive and leading the single host_keys-gated unit (Kataphron Destroyers).
     "lethal_hits_ranged": False,
+    # Kindred Hero (Votann Kâhl) — led unit's melee weapons gain [LETHAL HITS].
+    # Default False; only True when a Kâhl with lethal_hits_melee=True is
+    # leading a host_keys-gated unit (gate SWEG_VOTANN_KAHL_LETHAL).
+    "lethal_hits_melee": False,
 }
 
 
@@ -2009,6 +2038,9 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         # Galvanic Field (AdMech Manipulus) — led unit's ranged weapons gain
         # [LETHAL HITS]. Boolean OR (the grant is binary, not stacking).
         _merge_bool(buffs, ability, "lethal_hits_ranged")
+        # Kindred Hero (Votann Kâhl) — led unit's melee weapons gain
+        # [LETHAL HITS]. Boolean OR (binary, not stacking).
+        _merge_bool(buffs, ability, "lethal_hits_melee")
 
     # 10e Enhancements (Warlord upgrades). Each in-range friendly CHARACTER
     # may carry one Enhancement; if it does, OR-merge the aura modifier

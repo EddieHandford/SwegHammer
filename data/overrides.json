@@ -797,7 +797,8 @@
     },
     "leagues_of_votann_hearthkyn_warriors": {
       "range_inches": 18,
-      "notes": "Ion Blaster (mapper-selected primary, x9 on loadout) range corrected to 18\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Autoch-pattern Bolt Pistol 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hearthkyn-Warriors"
+      "votann_native_reroll_ranged": true,
+      "notes": "Ion Blaster (mapper-selected primary, x9 on loadout) range corrected to 18\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Autoch-pattern Bolt Pistol 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hearthkyn-Warriors | Panspectral Scanning native re-roll-a-Hit-roll-of-1 (ranged), behind SWEG_VOTANN_NATIVE_REROLL. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/Hearthkyn-Warriors"
     },
     "leagues_of_votann_sagitaur": {
       "strength": 14,
@@ -806,7 +807,12 @@
     "leagues_of_votann_hekaton_land_fortress": {
       "strength": 14,
       "weapon_damage_per_shot": 6,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Hekaton primary ranged basket at S18 D7.5 Ã¢â¬â strength 18 does not appear on any Hekaton weapon and was a mapper composite. Real primary is the SP heavy conversion beamer: A D6 S14 AP-3 D6 [HEAVY]. Restoring S14 D6. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hekaton-Land-Fortress"
+      "votann_native_reroll_ranged": true,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Hekaton primary ranged basket at S18 D7.5 Ã¢â¬â strength 18 does not appear on any Hekaton weapon and was a mapper composite. Real primary is the SP heavy conversion beamer: A D6 S14 AP-3 D6 [HEAVY]. Restoring S14 D6. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hekaton-Land-Fortress | Panspectral Scanner native re-roll-a-Hit-roll-of-1 (ranged), behind SWEG_VOTANN_NATIVE_REROLL. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/Hekaton-Land-Fortress | MultiCOG Targeting: each time this model makes a ranged attack, ignore modifiers to Ballistic Skill and Hit roll - implemented as faction+name guard in Unit.attack, ranged only, behind SWEG_VOTANN_HEKATON_MULTICOG. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/Hekaton-Land-Fortress"
+    },
+    "leagues_of_votann_einhyr_hearthguard": {
+      "votann_native_reroll_ranged": true,
+      "notes": "Decisive Destruction native re-roll-a-Hit-roll-of-1 on ranged attacks vs the closest eligible target (restriction dropped as a documented approximation - Unit.attack has no closest-target signal), behind SWEG_VOTANN_NATIVE_REROLL. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/Einhyr-Hearthguard"
     },
     "t_au_empire_strike_team": {
       "range_inches": 30,

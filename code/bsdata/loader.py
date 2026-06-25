@@ -107,6 +107,14 @@ class CatalogEntry:
     # Adepta Sororitas unit) is a follow-up code build. Cited as
     # `simulator.storm_of_retribution`.
     storm_of_retribution: bool = False
+    # Leagues of Votann native re-roll-Hit-roll-of-1 on ranged attacks
+    # (override-only flag; not a mapper output). Models the per-datasheet
+    # printed abilities Panspectral Scanning (Hearthkyn Warriors),
+    # Panspectral Scanner (Hekaton Land Fortress) and Decisive Destruction
+    # (Einhyr Hearthguard). Set via overrides.json; read at the ranged hit
+    # step in code/units.py Unit.attack behind SWEG_VOTANN_NATIVE_REROLL.
+    # Cited as `simulator.votann_native_reroll_ranged`.
+    votann_native_reroll_ranged: bool = False
     rapid_fire: int = 0
     melta: int = 0
     ignores_cover: bool = False
@@ -352,6 +360,7 @@ class CatalogEntry:
             csm_despoilers=bool(d.get("csm_despoilers", False)),
             csm_unholy_bloodshed=bool(d.get("csm_unholy_bloodshed", False)),
             storm_of_retribution=bool(d.get("storm_of_retribution", False)),
+            votann_native_reroll_ranged=bool(d.get("votann_native_reroll_ranged", False)),
             rapid_fire=int(d.get("rapid_fire", 0)),
             melta=int(d.get("melta", 0)),
             ignores_cover=bool(d.get("ignores_cover", False)),
@@ -619,6 +628,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "csm_despoilers": override.get("csm_despoilers", base.csm_despoilers),
         "csm_unholy_bloodshed": override.get("csm_unholy_bloodshed", base.csm_unholy_bloodshed),
         "storm_of_retribution": override.get("storm_of_retribution", base.storm_of_retribution),
+        "votann_native_reroll_ranged": override.get("votann_native_reroll_ranged", base.votann_native_reroll_ranged),
         "rapid_fire": override.get("rapid_fire", base.rapid_fire),
         "melta": override.get("melta", base.melta),
         "ignores_cover": override.get("ignores_cover", base.ignores_cover),

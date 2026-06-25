@@ -522,6 +522,14 @@ class UnitProfile:
     # (+1 to Hit/Wound vs an enemy that killed a friendly Adepta Sororitas unit)
     # is a follow-up code build. Cited as `simulator.storm_of_retribution`.
     storm_of_retribution: bool = False
+    # Leagues of Votann native re-roll-a-Hit-roll-of-1 on ranged attacks
+    # (override-only, per-datasheet). Panspectral Scanning (Hearthkyn),
+    # Panspectral Scanner (Hekaton), Decisive Destruction (Einhyr — the
+    # codex restricts that one to the closest eligible target; see the
+    # read-site comment for the documented approximation). Read in
+    # Unit.attack when mode != 'melee' behind SWEG_VOTANN_NATIVE_REROLL.
+    # Cited as `simulator.votann_native_reroll_ranged`.
+    votann_native_reroll_ranged: bool = False
     # CSM Forgefiend datasheet ability "Daemonic Ordnance" (10e): each time
     # this model is selected to shoot, it can use this ability. If it does,
     # until the end of the phase, its ranged weapons have the [DEVASTATING
@@ -2285,7 +2293,27 @@ class Unit:
                 _gthr = getattr(self.profile, "damaged_threshold", 0) or 0
                 _ghp = getattr(self.profile, "damaged_hit_penalty", 0) or 0
                 if _gthr and _ghp and self.current_health <= _gthr:
-                    hit_mod_delta -= _ghp
+                    # ---- Leagues of Votann Hekaton Land Fortress — MultiCOG Targeting
+                    # (datasheet ability, 10e). Wahapedia verbatim: "Each time this model
+                    # makes a ranged attack, you can ignore any or all modifiers to the
+                    # following: that attack's Ballistic Skill characteristic; the Hit
+                    # roll." The model therefore ignores its OWN damaged-bracket -1-to-Hit
+                    # on RANGED attacks (you always elect to ignore the negative modifier).
+                    # SCOPE: ranged-only (the ability reads "makes a ranged attack"), so
+                    # the damaged penalty STILL applies to the Hekaton's melee (Armoured
+                    # wheels). Gated SWEG_VOTANN_HEKATON_MULTICOG — ADOPTED
+                    # default-on (wave 257, data-correctness fidelity fix, metric-
+                    # inert); SWEG_VOTANN_HEKATON_MULTICOG=0 restores the original
+                    # `hit_mod_delta -= _ghp` byte-identically. Cited
+                    # `simulator.hekaton_multicog_targeting`.
+                    _multicog = (
+                        mode != "melee"
+                        and (p.faction or "") == "Leagues of Votann"
+                        and getattr(p, "name", "") == "Hekaton Land Fortress"
+                        and __import__("os").environ.get("SWEG_VOTANN_HEKATON_MULTICOG", "1") != "0"
+                    )
+                    if not _multicog:
+                        hit_mod_delta -= _ghp
 
             # ---- Buffs: +1 to hit / +1 to wound (any of leader aura, detachment,
             # enhancement — all merged to a single bool by leaders.effective_buffs).
@@ -3564,6 +3592,35 @@ class Unit:
                 att_reroll_hit_ones = True
                 att_reroll_wound_ones = True
 
+            # Leagues of Votann native per-datasheet re-roll-a-Hit-roll-of-1
+            # on ranged attacks (Panspectral Scanning / Panspectral Scanner /
+            # Decisive Destruction). Verbatim (Wahapedia, see
+            # data/rule_citations.d/votann.json simulator.votann_native_reroll_ranged):
+            # Hearthkyn/Hekaton "Each time a model in this unit makes a ranged
+            # attack, re-roll a Hit roll of 1." Ranged-only via mode != 'melee'.
+            # Einhyr Decisive Destruction adds 'that targets the closest
+            # eligible target' — DOCUMENTED APPROXIMATION: Unit.attack has no
+            # closest-target signal, so we apply it unconditionally to the
+            # Einhyr key (a moderate, deliberate over-credit, following the
+            # established Combat Debarkation precedent). Composes by OR with
+            # detachment/leader re-roll-ones (one re-roll per die).
+            # `and not overwatch_attack` is required: during overwatch fire
+            # re-roll of Hit 1s is suppressed (the overwatch guard above
+            # zeros att_reroll_hit_ones at ~line 3517). This block sits after
+            # that guard, so we must not re-set it for overwatch shots.
+            # COMPLEMENTS rank 7 (Kahl [LETHAL HITS]) — a led Hearthkyn unit
+            # that gains [LETHAL HITS] from the Kahl loses its native re-roll
+            # under the real rules; this unconditional per-unit flag restores
+            # it. ADOPTED default-on (wave 257, Votann +3.77 -> into the noise
+            # band of real 48.0); SWEG_VOTANN_NATIVE_REROLL=0 is the kill-switch.
+            if (
+                mode != "melee"
+                and getattr(p, "votann_native_reroll_ranged", False)
+                and not overwatch_attack
+                and __import__("os").environ.get("SWEG_VOTANN_NATIVE_REROLL", "1") != "0"
+            ):
+                att_reroll_hit_ones = True
+
             # Drukhari Power From Pain (10e codex, wave 246): the army rule
             # grants LETHAL HITS per activation by SPENDING 1 Pain token from
             # the army-level pool (army.pain_token_pool). The spend fires in
@@ -3603,6 +3660,14 @@ class Unit:
             # attached unit (Kataphron Destroyers). Cited as
             # LeaderAbility.Galvanic Field.
             if mode != "melee" and att_buffs.get("lethal_hits_ranged"):
+                effective_lethal_hits = True
+            # Kindred Hero (Leagues of Votann Kâhl) — "weapons equipped by
+            # models in that unit have the [LETHAL HITS] ability." Melee half
+            # (the ranged half is the att_buffs.get("lethal_hits_ranged") block
+            # above). att_buffs is composed by effective_buffs(); host_keys
+            # gates the aura to the led unit. Cited as
+            # LeaderAbility.Warrior-Forged Leadership.
+            if mode == "melee" and att_buffs.get("lethal_hits_melee"):
                 effective_lethal_hits = True
             # World Eaters Blood Tithe — 4-BT spend grants [LETHAL HITS] on a
             # WE unit for the phase. SwegHammer collapses "this phase" to "this
@@ -5117,6 +5182,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             csm_despoilers=entry.csm_despoilers,
             csm_unholy_bloodshed=entry.csm_unholy_bloodshed,
             storm_of_retribution=entry.storm_of_retribution,
+            votann_native_reroll_ranged=entry.votann_native_reroll_ranged,
             rapid_fire=entry.rapid_fire,
             melta=entry.melta,
             ignores_cover=entry.ignores_cover,
