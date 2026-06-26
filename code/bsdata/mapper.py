@@ -2063,6 +2063,15 @@ class MappedUnit:
     # `simulator.fights_first_keyword`. Real 10e datasheets with this
     # keyword: Wyches, Howling Banshees, Custodian Wardens, Mandrakes, etc.
     fights_first: bool = False
+    # WAVE-260 — World Eaters "Blessings of Khorne" army-rule ability carrier
+    # flag. True iff the datasheet carries the Blessings of Khorne ability
+    # infoLink (parsed via `extract_blessings_of_khorne`). The army rule only
+    # buffs "units from your army WITH THIS ABILITY", so Khorne Daemon allies
+    # (Bloodletters, Flesh Hounds, Bloodcrushers) read False and are excluded
+    # by the gated read in Unit.attack. Default True so non-World-Eaters units
+    # (which never reach the faction-gated read) and any pre-regen profile
+    # stay permissive. Cited as `simulator.blessings_of_khorne`.
+    has_blessings_of_khorne: bool = True
     # Phase I — deployment abilities (parsed from unit-level infoLinks)
     deep_strike: bool = False                     # starts in Reserves; arrives turn 2+
     scout_distance: int = 0                       # pre-game Normal Move up to N"
@@ -2514,6 +2523,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     stealth = extract_stealth(entry, reg)
     lone_operative = extract_lone_operative(entry, reg)
     fights_first = extract_fights_first(entry, reg)
+    has_blessings_of_khorne = extract_blessings_of_khorne(entry, reg)
     deployment = extract_deployment_abilities(entry)
     deadly_demise = extract_deadly_demise(entry)
     firing_deck = extract_firing_deck(entry)
@@ -2660,6 +2670,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         stealth=stealth or primary.stealth,
         lone_operative=lone_operative,
         fights_first=fights_first,
+        has_blessings_of_khorne=has_blessings_of_khorne,
         damaged_threshold=dmg_threshold,
         damaged_oc_penalty=dmg_oc_pen,
         damaged_hit_penalty=dmg_hit_pen,
@@ -3453,6 +3464,37 @@ def extract_fights_first(entry: ET.Element, reg: Registry) -> bool:
     # positives from descriptive sentences.
     for ch in entry.findall(".//characteristic"):
         if ch.text and "FIGHTS FIRST" in ch.text:
+            return True
+    return False
+
+
+def extract_blessings_of_khorne(entry: ET.Element, reg: Registry) -> bool:
+    """True iff the datasheet carries the World Eaters "Blessings of Khorne"
+    army-rule ability.
+
+    WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 2). The
+    Blessings of Khorne army rule applies its activated Blessings only to
+    "all units from your army WITH THIS ABILITY" — i.e. only to datasheets
+    that actually carry the Blessings of Khorne ability. World Eaters lists
+    can field Khorne Daemon allies (Bloodletters, Flesh Hounds,
+    Bloodcrushers) which do NOT carry the ability and so do NOT benefit. The
+    simulator's three Blessing legs (melee LETHAL HITS / SUSTAINED HITS /
+    AP+1) previously gated on `p.faction == 'World Eaters'` alone, over-
+    crediting those daemon allies.
+
+    BSData publishes Blessings of Khorne as a shared-rule infoLink named
+    "Blessings of Khorne" attached to each eligible datasheet (verified in
+    data/bsdata/cache/Chaos - World Eaters.cat.gz — ~30 native World Eaters
+    datasheets carry it; the three daemon-ally datasheets do not). Detection
+    mirrors `extract_lone_operative` / `extract_fights_first`: scan the
+    structured infoLink / profile shapes only, never free-form prose. Cited
+    as `simulator.blessings_of_khorne`.
+    """
+    for il in entry.findall(".//infoLink"):
+        if (il.get("name") or "").strip().lower() == "blessings of khorne":
+            return True
+    for prof in entry.findall(".//profile"):
+        if (prof.get("name") or "").strip().lower() == "blessings of khorne":
             return True
     return False
 

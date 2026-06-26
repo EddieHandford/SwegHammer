@@ -590,6 +590,15 @@ class UnitProfile:
     # BSData by the mapper via `extract_fights_first`. Cited as
     # `simulator.fights_first_keyword`.
     fights_first: bool = False
+    # WAVE-260 — World Eaters "Blessings of Khorne" army-rule ability carrier.
+    # True iff the datasheet carries the Blessings of Khorne ability infoLink
+    # (parsed by the mapper via `extract_blessings_of_khorne`). The army rule
+    # only buffs "units from your army WITH THIS ABILITY", so Khorne Daemon
+    # allies (Bloodletters, Flesh Hounds, Bloodcrushers) read False and are
+    # excluded by the gated read in Unit.attack (SWEG_WE_BLESSINGS_ABILITY_GATE).
+    # Default True so non-World-Eaters / pre-regen profiles stay permissive
+    # (the read is faction-gated). Cited as `simulator.blessings_of_khorne`.
+    has_blessings_of_khorne: bool = True
     # Phase I — deployment abilities (decided pre-Round 1 by the simulator)
     deep_strike: bool = False                  # starts in Reserves; arrives from Round 2
     scout_distance: int = 0                    # pre-game Normal Move up to N inches
@@ -1566,6 +1575,20 @@ class Unit:
         # consult and set. Unset/"1" (the default) uses the codex-correct
         # per-phase flag; "0" reverts to the legacy per-round flag.
         _aof_per_phase: bool = __import__("os").environ.get("SWEG_AOF_PER_PHASE", "1") == "1"
+        # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 2, gated
+        # SWEG_WE_BLESSINGS_ABILITY_GATE, default-off pending wave-260 screen).
+        # When set, the three World Eaters Blessings of Khorne legs below
+        # (Cleaving Blows melee AP+1, Warp Blades melee LETHAL HITS, Martial
+        # Excellence melee SUSTAINED HITS 1) additionally require
+        # p.has_blessings_of_khorne, so Khorne Daemon allies that carry no
+        # Blessings of Khorne ability infoLink (Bloodletters, Flesh Hounds,
+        # Bloodcrushers) are excluded — the cited rule applies only to "units
+        # from your army WITH THIS ABILITY". Default-off leaves the existing
+        # faction-only gating byte-identical. Cited as
+        # `simulator.blessings_of_khorne`.
+        _blessings_ability_gate: bool = os.environ.get(
+            "SWEG_WE_BLESSINGS_ABILITY_GATE", "0",
+        ) == "1"
 
         # ---- Buff lookups (detachment + in-range leader auras) -------------
         # Attacker side: detachment passives + every in-range friendly leader
@@ -2170,7 +2193,18 @@ class Unit:
             # round. AP+1 maps to subtracting 1 from `ap` (AP-1 -> AP-2
             # etc.) — same convention as SHIELD_HOST.melee_ap_plus_one.
             # Cited as `simulator.blessings_of_khorne`.
-            if mode == "melee" and p.faction == "World Eaters":
+            #
+            # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 2,
+            # gated SWEG_WE_BLESSINGS_ABILITY_GATE, default-off pending wave-260
+            # screen). The cited rule applies "to all units from your army WITH
+            # THIS ABILITY", so Khorne Daemon allies that carry no Blessings of
+            # Khorne infoLink (Bloodletters, Flesh Hounds, Bloodcrushers) must
+            # NOT benefit. The faction-only gate over-credits them. When the
+            # gate is ON, additionally require p.has_blessings_of_khorne; OFF
+            # leaves the faction-only behaviour byte-identical.
+            if mode == "melee" and p.faction == "World Eaters" and (
+                not _blessings_ability_gate or p.has_blessings_of_khorne
+            ):
                 _own_army_cb = getattr(self, "army_ref", None)
                 if _own_army_cb is not None:
                     _cb_round = getattr(
@@ -3757,10 +3791,16 @@ class Unit:
             # AND the army's `blessings_warp_blades_round` stamp matches the
             # current battle round. Composes with `p.lethal_hits` via OR.
             # Cited as `simulator.blessings_of_khorne`.
+            #
+            # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 2,
+            # gated SWEG_WE_BLESSINGS_ABILITY_GATE, default-off). When ON,
+            # additionally require p.has_blessings_of_khorne so Khorne Daemon
+            # allies without the ability are excluded; OFF byte-identical.
             if (
                 mode == "melee"
                 and p.faction == "World Eaters"
                 and not effective_lethal_hits
+                and (not _blessings_ability_gate or p.has_blessings_of_khorne)
             ):
                 _own_army_bok = getattr(self, "army_ref", None)
                 if _own_army_bok is not None:
@@ -3998,7 +4038,14 @@ class Unit:
             # `melee_sustained_hits` already on the profile, matching the
             # WAR_HORDE compositional convention. Cited as
             # `simulator.blessings_of_khorne`.
-            if mode == "melee" and p.faction == "World Eaters":
+            #
+            # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 2,
+            # gated SWEG_WE_BLESSINGS_ABILITY_GATE, default-off). When ON,
+            # additionally require p.has_blessings_of_khorne so Khorne Daemon
+            # allies without the ability are excluded; OFF byte-identical.
+            if mode == "melee" and p.faction == "World Eaters" and (
+                not _blessings_ability_gate or p.has_blessings_of_khorne
+            ):
                 _own_army_me = getattr(self, "army_ref", None)
                 if _own_army_me is not None:
                     _me_round = getattr(
@@ -5278,6 +5325,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             stealth=entry.stealth,
             lone_operative=entry.lone_operative,
             fights_first=getattr(entry, "fights_first", False),
+            has_blessings_of_khorne=getattr(entry, "has_blessings_of_khorne", True),
             deep_strike=entry.deep_strike,
             scout_distance=entry.scout_distance,
             infiltrator=entry.infiltrator,

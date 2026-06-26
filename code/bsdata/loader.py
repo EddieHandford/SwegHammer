@@ -150,6 +150,13 @@ class CatalogEntry:
     # of the Fight phase. Parsed from BSData "Fights First" infoLinks /
     # inline profiles. Cited as `simulator.fights_first_keyword`.
     fights_first: bool = False
+    # WAVE-260 — World Eaters "Blessings of Khorne" army-rule ability carrier.
+    # True iff the datasheet carries the Blessings of Khorne infoLink. Khorne
+    # Daemon allies (Bloodletters, Flesh Hounds, Bloodcrushers) read False and
+    # are excluded by the gated read in Unit.attack. Default True so non-World-
+    # Eaters / pre-regen profiles stay permissive (the read is faction-gated).
+    # Cited as `simulator.blessings_of_khorne`.
+    has_blessings_of_khorne: bool = True
     # Phase I — deployment abilities
     deep_strike: bool = False
     scout_distance: int = 0
@@ -380,6 +387,7 @@ class CatalogEntry:
             stealth=bool(d.get("stealth", False)),
             lone_operative=bool(d.get("lone_operative", False)),
             fights_first=bool(d.get("fights_first", False)),
+            has_blessings_of_khorne=bool(d.get("has_blessings_of_khorne", True)),
             deep_strike=bool(d.get("deep_strike", False)),
             scout_distance=int(d.get("scout_distance", 0)),
             infiltrator=bool(d.get("infiltrator", False)),
@@ -648,6 +656,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "stealth": override.get("stealth", base.stealth),
         "lone_operative": override.get("lone_operative", base.lone_operative),
         "fights_first": override.get("fights_first", base.fights_first),
+        "has_blessings_of_khorne": override.get("has_blessings_of_khorne", base.has_blessings_of_khorne),
         "deep_strike": override.get("deep_strike", base.deep_strike),
         "scout_distance": override.get("scout_distance", base.scout_distance),
         "infiltrator": override.get("infiltrator", base.infiltrator),
