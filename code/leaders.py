@@ -166,7 +166,15 @@ class LeaderAbility:
     # melee side (mode == "melee" guard) alongside p.melee_lethal_hits.
     lethal_hits_melee: bool = False
     extra_invuln: int = 7                   # 7 = none
-    fnp: int = 7                            # 7 = none
+    fnp: int = 7                            # 7 = none; fires on ALL incoming damage
+    # SWEG_DG_TYPHUS_MELEE_ONLY — Typhus "The Destroyer Hive" melee-only gate.
+    # When this gate is ON the Typhus leader entry switches from `fnp=5` to
+    # `fnp_melee_only=5` so the defensive feel-no-pain proxy only fires on
+    # melee attacks targeting the led unit. Gate OFF keeps `fnp=5` (current
+    # all-damage behaviour, byte-identical). Consumed via tgt_buffs in
+    # code/units.py Unit.attack. See docs/OVERPOLE_UNIT_AUDIT.md rank 3
+    # and rule_citations.d/leaders.json `LeaderAbility.The Destroyer Hive`.
+    fnp_melee_only: int = 7                 # 7 = none; fires on MELEE damage only
     # End-of-round healing: restore N HP to the nearest wounded friendly in
     # aura range (or to the leader itself if none are wounded).
     heal_per_round: int = 0
@@ -392,6 +400,18 @@ _CSM_LEADER_FIX = os.environ.get("SWEG_CSM_LEADERS", "1") != "0"
 # Einhyr Hearthguard. OFF is byte-identical to the prior single-host
 # reroll_hit_ones entry. Cited as `LeaderAbility.Warrior-Forged Leadership`.
 _VOTANN_KAHL_LETHAL_GATE: bool = os.environ.get("SWEG_VOTANN_KAHL_LETHAL", "0") == "1"
+
+# SWEG_DG_TYPHUS_MELEE_ONLY — wave-260 over-pole scope fix for Typhus
+# "The Destroyer Hive" (docs/OVERPOLE_UNIT_AUDIT.md rank 3,
+# rule_citations.d/leaders.json key `LeaderAbility.The Destroyer Hive`).
+# The cited rule subtracts 1 from the Hit roll on MELEE attacks targeting
+# the led unit; the current `fnp=5` proxy fires on ALL incoming damage
+# (ranged and melee), over-crediting the ranged defence. Gate ON: switch
+# to `fnp_melee_only=5` so the proxy is gated to melee attacks only.
+# Gate OFF (default): current `fnp=5` all-damage behaviour, byte-identical.
+# Default-off pending wave-260 screen.
+_DG_TYPHUS_MELEE_ONLY: bool = os.environ.get("SWEG_DG_TYPHUS_MELEE_ONLY", "0") == "1"
+
 _CSM_APOSTLE_HOSTS = (
     ("chaos_space_marines_legionaries", "chaos_space_marines_chosen",
      "chaos_space_marines_cultist_mob")
@@ -1279,7 +1299,14 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           first_stratagem_free_per_round=True,
                                           host_keys=("death_guard_blightlord_terminators",
                                                      "death_guard_deathshroud_terminators"))),
-    ("Typhus",             LeaderAbility(name="The Destroyer Hive",         aura_range=6.0, fnp=5,
+    # SWEG_DG_TYPHUS_MELEE_ONLY (wave-260, default-off): gate ON switches
+    # fnp=5 (all incoming damage) → fnp_melee_only=5 (melee attacks only) to
+    # match the "The Destroyer Hive" rule which subtracts 1 from Hit rolls on
+    # MELEE attacks targeting the led unit only. See docs/OVERPOLE_UNIT_AUDIT.md
+    # rank 3 and rule_citations.d/leaders.json `LeaderAbility.The Destroyer Hive`.
+    ("Typhus",             LeaderAbility(name="The Destroyer Hive",         aura_range=6.0,
+                                          fnp=5 if not _DG_TYPHUS_MELEE_ONLY else 7,
+                                          fnp_melee_only=5 if _DG_TYPHUS_MELEE_ONLY else 7,
                                           host_keys=("death_guard_plague_marines",))),
     # Grey Knights — Brother-Captain pinned to the registry head above to
     # prevent substring-collision with the generic Marines "Captain"
@@ -1590,6 +1617,9 @@ _NEUTRAL_BUFFS: Dict[str, object] = {
     "plus_one_save": False,
     "extra_invuln": 7,
     "fnp": 7,
+    # SWEG_DG_TYPHUS_MELEE_ONLY — melee-only feel-no-pain proxy for Typhus'
+    # "The Destroyer Hive". Default 7 (no effect). See LeaderAbility.fnp_melee_only.
+    "fnp_melee_only": 7,
     # LEADERABILITY-SCHEMA: three new Greater Daemon locus fields (see
     # LeaderAbility dataclass docstring for derivation). Defaults False so
     # the buff dict matches every existing call site that consumes it via
@@ -2011,6 +2041,8 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         _merge_add(buffs, ability, "plus_one_attack")
         _merge_min(buffs, ability, "extra_invuln")
         _merge_min(buffs, ability, "fnp")
+        # SWEG_DG_TYPHUS_MELEE_ONLY: melee-only feel-no-pain proxy (Typhus gate).
+        _merge_min(buffs, ability, "fnp_melee_only")
         # LEADERABILITY-SCHEMA: Greater Daemon locus fields. Booleans OR
         # together — multiple loci of the same type don't stack numerically
         # in 10e (you either get +1 S / +1 T / +1 AP from a locus or you

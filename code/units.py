@@ -4558,6 +4558,20 @@ class Unit:
                         continue
 
                     tgt_fnp_buff = int(tgt_buffs["fnp"])
+                    # SWEG_DG_TYPHUS_MELEE_ONLY (wave-260, default-off). Typhus
+                    # "The Destroyer Hive" is a MELEE-only ability (subtracts 1
+                    # from Hit rolls on melee attacks targeting the led unit).
+                    # Gate ON: the leader entry carries `fnp_melee_only=5` instead
+                    # of `fnp=5`; here we take the min of the unconditional fnp
+                    # and the melee-only fnp (the latter only activating when
+                    # mode == 'melee') so ranged attacks against a Typhus-led unit
+                    # no longer receive the feel-no-pain roll.
+                    # Gate OFF: `fnp_melee_only` stays at 7 (no-op), byte-identical.
+                    # See docs/OVERPOLE_UNIT_AUDIT.md rank 3 and
+                    # rule_citations.d/leaders.json `LeaderAbility.The Destroyer Hive`.
+                    _fnp_melee_only = int(tgt_buffs.get("fnp_melee_only", 7))
+                    if mode == "melee" and _fnp_melee_only < tgt_fnp_buff:
+                        tgt_fnp_buff = _fnp_melee_only
                     # MAP-3-FIX — Devastating Wounds basket-fraction gate. The
                     # MAP-3 UNION lets a single specialist weapon (Rubric Marines'
                     # Soulreaper Cannon, AdMech Skitarii Plasma Calivers) tag the

@@ -417,7 +417,7 @@
     "rule_name": "The Destroyer Hive",
     "quoted_text": "While this model is leading a unit, each time a melee attack targets that unit, subtract 1 from the Hit roll.",
     "trigger": "defender's unit is led by Typhus in aura range",
-    "effect": "FNP 5+ in aura range (defensive proxy; the real Destroyer Hive subtracts 1 from Hit rolls on melee attacks against the led unit. SwegHammer's leader-aura layer does not yet expose a melee-only -1-to-hit modifier on the target side, so we proxy the defensive bundle as FNP 5+ — strictly weaker on melee-heavy match-ups but direction-correct. Once a target-side -1-to-hit-melee mechanic lands, swap fnp=5 → hit_penalty_melee=1.)",
+    "effect": "SWEG_DG_TYPHUS_MELEE_ONLY=0 (default, wave-260 gate OFF): feel-no-pain 5+ on ALL incoming damage (fnp=5 in aura range; over-credits ranged defence). SWEG_DG_TYPHUS_MELEE_ONLY=1 (gate ON): feel-no-pain 5+ restricted to MELEE attacks only (fnp_melee_only=5, consumed in code/units.py with mode=='melee' guard at the tgt_fnp_buff composition step), removing the ranged over-credit. The real Destroyer Hive subtracts 1 from Hit rolls on melee attacks targeting the led unit; feel-no-pain 5+ remains a proxy for that melee-defensive bundle. Once a target-side -1-to-hit-melee mechanic lands, swap fnp_melee_only=5 to hit_penalty_melee=1. See docs/OVERPOLE_UNIT_AUDIT.md rank 3.",
     "scope": "unit-led"
   },
 
