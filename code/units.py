@@ -1072,6 +1072,9 @@ class Unit:
         "transient_reroll_wounds_ones",
         "transient_reroll_all_hits",
         "transient_devastating_wounds",
+        "transient_devastating_wounds_vs_infantry",
+        "transient_brides_of_death",
+        "transient_set_melee_attacks",
         "transient_hazardous",
         # Go To Ground (10e core Battle Tactic Stratagem, 1CP, env-gated
         # SWEG_GTG). Defender buff: a targeted INFANTRY unit gains a 6+
@@ -1285,6 +1288,18 @@ class Unit:
         # See simulator._apply_dark_pacts for the grant site.
         self.transient_reroll_all_hits: bool = False
         self.transient_devastating_wounds: bool = False
+        # Drukhari Power From Pain per-datasheet transient flags
+        # (SWEG_DRUKHARI_PFP_PERDATASHEET, default OFF). All three default to
+        # their inert state so the OFF path is byte-identical.
+        # transient_devastating_wounds_vs_infantry: Incubi 'Decapitating
+        #   Strikes' — melee [DEVASTATING WOUNDS] vs INFANTRY targets only.
+        # transient_brides_of_death: Lelith Hesperax 'Brides of Death'
+        #   — +1 Strength and +1 Armour Penetration on melee attacks.
+        # transient_set_melee_attacks: Wracks 'Experimental Enhancements'
+        #   — SET melee Attacks to this fixed value (0 = inactive).
+        self.transient_devastating_wounds_vs_infantry: bool = False
+        self.transient_brides_of_death: bool = False
+        self.transient_set_melee_attacks: int = 0
         # Daemonic Ordnance (Forgefiend datasheet ability): ranged weapons gain
         # [HAZARDOUS] for this shooting activation when the ability is elected.
         # Cleared per-round by _clear_transient_stratagem_flags. See
@@ -2025,6 +2040,24 @@ class Unit:
                 # add is safe. Cited as `simulator.combat_drugs`.
                 n_attacks += int(getattr(self, "combat_drug_extra_melee_attacks", 0))
                 strength += int(getattr(self, "combat_drug_melee_strength_bonus", 0))
+                # ---- Drukhari Power From Pain per-datasheet Pain abilities
+                # (SWEG_DRUKHARI_PFP_PERDATASHEET, default OFF). Set by
+                # _apply_power_from_pain_spend -> _grant_pain_ability on the
+                # Empowered squad. Consumed here; defaults are 0/False on all
+                # units unless the spend sets them, so the OFF path is a no-op.
+                # Lelith Hesperax 'Brides of Death': +1 Strength and +1 Armour
+                # Penetration on melee attacks (improve by 1 each).
+                if getattr(self, "transient_brides_of_death", False):
+                    strength += 1
+                    ap = ap - 1  # lower (more negative) AP = better penetration
+                # Wracks 'Experimental Enhancements': SET melee Attacks to a
+                # fixed value (3). Placed AFTER the combat-drug +Attacks add
+                # so the SET overwrites; faithful because the ability sets a
+                # fixed total, not an additive bonus, and Wracks are not a
+                # WYCH CULT unit (combat-drug adds are 0 for them anyway).
+                _set_atk = int(getattr(self, "transient_set_melee_attacks", 0))
+                if _set_atk > 0:
+                    n_attacks = _set_atk
                 # ---- World Eaters Exalted Eightbound — Rend and Tear (datasheet
                 # ability, BSData v10.6.0 verbatim): "Each time a model in this
                 # unit makes a melee attack that targets a Monster or Vehicle
@@ -4477,6 +4510,17 @@ class Unit:
                     # in simulator._apply_dark_pacts; gated SWEG_CSM_ABILITIES.
                     # Cited as `simulator.csm_unholy_bloodshed`.
                     _transient_dw = getattr(self, "transient_devastating_wounds", False)
+                    # Incubi 'Decapitating Strikes' (SWEG_DRUKHARI_PFP_PERDATASHEET):
+                    # melee [DEVASTATING WOUNDS] only vs INFANTRY targets. Composes
+                    # via OR with the existing unconditional flag. Default False on
+                    # all units so OFF path is byte-identical (dead clause when flag
+                    # is False). Only fires in melee mode against INFANTRY.
+                    if (
+                        mode == "melee"
+                        and getattr(self, "transient_devastating_wounds_vs_infantry", False)
+                        and "INFANTRY" in set(target.profile.unit_keywords or ())
+                    ):
+                        _transient_dw = True
                     # WAVE-244 melee mode-routing — DEVASTATING WOUNDS is a
                     # per-weapon keyword. Pre-wave-244 this read `p.devastating_wounds`
                     # (the ranged-primary field) in the Fight phase too, so a

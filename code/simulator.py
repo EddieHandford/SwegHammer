@@ -3255,6 +3255,13 @@ class Battle:
             # grant; cleared here so it is single-round-scoped.
             u.transient_reroll_all_hits = False
             u.transient_devastating_wounds = False
+            # Drukhari Power From Pain per-datasheet transient flags
+            # (SWEG_DRUKHARI_PFP_PERDATASHEET). Reset every round to match
+            # the codex 'until the end of the phase' scope, collapsed to
+            # round-scoped (same convention as transient_lethal_hits).
+            u.transient_devastating_wounds_vs_infantry = False
+            u.transient_brides_of_death = False
+            u.transient_set_melee_attacks = 0
             u.transient_hazardous = False
             # DRK-SKYSPLINTER-DISEMBARK: Rain of Cruelty disembark-turn
             # keyword grants. Set on disembark by `_disembark` when the
@@ -6922,6 +6929,17 @@ class Battle:
         _pfp_embarked_filter: bool = (
             os.environ.get("SWEG_DRUKHARI_PFP_EMBARKED", "1") != "0"
         )
+        # SWEG_DRUKHARI_PFP_MULTISPEND (adopted default-on, wave 258, rank-5 audit):
+        # Empower MULTIPLE Drukhari units per round (the codex states no
+        # per-phase cap on Empowers) instead of the single highest-DPA
+        # elect-and-exit. Each Empower costs 1 token; a Cronos within 9 inches
+        # may refund the token (Pain Engine aura). SWEG_DRUKHARI_PFP_MULTISPEND=0
+        # is the byte-identical kill-switch (wave-246 single-spend). Cited as
+        # simulator.power_from_pain.pfp_multispend and
+        # simulator.cronos_pain_engine.
+        _pfp_multispend: bool = (
+            os.environ.get("SWEG_DRUKHARI_PFP_MULTISPEND", "1") != "0"
+        )
         for army in (self.a, self.b):
             if army.pain_token_pool <= 0:
                 continue
@@ -6940,24 +6958,133 @@ class Battle:
                 melee = (p.melee_attacks or 0) * (p.melee_hit_probability or 0) * (p.melee_damage_per_shot or 0.0)
                 return ranged + melee
 
-            # Elect the highest-DPA Drukhari unit this round.
-            elected = max(drukhari_units, key=_dpa)
+            if not _pfp_multispend:
+                # ---- OFF PATH (default, byte-identical to wave 246) ----
+                # Elect the highest-DPA Drukhari unit this round.
+                elected = max(drukhari_units, key=_dpa)
 
-            # Dedup via unit budget: one PfP spend per codex unit per round.
-            _squad_id = getattr(elected, "squad_id", -1)
-            _budget_key = _squad_id if _squad_id >= 0 else elected.profile.name
-            if not army.unit_budget_available("pfp", _budget_key):
+                # Dedup via unit budget: one PfP spend per codex unit per round.
+                _squad_id = getattr(elected, "squad_id", -1)
+                _budget_key = _squad_id if _squad_id >= 0 else elected.profile.name
+                if not army.unit_budget_available("pfp", _budget_key):
+                    continue
+                army.mark_unit_budget("pfp", _budget_key)
+
+                # Spend 1 token and grant the Pain ability to the whole squad.
+                army.pain_token_pool -= 1
+                if os.environ.get("SWEG_DRUKHARI_PFP_PERDATASHEET", "1") != "0":
+                    self._grant_pain_ability(elected)
+                else:
+                    self._set_transient_squad(elected, "transient_lethal_hits")
+                if self.verbose:
+                    print(
+                        f"  POWER FROM PAIN: {elected.profile.name} Empowered "
+                        f"(pool now {army.pain_token_pool})"
+                    )
                 continue
-            army.mark_unit_budget("pfp", _budget_key)
 
-            # Spend 1 token and grant transient_lethal_hits to the whole squad.
-            army.pain_token_pool -= 1
-            self._set_transient_squad(elected, "transient_lethal_hits")
-            if self.verbose:
-                print(
-                    f"  POWER FROM PAIN: {elected.profile.name} Empowered "
-                    f"(Lethal Hits, pool now {army.pain_token_pool})"
+            # ---- ON PATH (SWEG_DRUKHARI_PFP_MULTISPEND=1) ----
+            # Alive Cronos models in THIS army (Pain Engine aura sources).
+            _cronos = [
+                u for u in army.alive_units
+                if u.profile.name == "Cronos"
+                and (u.profile.faction or "") == "Drukhari"
+            ]
+            # Empower in descending DPA order, one token each, respecting
+            # the per-codex-unit-per-round dedup. The candidate list is the
+            # already-filtered drukhari_units (battle-shock + embarked filter
+            # already applied above).
+            for elected in sorted(drukhari_units, key=_dpa, reverse=True):
+                if army.pain_token_pool <= 0:
+                    break
+                _squad_id = getattr(elected, "squad_id", -1)
+                _budget_key = _squad_id if _squad_id >= 0 else elected.profile.name
+                if not army.unit_budget_available("pfp", _budget_key):
+                    continue
+                army.mark_unit_budget("pfp", _budget_key)
+                army.pain_token_pool -= 1
+                if os.environ.get("SWEG_DRUKHARI_PFP_PERDATASHEET", "1") != "0":
+                    self._grant_pain_ability(elected)
+                else:
+                    self._set_transient_squad(elected, "transient_lethal_hits")
+                # Cronos Pain Engine: each Empower of a unit within 9 inches of
+                # an alive Cronos rolls 1 D6 (+1 if the Cronos is not equipped
+                # with a spirit vortex — modelled always-true here, the
+                # catalogue Cronos carries no spirit vortex loadout), on a 5+
+                # refund 1 token. The codex rule applies once per Empower.
+                # Cited as simulator.cronos_pain_engine.
+                _ex, _ey = elected.position
+                _near_cronos = any(
+                    abs(c.position[0] - _ex) ** 2 + abs(c.position[1] - _ey) ** 2 <= 81.0
+                    for c in _cronos
                 )
+                if _near_cronos:
+                    _roll = random.randint(1, 6) + 1  # +1: no spirit vortex
+                    if _roll >= 5:
+                        army.pain_token_pool += 1
+                        if self.verbose:
+                            print(
+                                "  POWER FROM PAIN: Cronos Pain Engine refund "
+                                f"(roll {_roll}>=5, pool now "
+                                f"{army.pain_token_pool})"
+                            )
+                if self.verbose:
+                    print(
+                        f"  POWER FROM PAIN: {elected.profile.name} Empowered "
+                        f"(pool now {army.pain_token_pool})"
+                    )
+
+    def _grant_pain_ability(self, unit: "Unit") -> None:  # type: ignore[name-defined]
+        """Route an Empowered Drukhari unit to its printed Pain ability
+        (SWEG_DRUKHARI_PFP_PERDATASHEET, adopted default-on, wave 258). Falls back
+        to transient_lethal_hits for any datasheet not in the catalogued mapping
+        so no Empower is wasted. SWEG_DRUKHARI_PFP_PERDATASHEET=0 is the
+        byte-identical kill-switch.
+
+        Per-datasheet routing (Wahapedia verbatim, see
+        data/rule_citations.d/drukhari.json key
+        simulator.power_from_pain.per_datasheet):
+          Archon 'Hatred Eternal': full Hit-roll re-roll (transient_reroll_all_hits).
+          Kabalite Warriors 'Sadistic Raiders': re-roll Wound rolls of 1
+            (transient_reroll_wounds_ones).
+          Incubi 'Decapitating Strikes': melee [DEVASTATING WOUNDS] vs INFANTRY
+            (transient_devastating_wounds_vs_infantry).
+          Lelith Hesperax 'Brides of Death': +1 Strength and +1 Armour
+            Penetration on melee attacks (transient_brides_of_death).
+          Wracks 'Experimental Enhancements': SET melee Attacks to 3
+            (transient_set_melee_attacks=3).
+          All others (including Ravager): transient_lethal_hits fallback.
+
+        Ravager 'Agonising Suppression' (-1 to Hit on a target enemy unit after
+        shooting) is not modelled this wave — it requires cross-round target-side
+        plumbing absent from the current transient slot machinery. The fallback
+        ensures the Empower is never wasted.
+        """
+        name = unit.profile.name
+        if name == "Archon":
+            self._set_transient_squad(unit, "transient_reroll_all_hits")
+        elif name == "Kabalite Warriors":
+            self._set_transient_squad(unit, "transient_reroll_wounds_ones")
+        elif name == "Incubi":
+            self._set_transient_squad(unit, "transient_devastating_wounds_vs_infantry")
+        elif name == "Lelith Hesperax":
+            self._set_transient_squad(unit, "transient_brides_of_death")
+        elif name == "Wracks":
+            # SET melee Attacks to 3 — integer flag; _set_transient_squad
+            # hardcodes True so we must iterate the squad manually here.
+            sid = getattr(unit, "squad_id", -1)
+            army_ref = getattr(unit, "army_ref", None)
+            if sid >= 0 and army_ref is not None:
+                for m in army_ref.units:
+                    if getattr(m, "squad_id", -1) == sid and m.is_alive:
+                        m.transient_set_melee_attacks = 3
+            else:
+                unit.transient_set_melee_attacks = 3
+        else:
+            # Ravager 'Agonising Suppression' and all non-catalogued Drukhari
+            # datasheets: fall back to transient_lethal_hits so the Empower
+            # is never wasted and the wave-246 baseline is preserved for them.
+            self._set_transient_squad(unit, "transient_lethal_hits")
 
     # ---- Drukhari Combat Drugs (army rule, 10e). Profile-name allowlist of
     # the four WYCH CULT datasheets currently in the catalogue. BSData's

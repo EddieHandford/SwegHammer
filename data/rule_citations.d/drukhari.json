@@ -46,6 +46,33 @@
     "scope": "army-wide"
   },
 
+  "simulator.power_from_pain.pfp_multispend": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Power-from-Pain",
+    "rule_name": "Power From Pain — multi-unit Empower (no per-phase cap)",
+    "quoted_text": "Each Pain ability will state when you can spend Pain tokens to Empower that unit. When you do, until the end of the phase, that unit is Empowered and all Pain abilities it has take effect. While an Attached unit is Empowered, the Pain abilities of all Leader and Bodyguard units in that unit take effect — you do not need to spend additional Pain tokens to activate each of those Pain abilities. Each time you spend a Pain token, reduce your Pain token pool by the same amount.",
+    "trigger": "SWEG_DRUKHARI_PFP_MULTISPEND (adopted default-on, wave 258; =0 kill-switch); inside _apply_power_from_pain_spend, while army.pain_token_pool > 0 Empower the next-best-DPA eligible Drukhari unit (one token each, per-codex-unit-per-round dedup via unit_budget_available)",
+    "effect": "Removes the wave-246 single-spend cap; each Empower grants the appropriate Pain ability to the squad (per datasheet if SWEG_DRUKHARI_PFP_PERDATASHEET=1, else transient_lethal_hits) and decrements the pool by 1. The Cronos Pain Engine aura may refund tokens (see simulator.cronos_pain_engine). All new RNG is inside the ON path only; OFF path is byte-identical to wave 246.",
+    "scope": "army-wide"
+  },
+
+  "simulator.cronos_pain_engine": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/Cronos",
+    "rule_name": "Cronos — Pain Engine",
+    "quoted_text": "Each time you spend 1 Pain token to Empower a friendly unit within 9\" of this unit, roll one D6, adding 1 to the result if one or more models in this unit are not equipped with a spirit vortex: on a 5+, you gain 1 Pain token.",
+    "trigger": "SWEG_DRUKHARI_PFP_MULTISPEND (adopted default-on, wave 258; =0 kill-switch); inside _apply_power_from_pain_spend, each time a Drukhari unit within 9 inches of an alive friendly Cronos is Empowered (a Pain token is spent on it)",
+    "effect": "Roll 1 D6 + 1 (the catalogue Cronos carries no spirit vortex loadout, so the +1 always applies); on a 5+ refund 1 Pain token to the army (army.pain_token_pool += 1), partially recouping the multi-spend cost. The D6 draw only occurs inside the SWEG_DRUKHARI_PFP_MULTISPEND=1 ON path; the OFF path is byte-identical.",
+    "scope": "keyword-gated"
+  },
+
+  "simulator.power_from_pain.per_datasheet": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/ (per-datasheet pages: /Archon, /Kabalite-Warriors, /Incubi, /Lelith-Hesperax, /Wracks, /Ravager)",
+    "rule_name": "Power From Pain — per-datasheet Pain abilities (Hatred Eternal, Sadistic Raiders, Decapitating Strikes, Brides of Death, Experimental Enhancements, Agonising Suppression)",
+    "quoted_text": "Hatred Eternal (Archon): 'While that unit is Empowered, each time a model in that unit makes an attack, you can re-roll the Hit roll.' Sadistic Raiders (Kabalite Warriors): 'While that unit is Empowered, each time a model in this unit makes an attack, you can re-roll a Wound roll of 1. If the target is within range of an objective marker, you can re-roll the Wound roll instead.' Decapitating Strikes (Incubi): 'While Empowered, each time a model in this unit makes a melee attack that targets an INFANTRY unit, that attack has the [DEVASTATING WOUNDS] ability.' Brides of Death (Lelith Hesperax): 'While that unit is Empowered, each time a model in that unit makes a melee attack, improve the Strength and Armour Penetration characteristics of that attack by 1.' Experimental Enhancements (Wracks): 'While Empowered ... melee weapons equipped by non-CHARACTER models in this unit have an Attacks characteristic of 3 [or 4 and the [HAZARDOUS] ability].' Agonising Suppression (Ravager): 'While Empowered, after this model has shot, select one enemy unit hit by one or more of those attacks ... that enemy unit is suppressed. While a unit is suppressed, each time a model in that unit makes an attack, subtract 1 from the Hit roll.'",
+    "trigger": "SWEG_DRUKHARI_PFP_PERDATASHEET (adopted default-on, wave 258; =0 kill-switch); a Drukhari unit is Empowered via _apply_power_from_pain_spend (1 Pain token spent), and _grant_pain_ability routes by profile.name to the unit's printed Pain ability",
+    "effect": "Archon -> transient_reroll_all_hits (full Hit re-roll). Kabalite Warriors -> transient_reroll_wounds_ones (re-roll Wound rolls of 1; the conditional near-objective full-wound-reroll upgrade is conservatively omitted, modelling only the always-on leg). Incubi -> transient_devastating_wounds_vs_infantry (melee [DEVASTATING WOUNDS] vs INFANTRY targets only). Lelith Hesperax -> transient_brides_of_death (+1 Strength and +1 Armour Penetration on melee attacks). Wracks -> transient_set_melee_attacks=3 (SET non-character melee Attacks to 3; the +1/HAZARDOUS=4 leg omitted as a conservative simplification). Ravager 'Agonising Suppression' (-1 to Hit debuff on a hit enemy unit until next turn) is NOT modelled this wave — falls back to transient_lethal_hits. All non-mapped Drukhari datasheets fall back to transient_lethal_hits so no Empower is wasted.",
+    "scope": "keyword-gated"
+  },
+
   "simulator.skysplinter_rain_of_cruelty": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Skysplinter-Assault",
     "rule_name": "Skysplinter Assault — Rain of Cruelty",
