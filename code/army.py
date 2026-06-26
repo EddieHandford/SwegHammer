@@ -288,7 +288,7 @@ class Army:
         # round-internal phases out separately. None = not active.
         self.blood_tithe_lethal_hits_round: Optional[int] = None
         # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 1, gated
-        # SWEG_WE_BLOOD_TITHE_SCOPED, default-off pending wave-260 screen).
+        # SWEG_WE_BLOOD_TITHE_SCOPED, adopted default-on wave 260, =0 kill-switch).
         # When the scope gate is ON, the 4-BT Lethal Hits spend records the
         # single recipient unit's uid and the phase it applies in here, and
         # Unit.attack restricts the [LETHAL HITS] grant to that one unit in

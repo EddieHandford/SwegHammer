@@ -1576,7 +1576,7 @@ class Unit:
         # per-phase flag; "0" reverts to the legacy per-round flag.
         _aof_per_phase: bool = __import__("os").environ.get("SWEG_AOF_PER_PHASE", "1") == "1"
         # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 2, gated
-        # SWEG_WE_BLESSINGS_ABILITY_GATE, default-off pending wave-260 screen).
+        # SWEG_WE_BLESSINGS_ABILITY_GATE, adopted default-on wave 260, =0 kill-switch).
         # When set, the three World Eaters Blessings of Khorne legs below
         # (Cleaving Blows melee AP+1, Warp Blades melee LETHAL HITS, Martial
         # Excellence melee SUSTAINED HITS 1) additionally require
@@ -2195,8 +2195,8 @@ class Unit:
             # Cited as `simulator.blessings_of_khorne`.
             #
             # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 2,
-            # gated SWEG_WE_BLESSINGS_ABILITY_GATE, default-off pending wave-260
-            # screen). The cited rule applies "to all units from your army WITH
+            # gated SWEG_WE_BLESSINGS_ABILITY_GATE, adopted default-on wave 260,
+            # =0 kill-switch). The cited rule applies "to all units from your army WITH
             # THIS ABILITY", so Khorne Daemon allies that carry no Blessings of
             # Khorne infoLink (Bloodletters, Flesh Hounds, Bloodcrushers) must
             # NOT benefit. The faction-only gate over-credits them. When the
@@ -2290,7 +2290,7 @@ class Unit:
             # Khorne Soul Grinder). Gate OFF: all-profiles behaviour, byte-identical
             # to pre-wave-260. Sibling guards at lines 2359 and 2369 already carry
             # this pattern for plus_one_to_hit_melee_only / plus_one_to_wound_melee_only.
-            # default-off pending wave-260 screen.
+            # adopted default-on wave 260, =0 kill-switch.
             _skarbrand_melee_gate = (
                 __import__("os").environ.get("SWEG_DAEMONS_SKARBRAND_MELEE", "1") != "0"
             )
@@ -3765,8 +3765,8 @@ class Unit:
             # the gate is at the crit-to-hit branch below, fires once per crit).
             #
             # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 1,
-            # gated SWEG_WE_BLOOD_TITHE_SCOPED, default-off pending wave-260
-            # screen). The cited rule (`simulator.blood_tithe`, clause 4)
+            # gated SWEG_WE_BLOOD_TITHE_SCOPED, adopted default-on wave 260,
+            # =0 kill-switch). The cited rule (`simulator.blood_tithe`, clause 4)
             # grants [LETHAL HITS] to ONE WORLD EATERS unit for ONE phase —
             # "Until the end of the phase, weapons equipped by models in one
             # WORLD EATERS unit from your army have the [LETHAL HITS] ability."

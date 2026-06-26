@@ -1,99 +1,99 @@
-# Next-session handover — 2026-06-26
+# Next-session handover — 2026-06-26 (after wave 260, the over-pole audit)
 
-A start-here pointer for the session that picks up after the "all the fixes"
-under-pole campaign. The authoritative running log is `docs/CURRENT_STATE.md`
-(head block) and `docs/DECISION_LEDGER.md`; this file is the short version plus
-the recommended next moves.
+A start-here pointer for the session that picks up after the over-pole
+over-credit audit and removal. The authoritative running picture is the
+`docs/CURRENT_STATE.md` head block and `docs/DECISION_LEDGER.md`; this file is
+the short version plus the recommended next moves.
 
 ## Where things stand
 
-- **Standing anchor: `data/_anchor_sc16a_n80_log.json` — gated mean absolute
-  error 3.48** (raw 6.27, nine of twenty-two factions inside the per-faction
-  noise band). This is the live production frame: all adopted gates default-on.
-- The "all the fixes" campaign (waves 254–259) is **done and pushed**. It built
-  and screened all thirteen verified survivors of the Wahapedia-primary
-  under-pole audit (`underpole-unit-audit`, run `w6adydjru`): **7 adopted,
-  2 held, 3 refuted (Chaos Knights), 0 phantoms shipped.** Headline moved
-  4.20 (wave 253) → 3.48; T'au Empire and Leagues of Votann brought into band.
+- **Standing anchor: `data/_anchor_sc17a_n80_log.json` — gated mean absolute
+  error 3.45** (production default = all eight wave-260 gates default-on).
+  sc16a (gated 3.48) is retired but kept on disk.
+- **Wave 260 is closed.** The adversarial over-pole audit
+  (`docs/OVERPOLE_UNIT_AUDIT.md`) verified 27 candidate over-credits, 9
+  survived, and the user authorised building Waves A+B (8 levers). All eight
+  adopted default-on (fidelity-first): six passive-buff / scope narrowings and
+  two fabrication removals. **The combined screen was a WASH (gated 3.48 →
+  3.45).** The over-credits are real but not load-bearing for the win rate.
+
+## The headline finding (read this before proposing more over-pole levers)
+
+The wave-260 wash is a clean A/B confirmation that **the elite/melee over-pole
+cluster is STRUCTURAL — per-model representation / durability-in-contest
+scoring — not an ability-over-credit gap.** We removed the last clean
+fabrications and scope errors on World Eaters, Death Guard, Chaos Daemons and
+Emperor's Children and the metric did not move. This extends the decision
+ledger's long-standing melee-cluster conclusion to the elite over-poles, now
+proven by direct experiment rather than inference.
+
+**Both poles are now confirmed structural:**
+- Astra Militarum under-pole (gated ~15, the durability-in-contest wall).
+- The elite/melee over-pole (per-model representation).
+
+The autonomous faithful-lever families that move either pole are largely
+exhausted. The remaining addressable work is the **PARKED structural /
+representation re-model — a user decision** (authorise the representation work,
+or accept the current fidelity floor at gated 3.45). Do NOT spin up another
+ability-over-credit hunt on these factions expecting metric movement; the
+audit already swept them.
 
 ## Branch / pull-request state (read before committing anything)
 
-- Working branch: `claude/sim-calibration-15` (tip wave 259).
-- **Pull request #82** = this campaign (waves 254–259), **stacked on
-  `claude/sim-calibration-14`** (which is pull request #81, the wave-253
-  tie-draw, still open).
-- Merge order: **#81 first, then #82.** When both merge, fold `origin/main`
-  per procedure §H and start a fresh `claude/sim-calibration-16` — do NOT keep
-  stacking new waves on -15 (CLAUDE.md §14; -15 is at ~755 lines vs main, still
-  under the ~1500-line / 15-commit checkpoint, but the campaign is closed).
-- Do not adopt anything new to `main` until #81 (and ideally #82) merge.
+- Working branch: `claude/sim-calibration-16` (fresh off -15's tip `2803388`).
+  Wave 260 = 8 lever commits + the adoption commit + the wave-close commit.
+- **Pull request #82** (waves 254-259, `claude/sim-calibration-15`) is still
+  OPEN. **#81 (wave 253) is MERGED.** No §H fold was needed when -16 was rolled
+  — `origin/main`'s only delta over -15 is the #81 merge commit whose content
+  -15 already carries (`git diff` vs the merge-base is empty). sc17a is valid.
+- Wave 260 is committed locally on -16, **NOT pushed** (no user "go" yet). When
+  #82 merges, fold `origin/main` per procedure §H and re-confirm the anchor.
 
-## Held levers (built, faithful, cited, default-off — re-confirm, don't re-propose as fresh)
+## Follow-ups carried from wave 260 (cited in the audit doc)
 
-- `SWEG_AM_DUTY_AND_HONOUR` (Astra Militarum Duty and Honour order, +1 Objective
-  Control): +0.55 non-decisive, 126-flip churn. Re-screen against a future
-  full re-anchor before rejecting outright.
-- `SWEG_VOTANN_KAHL_LETHAL` (Kahl Kindred Hero lethal-hits): −0.12 wash. The
-  re-roll-1s proxy is a better-calibrated compensating error; the faithful
-  lethal-hits does not beat it. Keep the proxy default.
-
-## Refuted / stashed (do NOT re-attempt without new grounding)
-
-- **Chaos Knights cluster** (Infernal Lance / Malefic Surge, Knight Abominant,
-  War Dogs) — all three refuted. Infernal Lance is **decisively worse than the
-  default Iconoclast Fiefdom (−8.66)**; Abominant and War Dogs wash. Code is in
-  git stash `ck-cluster-refuted-wave259` (recoverable); full specs in
-  `data/_lever_specs.json` keys 2/6/10. The Chaos Knights under-pole is
-  **structural** (archetype composition or representation), not a
-  detachment/ability gap. Do not re-propose Infernal-Lance-as-default without
-  BOTH a fuller Malefic Surge model (it currently models only the Diabolic
-  Power leg plus the mandatory self-mortal-wounds downside) AND the
-  competitive-list citation the audit verifier flagged as unverifiable.
-
-## The residuals, ranked (where the remaining gated error lives)
-
-1. **Astra Militarum — 26.8 vs real 45.3, gated 15.27 (dominant).** The Cadian
-   sticky-objective lifted it +0.9 (the first faithful lever to move it on its
-   real win condition), but the durability-in-contest wall persists: cheap T3
-   bodies lose contested markers while alive. The objective-control channel is
-   now partly addressed; the open question is durability/scoring of mass
-   infantry. This likely needs a list/representation decision (a user call), not
-   autonomous lever-hunting — see the long history in
-   `data/_melee_shooting_am_crack.md` and `data/_secondary_vp_diagnosis.md`.
-2. **The over-pole half** — World Eaters +13.9, Emperor's Children +12.0, Chaos
-   Daemons +10.5, Necrons +9.4, Death Guard +9.5, Adeptus Custodes +8.3. This
-   is now the largest *addressable* chunk. The tie-draw (wave 253) showed the
-   winning direction is "remove an unfaithful durable-survivor OVER-credit."
-   Look for unfaithful over-credits on these specific factions (fabricated
-   buffs, mis-modelled army rules, over-generous scoring) the same way the
-   audit found under-credits — an "over-pole audit" is the natural next workflow.
-3. **Drukhari — 44.8, gated 4.21.** The Power-from-Pain levers (wave 258)
-   helped (+1.87) but it is still under; the deferred Ravager Agonising
-   Suppression (needs cross-round target-side plumbing) and a fuller per-unit
-   model are open.
-4. **Chaos Knights — 37.5, gated 3.90 (structural, see above).**
+- **Daemonic Invulnerability** (`SWEG_DAEMONS_INVULN_FAITHFUL`) gate-on currently
+  spends the command point for ZERO effect — adopted as net-more-faithful than
+  the removed flat-4+-for-the-round over-credit, but the real rule is a reactive
+  single-failed-invulnerable-save re-roll. Build that re-roll mechanism and make
+  the stratagem fire reactively (so no command point is wasted).
+- **Typhus Destroyer Hive** (`SWEG_DG_TYPHUS_MELEE_ONLY`) now applies a melee-only
+  Feel No Pain proxy; the real rule is a melee-only −1-to-Hit on the attacker.
+  Build the target-side hit-penalty when the leader-aura layer can express it.
+- **Wave C — HELD, not built:** Adeptus Custodes Arcane Genetic Alchemy
+  (`docs/OVERPOLE_UNIT_AUDIT.md` rank 9) — narrow the Feel No Pain to mortal
+  wounds only; needs a scoped paired A/B before adopting (command-point
+  reallocation risk).
 
 ## Recommended next move
 
-Run an **over-pole audit** (mirror the `underpole-unit-audit` workflow but for
-the +9 to +14 over-poles: World Eaters, Emperor's Children, Chaos Daemons,
-Necrons, Death Guard, Adeptus Custodes) hunting unfaithful OVER-credits to
-remove. That is the largest addressable lever family left and has a proven
-direction (the tie-draw). Treat the Astra Militarum under-pole and the Chaos
-Knights structural gap as user-decision items rather than autonomous targets.
+The over-pole ability-fidelity avenue is exhausted (wave 260 swept it). The two
+genuine remaining frontiers are both **user decisions**, not autonomous
+lever-hunting:
 
-## Screening recipe (what worked this campaign)
+1. **Authorise the structural / representation re-model** (the parked work that
+   would move BOTH poles — the per-model representation limit and the
+   durability-in-contest scoring). This is the only thing left that can close
+   the gated 3.45 → 2.0 target. It is frame-level and was reserved for a user
+   call. If the user greenlights it, scope a diagnostic-first plan.
+2. **Accept the current fidelity floor at gated 3.45** and pivot to Stage 2
+   (the points-equation fit), treating the sim as faithful-enough. Note Stage 2
+   outputs are provisional until Stage 1 converges (decision ledger PARKED).
 
-- Build each lever gated default-off, byte-identical when off (gate is the first
-  check; all new random draws inside the gate). Prove it with a both-off
-  validation arm reading **0 flips** vs the anchor.
-- Screen faction-scoped: `python -m scripts.evaluate_vs_meta --use-archetype
-  --battles 80 --factions "<Faction>" --log-games X.json`, then
-  `python -m scripts.paired_delta data/_anchor_sc16a_n80_log.json X.json
-  --scoped`. Set `PYTHONHASHSEED=0`.
-- When screening a faction after earlier adoptions, **neutralise the already-
-  adopted gates** (`SWEG_...=0`) so the base matches the anchor; adopt only on a
-  decisive faithful win or a clear data/rules-correctness fix; re-confirm
-  marginal-but-positive levers at the full re-anchor (the wave-245 lesson).
-- Adopt by flipping the gate to `os.environ.get("SWEG_X","1") != "0"` (default-on,
-  `=0` kill-switch), update the citation + comment prose, re-anchor.
+If neither is chosen, the thin autonomous options are: the two wave-260
+follow-ups above (small fidelity builds, metric-neutral by construction); a
+vibe-code housekeeping checklist item (procedure §Cleanup, due at this branch
+checkpoint); or the held levers from prior waves (Astra Militarum
+Duty-and-Honour, Votann Kahl lethal-hits — both washed, re-confirm only at a
+future re-anchor).
+
+## Prior structural residuals (unchanged, carried for reference)
+
+- **Astra Militarum — gated ~15, the dominant residual.** Durability-in-contest
+  wall; cheap T3 bodies lose contested markers while alive. Needs the
+  representation decision, not lever-hunting (`data/_melee_shooting_am_crack.md`,
+  `data/_secondary_vp_diagnosis.md`).
+- **Chaos Knights — under-pole, structural** (composition / representation; the
+  wave-259 detachment/ability cluster was fully refuted and stashed
+  `ck-cluster-refuted-wave259`).
+- **Drukhari — under, partially addressed** by the wave-258 Power-from-Pain work;
+  the deferred Ravager Agonising Suppression needs cross-round target plumbing.

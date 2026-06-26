@@ -9722,7 +9722,7 @@ class Battle:
         # would be negligible. Cited as `simulator.blood_tithe`.
         #
         # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 1, gated
-        # SWEG_WE_BLOOD_TITHE_SCOPED, default-off pending wave-260 screen). The
+        # SWEG_WE_BLOOD_TITHE_SCOPED, adopted default-on wave 260, =0 kill-switch). The
         # cited rule (`simulator.blood_tithe`, clause 4) grants [LETHAL HITS] to
         # ONE WORLD EATERS unit for ONE phase, not army-wide for the round. When
         # the gate is ON, the BT>=4 spend additionally RECORDS which unit
