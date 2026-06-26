@@ -662,7 +662,25 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "infiltrator": override.get("infiltrator", base.infiltrator),
         "deadly_demise": override.get("deadly_demise", base.deadly_demise),
         "firing_deck": override.get("firing_deck", base.firing_deck),
-        "fnp": override.get("fnp", base.fnp),
+        # SWEG_EC_LUCIUS_FNP_FIX (wave-260, default-off) — fabrication removal.
+        # parsed.json carries fnp=5 for emperor_s_children_lucius_the_eternal
+        # as a mapper prose-walk artifact; no Feel No Pain ability of any
+        # threshold appears on the real Lucius the Eternal datasheet (his only
+        # defensive special rule is the 4++ Armour of Shrieking Souls, already
+        # wired via overrides.json:1097). No citation exists in
+        # data/rule_citations.json or data/rule_citations.d/ for any Lucius
+        # Feel No Pain. The fix resets fnp to 7 (no effective save) when the
+        # gate is active, matching the sibling mapper-sweep pattern used for
+        # Lion El'Jonson, Azrael, and Saint Celestine. Gate OFF leaves
+        # parsed.json's fnp=5 untouched so the byte-identical anchor is
+        # reproducible. See docs/OVERPOLE_UNIT_AUDIT.md rank 6;
+        # default-off pending wave-260 screen.
+        "fnp": (
+            7
+            if (key == "emperor_s_children_lucius_the_eternal"
+                and os.environ.get("SWEG_EC_LUCIUS_FNP_FIX", "0") == "1")
+            else override.get("fnp", base.fnp)
+        ),
         # SWEG_AM_STICKY_CADIAN (rank-8 lever) — ADOPTED default-on (wave 255).
         # Cadian Shock Troops carry the 'Shock Troops' sticky-objective ability
         # (Wahapedia: Cadian-Shock-Troops). The override sets sticky_objective
