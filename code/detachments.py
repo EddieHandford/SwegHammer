@@ -19,6 +19,7 @@ faction and document the simplification.
 
 from __future__ import annotations
 
+import os
 import random
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, Optional, Tuple
@@ -1541,8 +1542,24 @@ PLAGUE_COMPANY = Detachment(
         "Awakened Dynasty placeholder pending a real Plague Company "
         "stratagem pull."
     ),
-    stratagems=AWAKENED_DYNASTY_STRATAGEMS,  # placeholder; real PC has
-    # its own stratagems. Per-strat differences smaller than rule lever.
+    # SWEG_DG_PLAGUE_NO_NECRON_PROTOCOLS (wave-260, default-off) — fabrication
+    # removal. AWAKENED_DYNASTY_STRATAGEMS is a placeholder; no Plague Company
+    # stratagem has a real Death Guard citation in data/rule_citations.json or
+    # data/rule_citations.d/. The Protocol dispatchers seek a NECRONS unit,
+    # find None on a Death Guard army, and silently fall back to unfiltered
+    # Death Guard units (Rule-13 silent-fallback failure mode), granting
+    # fabricated Necron Protocol effects with no Death Guard citation. Gate ON
+    # assigns an empty stratagem tuple (pending a real cited Plague Company
+    # stratagem pull). Removing the firing frees command points that the AI may
+    # reallocate to generic stratagems — carry this caveat in eval expectations.
+    # Gate OFF = current placeholder behaviour, byte-identical to the anchor.
+    # See docs/OVERPOLE_UNIT_AUDIT.md rank 8; default-off pending wave-260
+    # screen.
+    stratagems=(
+        ()
+        if os.environ.get("SWEG_DG_PLAGUE_NO_NECRON_PROTOCOLS", "0") == "1"
+        else AWAKENED_DYNASTY_STRATAGEMS  # placeholder; real PC has its own
+    ),
     preferred_composition="infantry",
 )
 
