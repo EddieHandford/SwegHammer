@@ -2397,11 +2397,15 @@ class Unit:
             # `plus_one_to_wound_melee_only` fires only in the Fight phase (melee).
             # Used for leader auras whose codex text reads "each time a model in
             # that unit makes a melee attack, add 1 to the Wound roll" (e.g. CSM
-            # Dark Apostle "Dark Zealotry"). Gated SWEG_CSM_ABILITIES (OFF keeps
-            # the prior reroll_hit_ones proxy unchanged). Cited as
-            # `simulator.dark_apostle_dark_zealotry`.
+            # Dark Apostle "Dark Zealotry"; Death Guard Lord of Contagion "Vector
+            # of Disease" when SWEG_DG_CONTAGION_MELEE_WOUND=1). Primary gate is
+            # SWEG_CSM_ABILITIES (OFF keeps the Dark Apostle reroll_hit_ones proxy
+            # unchanged). Also fires when SWEG_DG_CONTAGION_MELEE_WOUND=1 so the
+            # Death Guard scope fix is decoupled from the CSM gate.
+            # Cited as `simulator.dark_apostle_dark_zealotry`.
             if (att_buffs.get("plus_one_to_wound_melee_only") and mode == "melee"
-                    and __import__("os").environ.get("SWEG_CSM_ABILITIES", "1") != "0"):
+                    and (__import__("os").environ.get("SWEG_CSM_ABILITIES", "1") != "0"
+                         or __import__("os").environ.get("SWEG_DG_CONTAGION_MELEE_WOUND", "0") == "1")):
                 wound_mod_delta += 1
 
             # ---- Chaos Knights — Harbingers of Dread (army rule, 10e). Verbatim

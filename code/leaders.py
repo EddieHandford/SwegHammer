@@ -412,6 +412,19 @@ _VOTANN_KAHL_LETHAL_GATE: bool = os.environ.get("SWEG_VOTANN_KAHL_LETHAL", "0") 
 # Default-off pending wave-260 screen.
 _DG_TYPHUS_MELEE_ONLY: bool = os.environ.get("SWEG_DG_TYPHUS_MELEE_ONLY", "0") == "1"
 
+# SWEG_DG_CONTAGION_MELEE_WOUND — wave-260 over-pole scope fix for Lord of
+# Contagion "Plague-Ridden Champion" / "Vector of Disease"
+# (docs/OVERPOLE_UNIT_AUDIT.md rank 5,
+# rule_citations.d/leaders.json key `LeaderAbility.Plague-Ridden Champion`).
+# The cited rule restricts Vector of Disease to MELEE weapons; the current
+# `plus_one_to_wound=True` proxy fires on all attacks (ranged included).
+# Gate ON: switch to `plus_one_to_wound_melee_only=True` (already read with
+# an `and mode=='melee'` guard in code/units.py) so the wound bonus is
+# restricted to melee attacks. Gate OFF (default): current `plus_one_to_wound`
+# all-damage behaviour, byte-identical.
+# Default-off pending wave-260 screen.
+_DG_CONTAGION_MELEE_WOUND: bool = os.environ.get("SWEG_DG_CONTAGION_MELEE_WOUND", "0") == "1"
+
 _CSM_APOSTLE_HOSTS = (
     ("chaos_space_marines_legionaries", "chaos_space_marines_chosen",
      "chaos_space_marines_cultist_mob")
@@ -1295,7 +1308,14 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # (https://wahapedia.ru/wh40k10ed/factions/death-guard/#Lord-of-Contagion)
     # the Leader Bodyguard list is restricted to Blightlord Terminators and
     # Deathshroud Terminators only — NOT Plague Marines. Iter24-D1 fix.
-    ("Lord of Contagion",  LeaderAbility(name="Plague-Ridden Champion",     aura_range=6.0, plus_one_to_wound=True,
+    # SWEG_DG_CONTAGION_MELEE_WOUND (wave-260, default-off): gate ON switches
+    # plus_one_to_wound (all attacks) to plus_one_to_wound_melee_only (melee only)
+    # to match the "Vector of Disease" rule restricting the wound bonus to
+    # MELEE weapons. See docs/OVERPOLE_UNIT_AUDIT.md rank 5 and
+    # rule_citations.d/leaders.json `LeaderAbility.Plague-Ridden Champion`.
+    ("Lord of Contagion",  LeaderAbility(name="Plague-Ridden Champion",     aura_range=6.0,
+                                          plus_one_to_wound=not _DG_CONTAGION_MELEE_WOUND,
+                                          plus_one_to_wound_melee_only=_DG_CONTAGION_MELEE_WOUND,
                                           first_stratagem_free_per_round=True,
                                           host_keys=("death_guard_blightlord_terminators",
                                                      "death_guard_deathshroud_terminators"))),
