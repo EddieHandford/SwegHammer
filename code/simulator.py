@@ -5646,6 +5646,17 @@ class Battle:
         invuln, acceptable given round-start dispatcher collapses the reactive
         trigger). Direction-correct defensive buff.
         Source: https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion
+        Gate SWEG_DAEMONS_INVULN_FAITHFUL (default-off, wave-260 screen):
+        docs/OVERPOLE_UNIT_AUDIT.md rank 7, rule_citations key
+        "Stratagem.Daemonic Invulnerability". The real stratagem re-rolls ONE
+        failed invulnerable save (reactive, per-save). Gate ON: the 1 command-point
+        spend is PRESERVED (the stratagem IS used in real play; dropping it would
+        free a command point to a stronger stratagem and introduce over-correction),
+        but the over-modelled transient_invuln_4 flat-4+ buff is DROPPED — no
+        faithful re-roll mechanism exists in the invuln path yet (no
+        transient_reroll_invuln_ones flag), so the net effect on gate-ON is:
+        command point spent, zero defensive uplift. Aeldari Fire-and-Fade pattern.
+        Gate OFF: current flat-4+-for-the-round behaviour, byte-identical.
         """
         target = self._most_vulnerable_unit(
             army, keyword="DAEMON", faction="Chaos Daemons",
@@ -5658,6 +5669,12 @@ class Battle:
         if not should_fire_stratagem(army, DAEMONIC_INVULNERABILITY, ctx):
             return
         if not self._fire_stratagem(army, DAEMONIC_INVULNERABILITY):
+            return
+        # SWEG_DAEMONS_INVULN_FAITHFUL gate ON: command-point spend above is
+        # kept (faithful), but the over-modelled flat-4+ invuln buff is dropped.
+        # No transient_reroll_invuln_ones flag exists yet; the effect is zero
+        # defensive uplift on gate-ON. Gate OFF: legacy transient_invuln_4.
+        if __import__("os").environ.get("SWEG_DAEMONS_INVULN_FAITHFUL", "0") == "1":
             return
         self._set_transient_squad(target, "transient_invuln_4")
 
