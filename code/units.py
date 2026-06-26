@@ -3710,6 +3710,21 @@ class Unit:
             # if we skip clearing it. Faction-gated to keep allies clean.
             # Composes with profile.lethal_hits via OR (never double-fires —
             # the gate is at the crit-to-hit branch below, fires once per crit).
+            #
+            # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 1,
+            # gated SWEG_WE_BLOOD_TITHE_SCOPED, default-off pending wave-260
+            # screen). The cited rule (`simulator.blood_tithe`, clause 4)
+            # grants [LETHAL HITS] to ONE WORLD EATERS unit for ONE phase —
+            # "Until the end of the phase, weapons equipped by models in one
+            # WORLD EATERS unit from your army have the [LETHAL HITS] ability."
+            # The default (gate-off) army-wide-for-the-round behaviour below
+            # over-credits every WE model in every phase. When the gate is ON,
+            # additionally require the attacking unit to be the recipient
+            # recorded at the spend site (blood_tithe_lethal_hits_uid) AND the
+            # current attack mode to match the recorded phase
+            # (blood_tithe_lethal_hits_phase, "melee" for the Fight-phase spend
+            # WE units actually use). Gate OFF leaves the round/army-wide gate
+            # byte-identical.
             if p.faction == "World Eaters" and not effective_lethal_hits:
                 own_army = getattr(self, "army_ref", None)
                 if own_army is not None:
@@ -3717,7 +3732,24 @@ class Unit:
                     battle = getattr(own_army, "_battle_ref", None)
                     cur_round = getattr(battle, "_current_round", 0) if battle else 0
                     if bt_round is not None and bt_round == cur_round:
-                        effective_lethal_hits = True
+                        _bt_scoped = os.environ.get(
+                            "SWEG_WE_BLOOD_TITHE_SCOPED", "0",
+                        ) == "1"
+                        if _bt_scoped:
+                            _bt_uid = getattr(
+                                own_army, "blood_tithe_lethal_hits_uid", None,
+                            )
+                            _bt_phase = getattr(
+                                own_army, "blood_tithe_lethal_hits_phase", None,
+                            )
+                            if (
+                                _bt_uid is not None
+                                and self.uid == _bt_uid
+                                and mode == _bt_phase
+                            ):
+                                effective_lethal_hits = True
+                        else:
+                            effective_lethal_hits = True
 
             # ---- World Eaters Blessings of Khorne (10e army rule) — Warp
             # Blades grants army-wide melee LETHAL HITS for the battle round.

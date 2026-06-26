@@ -287,6 +287,17 @@ class Army:
         # "this round" because the simulator activation loop doesn't break
         # round-internal phases out separately. None = not active.
         self.blood_tithe_lethal_hits_round: Optional[int] = None
+        # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 1, gated
+        # SWEG_WE_BLOOD_TITHE_SCOPED, default-off pending wave-260 screen).
+        # When the scope gate is ON, the 4-BT Lethal Hits spend records the
+        # single recipient unit's uid and the phase it applies in here, and
+        # Unit.attack restricts the [LETHAL HITS] grant to that one unit in
+        # that one phase (the cited rule grants it to ONE WORLD EATERS unit
+        # for ONE phase, not army-wide for the round). None = not recorded /
+        # gate off (the gate-off army-wide read ignores these). Cited as
+        # `simulator.blood_tithe`.
+        self.blood_tithe_lethal_hits_uid: Optional[str] = None
+        self.blood_tithe_lethal_hits_phase: Optional[str] = None
         # World Eaters army rule — Blessings of Khorne (10e). At the start of
         # each battle round a World Eaters army rolls 8D6 and activates up to
         # 2 Blessings of Khorne; each Blessing requires a double (or triple)

@@ -9703,12 +9703,46 @@ class Battle:
         # is a per-target side-band that doesn't ride the existing buff plumbing,
         # and the auto-pass is a rare per-battle event whose impact on MAE
         # would be negligible. Cited as `simulator.blood_tithe`.
+        #
+        # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 1, gated
+        # SWEG_WE_BLOOD_TITHE_SCOPED, default-off pending wave-260 screen). The
+        # cited rule (`simulator.blood_tithe`, clause 4) grants [LETHAL HITS] to
+        # ONE WORLD EATERS unit for ONE phase, not army-wide for the round. When
+        # the gate is ON, the BT>=4 spend additionally RECORDS which unit
+        # receives the buff (the highest-melee-DPA WE unit — the marquee Fight-
+        # phase attacker, mirroring the Dark Pacts elect template) and which
+        # phase ("melee", the Fight phase WE units actually use the grant in);
+        # Unit.attack then restricts the [LETHAL HITS] grant to that unit in
+        # that phase. Gate OFF records nothing and leaves the army-wide-for-the-
+        # round behaviour byte-identical.
+        _bt_scoped = os.environ.get("SWEG_WE_BLOOD_TITHE_SCOPED", "0") == "1"
         for army in (self.a, self.b):
             if not any(u.profile.faction == "World Eaters" for u in army.units):
                 continue
             if army.blood_tithe >= 4:
                 army.blood_tithe -= 4
                 army.blood_tithe_lethal_hits_round = round_num
+                if _bt_scoped:
+                    # Record the single recipient + phase for the scoped read
+                    # in Unit.attack. Pick the highest melee-DPA WORLD EATERS
+                    # unit (the marquee Fight-phase attacker the codex spend
+                    # would name); the read site lapses the buff next round via
+                    # the existing round-stamp gate, so a stale uid is inert.
+                    def _melee_dpa(u: "Unit") -> float:
+                        p = u.profile
+                        return (
+                            (p.melee_attacks or 0)
+                            * (p.melee_hit_probability or 0.0)
+                            * (p.melee_damage_per_shot or 0.0)
+                        )
+                    we_units = [
+                        u for u in army.alive_units
+                        if (u.profile.faction or "") == "World Eaters"
+                    ]
+                    if we_units:
+                        recipient = max(we_units, key=_melee_dpa)
+                        army.blood_tithe_lethal_hits_uid = recipient.uid
+                        army.blood_tithe_lethal_hits_phase = "melee"
             elif army.blood_tithe >= 3:
                 army.blood_tithe -= 3
                 army.command_points = min(6, army.command_points + 1)
