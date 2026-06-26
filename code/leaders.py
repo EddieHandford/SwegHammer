@@ -409,8 +409,8 @@ _VOTANN_KAHL_LETHAL_GATE: bool = os.environ.get("SWEG_VOTANN_KAHL_LETHAL", "0") 
 # (ranged and melee), over-crediting the ranged defence. Gate ON: switch
 # to `fnp_melee_only=5` so the proxy is gated to melee attacks only.
 # Gate OFF (default): current `fnp=5` all-damage behaviour, byte-identical.
-# Default-off pending wave-260 screen.
-_DG_TYPHUS_MELEE_ONLY: bool = os.environ.get("SWEG_DG_TYPHUS_MELEE_ONLY", "0") == "1"
+# ADOPTED default-on (wave 260, fidelity-first); =0 kill-switch.
+_DG_TYPHUS_MELEE_ONLY: bool = os.environ.get("SWEG_DG_TYPHUS_MELEE_ONLY", "1") != "0"
 
 # SWEG_DG_CONTAGION_MELEE_WOUND — wave-260 over-pole scope fix for Lord of
 # Contagion "Plague-Ridden Champion" / "Vector of Disease"
@@ -422,8 +422,8 @@ _DG_TYPHUS_MELEE_ONLY: bool = os.environ.get("SWEG_DG_TYPHUS_MELEE_ONLY", "0") =
 # an `and mode=='melee'` guard in code/units.py) so the wound bonus is
 # restricted to melee attacks. Gate OFF (default): current `plus_one_to_wound`
 # all-damage behaviour, byte-identical.
-# Default-off pending wave-260 screen.
-_DG_CONTAGION_MELEE_WOUND: bool = os.environ.get("SWEG_DG_CONTAGION_MELEE_WOUND", "0") == "1"
+# ADOPTED default-on (wave 260, fidelity-first); =0 kill-switch.
+_DG_CONTAGION_MELEE_WOUND: bool = os.environ.get("SWEG_DG_CONTAGION_MELEE_WOUND", "1") != "0"
 
 _CSM_APOSTLE_HOSTS = (
     ("chaos_space_marines_legionaries", "chaos_space_marines_chosen",

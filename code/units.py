@@ -1587,8 +1587,8 @@ class Unit:
         # faction-only gating byte-identical. Cited as
         # `simulator.blessings_of_khorne`.
         _blessings_ability_gate: bool = os.environ.get(
-            "SWEG_WE_BLESSINGS_ABILITY_GATE", "0",
-        ) == "1"
+            "SWEG_WE_BLESSINGS_ABILITY_GATE", "1",
+        ) != "0"
 
         # ---- Buff lookups (detachment + in-range leader auras) -------------
         # Attacker side: detachment passives + every in-range friendly leader
@@ -2292,7 +2292,7 @@ class Unit:
             # this pattern for plus_one_to_hit_melee_only / plus_one_to_wound_melee_only.
             # default-off pending wave-260 screen.
             _skarbrand_melee_gate = (
-                __import__("os").environ.get("SWEG_DAEMONS_SKARBRAND_MELEE", "0") == "1"
+                __import__("os").environ.get("SWEG_DAEMONS_SKARBRAND_MELEE", "1") != "0"
             )
             if att_buffs["plus_one_attack"] and (
                 not _skarbrand_melee_gate or mode == "melee"
@@ -2420,7 +2420,7 @@ class Unit:
             # Cited as `simulator.dark_apostle_dark_zealotry`.
             if (att_buffs.get("plus_one_to_wound_melee_only") and mode == "melee"
                     and (__import__("os").environ.get("SWEG_CSM_ABILITIES", "1") != "0"
-                         or __import__("os").environ.get("SWEG_DG_CONTAGION_MELEE_WOUND", "0") == "1")):
+                         or __import__("os").environ.get("SWEG_DG_CONTAGION_MELEE_WOUND", "1") != "0")):
                 wound_mod_delta += 1
 
             # ---- Chaos Knights — Harbingers of Dread (army rule, 10e). Verbatim
@@ -3786,8 +3786,8 @@ class Unit:
                     cur_round = getattr(battle, "_current_round", 0) if battle else 0
                     if bt_round is not None and bt_round == cur_round:
                         _bt_scoped = os.environ.get(
-                            "SWEG_WE_BLOOD_TITHE_SCOPED", "0",
-                        ) == "1"
+                            "SWEG_WE_BLOOD_TITHE_SCOPED", "1",
+                        ) != "0"
                         if _bt_scoped:
                             _bt_uid = getattr(
                                 own_army, "blood_tithe_lethal_hits_uid", None,

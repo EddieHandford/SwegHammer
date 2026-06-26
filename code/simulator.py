@@ -5674,7 +5674,7 @@ class Battle:
         # kept (faithful), but the over-modelled flat-4+ invuln buff is dropped.
         # No transient_reroll_invuln_ones flag exists yet; the effect is zero
         # defensive uplift on gate-ON. Gate OFF: legacy transient_invuln_4.
-        if __import__("os").environ.get("SWEG_DAEMONS_INVULN_FAITHFUL", "0") == "1":
+        if __import__("os").environ.get("SWEG_DAEMONS_INVULN_FAITHFUL", "1") != "0":
             return
         self._set_transient_squad(target, "transient_invuln_4")
 
@@ -9732,7 +9732,7 @@ class Battle:
         # Unit.attack then restricts the [LETHAL HITS] grant to that unit in
         # that phase. Gate OFF records nothing and leaves the army-wide-for-the-
         # round behaviour byte-identical.
-        _bt_scoped = os.environ.get("SWEG_WE_BLOOD_TITHE_SCOPED", "0") == "1"
+        _bt_scoped = os.environ.get("SWEG_WE_BLOOD_TITHE_SCOPED", "1") != "0"
         for army in (self.a, self.b):
             if not any(u.profile.faction == "World Eaters" for u in army.units):
                 continue

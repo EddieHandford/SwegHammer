@@ -674,11 +674,11 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         # Lion El'Jonson, Azrael, and Saint Celestine. Gate OFF leaves
         # parsed.json's fnp=5 untouched so the byte-identical anchor is
         # reproducible. See docs/OVERPOLE_UNIT_AUDIT.md rank 6;
-        # default-off pending wave-260 screen.
+        # ADOPTED default-on (wave 260, fidelity-first); =0 kill-switch.
         "fnp": (
             7
             if (key == "emperor_s_children_lucius_the_eternal"
-                and os.environ.get("SWEG_EC_LUCIUS_FNP_FIX", "0") == "1")
+                and os.environ.get("SWEG_EC_LUCIUS_FNP_FIX", "1") != "0")
             else override.get("fnp", base.fnp)
         ),
         # SWEG_AM_STICKY_CADIAN (rank-8 lever) — ADOPTED default-on (wave 255).

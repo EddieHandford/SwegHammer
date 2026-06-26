@@ -1553,11 +1553,11 @@ PLAGUE_COMPANY = Detachment(
     # stratagem pull). Removing the firing frees command points that the AI may
     # reallocate to generic stratagems — carry this caveat in eval expectations.
     # Gate OFF = current placeholder behaviour, byte-identical to the anchor.
-    # See docs/OVERPOLE_UNIT_AUDIT.md rank 8; default-off pending wave-260
-    # screen.
+    # See docs/OVERPOLE_UNIT_AUDIT.md rank 8; ADOPTED default-on (wave 260,
+    # fidelity-first); =0 kill-switch.
     stratagems=(
         ()
-        if os.environ.get("SWEG_DG_PLAGUE_NO_NECRON_PROTOCOLS", "0") == "1"
+        if os.environ.get("SWEG_DG_PLAGUE_NO_NECRON_PROTOCOLS", "1") != "0"
         else AWAKENED_DYNASTY_STRATAGEMS  # placeholder; real PC has its own
     ),
     preferred_composition="infantry",
