@@ -2281,7 +2281,22 @@ class Unit:
                 n_attacks += same_squad // 5
 
             # ---- Buffs: +N extra attacks per weapon (detachment-only field) ----
-            if att_buffs["plus_one_attack"]:
+            # Gate SWEG_DAEMONS_SKARBRAND_MELEE (default-off, wave-260 screen):
+            # docs/OVERPOLE_UNIT_AUDIT.md rank 4, rule_citations key
+            # "LeaderAbility.Rage Embodied" — the cited rule adds +1 Attack to
+            # melee weapons only ("add 1 to the Attacks characteristic of melee
+            # weapons equipped by models in that unit"). Gate ON: add the melee-
+            # only guard, fixing the over-credit on ranged profiles (Skull Cannon,
+            # Khorne Soul Grinder). Gate OFF: all-profiles behaviour, byte-identical
+            # to pre-wave-260. Sibling guards at lines 2359 and 2369 already carry
+            # this pattern for plus_one_to_hit_melee_only / plus_one_to_wound_melee_only.
+            # default-off pending wave-260 screen.
+            _skarbrand_melee_gate = (
+                __import__("os").environ.get("SWEG_DAEMONS_SKARBRAND_MELEE", "0") == "1"
+            )
+            if att_buffs["plus_one_attack"] and (
+                not _skarbrand_melee_gate or mode == "melee"
+            ):
                 n_attacks += int(att_buffs["plus_one_attack"])
 
             if hit_target is None:

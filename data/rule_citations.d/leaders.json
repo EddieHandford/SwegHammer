@@ -72,7 +72,7 @@
     "rule_name": "Rage Embodied (Aura)",
     "quoted_text": "While a friendly KHORNE Legiones Daemonica unit is within 6\" of this model, add 1 to the Attacks characteristic of melee weapons equipped by models in that unit.",
     "trigger": "Skarbrand is on the battlefield; a friendly KHORNE Legiones Daemonica unit is within 6\" of Skarbrand",
-    "effect": "+1 Attacks on every melee weapon in the affected unit. Modelled as plus_one_attack=1 with host_keys gated to the KHORNE Legiones Daemonica catalogue keys (same roster as Bloodthirster's Daemon Lord of Khorne). (loose-edge) plus_one_attack in SwegHammer applies the +1 to every weapon profile carried by the attacker, which over-includes the ranged profiles on Skull Cannon / Khorne Soul Grinder. Direction-correct uplift, strictly weaker than fabricating the missing field; the codex rule explicitly only adds the attack to melee profiles.",
+    "effect": "+1 Attacks on every melee weapon in the affected unit. Modelled as plus_one_attack=1 with host_keys gated to the KHORNE Legiones Daemonica catalogue keys (same roster as Bloodthirster's Daemon Lord of Khorne). Gate SWEG_DAEMONS_SKARBRAND_MELEE (default-off, wave-260 screen): ON adds the mode==\"melee\" guard in units.py so the +1 applies to melee profiles only, fixing the over-credit on Skull Cannon / Khorne Soul Grinder ranged profiles; OFF retains the all-profiles behaviour (direction-correct uplift, strictly weaker than fabricating the missing field).",
     "scope": "keyword-gated"
   },
 
