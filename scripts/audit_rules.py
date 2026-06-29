@@ -764,6 +764,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # `score_position_delta` via the `chosen` parameter; threaded
     # through from `code/simulator.py::_score_secondaries`.
     "simulator.secondary_selection",
+    # Astra Militarum core battleline special weapons (env-gated
+    # SWEG_AM_BATTLELINE_SPECIALS, default OFF). The BSData v10.6.0 mapper drops
+    # the up-to-2-special-weapons-per-10-models options from Cadian Shock Troops
+    # and Death Korps of Krieg (collapsing both to a lasgun-only model type);
+    # when the gate is on, _build_catalog replaces their model_loadouts with a
+    # heterogeneous 8 lasgun + 1 plasma gun + 1 meltagun per 10 models so the
+    # per-model promotion builds the special-weapon models. Cited in
+    # data/rule_citations.d/astra_militarum.json.
+    "simulator.am_battleline_special_weapons",
     # Astra Militarum Voice of Command (army rule, 10e). At the start of
     # each Command phase, each AM OFFICER (CHARACTER) issues one Order to
     # an eligible BATTLELINE INFANTRY (REGIMENT) target within 6". Four

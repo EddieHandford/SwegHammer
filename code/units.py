@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import functools
 import math
 import os
@@ -106,6 +107,23 @@ def _tau_battlesuit_weapons_enabled() -> bool:
     See data/rule_citations.d/tau_empire.json keys simulator.tau_crisis_fireknife_missile_pod
     and simulator.tau_crisis_sunforge_second_fusion_blaster."""
     return os.environ.get("SWEG_TAU_BATTLESUIT_WEAPONS", "1") != "0"
+
+
+def _am_battleline_specials_enabled() -> bool:
+    """True when SWEG_AM_BATTLELINE_SPECIALS == '1' (default-OFF). Restores the
+    2 special weapons per 10 models that the BSData v10.6.0 mapper drops from
+    the Cadian Shock Troops and Death Korps of Krieg datasheets: the mapper
+    collapses each to a single lasgun-only model type (one model_loadouts entry,
+    extra_ranged_profiles empty), even though every 10-model squad fields up to
+    2 special weapons (plasma gun / meltagun / flamer / grenade launcher) and
+    comparable squads (Kasrkin, Tempestus Scions, Cadian Command Squad) ARE
+    mapped heterogeneously. Read per-build (not cached) so tests can toggle it
+    via os.environ within a process; when unset (or any value other than '1'),
+    _build_catalog skips the correction entirely and the two units are
+    byte-identical to the legacy lasgun-only catalogue. See
+    data/rule_citations.d/astra_militarum.json key
+    simulator.am_battleline_special_weapons."""
+    return os.environ.get("SWEG_AM_BATTLELINE_SPECIALS") == "1"
 
 
 def roll_damage(dice_str: str, mean_fallback: float) -> float:
@@ -4968,6 +4986,105 @@ def _unflatten_model_loadouts(
 
 
 # ---------------------------------------------------------------------------
+# SWEG_AM_BATTLELINE_SPECIALS — Astra Militarum core battleline special weapons
+# ---------------------------------------------------------------------------
+#
+# The BSData v10.6.0 mapper collapses Cadian Shock Troops and Death Korps of
+# Krieg to a single lasgun-only model type (model_loadouts has ONE entry, a
+# Lasgun + Close combat weapon model). The real 10e datasheets field "1 Sergeant
+# + 9 Troopers", and for every 10 models up to 2 of the Troopers replace their
+# lasgun with a special weapon (BSData cache "...w/ Special Weapon" group carries
+# constraint max=2 per squad). `_am_battleline_specials_loadouts` rebuilds a
+# heterogeneous model_loadouts — per 10 models: 8 lasgun troopers + 1 plasma gun
+# + 1 meltagun — by copying the mapper's base lasgun model dict (so every key /
+# type the flatten round-trip preserves is inherited verbatim) and swapping only
+# the ranged weapon for the two special-weapon slots. The per-model promotion in
+# Army._add_squad_per_model then builds one plasma-armed and one meltagun-armed
+# model; a whole-unit extra_ranged_profiles would over-credit (every model would
+# fire a special, but only 2/10 carry one).
+#
+# Weapon stats verbatim from the cited datasheets / BSData cache:
+#   Plasma gun (supercharge): Range 24", A 1, BS 4+, S 8, AP -3, D 2,
+#       [RAPID FIRE 1], [HAZARDOUS]. (mean damage 2.0; damage_dice "2")
+#   Meltagun:                 Range 12", A 1, BS 4+, S 9, AP -4, D D6, [MELTA 2].
+#       (mean damage 3.5; damage_dice "D6")
+# hit_probability is INHERITED from the base lasgun model (0.5 = Guardsman BS 4+);
+# only the weapon-defining fields below are overridden.
+_AM_PLASMA_GUN_RANGED_OVERRIDE: Dict[str, Any] = {
+    "weapon": "Plasma gun (supercharge)",
+    "attacks": 1,
+    "weapon_damage_per_shot": 2.0,
+    "ap": -3,
+    "strength": 8,
+    "range_inches": 24,
+    "rapid_fire": 1,
+    "melta": 0,
+    "hazardous": True,
+    "attacks_dice": "1",
+    "damage_dice": "2",
+}
+_AM_MELTAGUN_RANGED_OVERRIDE: Dict[str, Any] = {
+    "weapon": "Meltagun",
+    "attacks": 1,
+    "weapon_damage_per_shot": 3.5,
+    "ap": -4,
+    "strength": 9,
+    "range_inches": 12,
+    "rapid_fire": 0,
+    "melta": 2,
+    "hazardous": False,
+    "attacks_dice": "1",
+    "damage_dice": "D6",
+}
+
+
+def _am_battleline_specials_loadouts(
+    flattened: Tuple[Tuple[Tuple[str, Any], ...], ...],
+) -> Tuple[Tuple[Tuple[str, Any], ...], ...]:
+    """Build the heterogeneous (8 lasgun + 1 plasma + 1 meltagun per 10)
+    model_loadouts for a Cadian Shock Troops / Death Korps of Krieg catalog
+    entry whose mapper output is a single lasgun-only model.
+
+    Takes the entry's flattened `model_loadouts`, derives the special-weapon
+    models from the base lasgun model (so weapon-dict shape / inherited keys
+    round-trip exactly), and returns the re-flattened heterogeneous loadout.
+
+    Fails loud (CLAUDE.md §13) if the base shape is not the expected single
+    lasgun-only model with exactly one ranged weapon — that means the mapper
+    output changed under this correction and it must be re-verified rather than
+    silently producing a wrong squad.
+    """
+    base_models = _unflatten_model_loadouts(flattened)
+    if len(base_models) != 1 or len(base_models[0].get("ranged") or []) != 1:
+        raise ValueError(
+            "SWEG_AM_BATTLELINE_SPECIALS expected a single lasgun-only "
+            f"model_loadouts entry but found {len(base_models)} model entries "
+            f"(ranged weapons on first entry: "
+            f"{len(base_models[0].get('ranged') or []) if base_models else 0}). "
+            "The BSData mapper output for Cadian Shock Troops / Death Korps of "
+            "Krieg has changed — re-verify code/units.py "
+            "_am_battleline_specials_loadouts before relying on the gate."
+        )
+    base = base_models[0]
+    base_name = base.get("name", "")
+
+    def _special_model(ranged_override: Dict[str, Any]) -> Dict[str, Any]:
+        model = copy.deepcopy(base)
+        model["count"] = 1.0
+        model["name"] = f"{base_name} w/ {ranged_override['weapon']}"
+        ranged = copy.deepcopy(base["ranged"][0])
+        ranged.update(ranged_override)
+        model["ranged"] = [ranged]
+        return model
+
+    troopers = copy.deepcopy(base)
+    troopers["count"] = 8.0
+    plasma = _special_model(_AM_PLASMA_GUN_RANGED_OVERRIDE)
+    melta = _special_model(_AM_MELTAGUN_RANGED_OVERRIDE)
+    return _flatten_model_loadouts([troopers, plasma, melta])
+
+
+# ---------------------------------------------------------------------------
 # PER-MODEL-LOADOUTS (Stage 3) — loadout weapon-dicts → UnitProfile fields
 # ---------------------------------------------------------------------------
 #
@@ -5531,6 +5648,35 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
                 # mutex group under _strip_mode_suffix and only the higher-EV copy
                 # would fire). All other fusion-blaster characteristics unchanged.
                 catalog[key] = replace(catalog[key], attacks=2)
+
+        # AM-BATTLELINE-SPECIALS (default-OFF, SWEG_AM_BATTLELINE_SPECIALS): the
+        # BSData v10.6.0 mapper collapses Cadian Shock Troops and Death Korps of
+        # Krieg to a single lasgun-only model type (model_loadouts has one entry,
+        # extra_ranged_profiles empty), dropping the 2 special weapons each
+        # 10-model squad fields per the datasheet. Comparable squads (Kasrkin,
+        # Tempestus Scions, Cadian Command Squad) ARE mapped heterogeneously —
+        # this gap is specific to these two. When gated ON, REPLACE model_loadouts
+        # with a heterogeneous version (per 10: 8 lasgun troopers + 1 plasma gun +
+        # 1 meltagun) so the per-model promotion (Army._add_squad_per_model) builds
+        # the special-weapon models. NOT modelled as whole-unit
+        # extra_ranged_profiles, which would over-credit (every model would fire a
+        # special; only 2/10 carry one — these squads are heterogeneous). Faithful
+        # per data/rule_citations.d/astra_militarum.json key
+        # simulator.am_battleline_special_weapons. Done in code (not overrides.json)
+        # because overrides merge unconditionally and could not be held behind a
+        # default-off screening gate. OFF skips this block entirely → byte-identical
+        # to the legacy lasgun-only catalogue.
+        if _am_battleline_specials_enabled() and key in (
+            "astra_militarum_cadian_shock_troops",
+            "astra_militarum_death_korps_of_krieg",
+        ):
+            from dataclasses import replace
+            catalog[key] = replace(
+                catalog[key],
+                model_loadouts=_am_battleline_specials_loadouts(
+                    catalog[key].model_loadouts
+                ),
+            )
 
     # SWEG_DAEMONS_EPITOME_FNP (default-OFF, byte-identical off): the Contorted
     # Epitome carries a fabricated personal Feel No Pain 4+ — a mapper prose-walk

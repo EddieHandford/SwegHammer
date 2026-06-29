@@ -11,6 +11,16 @@
     "approximation": true
   },
 
+  "simulator.am_battleline_special_weapons": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Shock-Troops",
+    "rule_name": "Cadian Shock Troops / Death Korps of Krieg — special weapon wargear options",
+    "quoted_text": "For every 10 models in this unit, up to 2 Cadian Shock Troopers can each have their lasgun replaced with one of the following: 1 flamer; 1 grenade launcher; 1 meltagun; 1 plasma gun. [Plasma gun - supercharge: Range 24\", A 1, BS 4+, S 8, AP -3, D 2, [HAZARDOUS], [RAPID FIRE 1]] [Meltagun: Range 12\", A 1, BS 4+, S 9, AP -4, D D6, [MELTA 2]]",
+    "trigger": "gate SWEG_AM_BATTLELINE_SPECIALS=1 (default OFF); _build_catalog is constructing the Cadian Shock Troops (astra_militarum_cadian_shock_troops) or Death Korps of Krieg (astra_militarum_death_korps_of_krieg) catalog entry. The BSData v10.6.0 mapper collapses both datasheets to a single lasgun-only model type (model_loadouts has one Lasgun + Close combat weapon entry, extra_ranged_profiles empty), dropping the up-to-2-special-weapons-per-10-models options the datasheet grants. Death Korps of Krieg shares the identical wargear option (the same plasma gun / meltagun / flamer / grenade launcher list). Both are confirmed in the local cache data/bsdata/cache/Imperium - Astra Militarum - Library.cat.gz ('...w/ Special Weapon' selectionEntryGroup carrying a max=2 constraint per 10-model squad).",
+    "effect": "When SWEG_AM_BATTLELINE_SPECIALS=1, _am_battleline_specials_loadouts REPLACES the unit's lasgun-only model_loadouts with a heterogeneous list scaled per 10 models: 8 lasgun troopers + 1 model armed with a supercharge plasma gun (S8 AP-3 D2 mean 2.0, [RAPID FIRE 1], range 24\") + 1 model armed with a meltagun (S9 AP-4 D6 mean 3.5, [MELTA 2], range 12\"). The special-weapon model dicts are built by copying the mapper's base lasgun model (inheriting hit_probability 0.5 = Guardsman BS 4+, the Close combat weapon melee, and every other round-trip key) and swapping only the ranged weapon. Army._add_squad_per_model then promotes one plasma-armed and one meltagun-armed model_Unit (via _distribute_squad_slots: the two count-1 special slots + 8 lasgun body slots for a 10-model squad). Modelled per-model (not as whole-unit extra_ranged_profiles) because only 2 of every 10 models carry a special weapon. APPROXIMATION: the plasma supercharge [HAZARDOUS] self-harm is carried in the loadout dict but, per the existing per-model promotion convention (_loadout_entry_to_weapon_fields deliberately does not copy hazardous onto a promoted primary weapon), does not fire when the plasma gun is the model's sole ranged weapon; the flamer / grenade-launcher options are not modelled (plasma + meltagun chosen as the representative 2). Setting SWEG_AM_BATTLELINE_SPECIALS unset or 0 skips the block entirely — byte-identical to the legacy lasgun-only catalogue.",
+    "scope": "weapon-keyword",
+    "approximation": true
+  },
+
   "COMBINED_REGIMENT.am_born_soldiers_lethal_hits": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Born Soldiers (Combined Arms Detachment Rule)",
