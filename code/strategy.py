@@ -1050,6 +1050,200 @@ def _kite_target_bonus(defender, attacker_army) -> float:
 
 
 # ---------------------------------------------------------------------------
+# Kiting counter-play — move (1): proactive OBJECTIVE-AWARE retreat (SWEG_KITE_MOVE)
+# ---------------------------------------------------------------------------
+# Recovered 2026-06-28 from git bcceccf (added wave-247, lost in the wave-252
+# re-anchor bc9159d — removed by a re-anchor, NOT because it failed). It is the
+# only lever that moved the dominant going-first signature (74%->56%). The bare
+# objective-blind v1 cratered the shooting armies it was meant to help (T'au
+# -12.5, Astra Militarum -6.0, Votann -4.5 at N=40); this objective-aware version
+# dodges the charge WITHOUT abandoning the markers the army holds. Gated
+# default-OFF (SWEG_KITE_MOVE); off path byte-identical (the gate is the first
+# short-circuit in pick_move_intent, so no helper here is reached when unset).
+# AI play-style heuristic (target/move selection), no rule citation — same class
+# as the kite-target / screen / synapse / tarpit biases above.
+_KITE_MOVE_CHARGE_AVG: float = 12.0  # average 2D6 charge distance
+
+
+def _kite_move_enabled() -> bool:
+    return __import__("os").environ.get("SWEG_KITE_MOVE") == "1"
+
+
+# Objective-awareness tuning for the kite (wave-247 refinement). `_KITE_FAN_DEGREES`
+# is the angular FAN of candidate retreat directions sampled around the pure
+# away-vector (in degrees): the kite can lean toward a wanted marker instead of
+# only ever fleeing on the single straight-back line. The first entry is 0.0 (the
+# pure away-vector) so that with NO wanted marker the legacy straight-back
+# geometry is reproduced exactly. See `_kite_move_intent`.
+_KITE_FAN_DEGREES: tuple = (0.0, -30.0, 30.0, -55.0, 55.0)
+
+
+def _kite_wanted_objectives(unit, friendly_alive, enemy_alive, objectives):
+    """Markers the army WANTS this kiting unit to keep contributing to: any
+    objective the army currently holds (strictly out-Controls the enemy) or
+    contests (ties), measured WITHOUT this unit so the preference reflects the
+    rest of the army's stake, not the unit we are about to move. Pure OC
+    geometry — the same control_radius / OC-sum machinery the scorer uses.
+
+    Returns a list of (x, y) marker centres. Empty when the army holds/contests
+    nothing (then the kite has no objective to steer toward and falls back to a
+    pure away-step). Reads `_effective_oc_value` so a Battle-shocked / damaged
+    body counts at its real reduced Objective Control, matching the scorer.
+    """
+    wanted = []
+    for obj in objectives:
+        ox, oy = obj.x, obj.y
+        r2 = obj.control_radius * obj.control_radius
+        ours = 0
+        theirs = 0
+        for f in friendly_alive:
+            if f.uid == unit.uid:
+                continue  # exclude the kiting unit — preference is the REST's stake
+            dx = f.position[0] - ox
+            dy = f.position[1] - oy
+            if dx * dx + dy * dy <= r2:
+                ours += _effective_oc_value(f)
+        for e in enemy_alive:
+            dx = e.position[0] - ox
+            dy = e.position[1] - oy
+            if dx * dx + dy * dy <= r2:
+                theirs += _effective_oc_value(e)
+        # Held (we strictly out-Control) OR contested (tie, including 0-0 only
+        # when some friendly body is present — a wholly empty marker is not a
+        # stake worth steering a kite toward).
+        if ours > theirs or (ours == theirs and ours > 0):
+            wanted.append((ox, oy))
+    return wanted
+
+
+def _kite_move_intent(unit, enemy, map_, friendly_alive=None, objectives=None):
+    """Proactive, OBJECTIVE-AWARE kite-step for a threatened gunline. Returns a
+    retreat position (a REPOSITION goal point) when ALL hold, else None (fall
+    through to the legacy intent unchanged):
+
+      * the unit sits inside at least one enemy melee unit's next-turn charge
+        bubble (enemy.move + 12" average charge), AND
+      * among a FAN of candidate retreat directions (the pure away-vector plus
+        small angular variants), at least one candidate both REDUCES the unit's
+        exposure to that bubble (RAIL 1) AND keeps at least one enemy target
+        within the unit's own weapon range (RAIL 2, mandatory — never kite into
+        uselessness; mirrors the FREE-CONTEST shoot-cost rail).
+
+    Objective-awareness (wave-247 refinement): among the candidate retreat
+    points that pass both rails, PREFER the one that stays closest to a marker
+    the army wants to keep contributing to (`_kite_wanted_objectives`), so the
+    unit dodges the charge WITHOUT abandoning the primary-scoring game. When the
+    army holds/contests no marker (or `friendly_alive` / `objectives` are not
+    supplied — legacy call path), the preference is inert and the kite falls
+    back to the straight-back away-step, preserving the pre-refinement geometry.
+
+    The caller has already verified the gate (flag set, SHOOTY/HEAVY gunline,
+    not currently in Engagement Range, not chaff, and NOT the swing body on any
+    marker — that on-marker suppression lives in `pick_move_intent`). This
+    function owns the threat-bubble geometry, the shoot-rail, and the
+    stay-near-a-wanted-marker preference among legal retreat points.
+    """
+    enemies = enemy.alive_units
+    if not enemies:
+        return None
+
+    # Identify the melee enemies whose next-turn charge bubble currently
+    # covers this unit, and the nearest such threat.
+    threats = []
+    nearest_threat = None
+    nearest_threat_d = float("inf")
+    for e in enemies:
+        ep = getattr(e, "profile", None)
+        if ep is None or not _is_melee_class(ep):
+            continue
+        threat_range = float(getattr(ep, "move", 6.0) or 6.0) + _KITE_MOVE_CHARGE_AVG
+        d = _dist(unit.position, e.position)
+        if d < threat_range:
+            threats.append(e)
+            if d < nearest_threat_d:
+                nearest_threat_d = d
+                nearest_threat = e
+    if not threats:
+        return None  # not inside any melee threat bubble — nothing to kite from
+
+    # Base retreat vector: directly away from the centroid of the threatening
+    # melee enemies (collapses to "away from the single threat" when there is
+    # one).
+    cx = sum(e.position[0] for e in threats) / len(threats)
+    cy = sum(e.position[1] for e in threats) / len(threats)
+    ux, uy = unit.position
+    vx = ux - cx
+    vy = uy - cy
+    norm = (vx * vx + vy * vy) ** 0.5
+    if norm <= 1e-9:
+        # Degenerate (unit sits on the centroid): retreat away from the single
+        # nearest threat instead so we still have a direction.
+        vx = ux - nearest_threat.position[0]
+        vy = uy - nearest_threat.position[1]
+        norm = (vx * vx + vy * vy) ** 0.5
+        if norm <= 1e-9:
+            return None
+    bvx, bvy = vx / norm, vy / norm  # unit away-vector
+    step = float(effective_move(unit))
+    rng = float(unit.profile.range_inches or 24)
+
+    # Markers the army wants this unit to keep contributing to (held / contested
+    # by the REST of the army). Empty on the legacy call path or when the army
+    # holds nothing — then the objective preference is inert.
+    wanted = (
+        _kite_wanted_objectives(unit, friendly_alive, enemy.alive_units, objectives)
+        if friendly_alive is not None and objectives
+        else []
+    )
+
+    # FAN: sample the pure away-vector plus small angular variants. Each
+    # candidate is clamped inside the board, cover-snapped, and must pass both
+    # rails. Among the survivors, prefer the one closest to a wanted marker
+    # (objective-aware); with no wanted markers the fan's first passing
+    # candidate (angle 0 — the straight-back step) is taken, so the OFF/legacy
+    # geometry is reproduced exactly.
+    best_pos = None
+    best_obj_d = float("inf")
+    for deg in _KITE_FAN_DEGREES:
+        rad = math.radians(deg)
+        ca, sa = math.cos(rad), math.sin(rad)
+        # Rotate the away-vector by `deg`.
+        dvx = bvx * ca - bvy * sa
+        dvy = bvx * sa + bvy * ca
+        raw_pos = (ux + step * dvx, uy + step * dvy)
+        # Clamp inside the board so the cover-snap and rails measure a legal pt.
+        if map_ is not None:
+            rx = min(max(raw_pos[0], 0.0), map_.width)
+            ry = min(max(raw_pos[1], 0.0), map_.height)
+            raw_pos = (rx, ry)
+        cand = _best_nearby_cover_point(map_, raw_pos, search_radius=3.0)
+
+        # RAIL 1 — the kite must actually reduce threat-bubble exposure: the
+        # retreat point must be strictly farther from the nearest melee threat
+        # than where we stand now, else the move buys nothing.
+        if _dist(cand, nearest_threat.position) <= nearest_threat_d:
+            continue
+        # RAIL 2 (mandatory) — at least one enemy must remain within this unit's
+        # own weapon range from the retreat spot, else it forfeits its shots.
+        if not any(_dist(cand, e.position) <= rng for e in enemies):
+            continue
+
+        # Objective score: distance to the NEAREST wanted marker (smaller is
+        # better — stays on/near the primary game). With no wanted markers every
+        # candidate scores 0, so the first passing candidate (angle 0) wins and
+        # the legacy straight-back geometry is reproduced.
+        if wanted:
+            obj_d = min(_dist(cand, w) for w in wanted)
+        else:
+            obj_d = 0.0
+        if obj_d < best_obj_d:
+            best_obj_d = obj_d
+            best_pos = cand
+
+    return best_pos
+
+
+# ---------------------------------------------------------------------------
 # AI-1 — Orks tarpit-engage charge heuristic (AI play-style, NOT a rule)
 # ---------------------------------------------------------------------------
 # Real tournament Orks (volume melee, low damage-per-attack, abundant bodies)
@@ -2879,6 +3073,41 @@ def pick_move_intent(
         cur_round = 1
     round_weight = 1.0 + 0.15 * (cur_round - 1)
     objectives = map_.objectives
+
+    # ----- SWEG_KITE_MOVE: proactive, OBJECTIVE-AWARE kite-step (AI heuristic) --
+    # Recovered 2026-06-28 (git bcceccf, lost in the wave-252 re-anchor). Fires
+    # BEFORE Fall Back: a threatened SHOOTY/HEAVY gunline retreats out of an enemy
+    # melee unit's next-turn charge bubble while still firing, instead of freezing
+    # in weapon range and being charged. Gated SWEG_KITE_MOVE (default-off; off
+    # path byte-identical — the gate is the first short-circuit). Selectivity:
+    # only a NON-chaff gunline that is NOT currently engaged AND whose departure
+    # does NOT flip a marker the army holds/contests
+    # (`_displace_no_control_consequence` True == safe to leave) kites — so the
+    # kite never pulls the army off the objectives it should hold. The fired kite
+    # is handed the objective context so it steers toward a wanted marker while
+    # dodging the charge. No rule citation (same class as the kite-target / screen
+    # / synapse / tarpit AI biases).
+    if (
+        _kite_move_enabled()
+        and role in ("SHOOTY", "HEAVY")
+        and _is_gunline_target(_score_profile(unit))
+        and not _is_chaff_unit(unit)
+        and not any(
+            _er_gap(unit.position, unit.profile,
+                    e.position, e.profile) <= _ENGAGEMENT_RANGE
+            for e in enemy.alive_units
+        )
+        and _displace_no_control_consequence(
+            unit, friendly.alive_units, enemy.alive_units,
+            map_.objectives, cur_round,
+        )
+    ):
+        _kite_pos = _kite_move_intent(
+            unit, enemy, map_,
+            friendly_alive=friendly.alive_units, objectives=map_.objectives,
+        )
+        if _kite_pos is not None:
+            return _kite_pos, _REPOSITION_INTENT
 
     # ----- 0. Fall Back (10e core) ------------------------------------------
     # A SHOOTY / HEAVY unit pinned inside enemy Engagement Range (1.5") loses
@@ -4843,6 +5072,18 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     # dispatcher).
 
     if name == "Arcane Genetic Alchemy":
+        # SWEG_CUSTODES_AGA_STUB (default-OFF, byte-identical off): the sim fires
+        # AGA proactively granting transient_fnp_5 (Feel No Pain vs ALL damage), but
+        # the real rule is REACTIVE and applies vs MORTAL WOUNDS only ("after a
+        # Mortal wound is allocated"). The proactive heuristic cannot proxy the
+        # mortal-wound trigger, and vs an army that deals no mortal wounds (e.g.
+        # Imperial Knights: Thermal Cannon / Battle Cannon / Reaper Chainsword) the
+        # real rule can NEVER legally trigger — so the sim grants phantom durability.
+        # When gated, AGA no-ops (like Vigilance Eternal). Over-credit-vs-Knights
+        # investigation; Custodes is an over-pole. Gate unset -> fires as before ->
+        # byte-identical to the sc17a anchor.
+        if __import__("os").environ.get("SWEG_CUSTODES_AGA_STUB") == "1":
+            return False
         # ctx: {"target": Unit}. Defensive FNP-5 approximation. Fire on a
         # wounded high-value Custodes unit. Same shape as Lightning-Fast
         # Reactions / Psychic Dominion: HP loss + meaningful cost.

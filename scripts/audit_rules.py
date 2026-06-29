@@ -247,6 +247,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Once-per-battle first-turn roll-off (10e mission sequence, gated
     # SWEG_ROLLOFF_ONCE) — registered so the citation is enforced, not stale.
     "simulator.first_turn_rolloff",
+    # Action-economy Tactical action cards (Chapter Approved 2025-26, gated
+    # SWEG_ACTION_ECONOMY) — registered so the citations are enforced, not stale.
+    "simulator.secondary_establish_locus",
+    "simulator.secondary_recover_assets",
+    "secondaries.a_tempting_target",
     "simulator.judgement_tokens",
     # Orks faction army rules (10e). mob_rule auto-passes Battle-shock for
     # Ork units when the army has 10+ Ork models on the battlefield;
@@ -605,6 +610,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # (melee Wound-roll re-rolls, upgraded to full re-roll near objectives).
     # Gated SWEG_VETERANS.
     "simulator.veterans_of_the_long_war",
+    # EC-DAEMONETTE-FF (recovered 2026-06-29 from git c6b40b9, lost in a
+    # re-anchor). Daemonettes' Fights First is detachment-gated (Carnival of
+    # Excess) in BSData but extract_fights_first() over-extracts it as always-on.
+    # Gate SWEG_EC_DAEMONETTE_FF suppresses it for Emperor's Children Daemonettes.
+    # Cited in data/rule_citations.d/emperors_children.json.
+    "simulator.ec_daemonette_fights_first",
     # CSM wave — Chaos Terminator Squad "Despoilers": when making a Dark Pact,
     # re-roll the Hit roll until the end of the phase. Gated SWEG_CSM_ABILITIES.
     # Cited in data/rule_citations.d/keywords_and_mechanics.json.

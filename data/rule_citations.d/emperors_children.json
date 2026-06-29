@@ -1,0 +1,12 @@
+{
+  "_comment": "Citations for the Emperor's Children faction mechanics in code/simulator.py. Source: BSData v10.6.0 Chaos - Emperor's Children.cat.gz.",
+
+  "simulator.ec_daemonette_fights_first": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Chaos%20-%20Emperor's%20Children.cat",
+    "rule_name": "Daemonettes Fights First (detachment-gated via Carnival of Excess)",
+    "quoted_text": "<modifier type=\"set\" value=\"true\" field=\"hidden\"><conditionGroups><conditionGroup type=\"and\"><conditions><condition type=\"notInstanceOf\" value=\"1\" field=\"selections\" scope=\"force\" childId=\"cac3-71d1-ea4b-795d\" shared=\"true\" includeChildSelections=\"true\"/><condition type=\"lessThan\" value=\"1\" field=\"selections\" scope=\"roster\" childId=\"3c9e-2156-254e-66e8\" shared=\"true\" includeChildSelections=\"true\"/></conditions></conditionGroup></conditionGroups></modifier> ... <infoLink name=\"Fights First\" id=\"fc22-54df-e539-41d9\" hidden=\"false\" type=\"rule\" targetId=\"24-c886-e8ba-5a89\"/>",
+    "trigger": "BSData selectionEntry id 06f6-b870-4e43-4ed9 (Daemonettes, Emperor's Children). The selectionEntry carries a modifier that sets the entry hidden=true UNLESS the force contains childId cac3-71d1-ea4b-795d (Emperor's Children faction entry) AND the roster contains childId 3c9e-2156-254e-66e8 (Carnival of Excess detachment). The Fights First infoLink (id fc22-54df-e539-41d9) is therefore only available when the Carnival of Excess detachment is active. The mapper's extract_fights_first() reads all infoLinks unconditionally, producing fights_first=True in every game regardless of detachment. This gate corrects that over-extraction. Env-gated SWEG_EC_DAEMONETTE_FF (default OFF). OFF is byte-identical to base.",
+    "effect": "When ON: in Battle._fight_priority, if the unit has faction='Emperor's Children' and name='Daemonettes', the fights_first profile flag is ignored and the unit fights in the Remaining Combats step (priority 2) rather than the Fights First step (priority 0). When OFF: no change — Daemonettes retain priority 0 as before (base behaviour preserved byte-for-byte).",
+    "scope": "keyword-gated"
+  }
+}

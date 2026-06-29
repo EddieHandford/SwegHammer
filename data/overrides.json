@@ -1777,7 +1777,9 @@
     },
     "chaos_space_marines_legionaries": {
       "veterans_of_the_long_war": true,
-      "notes": "Wave 217: Legionaries datasheet ability 'Veterans of the Long War' — in melee, re-roll Wound rolls of 1; if the target is within range of an objective marker, re-roll the full Wound roll instead. Read at the melee wound step gated SWEG_VETERANS. Cross-checked verbatim: BSData v10.6.0 Chaos Space Marines.cat.gz ability a5ea-d708-db75-226c + Wahapedia https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Legionaries. Cited simulator.veterans_of_the_long_war."
+      "melee_attacks": 4,
+      "melee_ap": -1,
+      "notes": "MERGED ENTRY (was two duplicate top-level keys; json.load silently kept only the second, dropping veterans_of_the_long_war until this merge). Field 1 — Veterans of the Long War (Wave 217): Legionaries datasheet ability — in melee, re-roll Wound rolls of 1; if the target is within range of an objective marker, re-roll the full Wound roll instead. Read at the melee wound step gated SWEG_VETERANS (default-on). Verbatim BSData v10.6.0 Chaos Space Marines.cat.gz ability a5ea-d708-db75-226c + Wahapedia https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Legionaries. Cited simulator.veterans_of_the_long_war. Field 2 — melee-basket correction (Wave 236): parsed.json names the Astartes chainsword but carries the close combat weapon's statistics (attacks 3, armour penetration 0) — a flattening mismatch. Chainsword-dominant loadout is attacks 4, armour penetration -1 (BSData shared melee profile; the Aspiring Champion resolves the same profile). melee strength 4 and damage 1 already correct in the parsed entry."
     },
     "chaos_space_marines_chaos_terminator_squad": {
       "csm_despoilers": true,
@@ -1794,11 +1796,6 @@
     "chaos_space_marines_heldrake": {
       "devastating_wounds": true,
       "notes": "AK-1: Heldrake claws carry [DEVASTATING WOUNDS] per BSData v10.6.0 Chaos Space Marines.cat.gz (Range=Melee, Keywords=\"Anti-FLY 2+, Devastating Wounds\"). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Heldrake."
-    },
-    "chaos_space_marines_legionaries": {
-      "melee_attacks": 4,
-      "melee_ap": -1,
-      "notes": "Wave 236 melee-basket correction: parsed.json names the Astartes chainsword as the unit's melee weapon but carries the close combat weapon's statistics (attacks 3, armour penetration 0) — a flattening mismatch. The Legionaries datasheet Astartes chainsword is A4 WS3+ S4 AP-1 D1 verbatim from BSData v10.6.0 Chaos - Chaos Space Marines.cat.gz (shared melee profile resolved from the unit's model entries; the Aspiring Champion resolves the same profile). Chainsword-dominant loadout: attacks 4, armour penetration -1; melee strength 4 and damage 1 already correct in the parsed entry."
     },
     "emperor_s_children_heldrake": {
       "devastating_wounds": true,

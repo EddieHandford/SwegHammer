@@ -14,6 +14,21 @@ touching code.
 > rules there apply on top of the standing rules in this file when working
 > the loop.
 
+> **Before running ANY evaluation, screen, or re-anchor, read
+> [`docs/EVAL_PROTOCOL.md`](docs/EVAL_PROTOCOL.md)** — the eval-execution
+> discipline the headline metric depends on. The single most-missed rule: the
+> paired common-random-number evaluation is **deterministic**, so the standing
+> anchor **is** the OFF arm — pair the ON arm directly against it and do **not**
+> re-run an OFF arm (a fresh OFF run only for a true re-anchor or a stale
+> anchor). Also: validate every new gate byte-identical-off (zero flips); batch
+> screens with a single re-anchor. The `eval_guard.py` hook reprints these
+> headline rules whenever an eval command launches.
+
+> **To keep a long session from forgetting these standing rules as context
+> fills (the context-management playbook — what survives a compaction, how the
+> hooks re-inject state, why hard rules belong in hooks not prose), see
+> [`docs/CONTEXT_MANAGEMENT.md`](docs/CONTEXT_MANAGEMENT.md).**
+
 ## Project plan: a two-stage pipeline
 
 SwegHammer runs as two sequenced feedback loops, not one. Future sessions:

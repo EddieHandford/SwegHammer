@@ -162,5 +162,29 @@
     "trigger": "end of each battle round, when a TACTICAL-track army's held Cull the Horde card is scored: one or more enemy INFANTRY units with Starting Strength 13+ were destroyed this round",
     "effect": "Flat 5 VP if one or more enemy INFANTRY units with Starting Strength 13+ were destroyed this turn (regardless of count). Distinct from the Fixed version (5 VP per qualifying unit destroyed, no per-round cap). Implemented in score_round_delta when tactical=True, routed from Battle._score_one_card when scoring_army.secondary_track == 'TACTICAL'. Env-gated SWEG_TAC_DECK; OFF leaves the Fixed per-unit path byte-identical.",
     "scope": "phase-gated"
+  },
+  "simulator.secondary_establish_locus": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/",
+    "rule_name": "Establish Locus (Chapter Approved 2025-26 Secondary Mission, Tactical — action-based)",
+    "quoted_text": "ESTABLISH LOCUS (ACTION) STARTS: Your Shooting phase. UNITS: One unit from your army. COMPLETES: End of your turn, if that unit is within your opponent's deployment zone or within 6\" of the centre of the battlefield. IF COMPLETED: Your unit establishes a locus. VICTORY POINTS WHEN: End of your turn. Your unit established a locus this turn and is within 6\" of the centre of the battlefield. 2VP OR Your unit established a locus this turn and is within your opponent's deployment zone. 4VP",
+    "trigger": "After the Movement phase, a surplus unit (chaff per strategy._is_chaff_unit) starts the Establish Locus action in the Shooting phase. The action completes at end of turn if the unit is alive AND is within the opponent's deployment zone (4 VP) or within 6\" of the battlefield centre (2 VP). While performing the action the unit cannot shoot or declare a charge (core Actions rule); the action fails if the unit moves.",
+    "effect": "2 VP at end of turn if the performing unit is within 6\" of the battlefield centre when the action completes; 4 VP instead if the unit is within the opponent's deployment zone. Rewards pushing expendable bodies into the midboard or beyond — an action-economy tax a low-model durable army (Imperial Knights) cannot pay but a horde or multiple small unit army can, because the performing unit is locked out of shooting and charging for the turn. Even-handed: the same card is offered to both players; the asymmetry falls out of unit count and surplus chaff, not faction. Subject to the 40 VP secondary total cap.",
+    "scope": "phase-gated"
+  },
+  "simulator.secondary_recover_assets": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/#Recover-Assets",
+    "rule_name": "Recover Assets (Chapter Approved 2025-26 Secondary Mission, Tactical — action-based)",
+    "quoted_text": "RECOVER ASSETS (ACTION) STARTS: Your Shooting phase. UNITS: Two or more units from your army, if each of those units is wholly within a different one of the following areas: your deployment zone; No Man's Land; your opponent's deployment zone. COMPLETES: End of your turn, if either two or three of those units are on the battlefield. IF COMPLETED: Those units recover assets. VICTORY POINTS WHEN: End of your turn or the end of the battle (whichever comes first). Two of your units recovered assets this turn — 3VP. Three or more of your units recovered assets this turn — 5VP. When Drawn: If you are playing an Incursion mission, or if there are fewer than three units from your army on the battlefield, you can discard this card and draw a new Secondary Mission card.",
+    "trigger": "At the start of the Shooting phase, two or more surplus units each commit to the Recover Assets action, each unit being wholly within a different one of: own deployment zone, No Man's Land, opponent's deployment zone. The acting units cannot shoot or declare a charge that turn (standard 10th-edition action restriction). At the end of the turn, surviving units that are still on the battlefield and still within their designated area have recovered assets.",
+    "effect": "3 VP if exactly two units recovered assets this turn; 5 VP if three or more units recovered assets this turn. Scored at end of turn (or end of battle, whichever is first). The Tactical discard condition (Incursion mission or fewer than three army units on the battlefield) means this card is only ever held by armies with broad rosters — an emergent action-economy tax that falls out of unit count, not faction. A low-model durable army (e.g. Imperial Knights) with fewer than three units available cannot satisfy the two-unit minimum across three distinct zones without committing units it cannot spare from the firefight; a horde or multiple small units army routinely has surplus bodies already forward, so it completes this naturally.",
+    "scope": "phase-gated"
+  },
+  "secondaries.a_tempting_target": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/#Secondary-Mission-deck",
+    "rule_name": "A Tempting Target",
+    "quoted_text": "Secondary Mission A TEMPTING TARGET An opportunity to seize a valuable asset has been identified, but the enemy are likely to use it as bait in a trap. Move to secure the site, but be wary of enemy ambushes. When Drawn: Your opponent must select one objective in No Man's Land to be your Tempting Target objective marker. ANY BATTLE ROUND VICTORY POINTS WHEN: End of either player's turn. You control your Tempting Target objective marker. 5VP",
+    "trigger": "End of either player's turn; card must be active (drawn and held); the scoring player must control the designated Tempting Target objective marker (a No Man's Land objective selected by the opponent at draw time)",
+    "effect": "Score 5 victory points. No Action performed — pure objective-control check at end of turn.",
+    "scope": "phase-gated"
   }
 }

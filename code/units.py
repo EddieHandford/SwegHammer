@@ -5501,6 +5501,76 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
                 # mutex group under _strip_mode_suffix and only the higher-EV copy
                 # would fire). All other fusion-blaster characteristics unchanged.
                 catalog[key] = replace(catalog[key], attacks=2)
+
+    # SWEG_DAEMONS_EPITOME_FNP (default-OFF, byte-identical off): the Contorted
+    # Epitome carries a fabricated personal Feel No Pain 4+ — a mapper prose-walk
+    # artifact: the "4+" was extracted from its "Swallow Energy" LEADER ability,
+    # which grants FNP 4+ vs mortal/psychic to its LED unit (Daemonettes), NOT to
+    # the Epitome itself (that leader aura is separately + correctly wired in
+    # code/leaders.py). When gated, remove the phantom personal FNP (set 7 = none).
+    # Rule-10 fabrication removal (over-credit-vs-Knights investigation; same class
+    # as the wave-260 Lucius the Eternal fix). Gate unset -> fnp unchanged ->
+    # byte-identical to the sc17a anchor.
+    if (__import__("os").environ.get("SWEG_DAEMONS_EPITOME_FNP") == "1"
+            and "chaos_daemons_library_contorted_epitome" in catalog):
+        catalog["chaos_daemons_library_contorted_epitome"] = replace(
+            catalog["chaos_daemons_library_contorted_epitome"], fnp=7)
+
+    # (Chaos Space Marine Legionaries "Veterans of the Long War" is restored
+    # directly in data/overrides.json — the two duplicate top-level keys were
+    # merged so the veterans_of_the_long_war flag survives json.load. The melee
+    # wound-reroll mechanic itself is applied default-on via SWEG_VETERANS
+    # (see the melee resolution above). No loader gate is needed.)
+
+    # SWEG_CUSTODES_NO_FAKE_FNP (ADOPTED — default-ON, `=0` reverts): Adeptus
+    # Custodes have NO base Feel No Pain in 10e matched play (Wahapedia Custodian
+    # Guard datasheet: no Feel No Pain ability; "Feel No Pain can only be granted
+    # through specific Stratagems"). The BSData mapper's legacy prose walk
+    # (code.bsdata.mapper.extract_fnp, fallback path 3) descends into Crusade
+    # Relics / Battle Traits / Crusade Honours selectionEntryGroups — narrative-
+    # only upgrade content, NOT the matched-play datasheet — and pins their "the
+    # bearer has the Feel No Pain 5+ ability" text onto the unit's personal fnp.
+    # Result: 30 of 31 Custodes datasheets carried a fabricated unconditional
+    # 5+++ (24 units), 6+++ (1) or 3+++ (5 — the Sisters of Silence Anathema
+    # Psykana units, whose real Feel No Pain 3+ is CONDITIONAL vs Psychic Attacks
+    # / mortal wounds only). The simulator applies fnp unconditionally
+    # (Unit.receive_damage), inflating an over-pole faction's durability ~17%.
+    # Screened: gated mean absolute error 3.45 -> 3.32 (-0.13). Removing it makes
+    # Custodes overshoot real 52.1 -> sim 46.1, which exposes a separate Custodes
+    # under-model to investigate (the fabrication had masked it). The permanent
+    # fix is in the mapper (prune Crusade/Battle-Trait subtrees, model conditional
+    # Feel No Pain as conditional); this default-on loader correction stands in
+    # until that lands. `SWEG_CUSTODES_NO_FAKE_FNP=0` restores the (incorrect)
+    # fabricated saves.
+    if __import__("os").environ.get("SWEG_CUSTODES_NO_FAKE_FNP", "1") != "0":
+        for _ck, _cu in list(catalog.items()):
+            if (_cu.faction or "") == "Adeptus Custodes" and getattr(_cu, "fnp", 7) < 7:
+                catalog[_ck] = replace(_cu, fnp=7)
+
+    # SWEG_FIX_BODYGUARD_FNP (ADOPTED — default-ON, `=0` reverts): same prose-walk
+    # Feel No Pain leak as the Custodes correction, but the per-unit "bodyguard"
+    # cases where the datasheet's Feel No Pain explicitly belongs to a DIFFERENT
+    # model than the one the mapper pinned it on. Each unit below grants Feel No
+    # Pain to its accompanying CHARACTER / leader, not to itself, so its own
+    # personal fnp is 7 (verified against Wahapedia / BSData ability text):
+    #   * Cryptothralls (Necrons) — "Bound Creation": the CRYPTEK gets 4+.
+    #   * Deathshroud Terminators (Death Guard) — "Silent Bodyguard": the led
+    #     CHARACTER gets 4+.
+    #   * Locus (Genestealer Cults) — "Bodyguard": OTHER Character models get 4+.
+    #   * The Visarch (Ynnari) — "Yvraine's Champion": OTHER Character models get
+    #     4+.
+    # (Tyrant Guard and Kastelan Robots had the same leak but were already
+    # corrected via data/overrides.json in prior waves.) Both over-pole landings
+    # (Necrons, Death Guard) move toward real with no overshoot. Screened: gated
+    # mean absolute error 3.45 -> 3.40 (-0.05), ungated -0.03. `=0` restores the
+    # (incorrect) fabricated saves.
+    if __import__("os").environ.get("SWEG_FIX_BODYGUARD_FNP", "1") != "0":
+        for _bgk in ("necrons_cryptothralls",
+                     "death_guard_deathshroud_terminators",
+                     "genestealer_cults_locus",
+                     "aeldari_ynnari_the_visarch"):
+            if _bgk in catalog and getattr(catalog[_bgk], "fnp", 7) < 7:
+                catalog[_bgk] = replace(catalog[_bgk], fnp=7)
     return catalog
 
 

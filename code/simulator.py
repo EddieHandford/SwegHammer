@@ -156,6 +156,7 @@ from .sim.constants import (  # noqa: F401  (re-exported for the public surface)
     BOARDCONTROL_STATS,
     PATHFIND_STAGE0_STATS,
     REACH_STATS,
+    STRAND_STATS,
     _PATHFIND_BIG_RADIUS_IN,
 )
 # Pure geometry helpers moved verbatim to code/sim/geometry.py (Stage A of
@@ -1055,8 +1056,21 @@ class Battle:
                 # A squad is sticky / DG if its profile says so (all members of
                 # a squad share a profile, so checking the first crediting
                 # member is sufficient; use any() to be safe for mixed lists).
+                # SWEG_NECRON_NO_STICKY (default-OFF, byte-identical off): remove
+                # the FABRICATED sticky_objective on Necron Warriors. The override
+                # (data/overrides.json) cites "Their Number Is Legion", but in
+                # BSData v10.6.0 that rule is a Reanimation-Protocol re-roll, NOT a
+                # sticky-objective retention — no citation supports sticky on
+                # Warriors, and their OC=2 base stat already models their objective
+                # control. Rule-10/13 fabrication removal (over-credit-vs-Knights
+                # investigation; Necrons are a +9.4 aggregate over-pole). Gate unset
+                # -> sticky applies as before -> byte-identical to the sc17a anchor.
+                _nec_nostick = os.environ.get("SWEG_NECRON_NO_STICKY") == "1"
                 if any(
                     getattr(u.profile, "sticky_objective", False)
+                    and not (_nec_nostick
+                             and (u.profile.faction or "") == "Necrons"
+                             and u.profile.name == "Necron Warriors")
                     for u in members
                 ):
                     sticky_by_obj[best_idx] = True
@@ -1089,6 +1103,33 @@ class Battle:
                 _d["rounds"] += 1
                 _d["total"] += _tot
                 _d["delivered"] += _deliv
+
+        # STRANDING instrument (structural re-model Step 2, gated SWEG_STRAND_INSTR,
+        # read-only): per-faction summed Objective Control within the control radius
+        # (three inches) vs within twice it (six inches) of every marker, at this
+        # scoring snapshot. Quantifies the wave-93 three-to-six-inch stranding ratio
+        # on the current frame. No behaviour change — reads positions only.
+        if __import__("os").environ.get("SWEG_STRAND_INSTR"):
+            for _army in (self.a, self.b):
+                _fac = (_army.units[0].profile.faction if _army.units else "?") or "?"
+                _s = STRAND_STATS.setdefault(_fac, {"oc3": 0.0, "oc6": 0.0, "snaps": 0})
+                _s["snaps"] += 1
+                for _u in _army.alive_units:
+                    if _u.uid in self._battleshocked_this_round:
+                        continue
+                    _oc = self._effective_oc(_u)
+                    if _oc <= 0:
+                        continue
+                    for _obj in self.map.objectives:
+                        _ddx = _u.position[0] - _obj.x
+                        _ddy = _u.position[1] - _obj.y
+                        _d2 = _ddx * _ddx + _ddy * _ddy
+                        _inner = _obj.control_radius
+                        _outer = 2.0 * _obj.control_radius
+                        if _d2 <= _outer * _outer:
+                            _s["oc6"] += _oc
+                            if _d2 <= _inner * _inner:
+                                _s["oc3"] += _oc
 
         # Wave 187 (#71 primary-mission rotation, env-gated SWEG_PRIMARY_MISSION):
         # accumulate the Take-and-Hold per-objective award + the control counts in
@@ -1912,6 +1953,235 @@ class Battle:
                 continue
             best = max(best, 6 if self._unit_in_enemy_dz(u, own_is_army_a) else 3)
         return best
+
+    # ------------------------------------------------------------------
+    # Action-economy build (Chapter Approved 2025-26 Tactical action cards):
+    # Establish Locus, Recover Assets, A Tempting Target. Env-gated
+    # SWEG_ACTION_ECONOMY, DEFAULT-OFF and byte-identical when off (the card keys
+    # are absent from TACTICAL_DECK_POOL so nothing here is ever reached). This is
+    # the faithful anti-durability mechanism the durability over-reward
+    # investigation identified (docs/DURABILITY_OVERREWARD_INVESTIGATION.md): a
+    # real Tactical action card taxes a unit by making it STOP and perform an
+    # action for victory points (locked out of shooting and charging that turn),
+    # a tax a low-model durable army (Imperial Knights) cannot pay but a
+    # unit-rich horde can. The asymmetry is EMERGENT from spare-unit count — there
+    # is NO faction branch and NO model-count branch anywhere below. The unit is
+    # selected by the same rules-authentic Action contract as Cleanse / Sabotage
+    # (`_unit_can_perform_action`: alive, not already acting, Objective Control
+    # > 0, not in Engagement Range, and NOT a productive shooter with a target in
+    # range) so only a genuinely spare body is ever peeled off.
+    # Cited as `simulator.secondary_establish_locus`,
+    # `simulator.secondary_recover_assets`, and `secondaries.a_tempting_target`.
+    # ------------------------------------------------------------------
+
+    def _action_economy_enabled(self) -> bool:
+        """SWEG_ACTION_ECONOMY gate. DEFAULT-OFF: returns True only when the
+        environment variable is explicitly "1". Kept as a method (mirroring
+        `_cleanse_enabled` / `_sabotage_enabled`) so the assignment and scoring
+        methods can early-return before reading any battle state — the OFF path
+        is byte-identical because (a) the card keys are withheld from
+        TACTICAL_DECK_POOL so they are never drawn or chosen and (b) every
+        method below short-circuits here before touching the board or the RNG."""
+        return __import__("os").environ.get("SWEG_ACTION_ECONOMY", "0") == "1"
+
+    def _unit_zone(self, u, own_is_army_a: bool) -> str:
+        """Classify a unit's position into one of the three Recover Assets areas:
+        "own_dz" (the scoring army's own deployment zone), "nml" (No Man's Land),
+        or "enemy_dz" (the opponent's deployment zone). Army A deploys low-y, B
+        high-y. The simulator represents a unit by a single point, so this is the
+        closest faithful proxy for the rule's "wholly within" test (documented
+        deviation — see the build summary)."""
+        dz = self.map.deployment_width
+        h = self.map.height
+        y = u.position[1]
+        if own_is_army_a:
+            if y <= dz:
+                return "own_dz"
+            if y >= h - dz:
+                return "enemy_dz"
+            return "nml"
+        if y >= h - dz:
+            return "own_dz"
+        if y <= dz:
+            return "enemy_dz"
+        return "nml"
+
+    def _assign_establish_locus_actions(self, active, other) -> None:
+        """Establish Locus (action). After the Movement phase, flag ONE surplus
+        unit to perform the Establish Locus action. Per the card the action
+        completes at end of turn if the unit is within the opponent's deployment
+        zone (4 VP) or within 6" of the battlefield centre (2 VP); while
+        performing it the unit cannot shoot or declare a charge (core Actions
+        rule — enforced by the `action_this_round` lockout read in _do_shoot /
+        _do_charge). "UNITS: One unit from your army" → CAP = 1.
+
+        The unit is chosen by the rules-authentic `_unit_can_perform_action`
+        contract (the even-handed, EMERGENT spare-unit test) — no faction or
+        model-count branch. Cited `simulator.secondary_establish_locus`."""
+        if not self._action_economy_enabled():
+            return
+        if "establish_locus" not in (getattr(active, "chosen_secondaries", ()) or ()):
+            return
+        for u in active.alive_units:
+            if u.action_this_round is not None:
+                continue
+            if self._unit_can_perform_action(u, other):
+                u.action_this_round = "establish_locus"
+                break  # CAP = 1 ("One unit from your army")
+
+    def _score_establish_locus(self, army, opponent, own_is_army_a: bool,
+                               chosen_override=None) -> int:
+        """End-of-turn Establish Locus scoring: the performing unit must COMPLETE
+        the action (survive, not be dragged into Engagement Range — the same
+        `_action_completes` gate as Cleanse / Sabotage). If completed, 4 VP if the
+        unit is within the opponent's deployment zone, else 2 VP if it is within
+        6" of the battlefield centre, else 0. The two tiers are mutually exclusive
+        (the higher enemy-deployment-zone tier wins). Cited
+        `simulator.secondary_establish_locus`."""
+        if not self._action_economy_enabled():
+            return 0
+        chosen = (chosen_override if chosen_override is not None
+                  else (getattr(army, "chosen_secondaries", ()) or ()))
+        if "establish_locus" not in chosen:
+            return 0
+        cx = self.map.width / 2.0
+        cy = self.map.height / 2.0
+        best = 0
+        for u in army.alive_units:
+            if u.action_this_round != "establish_locus":
+                continue
+            if not self._action_completes(u, opponent):
+                continue
+            if self._unit_in_enemy_dz(u, own_is_army_a):
+                best = max(best, 4)
+                continue
+            dx = u.position[0] - cx
+            dy = u.position[1] - cy
+            if dx * dx + dy * dy <= 6.0 * 6.0:
+                best = max(best, 2)
+        return best
+
+    def _assign_recover_assets_actions(self, active, other) -> None:
+        """Recover Assets (action). After the Movement phase, flag surplus units —
+        each in a DIFFERENT one of the three areas (own deployment zone, No Man's
+        Land, opponent's deployment zone) — to perform the Recover Assets action.
+        Two units in two distinct areas scores 3 VP; three (one per area) scores
+        5 VP. Each performing unit is locked out of shooting / charging.
+
+        "Two or more units … each wholly within a DIFFERENT one of" the three
+        areas → at most one performer per area (CAP = 3, one per zone). The
+        Tactical When-Drawn discard (fewer than three army units on the
+        battlefield) is the action-economy tax: a low-unit army cannot field two
+        spare bodies across two distinct zones AND keep fighting. We do not model
+        the discard explicitly — the spare-unit `_unit_can_perform_action` gate
+        already prevents a low-unit army from committing the bodies, which is the
+        same emergent outcome. Cited `simulator.secondary_recover_assets`."""
+        if not self._action_economy_enabled():
+            return
+        if "recover_assets" not in (getattr(active, "chosen_secondaries", ()) or ()):
+            return
+        own_is_a = active is self.a
+        claimed_zones: set = set()
+        for u in active.alive_units:
+            if len(claimed_zones) >= 3:
+                break  # all three areas already have a performer
+            if u.action_this_round is not None:
+                continue
+            zone = self._unit_zone(u, own_is_a)
+            if zone in claimed_zones:
+                continue  # the card needs a DIFFERENT area per unit
+            if not self._unit_can_perform_action(u, other):
+                continue
+            u.action_this_round = "recover_assets"
+            claimed_zones.add(zone)
+
+    def _score_recover_assets(self, army, opponent, own_is_army_a: bool,
+                              chosen_override=None) -> int:
+        """End-of-turn Recover Assets scoring: count the performing units that
+        COMPLETED the action (survived, not dragged into Engagement Range — the
+        `_action_completes` gate) and are still each in a distinct area. 3 VP if
+        two recovered assets this turn, 5 VP if three or more. Cited
+        `simulator.secondary_recover_assets`."""
+        if not self._action_economy_enabled():
+            return 0
+        chosen = (chosen_override if chosen_override is not None
+                  else (getattr(army, "chosen_secondaries", ()) or ()))
+        if "recover_assets" not in chosen:
+            return 0
+        completed_zones: set = set()
+        for u in army.alive_units:
+            if u.action_this_round != "recover_assets":
+                continue
+            if not self._action_completes(u, opponent):
+                continue
+            completed_zones.add(self._unit_zone(u, own_is_army_a))
+        n = len(completed_zones)
+        if n >= 3:
+            return 5
+        if n >= 2:
+            return 3
+        return 0
+
+    def _tempting_target_obj_idx(self, own_is_army_a: bool):
+        """Resolve (and cache) the No Man's Land objective the OPPONENT designates
+        as this army's Tempting Target marker "when drawn". The opponent picks the
+        marker as bait, so the faithful-direction deterministic choice is the No
+        Man's Land objective FARTHEST INTO the scoring army's half — the one whose
+        control most exposes the scoring unit to the opponent's guns (the "trap").
+        Returns an objective index, or None if there is no No Man's Land objective.
+
+        Deterministic and global-RNG-free (the choice is a pure function of the
+        fixed objective layout), so it does not perturb the battle's RNG stream.
+        Cached per side on first use to keep both players' markers stable."""
+        cache = getattr(self, "_tempting_target_cache", None)
+        if cache is None:
+            cache = {}
+            self._tempting_target_cache = cache
+        key = "a" if own_is_army_a else "b"
+        if key in cache:
+            return cache[key]
+        dz = self.map.deployment_width
+        h = self.map.height
+        best_idx = None
+        best_metric = None
+        for idx, obj in enumerate(self.map.objectives):
+            if not self._obj_in_nml(obj):
+                continue
+            # "Farthest into the scoring army's half" — for army A (low-y) that is
+            # the lowest-y No Man's Land marker; for army B (high-y) the highest-y.
+            metric = obj.y if own_is_army_a else (h - obj.y)
+            if best_metric is None or metric < best_metric:
+                best_metric = metric
+                best_idx = idx
+        cache[key] = best_idx
+        return best_idx
+
+    def _score_a_tempting_target(self, army, opponent, own_is_army_a: bool,
+                                 chosen_override=None) -> int:
+        """A Tempting Target scoring: 5 VP if the scoring army CONTROLS its
+        designated Tempting Target objective marker. No action is performed — this
+        is a passive end-of-turn control check (control = strictly greater
+        Objective Control than the opponent within the marker's radius, the same
+        test as the board take-and-hold cards). Cited
+        `secondaries.a_tempting_target`.
+
+        Faithful-approximation note: the real card scores at the end of EITHER
+        player's turn (so up to twice per round); the simulator scores secondaries
+        once per round (at round end), so this awards the 5 VP once per round it is
+        held and controlled. The 40 VP secondary total cap still bounds it."""
+        if not self._action_economy_enabled():
+            return 0
+        chosen = (chosen_override if chosen_override is not None
+                  else (getattr(army, "chosen_secondaries", ()) or ()))
+        if "a_tempting_target" not in chosen:
+            return 0
+        idx = self._tempting_target_obj_idx(own_is_army_a)
+        if idx is None:
+            return 0
+        obj = self.map.objectives[idx]
+        if self._oc_within(army, obj) > self._oc_within(opponent, obj):
+            return 5
+        return 0
 
     def _scorched_burn_enabled(self) -> bool:
         """Scorched Earth Burn/Raze Action — active whenever the Scorched Earth
@@ -2958,6 +3228,20 @@ class Battle:
         if card_key == "sabotage":
             return self._score_sabotage(scoring_army, own_is_army_a=own_is_army_a,
                                         chosen_override=one, opponent=other_army)
+        # --- Action-economy cards (Establish Locus / Recover Assets /
+        #     A Tempting Target) — env-gated SWEG_ACTION_ECONOMY, return 0 OFF ---
+        if card_key == "establish_locus":
+            return self._score_establish_locus(scoring_army, other_army,
+                                               own_is_army_a=own_is_army_a,
+                                               chosen_override=one)
+        if card_key == "recover_assets":
+            return self._score_recover_assets(scoring_army, other_army,
+                                              own_is_army_a=own_is_army_a,
+                                              chosen_override=one)
+        if card_key == "a_tempting_target":
+            return self._score_a_tempting_target(scoring_army, other_army,
+                                                 own_is_army_a=own_is_army_a,
+                                                 chosen_override=one)
         # --- Board take-and-hold cards -----------------------------------------
         from .secondaries import BOARD_SECONDARY_KEYS
         if card_key in BOARD_SECONDARY_KEYS:
@@ -3177,6 +3461,22 @@ class Battle:
         b_board = self._score_board_secondaries(self.b, self.a, own_is_army_a=False)
         self._b_vp += b_board
         self._b_secondary_vp += b_board
+
+        # Action-economy build — Establish Locus / Recover Assets / A Tempting
+        # Target (env-gated SWEG_ACTION_ECONOMY). Each scorer returns 0 when the
+        # gate is off, so this whole block is a no-op on the OFF path; the keys are
+        # also absent from every army's chosen tuple OFF, so the inner gate is
+        # never even reached. Added to the live total (_a_vp/_b_vp) and the
+        # reporting tracker, exactly like Cleanse / Sabotage / board; the 40-VP
+        # secondary cap in `_decide_winner` bounds the sum.
+        for _scorer in (self._score_establish_locus, self._score_recover_assets,
+                        self._score_a_tempting_target):
+            a_ae = _scorer(self.a, self.b, own_is_army_a=True)
+            self._a_vp += a_ae
+            self._a_secondary_vp += a_ae
+            b_ae = _scorer(self.b, self.a, own_is_army_a=False)
+            self._b_vp += b_ae
+            self._b_secondary_vp += b_ae
 
     # ------------------------------------------------------------------
     # Reanimation Protocols (issue #75)
@@ -10312,6 +10612,16 @@ class Battle:
             self._assign_sabotage_actions(active, other)
             self._assign_burn_actions(active, other)
             self._assign_terraform_actions(active, other)
+            # Action-economy build (env-gated SWEG_ACTION_ECONOMY, byte-identical
+            # OFF): a surplus unit may instead Establish Locus (push to the
+            # midboard / enemy DZ) or Recover Assets (commit spare bodies across
+            # distinct zones). Both lock the unit out of shooting / charging via
+            # the same action_this_round flag. Run AFTER the other action
+            # assignments so a unit already cleansing / sabotaging / terraforming
+            # is not re-tagged. (A Tempting Target performs no action — it is a
+            # passive end-of-turn control check, scored only.)
+            self._assign_establish_locus_actions(active, other)
+            self._assign_recover_assets_actions(active, other)
             # Wave 79: army-level focus fire — nominate the single most valuable
             # durable enemy threat the army can hurt, so its anti-armour
             # concentrates to REMOVE it (how a real list deletes a Knight),
@@ -10407,6 +10717,29 @@ class Battle:
             def _fight_priority(u):
                 charging = u.uid in self._charging_this_round
                 ff_keyword = bool(getattr(u.profile, "fights_first", False))
+                # EC-DAEMONETTE-FF (env-gated SWEG_EC_DAEMONETTE_FF, default OFF).
+                # Recovered 2026-06-29 from git c6b40b9 (lost in a re-anchor, not
+                # rejected). BSData v10.6.0 Chaos - Emperor's Children.cat.gz: the
+                # Daemonettes selectionEntry (id 06f6-b870-4e43-4ed9) carries a
+                # modifier `set hidden=true` that fires UNLESS the roster contains
+                # the Carnival of Excess detachment (childId 3c9e-2156-254e-66e8),
+                # so the Fights First infoLink (id fc22-54df-e539-41d9) is only
+                # active in a Carnival of Excess roster. The mapper's
+                # extract_fights_first() scans all infoLinks unconditionally and
+                # raises fights_first=True in every game; SwegHammer runs no
+                # Emperor's Children detachment, so Carnival of Excess never
+                # applies, yet the Daemonettes always fight at priority 0 —
+                # inflating the Emperor's Children over-pole. When ON, suppress
+                # the Fights First priority for Emperor's Children Daemonettes
+                # only (charging still grants priority 0 independently). Cited as
+                # `simulator.ec_daemonette_fights_first`.
+                if (
+                    ff_keyword
+                    and os.environ.get("SWEG_EC_DAEMONETTE_FF", "0") == "1"
+                    and getattr(u.profile, "faction", "") == "Emperor's Children"
+                    and getattr(u.profile, "name", "") == "Daemonettes"
+                ):
+                    ff_keyword = False
                 if charging or ff_keyword:
                     return 0
                 if u.uid in self._battleshocked_this_round:
@@ -10635,7 +10968,7 @@ class Battle:
         the Knight stops). Deterministic (uid order); no RNG; O(friendlies) per call."""
         import math
         if not (__import__("os").environ.get("SWEG_MOVEPLAN")
-                and __import__("os").environ.get("SWEG_COLLISION")):
+                and __import__("os").environ.get("SWEG_COLLISION", "1") != "0"):
             return
         kw = mover.profile.unit_keywords or ()
         if not ("TITANIC" in kw or "VEHICLE" in kw or "MONSTER" in kw):
@@ -10714,7 +11047,7 @@ class Battle:
         if intent in ("HOLD", "ENGAGE", "REPOSITION", "FALL_BACK"):
             return target_pos
         if not (__import__("os").environ.get("SWEG_MOVEPLAN")
-                and __import__("os").environ.get("SWEG_COLLISION")):
+                and __import__("os").environ.get("SWEG_COLLISION", "1") != "0"):
             return target_pos
         sid = getattr(mover, "squad_id", -1)
         if sid < 0 or not self.map.objectives:
@@ -10751,7 +11084,7 @@ class Battle:
         both SWEG_MOVEPLAN and SWEG_COLLISION are set."""
         if not __import__("os").environ.get("SWEG_MOVEPLAN"):
             return
-        if not __import__("os").environ.get("SWEG_COLLISION"):
+        if __import__("os").environ.get("SWEG_COLLISION", "1") == "0":
             return
         objs = self.map.objectives
         if not objs:
@@ -10927,11 +11260,65 @@ class Battle:
         else:
             range_threshold = 3.0   # objective control radius
         needs_to_close = dist - range_threshold
+        # ADVANCE-DISCIPLINE (piloting heuristic, gated SWEG_ADVANCE_DISCIPLINE,
+        # default-off): a shooting unit forfeits its entire Shooting phase when it
+        # Advances (non-ASSAULT weapons cannot fire). The default logic Advances any
+        # unit that cannot reach an objective within a Normal move, which makes a
+        # gunline (tanks, artillery, heavy-weapon squads) walk up the board firing
+        # nothing — the dominant shooting / Astra Militarum under-pole mis-pilot found
+        # by the wave-260 pilot comparison. When ON, a gunline unit (ranged damage
+        # per activation >= 2x melee) seeking an objective does NOT Advance if it has
+        # an enemy in shooting range; it Normal-moves and keeps the shot (still
+        # contesting the board, unlike the rejected gunline-hold). Faithful piloting,
+        # not a rules claim; helps shooting, no-op for melee. Off path byte-identical.
+        _suppress_advance = False
+        if (os.environ.get("SWEG_ADVANCE_DISCIPLINE", "0") == "1"
+                and intent in ("CAPTURE", "STEAL")
+                # Units that can shoot AFTER Advancing (ASSAULT weapons, or a
+                # transient ASSAULT grant) lose nothing by it — never suppress them
+                # (the iteration-2 T'au / Aeldari / Drukhari crater).
+                and not attacker.profile.assault
+                and not getattr(attacker, "transient_assault_this_round", False)):
+            # A "shooter" = meaningful ranged output from a real-range weapon. This
+            # catches tanks and artillery (including single-shot anti-tank like the
+            # Leman Russ Vanquisher that the 2x-melee gunline test misses) and excludes
+            # weak-shooting bodies (Guardsmen, rDPA ~0.5) which SHOULD advance to grab
+            # objectives — the gunline-hold lesson that contesting bodies must not hang
+            # back. Targets the heavy shooters that throw away the most by Advancing.
+            _rdpa = (attacker.profile.attacks * attacker.profile.hit_probability
+                     * (attacker.profile.weapon_damage_per_shot or 0.0))
+            if _rdpa >= 2.0 and (attacker.profile.range_inches or 0.0) >= 18.0:
+                # Only hold for a target this unit can actually DAMAGE (expected
+                # ranged damage >= 0.5 after wound + save math) within range of a
+                # Normal move. An anti-infantry gun facing only Knights it cannot
+                # scratch should advance to contest, not stand firing uselessly
+                # (the iteration-2 44%-of-shots-wasted finding).
+                from .strategy import _unsaved_fraction
+                from .units import wound_probability
+                _reach = (attacker.profile.range_inches or 0.0) + normal_move
+                _str = attacker.profile.strength
+                _ap = attacker.profile.ap
+                _shots = attacker.profile.attacks * attacker.profile.hit_probability
+                _dmg = attacker.profile.weapon_damage_per_shot or 1.0
+                if _reach > normal_move:
+                    for _e in defender_army.alive_units:
+                        if _distance(attacker.position, _e.position) > _reach:
+                            continue
+                        _iv = (_e.profile.invuln_save_ranged
+                               if _e.profile.invuln_save_ranged <= 6
+                               else _e.profile.invuln_save)
+                        _exp = (_shots
+                                * wound_probability(_str, _e.profile.toughness)
+                                * _unsaved_fraction(_e.profile.save, _iv, _ap)
+                                * _dmg)
+                        if _exp >= 0.5:
+                            _suppress_advance = True
+                            break
         # Per-squad Advance roll (wave 77, env-gated SWEG_SQUADADV). Real 10e: a
         # unit makes ONE Advance roll (one D6) applied to every model; SwegHammer
         # rolled per model. Same per-unit correctness pattern as the charge roll.
         # Cited as `simulator.advance_per_unit`.
-        if needs_to_close > normal_move:
+        if needs_to_close > normal_move and not _suppress_advance:
             _sid = getattr(attacker, "squad_id", -1)
             if _sid >= 0 and _sid in self._squad_advance_roll:
                 advance_d6 = self._squad_advance_roll[_sid]
@@ -11798,7 +12185,16 @@ class Battle:
                 attacker.profile, _ff_target
             ) > 0.0:
                 _focus_target = _ff_target
-        if _assigned is not None:
+        # PILOT shoot-target test hook — default-OFF / byte-identical in production
+        # (Battle._pilot_focus is set only by scripts/pilot_manual.py for the
+        # anti-Knight strategy experiment; production never sets it -> getattr None
+        # -> branch skipped). Lets the harness force army A's fire onto a chosen
+        # enemy (e.g. concentrate anti-tank on one Imperial Knight).
+        _pf = getattr(self, "_pilot_focus", None)
+        _pft = _pf(self, attacker, attacker_army, pool) if _pf is not None else None
+        if _pft is not None:
+            shoot_target = _pft
+        elif _assigned is not None:
             shoot_target = _assigned   # Stage D split-fire assignment (legal here)
         elif _focus_target is not None:
             shoot_target = _focus_target
@@ -12529,6 +12925,45 @@ class Battle:
         target, dist = pick_charge_target(attacker, defender_army)
         if target is None:
             return
+
+        # CHARGE-DISCIPLINE (piloting heuristic, gated SWEG_CHARGE_DISCIPLINE,
+        # default-off): a unit should not declare a charge into a target it
+        # cannot meaningfully damage in melee (expected melee damage < 0.5).
+        # This fixes the AM-vs-IK misplay where CHARACTERs (Lord Solar,
+        # Ursula Creed, Commissars) charged Canis Rex / Knights (T12, durable),
+        # achieved nothing and died.
+        #
+        # Rules:
+        #   - A CHARACTER (keyword "CHARACTER" in unit_keywords) NEVER charges
+        #     a target it cannot meaningfully damage (no tarpit exception).
+        #   - Any other unit that cannot meaningfully damage the target is also
+        #     blocked UNLESS it is cheap expendable chaff (low pts, non-CHARACTER)
+        #     acting as a tarpit — the chaff exception mirrors SWEG_TARPIT logic.
+        #
+        # Off path byte-identical (short-circuit on env check first).
+        # AI piloting heuristic — no rule_citations entry required.
+        if os.environ.get("SWEG_CHARGE_DISCIPLINE", "0") == "1":
+            from .strategy import _is_chaff_unit, _unsaved_fraction
+            from .units import wound_probability as _wound_probability
+            _ap = attacker.profile
+            _tp = target.profile
+            _iv_melee = (
+                _tp.invuln_save_melee if _tp.invuln_save_melee <= 6
+                else _tp.invuln_save
+            )
+            _exp_melee = (
+                _ap.melee_attacks
+                * _ap.melee_hit_probability
+                * _wound_probability(_ap.melee_strength, _tp.toughness)
+                * _unsaved_fraction(_tp.save, _iv_melee, _ap.melee_ap)
+                * (_ap.melee_damage_per_shot or 1.0)
+            )
+            if _exp_melee < 0.5:
+                _is_character = "CHARACTER" in (
+                    attacker.profile.unit_keywords or ()
+                )
+                if _is_character or not _is_chaff_unit(attacker):
+                    return
 
         # Fire Overwatch (10e core stratagem, env-gated SWEG_OVERWATCH). The
         # charge has now been DECLARED (a valid charge target exists) but has

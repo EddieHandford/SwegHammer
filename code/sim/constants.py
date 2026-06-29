@@ -61,6 +61,14 @@ DELIVERY_STATS: dict = {}
 # free / pistol / big-gun-penalty / engagement-blocked. SWEG_SHOOTLOSS_INSTR. Read-only.
 SHOOTLOSS_STATS: dict = {}
 
+# STRANDING instrument (structural re-model Step 2, wave-93 drill re-run) —
+# per-faction summed Objective Control within the control radius (three inches)
+# versus within twice the control radius (six inches) of every marker, at each
+# scoring snapshot. A six-to-three ratio near 2 means half the near-marker control
+# strands in the three-to-six-inch ring (the M4-alpha target); near 1 means the
+# default-on movement changes already closed it. SWEG_STRAND_INSTR. Read-only.
+STRAND_STATS: dict = {}
+
 # BOARD-CONTROL instrument (avenue-2 Stage 0, docs/BOARD_CONTROL_PLAN.md) — sizes the
 # physical-board-control levers (no-overlap collision / ruin-wall movement / make-way).
 # Populated ONLY when SWEG_BOARDCTRL_INSTR is set; a diag runner resets + reads it.
