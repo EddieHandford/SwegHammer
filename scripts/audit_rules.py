@@ -616,6 +616,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Gate SWEG_EC_DAEMONETTE_FF suppresses it for Emperor's Children Daemonettes.
     # Cited in data/rule_citations.d/emperors_children.json.
     "simulator.ec_daemonette_fights_first",
+    # Two-card hand cap for the legacy-union secondary fallback (env-gated
+    # SWEG_SECONDARY_HANDCAP, default OFF; recovered 2026-06-29 from git 58acc4b).
+    # When ON, Battle._score_secondaries_deck caps the round total at the two
+    # highest-scoring chosen cards, modelling the Chapter Approved 2025-26 rule
+    # that a player has at most TWO active Secondary Mission cards. OFF sums all
+    # cards byte-identically. See data/rule_citations.d/core_secondary_hand_cap.json.
+    "simulator.secondary_two_card_hand_cap",
     # CSM wave — Chaos Terminator Squad "Despoilers": when making a Dark Pact,
     # re-roll the Hit roll until the end of the phase. Gated SWEG_CSM_ABILITIES.
     # Cited in data/rule_citations.d/keywords_and_mechanics.json.

@@ -1,0 +1,10 @@
+{
+  "simulator.secondary_two_card_hand_cap": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/",
+    "rule_name": "Secondary Mission hand limit — maximum two active cards (Chapter Approved 2025-26)",
+    "quoted_text": "At the start of your first Command phase, draw two cards from your Secondary Mission deck. Those two Secondary Missions are active for you until you achieve them. At the start of each of your subsequent Command phases, if you have fewer than two active Secondary Mission cards, draw Secondary Mission cards until you have two active Secondary Mission cards.",
+    "trigger": "start of each Command phase (Tactical-track armies) — a player may never hold more than two active Secondary Mission cards simultaneously; the legacy-union FIXED/unset fallback in Battle._score_secondaries_deck scores all of chosen_secondaries (up to ~11 cards) every round without this cap, causing the secondary victory-point over-count",
+    "effect": "When SWEG_SECONDARY_HANDCAP=1, the FIXED/unset else-branch in Battle._score_secondaries_deck scores a 2-card active hand with achieve-discard-redraw seeded from chosen_secondaries (the picker's relevance-ordered union). _init_tactical_deck seeds army.tactical_hand = chosen_secondaries[:2] and army.tactical_deck = chosen_secondaries[2:]; _score_tactical_hand then runs the same achieve->discard->redraw cadence as the TACTICAL track. OFF (default) scores all cards byte-identically to the pre-fix behaviour, preserving A/B anchor comparability.",
+    "scope": "phase-gated"
+  }
+}

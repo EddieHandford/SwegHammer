@@ -3115,6 +3115,18 @@ class Battle:
         at 40 = a wash). `SWEG_TAC_DECK=0` restores the legacy union-of-sources path."""
         return __import__("os").environ.get("SWEG_TAC_DECK", "1") != "0"
 
+    def _secondary_handcap_enabled(self) -> bool:
+        """Cap the legacy-union secondary fallback at the two highest-scoring
+        cards per round, modelling the Chapter Approved 2025-26 rule that a
+        player has at most TWO active Secondary Mission cards at any time.
+        Recovered 2026-06-29 from git 58acc4b (lost in a re-anchor). Env-gated
+        SWEG_SECONDARY_HANDCAP; unset / anything but "1" -> OFF (byte-identical:
+        the fallback sums all chosen cards as before). Tier-3 component for the
+        secondary-VP over-count (~39 vs real 22.7); load-bearing compensating
+        error, screen only stacked with a fragile-under-pole lift. See
+        data/rule_citations.d/core_secondary_hand_cap.json#simulator.secondary_two_card_hand_cap."""
+        return __import__("os").environ.get("SWEG_SECONDARY_HANDCAP", "0") == "1"
+
     def _init_tactical_deck(self, army: Army) -> None:
         """Seed a TACTICAL army's 2-card hand + remaining deck deterministically.
 
@@ -3290,11 +3302,23 @@ class Battle:
                 vp = self._score_tactical_hand(army, other, own_is_a, round_num)
             else:
                 # FIXED (or an unset track defensively treated as FIXED): score
-                # the 2 chosen kill cards every round via the per-card dispatcher.
-                vp = 0
-                for card in (army.chosen_secondaries or ()):
-                    vp += self._score_one_card(card, army, other,
-                                               own_is_a, round_num)
+                # the chosen kill cards every round via the per-card dispatcher.
+                # Every card is scored either way (side-effects unchanged); the
+                # SWEG_SECONDARY_HANDCAP gate only changes how the round total is
+                # summed.
+                per_card = [
+                    self._score_one_card(card, army, other, own_is_a, round_num)
+                    for card in (army.chosen_secondaries or ())
+                ]
+                if self._secondary_handcap_enabled():
+                    # CA-2025-26: at most TWO active Secondary cards. The legacy
+                    # picker leaves secondary_track None and stuffs the full union
+                    # (~11 cards) into chosen_secondaries; uncapped, all scored
+                    # every round (the secondary-VP over-count). Keep only the two
+                    # highest-VP contributors this round -- the real 2-card hand.
+                    vp = sum(sorted(per_card, reverse=True)[:2])
+                else:
+                    vp = sum(per_card)
             if own_is_a:
                 self._a_vp += vp
                 self._a_secondary_vp += vp

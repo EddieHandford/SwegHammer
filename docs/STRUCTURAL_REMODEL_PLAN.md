@@ -70,11 +70,17 @@
 > Astra Militarum sticky-objective fix (wave 255) moved the under-pole +1.87 —
 > proof per-faction/AI-tempo fidelity still bites.
 >
-> **2026-06-28 screen results (paired vs the new adopted baseline `sc18a`, gated
-> MAE 3.26 — itself down from 3.45 thanks to the Feel No Pain corrections):**
-> `SWEG_KITE` +0.29 worse (dead); `SWEG_MOVEPLAN` untested (gate bug found+fixed,
-> see piece 2); `SWEG_KITE_MOVE` recovered + ready to screen (the one concrete
-> forward lever for the real gap).
+> **Screen results (paired vs the adopted baseline `sc18a`, gated MAE 3.26 — itself
+> down from 3.45 thanks to the Feel No Pain corrections):**
+> `SWEG_KITE` +0.29 worse (dead). `SWEG_MOVEPLAN` (clustering) **SCREENED 2026-06-29
+> with the gate-bug fix — REGRESSES +0.61** (gated 3.26 → 3.87, ~500 flips/faction;
+> Chaos Knights crater −6.39). Not a wash — an actual regression, confirming the
+> frozen-under prediction. **The clustering piece is now empirically DEAD; the
+> re-model is fully closed (squad-frame done, clustering regresses, fragile-army
+> fix never defined).** `SWEG_KITE_MOVE` recovered; manual games show it hurts
+> gunline under-poles standalone (T'au vs Death Guard −22.5) — it fixes the
+> going-first *signature* but regresses the *win rate*, a Tier-3 stack component
+> only, never a standalone adopt.
 >
 > **Net:** stop quoting "the per-model re-model." The real residual reduces to two
 > already-built gates that each need one screen — `SWEG_MOVEPLAN` (clustering,
