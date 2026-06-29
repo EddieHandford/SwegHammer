@@ -11447,6 +11447,33 @@ class Battle:
                 total_movement=float(move_distance),
             ))
 
+        # SWEG_OVERWATCH_MOVE (default-off, byte-identical off): Fire Overwatch
+        # just after an enemy unit ENDS a Normal or Advance move, not only after
+        # a charge or a Reserves arrival. The cited Fire Overwatch trigger
+        # (`simulator.fire_overwatch`, core stratagem) is verbatim "just after an
+        # enemy unit is set up or starts or ends a Normal, Advance, Fall Back or
+        # Charge move" — but the code only hooked the charge-declaration
+        # (`_do_charge`) and reserves-arrival points, so the first player's
+        # round-1 objective grab (units Normal-/Advance-moving onto midboard
+        # markers within 24" of the second player's guns) drew no reactive fire.
+        # That partial implementation under-credits the going-second player and is
+        # a documented contributor to the going-first over-reward (~69% vs a real
+        # ~50%). When on, the opponent (defender_army) may spend its one Command
+        # Point this round to Fire Overwatch at the unit that just moved, through
+        # the SAME once-per-round / 24" / unmodified-6s `_fire_overwatch` path —
+        # which self-gates (no Command Point is spent unless an eligible unit can
+        # do meaningful damage). The `new_pos != old_pos` guard restricts the
+        # trigger to a unit that actually made a Normal or Advance move (HOLD /
+        # already-in-range activations returned earlier and never reach here).
+        # Off path: the gate guards the whole call, so no Command Point is spent
+        # and no random draw occurs — byte-identical to the baseline. This
+        # completes an already-cited trigger; no new citation key is required.
+        if (
+            new_pos != old_pos
+            and os.environ.get("SWEG_OVERWATCH_MOVE", "0") == "1"
+        ):
+            self._fire_overwatch(defender_army, attacker)
+
     def _gladius_active_doctrine(self, attacker, attacker_army: Army) -> str:
         """Return the active Gladius Task Force Combat Doctrine name for
         the given Marine attacker on this round, or '' if none applies.
