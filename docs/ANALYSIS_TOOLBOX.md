@@ -21,6 +21,7 @@ pull request that creates it.
 |---|---|
 | `scripts/diag_signatures.py` | Sim scoring shape vs real reference values in `docs/REAL_META_SIGNATURES.md`: mean primary, going-first win rate, mean secondary, per-round trajectory, margin distribution. First full run found secondary saturation (38.3 vs real 22.7) and a going-first bias (63.8% vs real ~50%). |
 | `scripts/diag_going_first_by_map.py` | Going-first win rate broken down per Pariah Nexus deployment map (forces each rotation map in turn, reusing the diag_signatures inference). Answers "is the going-first over-reward a uniform global tempo bias or a per-deployment geometry artifact?". The 2026-06-29 campaign run found it broad across all five deployments (64.9-84.5% at N=60/map, worst Hammer and Anvil 84.5%) — a global over-reward, not a single bad map. |
+| `scripts/diag_am_firepower.py` | How much of a faction's offense actually happens: per game (averaged over seeds) it reports AM Order coverage (orders issued/round vs squads), indirect-fire shots fired, total ranged attacks, damage dealt, and enemy models killed. Exposes under-delivered firepower the win rate hides — the 2026-06-29 AM run found the Basilisk fires **0 shots/game** (dormant indirect artillery) and Orders reach only ~9% of squads/turn (AM removes 13/53 enemy over 5 rounds). FOLLOW-UP: generalize the faction argument and sweep the other under-poles (Drukhari, Custodes, Grey Knights, Chaos Knights, T'au) for the same dormant-weapon bug. |
 
 ## 3. Mechanic instruments (gated, observation-only)
 

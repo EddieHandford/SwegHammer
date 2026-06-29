@@ -1,3 +1,24 @@
+# Next-session handover — 2026-06-29 (AM under-pole = under-delivered firepower + the durability over-reward; firepower bugs found)
+
+**START HERE (supersedes the going-first block below).**
+
+The Astra Militarum under-pole investigation (pilot-by-hand + instruments) reached a two-part diagnosis and surfaced concrete, addressable firepower bugs.
+
+**Diagnosis.** AM's −20.7 is (a) the MIRROR of the over-pole — AM craters specifically into the armies the sim over-rates (World Eaters +12.7, Emperor's Children +10.4, Daemons +9.2 …), which are only ~45-48% in reality — AND (b) the sim UNDER-DELIVERS AM's own offense. Quantified vs World Eaters (`scripts/diag_am_firepower.py`, N=10): Orders reach ~1.4/round (≈9% of AM's ~16 squads buffed per turn); AM gets ~30 shoot-actions/game (~half its units ever fire); AM deals ~49 damage and removes only **13 of 53 enemy models (24%)** over 5 rounds — then gets swamped (guns silenced in melee after round 2). A real AM gunline deletes far more of a melee army before contact; that is how AM hits ~45% in reality.
+
+**FIXES SHIPPED (this PR, both default-off / faithful):**
+- `SWEG_AM_BATTLELINE_SPECIALS` (`be33e1f`) — restores the special weapons the mapper drops from Cadian Shock Troops + Death Korps of Krieg (1 plasma + 1 meltagun /10). FAITHFUL bug fix; metric is a WASH (+4.1 vs World Eaters / −4.2 vs Orks, net ~0) — kept for fidelity, not as a metric lever.
+- `surgical_contest` was REVERTED: the pilot harness's +5.0/+3.3 did NOT survive production validation (−4.2/−2.8, within noise) — an AI heuristic with no fidelity value, so removed.
+
+**ACTIVE LEAD — the dormant artillery bug (being investigated now).** AM's indirect artillery **fires zero shots/game**: Basilisk present in 5/6 games, **0.0 shoot-actions/game**; Wyvern 0.0. A Basilisk (S9, D6, 48"+ indirect, ~140 pts) should bombard every round. This is a concrete AI gap (the shoot-target picker isn't using the indirect-fire path for no-line-of-sight targets) — faithful to fix, almost certainly metric-positive, and the FIRST genuinely-addressable AM lever (unlike the structural snapshot wall). Root-cause + fix in progress.
+
+**FOR-REVIEW-LATER follow-ups (noted, not yet done):**
+1. **Order coverage** — only ~1.4 orders/round reach ~9% of AM's squads. Real AM stacks Take Aim / FRFSRF on its key shooters via multiple officers + stratagems. Investigate whether the AI under-issues Orders or whether coverage is structurally capped (prior waves found order *throughput* "exhausted" — but coverage at 9% suggests the cap, not the effect, is the gap). Re-examine with `scripts/diag_am_firepower.py`.
+2. **Half of AM never shoots** (~30 shoot-actions for ~16 units over 5 rounds) — units swamped in melee or with no target. Tied to the tempo/snapshot problem.
+3. **Run the fire-frequency / firepower-coverage check on the OTHER under-pole armies** (Drukhari, Adeptus Custodes, Grey Knights, Chaos Knights, T'au) — they may have the same dormant-weapon / under-firing bugs the AM artillery check exposed. Generalize `scripts/diag_am_firepower.py` to take the faction and sweep the under-poles; a shared firing bug could be a chunk of the under-pole MAE.
+
+---
+
 # Next-session handover — 2026-06-29 (going-first / tempo campaign → STRUCTURAL FLOOR; branch pushed to sync Ed)
 
 **START HERE (supersedes the earlier 2026-06-29 block below).**
