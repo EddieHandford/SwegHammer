@@ -1,6 +1,20 @@
+# Next-session handover — 2026-06-29 (going-first / tempo campaign → STRUCTURAL FLOOR; branch pushed to sync Ed)
+
+**START HERE (supersedes the earlier 2026-06-29 block below).**
+
+**Baseline unchanged.** `data/_anchor_sc18a_n80_log.json`, gated mean absolute error **3.26**. The going-first campaign adopted nothing — it declared a floor.
+
+**The going-first / tempo axis is a DECLARED STRUCTURAL FLOOR.** Going-first win rate is ~69% (N=150) vs real 49-52%, broad across all five deployments (`scripts/diag_going_first_by_map.py`, 64.9-84.5% at N=60/map). All three faithful going-second mechanisms regress the headline by transferring wins to the durable over-poles: `SWEG_OVERWATCH_MOVE` +0.40, `SWEG_KITE_MOVE` +1.12, `SWEG_PROBE_RESERVE` +1.67 (worst; removed). The going-first over-reward IS the durability over-reward via tempo. Full record: `docs/CURRENT_STATE.md` head + `docs/DECISION_LEDGER.md` REVERTED. **Do NOT re-propose going-second AI mechanisms.**
+
+**Shipped (all default-off, frame byte-identical, no re-anchor):** `SWEG_OVERWATCH_MOVE` (fidelity correction, held); `scripts/diag_going_first_by_map.py` (toolbox); Sweeping Engagement restored at 2000-point 44×60 behind `SWEG_FULL_DEPLOY_ROTATION` (the stock map is 44×90, wrong size for 2K — completing the five-deployment rotation needs an N=80 re-anchor to adopt); `SWEG_CK_DOOM` recovered.
+
+**Branch state:** `claude/sim-calibration-16` committed and **pushed to `origin/claude/sim-calibration-16`** (2026-06-29) to sync with Ed's work. The going-first axis is closed; the remaining open items all need a deliberate re-anchor (adopt the six-map rotation; Stage-2 work), not autonomous lever-hunting.
+
+---
+
 # Next-session handover — 2026-06-29 (Feel No Pain fabrications adopted, re-model empirically closed, lost levers recovered)
 
-**START HERE (supersedes the 2026-06-27 block below).**
+**(superseded by the block above).**
 
 **New baseline.** `data/_anchor_sc18a_n80_log.json`, gated mean absolute error **3.26**
 (down from 3.45). The improvement is the Feel No Pain fabrication batch, adopted
