@@ -20,6 +20,7 @@ pull request that creates it.
 | Tool | What it reveals |
 |---|---|
 | `scripts/diag_signatures.py` | Sim scoring shape vs real reference values in `docs/REAL_META_SIGNATURES.md`: mean primary, going-first win rate, mean secondary, per-round trajectory, margin distribution. First full run found secondary saturation (38.3 vs real 22.7) and a going-first bias (63.8% vs real ~50%). |
+| `scripts/diag_going_first_by_map.py` | Going-first win rate broken down per Pariah Nexus deployment map (forces each rotation map in turn, reusing the diag_signatures inference). Answers "is the going-first over-reward a uniform global tempo bias or a per-deployment geometry artifact?". The 2026-06-29 campaign run found it broad across all five deployments (64.9-84.5% at N=60/map, worst Hammer and Anvil 84.5%) — a global over-reward, not a single bad map. |
 
 ## 3. Mechanic instruments (gated, observation-only)
 
