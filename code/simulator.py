@@ -9345,9 +9345,19 @@ class Battle:
         _sitw_plaguesurge = getattr(sitw_army, "plaguesurge_active", False)
         sitw_contagion_range = 3.0 + (3.0 if _sitw_plaguesurge else 0.0)
         # Shadow of Chaos: Chaos Daemons in the Tyranid army (edge case).
-        shadow_of_chaos_active = any(
-            s.profile.faction == "Chaos Daemons"
-            for s in sitw_army.alive_units
+        # SWEG_SHADOW_ROUND2 (default OFF, recovered 2026-06-29 from git b499a57):
+        # the midboard Shadow-of-Chaos proxy only activates from round 2 — No Man's
+        # Land enters the Shadow only once the Daemons control half-or-more of its
+        # objective markers at the start of the phase, which cannot hold in round 1
+        # before any movement (own deployment zone is always in Shadow but is not
+        # separately modelled in the 18" proxy). OFF = unchanged (byte-identical).
+        _sitw_shadow_r2_on = os.environ.get("SWEG_SHADOW_ROUND2", "0") == "1"
+        shadow_of_chaos_active = (
+            any(
+                s.profile.faction == "Chaos Daemons"
+                for s in sitw_army.alive_units
+            )
+            and (not _sitw_shadow_r2_on or round_num >= 2)
         )
         cx = self.map.width / 2.0
         cy = self.map.height / 2.0
@@ -9497,9 +9507,19 @@ class Battle:
             # the cost of missing the deployment-zone passive coverage; the
             # 18" radius is chosen as a half-board approximation of the
             # canonical zone-based shape.
-            shadow_of_chaos_active = any(
-                s.profile.faction == "Chaos Daemons"
-                for s in opponent.alive_units
+            # SWEG_SHADOW_ROUND2 (default OFF, recovered 2026-06-29 from git
+            # b499a57): the midboard Shadow proxy only activates from round 2 (the
+            # No Man's Land objective-control condition cannot hold in round 1).
+            # This is the load-bearing, FACTION-WIDE leg — it governs how much an
+            # opponent fighting Chaos Daemons is battle-shocked (and thus loses
+            # Objective Control) from round 1. OFF = unchanged (byte-identical).
+            _shadow_round2_on = os.environ.get("SWEG_SHADOW_ROUND2", "0") == "1"
+            shadow_of_chaos_active = (
+                any(
+                    s.profile.faction == "Chaos Daemons"
+                    for s in opponent.alive_units
+                )
+                and (not _shadow_round2_on or round_num >= 2)
             )
             # cx / cy are passed to _battleshock_test_squad regardless of
             # whether shadow_of_chaos_active is True; assign unconditionally
