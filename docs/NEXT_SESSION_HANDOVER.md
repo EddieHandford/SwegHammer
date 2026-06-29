@@ -1,3 +1,45 @@
+# Next-session handover — 2026-06-29 (Feel No Pain fabrications adopted, re-model empirically closed, lost levers recovered)
+
+**START HERE (supersedes the 2026-06-27 block below).**
+
+**New baseline.** `data/_anchor_sc18a_n80_log.json`, gated mean absolute error **3.26**
+(down from 3.45). The improvement is the Feel No Pain fabrication batch, adopted
+default-on with `=0` kill-switches (commit `b6029e4`): Adeptus Custodes had a
+fabricated faction-wide Feel No Pain (30 datasheets, mapper leaked it from crusade
+relics / battle traits), four bodyguard units carried a save that belongs to a
+different model, and Chaos Space Marine Legionaries veterans-of-the-long-war was
+restored (duplicate override key merged). **Screen new gates paired vs `sc18a`.**
+
+**The "per-model representation re-model" is RETIRED — empirically.** Do not quote it
+as a pending solution (full verdict: `docs/STRUCTURAL_REMODEL_PLAN.md` top block).
+Squad-frame is done/inert; clustering (`SWEG_MOVEPLAN`, with a collision-default gate
+bug fixed this session) was finally screened and **REGRESSES +0.61** (not a wash);
+the "fragile-army fix" was never defined.
+
+**Lost-lever recovery (commits `b6029e4`, `6e51aa8`).** A `git log -S` sweep found 41
+`SWEG_` gates dropped in past re-anchors (not rejected — lost). Recovered + validated
++ committed: `SWEG_KITE_MOVE` (objective-aware kiting, the going-first lead),
+`SWEG_EC_DAEMONETTE_FF` (Emperor's Children +17 fabrication), `SWEG_SECONDARY_HANDCAP`
+(secondary two-card cap). **Still-lost recoverables (live path):** `SWEG_DG_DR_PHASE`
++ `SWEG_DG_WORLDBLIGHT_OWN_TURN` (Death Guard +11), `SWEG_DAEMONIC_ROUND` cluster
+(Chaos Daemons +12), `SWEG_CK_DOOM` (Chaos Knights −10).
+
+**Strategic verdict — the live path is OVER-POLE FABRICATION FIXES, not the over-count
+stack.** The action-economy / going-first / secondary-handcap over-count fixes are a
+DEAD END: they prop up the fragile under-pole (Astra Militarum), and the AM under-model
+hunt this session found NO unmodeled mechanism (Born Soldiers, Voice of Command Orders,
+`SWEG_OFFICER_FOLLOW`, list, cover all modeled) — so removing the props craters AM with
+no faithful offset (manual games: kite-move craters AM and all gunline under-poles;
+ledger: secondary-handcap craters AM 26.8→15.5). The Feel No Pain win (−0.19) proves
+the opposite path works: deflating the over-poles by removing FABRICATIONS lifts the
+under-poles via coupling. **Next: confirm the EC Daemonette coupling (screen running),
+then recover + screen the Death Guard / Daemons over-pole fabrication gates.** Custodes
+is now an *under*-model (sim 46.1 vs real 52.1) — unmodeled Stand Vigil + partial
+Martial Ka'tah (task #4 has the build spec). CPU is intermittent; screens get killed —
+re-launch when free.
+
+---
+
 # Next-session handover — 2026-06-27 (durability/piloting deep-dive + action-economy build)
 
 **START HERE.** This session went far past wave 260 into the structural root of the
