@@ -808,6 +808,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.harbingers_of_dread_darkness",
     "simulator.harbingers_of_dread_dismay",
     "simulator.harbingers_of_dread_delirium",
+    # Chaos Knights Harbingers of Dread: Doom (Dread ability 2, env-gated
+    # SWEG_CK_DOOM, default OFF). Independent of SWEG_HARBINGERS: enables Doom
+    # (+1 to Wound vs Battle-shocked targets) as an additional active Dread pick.
+    # Wired in code/units.py Unit.attack. Direction: raises Chaos Knights win rate.
+    "simulator.harbingers_of_dread_doom",
     "simulator.multi_profile_weapon_selection",
     # PER-MODEL-LOADOUTS (Stage 3, env-gated SWEG_PERMODEL). One Unit per model,
     # each firing its OWN BSData loadout, so a special-weapon model loses its

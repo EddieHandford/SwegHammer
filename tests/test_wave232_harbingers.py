@@ -808,5 +808,195 @@ class DoomSuppressionTests(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# SWEG_CK_DOOM gate tests
+# ---------------------------------------------------------------------------
+
+class CkDoomGateTests(unittest.TestCase):
+    """SWEG_CK_DOOM (default OFF): when ON, Doom fires for a Chaos Knights
+    attacker against a Battle-shocked target (+1 to the Wound roll).
+    When OFF (default), output is byte-identical to the base — Doom does not
+    fire from this gate (the existing SWEG_HARBINGERS=0 path is unchanged).
+
+    BSData verbatim: "2 - Doom: Each time this model makes an attack, if the
+    target is Battle-shocked, add 1 to the Wound roll."
+    (Chaos - Chaos Knights Library.cat.gz, sharedRules id d71a-a59f-aafd-3723)
+
+    Uses strength 4 vs toughness 4 so the base Wound roll is 4+ and Doom
+    shifts it to 3+ — a measurable damage increase. Paired seeds give exact
+    equality on the OFF arm (confirming byte-identity of the OFF path).
+    """
+
+    def tearDown(self) -> None:
+        os.environ.pop("SWEG_CK_DOOM", None)
+        os.environ.pop("SWEG_HARBINGERS", None)
+
+    def _avg_ck_doom_damage(
+        self,
+        target_shocked: bool,
+        n: int = 400,
+        seed: int = 42,
+    ) -> float:
+        """Average ranged damage from a Chaos Knights attacker (strength 4,
+        Wound roll 4+ vs toughness 4) into a target, optionally Battle-shocked.
+        Same seed both arms so paired comparison is exact."""
+        random.seed(seed)
+        ck_attacker = _generic_profile(
+            name="Doom Host",   # must NOT start with "War Dog"
+            faction="Chaos Knights",
+            health=20.0,
+        )
+        target_profile = _generic_profile(
+            name="Doom Target",
+            faction="Generic",
+            health=500.0,
+        )
+        a = Army("CK")
+        b = Army("Enemy")
+        a.add_unit(ck_attacker)
+        b.add_unit(target_profile)
+        a_unit = a.units[0]
+        b_unit = b.units[0]
+        a_unit.position = (20.0, 30.0)
+        b_unit.position = (32.0, 30.0)
+
+        battle = Battle(a, b, map_=_open_map())
+        a._battle_ref = battle
+        b._battle_ref = battle
+        battle._current_round = 1
+        a_unit.army_ref = a
+        b_unit.army_ref = b
+
+        if target_shocked:
+            b_unit.battleshocked_until_round = 1
+
+        total = 0.0
+        for _ in range(n):
+            b_unit.current_health = float(target_profile.health)
+            total += a_unit.attack(b_unit, distance=12.0, mode="ranged")
+        return total / n
+
+    def test_doom_gate_off_is_inert_default(self) -> None:
+        """Default path (SWEG_CK_DOOM unset, SWEG_HARBINGERS default ON):
+        a Battle-shocked target must take the same damage as a normal one —
+        Doom does not fire when the gate is absent."""
+        # Do not set SWEG_CK_DOOM — test the unset default.
+        dmg_shocked = self._avg_ck_doom_damage(target_shocked=True)
+        dmg_normal = self._avg_ck_doom_damage(target_shocked=False)
+        self.assertEqual(
+            dmg_shocked,
+            dmg_normal,
+            f"With SWEG_CK_DOOM unset (default OFF), Doom must NOT fire: "
+            f"shocked={dmg_shocked:.3f} normal={dmg_normal:.3f} must be equal.",
+        )
+
+    def test_doom_gate_off_explicit_is_inert(self) -> None:
+        """SWEG_CK_DOOM=0 (explicit OFF): same as default — Doom does not fire."""
+        os.environ["SWEG_CK_DOOM"] = "0"
+        dmg_shocked = self._avg_ck_doom_damage(target_shocked=True)
+        dmg_normal = self._avg_ck_doom_damage(target_shocked=False)
+        self.assertEqual(
+            dmg_shocked,
+            dmg_normal,
+            f"With SWEG_CK_DOOM=0, Doom must NOT fire: "
+            f"shocked={dmg_shocked:.3f} normal={dmg_normal:.3f} must be equal.",
+        )
+
+    def test_doom_gate_on_fires_vs_battle_shocked(self) -> None:
+        """SWEG_CK_DOOM=1 (ON): a Chaos Knights attacker must deal MORE damage
+        into a Battle-shocked target (Doom +1 to Wound shifts 4+ to 3+)."""
+        os.environ["SWEG_CK_DOOM"] = "1"
+        dmg_shocked = self._avg_ck_doom_damage(target_shocked=True)
+        dmg_normal = self._avg_ck_doom_damage(target_shocked=False)
+        self.assertGreater(
+            dmg_shocked,
+            dmg_normal,
+            f"With SWEG_CK_DOOM=1, Doom must fire vs a Battle-shocked target: "
+            f"shocked={dmg_shocked:.3f} must exceed normal={dmg_normal:.3f}.",
+        )
+
+    def test_doom_gate_on_with_harbingers_on(self) -> None:
+        """SWEG_CK_DOOM=1 alongside SWEG_HARBINGERS=1 (both ON): Doom still fires.
+        This confirms the two gates are independent — enabling SWEG_CK_DOOM when
+        the full Harbingers suite is already active gives a further damage boost
+        vs Battle-shocked targets."""
+        os.environ["SWEG_CK_DOOM"] = "1"
+        os.environ["SWEG_HARBINGERS"] = "1"
+        dmg_shocked = self._avg_ck_doom_damage(target_shocked=True)
+        dmg_normal = self._avg_ck_doom_damage(target_shocked=False)
+        self.assertGreater(
+            dmg_shocked,
+            dmg_normal,
+            f"With SWEG_CK_DOOM=1 and SWEG_HARBINGERS=1, Doom must fire: "
+            f"shocked={dmg_shocked:.3f} must exceed normal={dmg_normal:.3f}.",
+        )
+
+    def test_doom_gate_on_no_effect_vs_non_shocked(self) -> None:
+        """SWEG_CK_DOOM=1: Doom must NOT fire when the target is not Battle-shocked
+        — the gate is conditional on Battle-shock status."""
+        os.environ["SWEG_CK_DOOM"] = "1"
+        dmg_shocked = self._avg_ck_doom_damage(target_shocked=False)
+        dmg_baseline = self._avg_ck_doom_damage(target_shocked=False)
+        self.assertEqual(
+            dmg_shocked,
+            dmg_baseline,
+            f"With SWEG_CK_DOOM=1, Doom must not apply vs a non-shocked target: "
+            f"{dmg_shocked:.3f} vs {dmg_baseline:.3f} (same seed, must be equal).",
+        )
+
+    def test_doom_gate_on_non_ck_attacker_no_effect(self) -> None:
+        """SWEG_CK_DOOM=1: Doom must NOT fire for a non-Chaos-Knights attacker
+        attacking a Battle-shocked target — the gate is faction-gated to Chaos
+        Knights to avoid side-effects on other factions."""
+        os.environ["SWEG_CK_DOOM"] = "1"
+        random.seed(99)
+        generic_attacker = _generic_profile(
+            name="Not a Knight",
+            faction="Generic",
+            health=20.0,
+        )
+        target_profile = _generic_profile(
+            name="Doom Target",
+            faction="Generic",
+            health=500.0,
+        )
+        a = Army("Attacker")
+        b = Army("Enemy")
+        a.add_unit(generic_attacker)
+        b.add_unit(target_profile)
+        a_unit = a.units[0]
+        b_unit = b.units[0]
+        a_unit.position = (20.0, 30.0)
+        b_unit.position = (32.0, 30.0)
+        battle = Battle(a, b, map_=_open_map())
+        a._battle_ref = battle
+        b._battle_ref = battle
+        battle._current_round = 1
+        a_unit.army_ref = a
+        b_unit.army_ref = b
+
+        n = 400
+        total_shocked = 0.0
+        total_normal = 0.0
+        for _ in range(n):
+            random.seed(99)
+            b_unit.current_health = float(target_profile.health)
+            b_unit.battleshocked_until_round = 1
+            total_shocked += a_unit.attack(b_unit, distance=12.0, mode="ranged")
+        for _ in range(n):
+            random.seed(99)
+            b_unit.current_health = float(target_profile.health)
+            b_unit.battleshocked_until_round = 0
+            total_normal += a_unit.attack(b_unit, distance=12.0, mode="ranged")
+        dmg_shocked = total_shocked / n
+        dmg_normal = total_normal / n
+        self.assertEqual(
+            dmg_shocked,
+            dmg_normal,
+            f"With SWEG_CK_DOOM=1, Doom must not fire for a non-Chaos-Knights "
+            f"attacker: shocked={dmg_shocked:.3f} normal={dmg_normal:.3f}.",
+        )
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

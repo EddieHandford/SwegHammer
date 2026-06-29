@@ -54,5 +54,13 @@
     "trigger": "Enemy squad has just FAILED a Battle-shock test AND the squad is Below Half-Strength AND the squad representative is within 9\" of an alive Chaos Knights model AND SWEG_HARBINGERS=1. Modelled as active for the whole game (collapsed from R5 pick for simplicity).",
     "effect": "After marking the squad as Battle-shocked in code/simulator.py _run_battleshock_phase, if the squad is Below Half-Strength and _harbinger_in_range, D3 mortal wounds are applied to the squad representative (same convention as Shadow of Chaos MWs). The Below Half-Strength check for multi-model squads uses alive_count < start_count / 2.0; for single-model units it uses rep.current_health < rep.profile.health / 2.0.",
     "scope": "army-wide"
+  },
+  "simulator.harbingers_of_dread_doom": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-knights/",
+    "rule_name": "Harbingers of Dread — Doom (Dread ability 2, gated SWEG_CK_DOOM, default OFF)",
+    "quoted_text": "2 - Doom: Each time this model makes an attack, if the target is Battle-shocked, add 1 to the Wound roll.",
+    "trigger": "Attacker's army faction is Chaos Knights AND the target is currently Battle-shocked (read via Unit.is_currently_battle_shocked(round_num)) AND SWEG_CK_DOOM=1. Fires in both melee and ranged attack resolution. Independent of SWEG_HARBINGERS: when SWEG_HARBINGERS=1 (default), the existing Harbingers suite (Despair, Darkness, Dismay, Delirium) is active but Doom is suppressed to stay within the 3-pick Harbingers limit; SWEG_CK_DOOM=1 lifts that suppression and makes Doom additionally active. Direction: raises Chaos Knights win rate (under-poled faction: sim approximately 37-40 percent vs real approximately 45 percent).",
+    "effect": "wound_mod_delta += 1 in code/units.py Unit.attack when the Chaos Knights attacker fires at a Battle-shocked target. Subject to the standard plus-or-minus-one Wound modifier cap applied later in the same function. When SWEG_CK_DOOM is unset or set to '0' (default), the block is skipped entirely and the output is byte-identical to the base with SWEG_CK_DOOM absent.",
+    "scope": "army-wide"
   }
 }

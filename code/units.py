@@ -2455,6 +2455,36 @@ class Unit:
             ):
                 wound_mod_delta += 1
 
+            # ---- Chaos Knights — Harbingers of Dread: Doom (independent gate,
+            # SWEG_CK_DOOM, default OFF). BSData v10.6.0 (Chaos - Chaos Knights
+            # Library.cat.gz) verbatim rule text:
+            # "2 - Doom: Each time this model makes an attack, if the target is
+            # Battle-shocked, add 1 to the Wound roll."
+            # Doom is an independent Harbingers of Dread pick (ability 2) — it
+            # fires per attack by the Chaos Knights model, not as an aura, and
+            # does not overlap with Despair or Darkness (which affect Ld and Hit
+            # rolls respectively). Under the existing SWEG_HARBINGERS=1 path,
+            # Doom is suppressed to stay within the 3-pick rule-limit (Despair,
+            # Darkness, Dismay/Delirium fill the picks). This gate lifts that
+            # suppression independently, modelling Doom as an additional active
+            # Dread pick whenever SWEG_CK_DOOM=1. Direction: raises Chaos Knights
+            # win rate (they are under-poled: sim ~37-40 % vs real ~45 %). When
+            # OFF (default, SWEG_CK_DOOM unset or "0"): byte-identical to base.
+            # Cited as `simulator.harbingers_of_dread_doom`.
+            if (
+                mode in ("melee", "ranged")
+                and (p.faction or "") == "Chaos Knights"
+                and __import__("os").environ.get("SWEG_CK_DOOM", "0") == "1"
+                and target.is_currently_battle_shocked(
+                    getattr(
+                        getattr(getattr(self, "army_ref", None), "_battle_ref", None),
+                        "_current_round",
+                        0,
+                    )
+                )
+            ):
+                wound_mod_delta += 1
+
             # ---- Chaos Knights Iconoclast Fiefdom — Dread Tyrants Aura (10e).
             # BSData v10.6.0 (Chaos - Chaos Knights Library.cat.gz) verbatim
             # (Iconoclast Fiefdom, Dreaded Masters rule): "Dread Tyrants (Aura):
