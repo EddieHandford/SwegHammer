@@ -36,7 +36,7 @@ from .detachments import effective_move
 from .map import _terrain_epoch
 from .roles import classify
 from .sim.geometry import _bc_model_radius_in, _charge_path_screen_gap, _er_gap
-from .units import save_probability, wound_probability
+from .units import _unflatten_model_loadouts, save_probability, wound_probability
 
 
 _HOLD_INTENT = "HOLD"
@@ -3027,6 +3027,82 @@ def _maybe_officer_follow(
     return nearest_pos
 
 
+def _weapon_throw_weight(w) -> float:
+    """A faction-agnostic firepower proxy for one weapon: attacks * (Strength +
+    2 * Damage). Used only to RANK a unit's own weapons against each other (is
+    its indirect fire its dominant output?), never to compare units, so the
+    exact coefficients do not need calibration — only the ordering matters."""
+    try:
+        a = float(w.get("attacks") or 0)
+    except (TypeError, ValueError):
+        a = 0.0
+    try:
+        s = float(w.get("strength") or 0)
+    except (TypeError, ValueError):
+        s = 0.0
+    try:
+        d = float(w.get("weapon_damage_per_shot") or 1)
+    except (TypeError, ValueError):
+        d = 1.0
+    return a * (s + 2.0 * d)
+
+
+def _dedicated_indirect_artillery(profile) -> bool:
+    """True only for a unit whose role is backfield indirect bombardment — the
+    unit that should HOLD and shoot every round rather than advance.
+
+    The unit-level `indirect_fire` flag is NOT a reliable signal (it misses real
+    artillery like the Wyvern and Field Ordnance Battery whose mapped primary is
+    a direct weapon, and it over-fires for melee skirmishers carrying one launcher
+    such as the War Dog Karnivore). And "has ANY indirect weapon" over-fires for
+    troops with a support turret (a T'au Strike Team) or a squad with one special
+    launcher (Dark Reapers' single Exarch Tempest Launcher among nine direct
+    reaper launchers). So classify from the actual loadout, faction-agnostically:
+
+      1. INDIRECT-DOMINANT — model-count-weighted indirect throw-weight is at
+         least half the unit's total ranged throw-weight. Weighting by model
+         count is what excludes the one-special-weapon squads (nine pulse rifles
+         outweigh one support turret; nine reaper launchers outweigh one Tempest
+         Launcher).
+      2. RANGED, NOT MELEE — the unit's ranged throw-weight exceeds its melee
+         throw-weight. Excludes melee skirmishers whose only ranged weapon is an
+         incidental indirect launcher (War Dog Karnivore, Cthonian Beserks).
+      3. NOT A CHARACTER — excludes psyker/monster characters whose witchfire is
+         flagged indirect (Kairos Fateweaver).
+
+    Validated against the catalogue: catches Basilisk, Wyvern, Manticore, Hive
+    Guard, Whirlwind, Night Spinner, Shadow Weaver, Plagueburst Crawler,
+    D-Cannon, Cthonian Earthshakers, Artillery Team; excludes Strike Team, the
+    War Dogs, Cthonian Beserks, Repulsor, Dark Reapers, Stormsurge, Devilfish,
+    Sky Ray, Kairos, the Silent King."""
+    ranged_total = ranged_indirect = melee_total = 0.0
+    try:
+        models = _unflatten_model_loadouts(profile.model_loadouts or ())
+    except Exception:
+        return False
+    for m in models:
+        try:
+            count = float(m.get("count") or 1)
+        except (TypeError, ValueError):
+            count = 1.0
+        for w in (m.get("ranged") or []):
+            tw = _weapon_throw_weight(w) * count
+            ranged_total += tw
+            if w.get("indirect_fire"):
+                ranged_indirect += tw
+        for w in (m.get("melee") or []):
+            melee_total += _weapon_throw_weight(w) * count
+    if ranged_total <= 0.0:
+        return False
+    if ranged_indirect < 0.5 * ranged_total:
+        return False
+    if ranged_total <= melee_total:
+        return False
+    if "CHARACTER" in set(getattr(profile, "unit_keywords", None) or ()):
+        return False
+    return True
+
+
 def pick_move_intent(
     unit, friendly, enemy, map_, army_plan: Optional[str] = None,
     _phase_their_oc: Optional[Dict] = None,
@@ -3073,6 +3149,56 @@ def pick_move_intent(
         cur_round = 1
     round_weight = 1.0 + 0.15 * (cur_round - 1)
     objectives = map_.objectives
+
+    # ----- SWEG_ARTILLERY_HOLD: indirect artillery holds and bombards -----------
+    # AI piloting heuristic (no rule citation), same class as SWEG_KITE_MOVE /
+    # SWEG_OFFICER_FOLLOW. Dedicated indirect artillery (Basilisk / Wyvern /
+    # Manticore / Hive Guard / Night Spinner / Plagueburst Crawler / etc.) has
+    # board-wide range and fires WITHOUT line of sight, so it should HOLD in the
+    # backfield and bombard every round. The default move AI instead marched it
+    # forward toward objectives/enemy, which (a) forfeited its shooting that turn
+    # (the Advance lockout) and (b) walked the gun into enemy Engagement Range,
+    # where it was charged and destroyed by round 3-4. Game trace: a 240"-range
+    # Basilisk Advanced R1 (no shot), fired once R2, was fought R3, died R4 — it
+    # should have bombarded all five rounds from safety. Holding keeps it firing
+    # every round (2.0 -> 8.3 shoot-actions/game) and out of melee (deaths 1.7 ->
+    # 1.0).
+    #
+    # Faithful piloting: no real player advances a Basilisk — true for EVERY
+    # faction's indirect artillery, so the trigger is the unit's ROLE, NOT the
+    # faction. A prior build faction-gated this to Astra Militarum, which the
+    # EVAL_PROTOCOL forbidden zone prohibits ("no faction branch — fitting the
+    # list, not modelling the rule"); the AM-only version screened gated 3.26 ->
+    # 2.82 (-0.44, AM +6.83) but that frame is a list-fit and is superseded by the
+    # faction-agnostic re-screen.
+    #
+    # The classifier is `_dedicated_indirect_artillery` (above): model-count-
+    # weighted indirect-dominant ranged output, ranged > melee, not a CHARACTER.
+    # This is what keeps de-faction-gating safe — a naive "has any indirect weapon"
+    # check holds T'au Strike Teams (one Smart Missile turret), War Dog Karnivores
+    # (melee skirmisher + one launcher) and Dark Reapers (one Exarch launcher),
+    # wrecking those factions.
+    #
+    # ADOPTED default-ON, FIDELITY-FIRST (user directive 2026-06-30). Screened
+    # de-faction-gated at full N=80 vs sc18a: gated mean absolute error 3.26 ->
+    # 3.22 (-0.05) — a metric WASH, kept because the piloting is faithful (no real
+    # player advances a Basilisk). The wash is itself a finding: Astra Militarum
+    # (the dominant under-pole) lifts +6.56 (27.7 -> 34.3) as its Basilisk/Manticore
+    # survive and bombard, but Death Guard (a +9 over-pole) lifts +6.90 (56.9 ->
+    # 63.8) because its single T10/W12/2+/Feel-No-Pain Plagueburst Crawler, held
+    # alive, over-scores under the durable-survivor representation over-reward —
+    # the two cancel. Third independent confirmation of that structural over-reward
+    # (after the pilot gates and the going-first campaign); the lever turns net
+    # POSITIVE once the over-reward is corrected. Same disposition class as the
+    # pinned SWEG_ADVANCE_DISCIPLINE / SWEG_CHARGE_DISCIPLINE piloting gates, but
+    # adopted-on here rather than held-off. `=0` kill-switch short-circuits before
+    # the classifier and reproduces sc18a byte-identically. New standing anchor
+    # data/_anchor_sc19a_n80_log.json (gated 3.22, promoted from the ON arm).
+    if (
+        __import__("os").environ.get("SWEG_ARTILLERY_HOLD", "1") != "0"
+        and _dedicated_indirect_artillery(unit.profile)
+    ):
+        return unit.position, _HOLD_INTENT
 
     # ----- SWEG_KITE_MOVE: proactive, OBJECTIVE-AWARE kite-step (AI heuristic) --
     # Recovered 2026-06-28 (git bcceccf, lost in the wave-252 re-anchor). Fires

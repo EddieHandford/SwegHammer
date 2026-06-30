@@ -1,3 +1,21 @@
+# Next-session handover — 2026-06-30 (artillery-hold adopted fidelity-first; durable-survivor over-reward confirmed #3)
+
+**START HERE (supersedes every block below).**
+
+**New baseline.** `data/_anchor_sc19a_n80_log.json`, gated mean absolute error **3.22** (from sc18a 3.26). Lineage: sc17a (3.45) → sc18a (3.26, Feel-No-Pain batch) → sc19a (3.22).
+
+**`SWEG_ARTILLERY_HOLD` ADOPTED default-on, FIDELITY-FIRST.** Dedicated indirect artillery (Basilisk/Manticore/Plagueburst Crawler/Hive Guard/Exorcist) HOLDS in the backfield and bombards instead of the default AI marching it into melee where it dies by round 3-4. Faithful AI piloting (no real player advances a Basilisk), de-faction-gated via `_dedicated_indirect_artillery` (`code/strategy.py`: model-count-weighted indirect-dominant + ranged>melee + not CHARACTER). Recovered from an abandoned AM-faction-gated version (an EVAL_PROTOCOL §9 forbidden-zone violation). The metric is a **WASH (−0.05)**: Astra Militarum +6.56 (under-pole fills) cancelled by Death Guard +6.90 (its T10/W12/2+ Plagueburst over-scores held alive) — **durable-survivor over-reward confirmation #3** (after the pilot gates and the going-first campaign). Kept on fidelity; `=0` kill-switch reproduces sc18a byte-identically (0 flips). Full detail in `docs/CURRENT_STATE.md` head + `docs/DECISION_LEDGER.md`.
+
+**The indirect-fire "no-line-of-sight bug" the block below flags DOES NOT EXIST.** The simulator uses the BUILD-TIME `indirect_fire` flag (re-derived from the best-expected-value weapon, `units.py:5208`), which already fires Wyvern/Field Ordnance mortars indirect — the prior handover read the unused CATALOGUE flag. The "artillery fires zero shots" symptom was the AI *advancing* the gun (now fixed by the hold lever), NOT the indirect flag. Do NOT re-chase the indirect-fire data; the build-time derivation is correct (it even refuses a Cadian Heavy Weapons Squad's autocannons the indirect treatment).
+
+**Harness fix:** `scripts/evaluate_vs_meta.py` re-launch (`os.execvpe` → `subprocess.run`) — the re-exec was segfaulting on this box (the "intermittent screens get killed" failure). Preset `PYTHONHASHSEED=0` on older checkouts.
+
+**Branch state:** `claude/sim-calibration-16`. Artillery-hold lever + harness fix + anchor sc19a + these docs are staged but NOT yet committed/pushed (awaiting user "go").
+
+**NEXT — the strategic wall is now triple-confirmed.** Every faithful AI/piloting improvement that strengthens units (pilot gates, going-second mechanisms, artillery-hold) is metric-blocked by the durable-survivor representation over-reward. The addressable frontier is the **parked structural representation re-model** (a user decision) or thin remaining faithful over-credit removals on the over-pole side. Do NOT re-propose: going-second AI mechanisms, the indirect-fire flag fix, or any faction-gated piloting.
+
+---
+
 # Next-session handover — 2026-06-29 (AM under-pole = under-delivered firepower + the durability over-reward; firepower bugs found)
 
 **START HERE (supersedes the going-first block below).**
