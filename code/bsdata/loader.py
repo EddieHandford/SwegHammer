@@ -675,10 +675,33 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         # parsed.json's fnp=5 untouched so the byte-identical anchor is
         # reproducible. See docs/OVERPOLE_UNIT_AUDIT.md rank 6;
         # ADOPTED default-on (wave 260, fidelity-first); =0 kill-switch.
+        # SWEG_DG_PLAGUE_FNP_FAITHFUL (default-off) — fabrication removal. The 10e
+        # Plague Marines and Blightlord Terminators datasheets carry NO Feel No
+        # Pain / Disgustingly Resilient (verified against the BSData Death Guard
+        # cat — zero "Feel No Pain" in either datasheet window). The overrides.json
+        # fnp=5 on them is the army-wide-Disgustingly-Resilient-as-FNP fabrication
+        # the project already deleted at iter-15 (see data/rule_citations.d/
+        # death_guard.json _comment: "there is NO codex-level Feel No Pain in the
+        # 10e Death Guard codex... Disgustingly Resilient is ONLY the 2 CP Virulent
+        # Vectorium stratagem (-1 damage)"), which leaked onto the per-datasheet
+        # overrides. The real -1-damage stratagem is modelled separately at
+        # simulator.py:4070 (_try_disgustingly_resilient). Plaguebearers / Typhus /
+        # Mortarion / Poxwalkers / Deathshroud KEEP their fnp — BSData confirms
+        # those datasheets DO carry Feel No Pain. ADOPTED default-on (fidelity-first;
+        # scoped Death-Guard + Chaos-Space-Marines N=80 paired vs sc20a: gated mean
+        # absolute error 3.26 -> 3.06, Death Guard -3.37 decisive toward its real
+        # 47.6, only collateral Grey Knights -0.46). Set =0 as a kill-switch to
+        # restore the fabricated fnp=5 and reproduce the sc20a anchor byte-identically.
         "fnp": (
             7
-            if (key == "emperor_s_children_lucius_the_eternal"
-                and os.environ.get("SWEG_EC_LUCIUS_FNP_FIX", "1") != "0")
+            if (
+                (key == "emperor_s_children_lucius_the_eternal"
+                 and os.environ.get("SWEG_EC_LUCIUS_FNP_FIX", "1") != "0")
+                or (key in ("death_guard_plague_marines",
+                            "chaos_space_marines_plague_marines",
+                            "death_guard_blightlord_terminators")
+                    and os.environ.get("SWEG_DG_PLAGUE_FNP_FAITHFUL", "1") != "0")
+            )
             else override.get("fnp", base.fnp)
         ),
         # SWEG_AM_STICKY_CADIAN (rank-8 lever) — ADOPTED default-on (wave 255).
