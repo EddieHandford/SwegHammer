@@ -1,3 +1,17 @@
+# Next-session handover — 2026-06-30 (mapper multi-weapon-chassis fix; sim now fires real datasheet weapons)
+
+**START HERE (supersedes every block below).**
+
+**New baseline.** `data/_anchor_sc20a_n80_log.json`, gated mean absolute error **3.26** (a WASH: sc19a 3.22 → 3.26, +0.04 within noise). Lineage: sc18a (3.26) → sc19a (3.22, artillery-hold) → sc20a (mapper weapon fix, wash).
+
+**The mapper now fires units' REAL datasheet weapons.** The single-model weapon picker (`code/bsdata/mapper.py`) was stripping the main guns off ~69 multi-weapon chassis (Titans, Knights, Dreadnoughts, super-heavy tanks, T'au battlesuit Commanders). THREE bugs fixed in `_collect_single_model_weapons` / `_gather_group_candidates`: over-clustering of independent weapon slots (→ per-group `max`-selections picking), lost linked-Library-group candidates, and fixed-weapon re-pick + skipped-ranged-fallback (Forgefiend fired nothing). **69 units restored, 0 regressions, no over-gunning** (max 6/unit). `parsed.json` regenerated. Metric is a WASH (restored firepower cancels across poles); adopted fidelity-first. Full detail: `docs/CURRENT_STATE.md` head + `docs/DECISION_LEDGER.md`.
+
+**RESIDUAL — the Knight Tyrant** is NOT fixed (a deep one-off: its single max=1 main slot ranks the 12" harpoon above the 60" volcano lance by the Marine-baseline expected-damage metric, plus a carapace-resolution quirk). The general fix restored the other Knights; the Tyrant needs a targeted `data/overrides.json` loadout — the cleanest next step for the Chaos Knights under-pole.
+
+**Do NOT re-burn:** the 23 full-suite test failures are PRE-EXISTING (fail on the old frame too — synthetic-profile / non-deterministic tests). The N=80 re-anchor must be run as two N=40 halves (`--seed-start 0/40 --battles 40`, merge the `--log-games`) — an environment governor kills the full 64-minute background job (the frame itself is fine: battles run in <1s, memory healthy).
+
+---
+
 # Next-session handover — 2026-06-30 (artillery-hold adopted fidelity-first; durable-survivor over-reward confirmed #3)
 
 **START HERE (supersedes every block below).**

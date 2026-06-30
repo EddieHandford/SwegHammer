@@ -1382,26 +1382,47 @@ def _weapons_from_inline_entry(
 def _gather_group_candidates(
     grp: ET.Element,
     reg: Registry,
+    _seen: Optional[set] = None,
 ) -> tuple[List[WeaponStats], List[WeaponStats]]:
     """Recursively collect every weapon candidate inside a selectionEntryGroup.
 
-    Walks three branches: cross-referenced entryLinks, inline child
-    selectionEntries (with their own profile blocks), and nested
-    selectionEntryGroups. Each leaf is a possible weapon choice — the
-    caller picks one best candidate from the union per group.
+    Walks: cross-referenced entryLinks (to a weapon selectionEntry OR to a
+    shared choice selectionEntryGroup), inline child selectionEntries (with
+    their own profile blocks), and inline nested selectionEntryGroups. Each
+    leaf is a possible weapon choice — the caller picks the group's best.
     """
+    if _seen is None:
+        _seen = set()
+    gid = id(grp)
+    if gid in _seen:
+        return [], []
+    _seen.add(gid)
+
     candidates_ranged: List[WeaponStats] = []
     candidates_melee: List[WeaponStats] = []
 
-    # 1. entryLink children — cross-reference into the shared weapon catalogue
+    # 1. entryLink children — cross-reference into the shared weapon catalogue.
     for el in grp.findall("./entryLinks/entryLink"):
-        if el.get("type") != "selectionEntry":
-            continue
         if _is_crusade_only_entry(el):
             continue
         target_id = el.get("targetId") or ""
         resolved = reg.resolve(target_id)
         if resolved is not None and _is_crusade_only_entry(resolved):
+            continue
+        # An entryLink can resolve to a shared CHOICE GROUP (Library weapon
+        # options — e.g. a Knight's "Carapace weapons" / "Main weapons" options
+        # live in a linked group), not just a single weapon. Recurse so those
+        # candidates are not lost (the historical bug left such slots empty,
+        # stripping the main guns off Knight Tyrant / Forgefiend-class chassis).
+        if el.get("type") == "selectionEntryGroup" or (
+            resolved is not None and resolved.tag == "selectionEntryGroup"
+        ):
+            if resolved is not None:
+                r_sub, m_sub = _gather_group_candidates(resolved, reg, _seen)
+                candidates_ranged.extend(r_sub)
+                candidates_melee.extend(m_sub)
+            continue
+        if el.get("type") != "selectionEntry":
             continue
         r, m = _resolve_weapon_target(target_id, reg)
         if r is not None:
@@ -1426,11 +1447,11 @@ def _gather_group_candidates(
                 max(m_list, key=lambda w: w.expected_damage_through_baseline())
             )
 
-    # 3. nested selectionEntryGroup children — flatten their candidates up
+    # 3. inline nested selectionEntryGroup children — flatten their candidates up
     for sub in grp.findall("./selectionEntryGroups/selectionEntryGroup"):
         if _is_crusade_only_entry(sub):
             continue
-        r_sub, m_sub = _gather_group_candidates(sub, reg)
+        r_sub, m_sub = _gather_group_candidates(sub, reg, _seen)
         candidates_ranged.extend(r_sub)
         candidates_melee.extend(m_sub)
 
@@ -1622,6 +1643,50 @@ def _best_candidate(
     return max(candidates, key=lambda w: w.expected_damage_through_baseline())
 
 
+def _weapon_base_name(name: str) -> str:
+    """Collapse a weapon's BSData firing-mode marker so two modes of one gun
+    count as one weapon slot. BSData names the modes of a multi-mode weapon
+    "➤ Ectoplasma decimator - standard" / "➤ Ectoplasma decimator - supercharge";
+    both reduce to "Ectoplasma decimator". Plain weapon names pass through."""
+    n = (name or "").lstrip("➤").strip()
+    if " - " in n:
+        n = n.split(" - ", 1)[0].strip()
+    return n
+
+
+def _pick_group_weapons(
+    candidates: List[WeaponStats], max_sel: int,
+    exclude: Optional[set] = None,
+) -> List[WeaponStats]:
+    """Pick a choice group's actual equipped weapons: the `max_sel` best
+    distinct weapons (best firing mode per base weapon name), highest expected
+    damage first. A `max=1` slot yields one weapon; a `max=2` "Secondary
+    Weapons" slot yields its two best. This is the per-slot pick that replaced
+    the old union-by-shared-name clustering, which collapsed every independent
+    weapon slot of a multi-weapon chassis into a single gun.
+
+    `exclude` (base weapon names) skips weapons the model already carries as
+    FIXED wargear, so a choice group that also lists a fixed weapon does not
+    re-pick it (a Knight Tyrant's "Main weapons" group lists its fixed Warpshock
+    harpoon, which out-ranks the volcano lance; without this the group re-picks
+    the harpoon and the real main gun is lost)."""
+    n = max(1, int(max_sel))
+    chosen: List[WeaponStats] = []
+    seen_bases: set = set(exclude) if exclude else set()
+    n_pre = len(seen_bases)
+    for w in sorted(
+        candidates, key=lambda w: w.expected_damage_through_baseline(), reverse=True
+    ):
+        base = _weapon_base_name(w.name)
+        if base in seen_bases:
+            continue
+        seen_bases.add(base)
+        chosen.append(w)
+        if len(seen_bases) - n_pre >= n:
+            break
+    return chosen
+
+
 def _collect_single_model_weapons(
     node: ET.Element,
     reg: Registry,
@@ -1657,20 +1722,22 @@ def _collect_single_model_weapons(
     # Choice-group candidate lists accumulate here and are resolved (with
     # overlap-clustering, below) AFTER every group at this node is seen. Each
     # entry is (candidates_ranged, candidates_melee) for one choice group.
-    choice_groups: List[tuple[List[WeaponStats], List[WeaponStats]]] = []
+    choice_groups: List[tuple[List[WeaponStats], List[WeaponStats], int]] = []
 
     def _add_group(grp: ET.Element) -> None:
         """Classify a resolved selectionEntryGroup as choice vs container."""
         if _is_crusade_only_entry(grp):
             return
-        if _seg_max_selections(grp) is not None:
-            # CHOICE group — record its candidate leaves; the pick happens
-            # after clustering so sibling arm groups that share a weapon
-            # (Left Arm / Right Arm both offering Heavy Wraithcannon) collapse
-            # to a single coherent pick instead of mixing two builds.
+        max_sel = _seg_max_selections(grp)
+        if max_sel is not None:
+            # CHOICE group — record its candidate leaves plus its slot count
+            # (the group's `max` selections). Each group is an INDEPENDENT
+            # weapon slot, resolved on its own below: a Knight's two arm groups
+            # plus carapace each contribute their pick, instead of collapsing
+            # to one gun.
             cand_r, cand_m = _gather_group_candidates(grp, reg)
             if cand_r or cand_m:
-                choice_groups.append((cand_r, cand_m))
+                choice_groups.append((cand_r, cand_m, max_sel))
         else:
             # CONTAINER — its direct weapon leaves are simultaneous fixed
             # weapons and its sub-groups are independent choices. Recurse.
@@ -1768,48 +1835,24 @@ def _collect_single_model_weapons(
     for grp in node.findall("./selectionEntryGroups/selectionEntryGroup"):
         _add_group(grp)
 
-    # Resolve the accumulated choice groups. Cluster groups that share at
-    # least one candidate weapon NAME (transitively) and pick ONE best across
-    # each cluster's union — this collapses the classic Left Arm / Right Arm
-    # pattern (both offering Heavy Wraithcannon) into a single arm-weapon pick,
-    # so a Wraithknight ends with ONE of {Suncannon, Heavy Wraithcannon}, not
-    # both. Genuinely independent groups (Knight Paladin's Carapace / Meltagun
-    # / Reaper groups, which share no weapons) stay separate and each
-    # contribute their own pick. Ranged and melee are clustered independently.
-    for select in ("ranged", "melee"):
-        groups = [
-            (g[0] if select == "ranged" else g[1]) for g in choice_groups
-        ]
-        groups = [g for g in groups if g]
-        # Union-find over groups by shared weapon name.
-        parent = list(range(len(groups)))
-
-        def _find(i: int) -> int:
-            while parent[i] != i:
-                parent[i] = parent[parent[i]]
-                i = parent[i]
-            return i
-
-        def _union(i: int, j: int) -> None:
-            ri, rj = _find(i), _find(j)
-            if ri != rj:
-                parent[max(ri, rj)] = min(ri, rj)
-
-        names_per_group = [set(w.name for w in g) for g in groups]
-        for i in range(len(groups)):
-            for j in range(i + 1, len(groups)):
-                if names_per_group[i] & names_per_group[j]:
-                    _union(i, j)
-        clusters: Dict[int, List[WeaponStats]] = {}
-        for i, g in enumerate(groups):
-            clusters.setdefault(_find(i), []).extend(g)
-        for root in sorted(clusters):
-            best = _best_candidate(clusters[root])
-            if best is not None:
-                if select == "ranged":
-                    ranged_picks.append(best)
-                else:
-                    melee_picks.append(best)
+    # Resolve the accumulated choice groups. Each group is an INDEPENDENT
+    # weapon slot and contributes its own `max`-selections best weapons (best
+    # firing mode per base weapon name). A titanic chassis's two arm groups
+    # plus carapace therefore each fire, and a "Secondary Weapons" group with
+    # max=2 yields its two best. Mutually-exclusive options WITHIN one group
+    # still collapse to that group's best (a single arm slot fires one gun).
+    #
+    # This replaced a union-by-shared-weapon-name clustering that picked ONE
+    # weapon across every group sharing any candidate name — it wrongly merged
+    # genuinely-independent slots (Left Arm / Right Arm of a Wraithknight, Main
+    # / Carapace of a Knight Tyrant) and stripped the main guns off ~250
+    # multi-weapon chassis (Knights, Titans, Dreadnoughts, super-heavy tanks).
+    # See tests/test_model_loadouts.py.
+    fixed_bases_r = {_weapon_base_name(w.name) for w in ranged_picks}
+    fixed_bases_m = {_weapon_base_name(w.name) for w in melee_picks}
+    for cand_r, cand_m, max_sel in choice_groups:
+        ranged_picks.extend(_pick_group_weapons(cand_r, max_sel, exclude=fixed_bases_r))
+        melee_picks.extend(_pick_group_weapons(cand_m, max_sel, exclude=fixed_bases_m))
 
     return ranged_picks, melee_picks
 
@@ -1852,12 +1895,18 @@ def _build_single_model_loadout(
     node = _find_single_model_node(entry)
     ranged_picks, melee_picks = _collect_single_model_weapons(node, reg)
     name = node.get("name") or entry.get("name") or "?"
-    if not ranged_picks and not melee_picks and fallback_weapons is not None:
-        # Synthesis fallback — use the unit's resolved best weapons so the
-        # loadout is never empty for a unit that can actually fire.
-        ranged_picks, melee_picks = fallback_weapons
-        ranged_picks = list(ranged_picks)
-        melee_picks = list(melee_picks)
+    if fallback_weapons is not None:
+        # Synthesis fallback — when the option-picker resolves no weapon in a
+        # given mode (a datasheet shape its group walk does not reach), use the
+        # unit's flat-resolved weapons so the loadout is never empty for a unit
+        # that can fire. Applied PER MODE: a Forgefiend resolves its melee but
+        # not its (Hades autocannon / Ectoplasma cannon) ranged guns, and must
+        # still get the ranged fallback rather than firing nothing.
+        fb_r, fb_m = fallback_weapons
+        if not ranged_picks and fb_r:
+            ranged_picks = list(fb_r)
+        if not melee_picks and fb_m:
+            melee_picks = list(fb_m)
     if not ranged_picks and not melee_picks:
         return None
     return [ModelLoadout(name=name, count=1.0, ranged=ranged_picks, melee=melee_picks)]
