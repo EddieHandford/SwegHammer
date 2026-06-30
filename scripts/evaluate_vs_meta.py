@@ -27,7 +27,19 @@ from typing import Dict, List, Optional, Tuple
 # by ~3 pts between back-to-back invocations.
 if os.environ.get("PYTHONHASHSEED") != "0":
     os.environ["PYTHONHASHSEED"] = "0"
-    os.execvpe(sys.executable, [sys.executable, "-m", "scripts.evaluate_vs_meta"] + sys.argv[1:], os.environ)
+    # Re-launch with the hash seed pinned. `os.execvpe` was used here but
+    # segfaults on this Windows / Git-Bash box: the Windows exec emulation
+    # (spawn-and-exit) is flaky when the child's stdout is redirected to a file,
+    # crashing the worker pool before any output (exit 139, empty log). Spawn a
+    # clean child via subprocess and propagate its exit code instead — robust on
+    # Windows. (Callers may also preset PYTHONHASHSEED=0 to skip this entirely.)
+    import subprocess
+    sys.exit(
+        subprocess.run(
+            [sys.executable, "-m", "scripts.evaluate_vs_meta"] + sys.argv[1:],
+            env=os.environ,
+        ).returncode
+    )
 
 from code.army_builder import build_faction_random_army
 from code.maps import (
