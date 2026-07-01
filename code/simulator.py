@@ -13394,6 +13394,16 @@ class Battle:
         #
         # Off path byte-identical (short-circuit on env check first).
         # AI piloting heuristic — no rule_citations entry required.
+        #
+        # DO NOT RE-ATTEMPT an Astra-Militarum-scoped entry point on this
+        # block (`SWEG_AM_CHARGE_DISCIPLINE`, built + screened + REVERTED
+        # 2026-07-01): AM-scoped N=80 vs sc34a read Astra Militarum -2.41
+        # DECISIVE (38.1 -> 35.7, AWAY from its real 45.3), gated 2.02 ->
+        # 2.17. Unlike the advance-discipline sibling (+5.75), blocking
+        # "futile" charges strictly hurts AM — a no-damage charge still ties
+        # a melee threat in Engagement Range and contests ground, and the
+        # sim's AM evidently converts those charges into value. Same
+        # empirical class as the rejected SWEG_AM_OFFICER_FRONT_LINE.
         if os.environ.get("SWEG_CHARGE_DISCIPLINE", "0") == "1":
             from .strategy import _is_chaff_unit, _unsaved_fraction
             from .units import wound_probability as _wound_probability
