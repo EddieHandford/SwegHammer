@@ -11421,7 +11421,24 @@ class Battle:
         _ad_generic = os.environ.get("SWEG_ADVANCE_DISCIPLINE", "0") == "1"
         _ad_am = (os.environ.get("SWEG_AM_ADVANCE_DISCIPLINE", "1") != "0"
                   and (attacker.profile.faction or "") == "Astra Militarum")
-        if ((_ad_generic or _ad_am)
+        # CK-SCOPED entry point (SWEG_CK_RANGED_HOLD, ADOPTED default-on 2026-07-01,
+        # `=0` byte-identical kill-switch): the SAME gunline-hold logic, restricted
+        # to Chaos Knights RANGED platforms (no extra_melee_profiles — Knight Tyrant
+        # / Desecrator / War Dog Executioner / Stalker / Brigand / Huntsman). Melee
+        # platforms (Rampager / Despoiler / Abominant / Karnivore, all with
+        # extra_melee_profiles) keep charging via the Knight melee commitment bonus.
+        # A Knight Tyrant that Advances forfeits its 72" Gheiststrike; real play
+        # holds it and shoots. CK-scoped N=80 vs sc28a: Chaos Knights +11.27
+        # (39.1 -> 50.3), gated 2.43 -> 2.37. NB it OVERSHOOTS real 44.7 — the sim's
+        # structural durability over-reward amplifies the durable TITANIC platforms
+        # held alive; the metric still improves via opponent collateral. Adopted
+        # fidelity-first on the owner's call (faithful piloting; the overshoot is the
+        # over-reward's fault, to be corrected structurally). Cited
+        # simulator.ck_ranged_hold.
+        _ad_ck = (os.environ.get("SWEG_CK_RANGED_HOLD", "1") != "0"
+                  and (attacker.profile.faction or "") == "Chaos Knights"
+                  and not getattr(attacker.profile, "extra_melee_profiles", None))
+        if ((_ad_generic or _ad_am or _ad_ck)
                 and intent in ("CAPTURE", "STEAL")
                 # Units that can shoot AFTER Advancing (ASSAULT weapons, or a
                 # transient ASSAULT grant) lose nothing by it — never suppress them

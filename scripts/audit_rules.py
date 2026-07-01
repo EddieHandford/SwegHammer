@@ -429,6 +429,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # / War Dog Executioner cascade rewards. Cited in
     # data/rule_citations.d/chaos_knights.json.
     "strategy.ck_dread_cascade_target",
+    # SWEG_CK_RANGED_HOLD (default-on 2026-07-01). AI piloting heuristic (same as
+    # simulator.am_advance_discipline, CK-scoped): Chaos Knights ranged platforms
+    # (no extra_melee_profiles) hold and shoot instead of Advancing and forfeiting
+    # their Shooting phase; melee platforms keep charging. Grounds in the core
+    # Advance rule. Cited in data/rule_citations.d/chaos_knights.json.
+    "simulator.ck_ranged_hold",
     # Core targeting restrictions (10e core rules). Both filter the ranged
     # candidate list inside Battle._do_shoot via code.army.can_target_for_ranged.
     # Look Out Sir gates non-MONSTER/VEHICLE CHARACTERS that have a non-CHARACTER
