@@ -888,6 +888,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # notes in data/rule_citations.d/votann.json. Cited there as
     # simulator.prioritised_efficiency.
     "simulator.prioritised_efficiency",
+    # SWEG_VOTANN_PE_TARGET_BIAS (default-on 2026-07-01). An AI target-selection
+    # heuristic (not a separate rule): the Votann shooting picker prefers
+    # on-objective enemy targets (_votann_pe_target_bonus, code/strategy.py, 1.5x
+    # score multiplier), concentrating fire where the Prioritised Efficiency
+    # +1-to-Hit compounds. Cited in data/rule_citations.d/votann.json.
+    "simulator.votann_pe_target_bias",
     "unit.necrodermis",
     # Wave 181 — CA-2025-26 Tactical-track flat kill card VP values.
     # When a TACTICAL-track army (SWEG_TAC_DECK path) draws one of these three

@@ -828,6 +828,38 @@ def _astartes_oath_target_bonus(attacker, defender, attacker_army) -> float:
     return _ASTARTES_OATH_TARGET_BONUS
 
 
+_VOTANN_PE_TARGET_BONUS: float = 1.5
+
+
+def _votann_pe_target_bonus(attacker, defender, attacker_army) -> float:
+    """Return 1.5x when SWEG_VOTANN_PE_TARGET_BIAS=1, `attacker` belongs to a
+    Leagues of Votann army, and `defender` is on / within range of an objective
+    marker. Prioritised Efficiency (Hostile Acquisition) grants +1 to Hit vs
+    on-objective enemies — already modelled and adopted as an attack-resolution
+    buff (SWEG_VOTANN_PRIORITISED_EFFICIENCY, wave 252) — so this is purely an AI
+    target-selection bias concentrating Votann fire where that +1 compounds; it
+    cannot reduce Votann damage output. Caller (the shooting picker) divides the
+    target-score by this bonus, so 1.5x reads as ~0.67x raw HP. AI heuristic (not
+    a separate rule); the underlying rule is cited as simulator.votann_pe_target_bias.
+    Same class as _astartes_oath_target_bonus. ADOPTED default-on 2026-07-01
+    (`=0` is the byte-identical kill-switch); Votann-scoped N=80 vs sc25a: gated
+    2.49 -> 2.45, Votann +0.97 toward real, no decisive collateral (unlike the
+    single-target T'au guided bias, which over-concentrated and was rejected —
+    routing to a CLASS of on-objective targets, where the adopted +1-to-Hit
+    already compounds, avoids that). Gate `=0` -> 1.0 -> byte-identical.
+    """
+    import os
+    if os.environ.get("SWEG_VOTANN_PE_TARGET_BIAS", "1") == "0":
+        return 1.0
+    if attacker_army is None or not getattr(attacker_army, "is_votann_army", False):
+        return 1.0
+    if not getattr(defender, "on_objective", False):
+        return 1.0
+    if not getattr(defender, "is_alive", True):
+        return 1.0
+    return _VOTANN_PE_TARGET_BONUS
+
+
 # ---------------------------------------------------------------------------
 # AI-8 — Transport target priority (faction-neutral, AI play-style)
 # ---------------------------------------------------------------------------

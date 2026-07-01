@@ -11888,6 +11888,7 @@ class Battle:
             return
         from .strategy import (
             _astartes_oath_target_bonus,
+            _votann_pe_target_bonus,
             _drukhari_fragile_flyer_bonus,
             _kite_target_bonus,
             _screen_target_bonus,
@@ -11927,6 +11928,7 @@ class Battle:
                         _screen_target_bonus(e)
                         * _synapse_target_bonus(model, e)
                         * _astartes_oath_target_bonus(model, e, attacker_army)
+                        * _votann_pe_target_bonus(model, e, attacker_army)
                         * _transport_target_bonus(e)
                         * _drukhari_fragile_flyer_bonus(e)
                         * _kite_target_bonus(e, attacker_army)
@@ -12280,6 +12282,7 @@ class Battle:
         # not transports).
         from .strategy import (
             _astartes_oath_target_bonus,
+            _votann_pe_target_bonus,
             _drukhari_fragile_flyer_bonus,
             _kite_target_bonus,
             _screen_target_bonus,
@@ -12354,6 +12357,7 @@ class Battle:
                     _screen_target_bonus(u)
                     * _synapse_target_bonus(attacker, u)
                     * _astartes_oath_target_bonus(attacker, u, attacker_army)
+                    * _votann_pe_target_bonus(attacker, u, attacker_army)
                     * _transport_target_bonus(u)
                     * _drukhari_fragile_flyer_bonus(u)
                     * _kite_target_bonus(u, attacker_army)
