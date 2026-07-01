@@ -2147,6 +2147,27 @@ class Unit:
                 ignore_cover = bool(
                     p.ignores_cover
                     or getattr(self, "transient_ignores_cover_this_turn", False)
+                    or (
+                        # SWEG_TAU_MARKERLIGHT_IGNORES_COVER (For the Greater Good army
+                        # rule, BSData eeb6-c42-48f7-cc21): a Guided T'au attack against a
+                        # Spotted unit marked by a MARKERLIGHT-keyword Observer gains
+                        # [IGNORES COVER]. `guided_los_enemy_uids` is built exclusively
+                        # from MARKERLIGHT carriers in Battle._run_markerlight_phase, so
+                        # every uid in it qualifies under the rule. Same access as the
+                        # base Guided +1 at ~line 3090; we are already in the ranged
+                        # branch here. ADOPTED default-on 2026-07-01 (`=0` is the
+                        # byte-identical kill-switch). Screened T'au-scoped N=80 vs sc24a:
+                        # gated 2.50 -> 2.49, T'au +1.46 toward its real 54.3; a companion
+                        # target-bias heuristic was screened and REJECTED (it over-
+                        # concentrated fire and dragged the metric +0.01). Cited
+                        # simulator.tau_markerlight_ignores_cover.
+                        __import__("os").environ.get(
+                            "SWEG_TAU_MARKERLIGHT_IGNORES_COVER", "1") != "0"
+                        and (p.faction or "").lower() in ("t'au empire", "tau empire")
+                        and target.uid in getattr(
+                            getattr(self, "army_ref", None),
+                            "guided_los_enemy_uids", set())
+                    )
                 )
                 # LEADERABILITY-SCHEMA: Lord of Change "Daemon Lord of
                 # Tzeentch" aura — +1 to the Strength characteristic of

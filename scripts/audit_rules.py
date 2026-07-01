@@ -514,6 +514,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # MARKERLIGHT units" condition. The Mont'ka [LETHAL HITS] consumer keeps
     # reading guided_enemy_uids. Cited in data/rule_citations.d/tau_empire.json.
     "simulator.tau_markerlight_base_los",
+    # SWEG_TAU_MARKERLIGHT_IGNORES_COVER (default OFF). For the Greater Good grants
+    # [IGNORES COVER] to a Guided attack against a Spotted unit marked by a
+    # MARKERLIGHT Observer; modelled as a third OR-arm in the Unit.attack
+    # ignore_cover boolean (guided_los_enemy_uids membership + T'au faction). A
+    # companion AI target-bias _tau_guided_target_bonus concentrates fire on the
+    # Spotted unit. Cited in data/rule_citations.d/tau_empire.json.
+    "simulator.tau_markerlight_ignores_cover",
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
     # hard cap, but real-player CP economy averages ~1 stratagem per
