@@ -539,6 +539,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # companion AI target-bias _tau_guided_target_bonus concentrates fire on the
     # Spotted unit. Cited in data/rule_citations.d/tau_empire.json.
     "simulator.tau_markerlight_ignores_cover",
+    # SWEG_TAU_NOVA_CHARGE (default-on 2026-07-01). Riptide once-per-battle
+    # [DEVASTATING WOUNDS] (datasheet ability, BSData id 8fb6-aff7-75ac-f206),
+    # via Battle._apply_nova_charge in the shooting activation. Cited in
+    # data/rule_citations.d/tau_empire.json.
+    "simulator.tau_nova_charge",
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
     # hard cap, but real-player CP economy averages ~1 stratagem per

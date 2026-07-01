@@ -697,6 +697,13 @@ class UnitProfile:
     # SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES (adopted default-on, wave 256;
     # set to 0 to disable). Cited as `simulator.tau_targeting_array`.
     tau_targeting_array: bool = False
+    # T'au Riptide "Nova Charge" (10e datasheet ability, BSData id
+    # 8fb6-aff7-75ac-f206): once per battle, when this unit is selected to shoot,
+    # one ranged weapon gains [DEVASTATING WOUNDS] until end of phase. Set via
+    # data/overrides.json on the Riptide; gated SWEG_TAU_NOVA_CHARGE. Modelled as
+    # a whole-unit transient for the phase (same approximation as Unholy Bloodshed
+    # / Daemonic Ordnance). Cited as `simulator.tau_nova_charge`.
+    tau_nova_charge: bool = False
     # MAP-4 — per-unit Reanimation Protocols eligibility flag.
     # 10e Necron datasheets all CARRY the "Reanimation Protocols" ability, but
     # the ability text excludes CHARACTER / MONSTER / VEHICLE models from
@@ -5565,6 +5572,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             tau_sunforge=entry.tau_sunforge,
             tau_armour_hunter=entry.tau_armour_hunter,
             tau_targeting_array=entry.tau_targeting_array,
+            tau_nova_charge=entry.tau_nova_charge,
             reanimates_with_army=entry.reanimates_with_army,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,

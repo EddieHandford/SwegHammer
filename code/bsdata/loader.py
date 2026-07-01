@@ -270,6 +270,9 @@ class CatalogEntry:
     # T'AU EMPIRE — Targeting Array (Hammerhead Gunship datasheet ability).
     # Cited as `simulator.tau_targeting_array`.
     tau_targeting_array: bool = False
+    # T'au Riptide Nova Charge (once-per-battle [DEVASTATING WOUNDS]). Set via
+    # overrides.json; gated SWEG_TAU_NOVA_CHARGE. Cited `simulator.tau_nova_charge`.
+    tau_nova_charge: bool = False
     # NECRONS-CTAN — Necrodermis (C'tan datasheet ability). Halves the
     # Damage characteristic of each allocated attack (rounding up); D1
     # attacks deal 0 damage. Set per-unit via overrides.json (the BSData
@@ -468,6 +471,7 @@ class CatalogEntry:
             tau_sunforge=bool(d.get("tau_sunforge", False)),
             tau_armour_hunter=bool(d.get("tau_armour_hunter", False)),
             tau_targeting_array=bool(d.get("tau_targeting_array", False)),
+            tau_nova_charge=bool(d.get("tau_nova_charge", False)),
             necrodermis=bool(d.get("necrodermis", False)),
             reanimates_with_army=bool(d.get("reanimates_with_army", False)),
             unit_keywords=list(d.get("unit_keywords") or []),
@@ -878,6 +882,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "tau_sunforge": override.get("tau_sunforge", base.tau_sunforge),
         "tau_armour_hunter": override.get("tau_armour_hunter", base.tau_armour_hunter),
         "tau_targeting_array": override.get("tau_targeting_array", base.tau_targeting_array),
+        "tau_nova_charge": override.get("tau_nova_charge", base.tau_nova_charge),
         "necrodermis": override.get("necrodermis", base.necrodermis),
         "reanimates_with_army": override.get("reanimates_with_army", base.reanimates_with_army),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),

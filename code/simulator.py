@@ -417,6 +417,9 @@ class Battle:
         # battle guard. Stores the set of unit UIDs that have already consumed
         # their Unholy Bloodshed grant. Cleared on Battle reset, not per-round.
         self._csm_unholy_bloodshed_used: set = set()
+        # T'au Riptide Nova Charge — once-per-battle [DEVASTATING WOUNDS] tracker
+        # (one use per Riptide model). Cleared on Battle reset, not per-round.
+        self._tau_nova_charge_used: set = set()
         self.a._battle_ref = self
         self.b._battle_ref = self
         # Current battle round (1..MAX_ROUNDS). Updated at the top of each
@@ -7121,6 +7124,35 @@ class Battle:
                 "ranged weapons gain [DEVASTATING WOUNDS] and [HAZARDOUS]"
             )
 
+    def _apply_nova_charge(self, attacker) -> None:
+        """T'au Riptide 'Nova Charge' (10e datasheet ability, BSData id
+        8fb6-aff7-75ac-f206): "Once per battle, when this unit is selected to shoot
+        in your Shooting phase, select one ranged weapon equipped by this model.
+        Until the end of the phase, that weapon has the [DEVASTATING WOUNDS]
+        ability." Gated SWEG_TAU_NOVA_CHARGE (default-off during screen). Mirrors
+        the Possessed Unholy Bloodshed once-per-battle pattern. APPROXIMATION: the
+        real rule grants [DEVASTATING WOUNDS] to ONE chosen weapon; we grant the
+        transient to the whole unit for the phase — the same whole-unit
+        approximation as Unholy Bloodshed (simulator.csm_unholy_bloodshed) and
+        Daemonic Ordnance. ADOPTED default-on 2026-07-01 (`=0` is the
+        byte-identical kill-switch); T'au-scoped N=80 vs sc29a: T'au +1.74 (51.2 ->
+        52.9, toward real 54.3), gated 2.37 -> 2.35. Cited `simulator.tau_nova_charge`.
+        Off path (gate '0') is a no-op (the profile flag is only read here).
+        """
+        if os.environ.get("SWEG_TAU_NOVA_CHARGE", "1") == "0":
+            return
+        if not getattr(attacker.profile, "tau_nova_charge", False):
+            return
+        if attacker.uid in self._tau_nova_charge_used:
+            return
+        self._set_transient_squad(attacker, "transient_devastating_wounds")
+        self._tau_nova_charge_used.add(attacker.uid)
+        if self.verbose:
+            print(
+                f"  NOVA CHARGE: {attacker.profile.name} granted "
+                "[DEVASTATING WOUNDS] this phase (once-per-battle)"
+            )
+
     def _apply_dark_pacts(self, round_num: int) -> None:
         """Chaos Space Marines Dark Pacts army rule (10e).
 
@@ -12499,6 +12531,9 @@ class Battle:
         # No-op for all units that do not carry the csm_daemonic_ordnance flag.
         # Cited as `simulator.csm_daemonic_ordnance`.
         self._apply_daemonic_ordnance(attacker, shoot_target)
+        # T'au Riptide Nova Charge — once-per-battle [DEVASTATING WOUNDS] when the
+        # Riptide is selected to shoot (gated SWEG_TAU_NOVA_CHARGE; no-op off).
+        self._apply_nova_charge(attacker)
         # MR-WE-3 Blood Surge — snapshot pre-shot health so we can detect a
         # model destruction event on the defender (Khorne Berzerkers only).
         # See `simulator.blood_surge` in rule_citations.json.
