@@ -488,6 +488,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.disembark",
     "simulator.firing_deck",
     "simulator.destroyed_transport",
+    # SWEG_REEMBARK (default-off, HELD 2026-07-01). Mid-game voluntary re-embark
+    # into a friendly transport within 3" after a unit's move — a piloting
+    # extension of simulator.embark. Near-inert on the current archetype frame
+    # (the 3" condition rarely holds); built + held. Cited in core_transports.json.
+    "simulator.reembark",
     # Drukhari Skysplinter Assault detachment — Rain of Cruelty. When a
     # DRUKHARI unit disembarks from a TRANSPORT (voluntary or forced),
     # until the end of the turn its ranged weapons gain [IGNORES COVER]

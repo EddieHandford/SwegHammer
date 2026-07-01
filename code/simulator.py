@@ -11595,6 +11595,10 @@ class Battle:
             and os.environ.get("SWEG_OVERWATCH_MOVE", "0") == "1"
         ):
             self._fire_overwatch(defender_army, attacker)
+        # SWEG_REEMBARK (default-off): allow this unit to re-embark into a friendly
+        # transport it can reach after its move — the sim otherwise leaves a
+        # disembarked unit on foot all game. No-op / byte-identical when off.
+        self._maybe_reembark_after_move(attacker, attacker_army, defender_army)
 
     def _gladius_active_doctrine(self, attacker, attacker_army: Army) -> str:
         """Return the active Gladius Task Force Combat Doctrine name for
@@ -14257,6 +14261,57 @@ class Battle:
             transport_uid=transport.uid,
             passenger_uid=passenger.uid,
         ))
+
+    def _maybe_reembark_after_move(self, attacker, attacker_army, defender_army) -> None:
+        """SWEG_REEMBARK (default-off): after a unit finishes its Movement-phase
+        move, let it voluntarily re-embark into a friendly TRANSPORT within 3" that
+        has spare capacity — the mid-game embark the sim otherwise lacks (a
+        disembarked unit is stuck on foot for the rest of the game). Embarking ends
+        the unit's activation for the Shooting / Charge / Fight phases, which the
+        existing `embarked_in is not None` guards in _do_shoot / _do_charge /
+        _do_fight already enforce, so no changes to those phases are needed.
+
+        AI heuristics: do NOT re-embark when within Engagement Range of a live
+        on-board enemy (resolve the fight, don't flee), and do NOT re-embark when
+        the unit is the SOLE controller of a nearby objective (abandoning it would
+        cost Primary victory points). Off path (gate unset or '0') returns on the
+        first line — no random draws, no state mutation, byte-identical. Cited
+        `simulator.reembark`.
+        """
+        if os.environ.get("SWEG_REEMBARK", "0") != "1":
+            return
+        if getattr(attacker, "embarked_in", None) is not None:
+            return
+        if self._is_transport(attacker):
+            return
+        pos = attacker.position
+        # Don't flee a fight: skip if within ~Engagement Range (1") of a live,
+        # on-board enemy model.
+        for e in defender_army.alive_units:
+            if (getattr(e, "embarked_in", None) is None
+                    and _distance(pos, e.position) <= 1.0):
+                return
+        # Eligible friendly transports within 3" with spare capacity.
+        eligible = [
+            t for t in attacker_army.units
+            if t is not attacker and t.is_alive and self._is_transport(t)
+            and len(t.passengers) < self._TRANSPORT_CAPACITY
+            and _distance(pos, t.position) <= 3.0
+        ]
+        if not eligible:
+            return
+        # AI heuristic: don't abandon an objective this unit is the SOLE controller of.
+        for obj in self.map.objectives:
+            if _distance(pos, (obj.x, obj.y)) <= obj.control_radius:
+                controllers = sum(
+                    1 for u in attacker_army.alive_units
+                    if getattr(u, "embarked_in", None) is None
+                    and _distance(u.position, (obj.x, obj.y)) <= obj.control_radius
+                )
+                if controllers == 1:
+                    return
+        transport = min(eligible, key=lambda t: _distance(pos, t.position))
+        self._embark(attacker, transport)
 
     def _disembark(
         self, passenger: "Unit", transport: "Unit", forced: bool = False,
