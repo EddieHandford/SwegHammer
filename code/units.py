@@ -3899,6 +3899,36 @@ class Unit:
                     and __import__("os").environ.get(
                         "SWEG_CUSTODES_KATAH_LETHAL", "1") != "0"):
                 effective_lethal_hits = True
+            # Adeptus Custodes Caladius Grav-tank "Advanced Firepower" (10e
+            # datasheet ability, BSData profile id 60a4-507e-da36-683c):
+            # "Each time this model makes an attack with its Twin iliastus
+            # accelerator cannon that targets an enemy unit (excluding
+            # MONSTERS and VEHICLES), that attack has the [LETHAL HITS]
+            # ability. Each time this model makes an attack with its Twin
+            # arachnus heavy blaze cannon that targets an enemy MONSTER or
+            # VEHICLE unit, that attack has the [LETHAL HITS] ability."
+            # Weapon-AND-target-conditional ranged [LETHAL HITS]: inside the
+            # multi-profile firing loop `p` is the per-weapon profile, so
+            # p.weapon names the gun actually firing (the catalogue Caladius
+            # fires the blaze cannon + lastrum bolt cannon; the accelerator
+            # branch covers the alternate turret loadout). The exact-name
+            # gate is safe under per-model promotion, which replaces only
+            # weapon fields (army.py _add_squad_per_model). Gated
+            # SWEG_CUSTODES_ADVANCED_FIREPOWER (default-on; `=0` is the
+            # byte-identical kill-switch). Cited
+            # `simulator.custodes_advanced_firepower`.
+            if (mode != "melee" and not effective_lethal_hits
+                    and p.faction == "Adeptus Custodes"
+                    and p.name == "Caladius Grav-tank"
+                    and __import__("os").environ.get(
+                        "SWEG_CUSTODES_ADVANCED_FIREPOWER", "1") != "0"):
+                _af_weapon = p.weapon or ""
+                _af_kws = set(target.profile.unit_keywords or ())
+                _af_big = "MONSTER" in _af_kws or "VEHICLE" in _af_kws
+                if (("arachnus heavy blaze cannon" in _af_weapon and _af_big)
+                        or ("iliastus accelerator cannon" in _af_weapon
+                            and not _af_big)):
+                    effective_lethal_hits = True
             # World Eaters Blood Tithe — 4-BT spend grants [LETHAL HITS] on a
             # WE unit for the phase. SwegHammer collapses "this phase" to "this
             # round" since the activation loop doesn't break phases out. The
@@ -4169,6 +4199,30 @@ class Unit:
             _effective_twin_linked = bool(
                 p.melee_twin_linked if mode == "melee" else p.twin_linked
             )
+            # Adeptus Custodes Allarus Custodians "Slayers of Tyrants" (10e
+            # datasheet ability, BSData profile id d569-61db-406d-1d42):
+            # "Each time a model in this unit makes an attack that targets a
+            # Character, Monster or Vehicle unit, you can re-roll the Wound
+            # roll." Modelled through the TWIN-LINKED wound-re-roll path
+            # (the per-shot loop re-rolls a failed Wound roll once), on both
+            # ranged and melee attacks, gated on the target carrying
+            # CHARACTER / MONSTER / VEHICLE. BSData carries the ability on
+            # the Allarus Custodians datasheet ONLY (the Shield-Captain in
+            # Allarus Terminator Armour does not have it), hence the exact
+            # unit-name gate; per-model promotion preserves profile.name so
+            # the gate holds for promoted models. Gated
+            # SWEG_CUSTODES_SLAYERS_OF_TYRANTS (default-on; `=0` is the
+            # byte-identical kill-switch). Cited
+            # `simulator.custodes_slayers_of_tyrants`.
+            if (not _effective_twin_linked
+                    and p.faction == "Adeptus Custodes"
+                    and p.name == "Allarus Custodians"
+                    and __import__("os").environ.get(
+                        "SWEG_CUSTODES_SLAYERS_OF_TYRANTS", "1") != "0"):
+                _sot_kws = set(target.profile.unit_keywords or ())
+                if ("CHARACTER" in _sot_kws or "MONSTER" in _sot_kws
+                        or "VEHICLE" in _sot_kws):
+                    _effective_twin_linked = True
             # LC1-A — generalised gate: any faction whose detachment carries
             # the `melee_sustained_hits_army_wide` flag triggers SUSTAINED
             # HITS 1 on melee. Currently only WAR_HORDE (Orks) sets this

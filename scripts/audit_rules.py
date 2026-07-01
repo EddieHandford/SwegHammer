@@ -554,6 +554,24 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # sim models; BSData shared rule id e348-7090-3aff-ee2c). Unit.attack sets
     # effective_lethal_hits. Cited in data/rule_citations.d/adeptus_custodes.json.
     "simulator.custodes_katah_lethal",
+    # SWEG_CUSTODES_ADVANCED_FIREPOWER. Caladius Grav-tank "Advanced Firepower"
+    # (BSData profile id 60a4-507e-da36-683c): weapon-and-target-conditional
+    # ranged [LETHAL HITS] (blaze cannon vs MONSTER/VEHICLE, accelerator cannon
+    # vs everything else). Unit.attack sets effective_lethal_hits. Cited in
+    # data/rule_citations.d/adeptus_custodes.json.
+    "simulator.custodes_advanced_firepower",
+    # SWEG_CUSTODES_MASTER_STANCES. Shield-Captain "Master of the Stances"
+    # (BSData profile id e6a6-1d13-3027-3fce): once per battle the led unit
+    # fights with BOTH Ka'tah stances — adds DACATARAI [SUSTAINED HITS 1] on
+    # top of the modelled RENDAX. Battle._apply_master_of_stances. Cited in
+    # data/rule_citations.d/adeptus_custodes.json.
+    "simulator.custodes_master_of_stances",
+    # SWEG_CUSTODES_SLAYERS_OF_TYRANTS. Allarus Custodians "Slayers of
+    # Tyrants" (BSData profile id d569-61db-406d-1d42): re-roll the Wound roll
+    # vs CHARACTER/MONSTER/VEHICLE targets, both modes, via the TWIN-LINKED
+    # path (_effective_twin_linked). Cited in
+    # data/rule_citations.d/adeptus_custodes.json.
+    "simulator.custodes_slayers_of_tyrants",
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
     # hard cap, but real-player CP economy averages ~1 stratagem per

@@ -420,6 +420,11 @@ class Battle:
         # T'au Riptide Nova Charge — once-per-battle [DEVASTATING WOUNDS] tracker
         # (one use per Riptide model). Cleared on Battle reset, not per-round.
         self._tau_nova_charge_used: set = set()
+        # Custodes Shield-Captain Master of the Stances — once-per-battle
+        # dual-Ka'tah-stance tracker. Stores the UIDs of every member of a
+        # squad that has consumed the grant (Unit uses __slots__, so the
+        # marker cannot live on the Unit itself). Cleared on Battle reset.
+        self._custodes_mots_used: set = set()
         self.a._battle_ref = self
         self.b._battle_ref = self
         # Current battle round (1..MAX_ROUNDS). Updated at the top of each
@@ -7153,6 +7158,71 @@ class Battle:
                 "[DEVASTATING WOUNDS] this phase (once-per-battle)"
             )
 
+    def _apply_master_of_stances(self, attacker) -> None:
+        """Adeptus Custodes Shield-Captain 'Master of the Stances' (10e
+        datasheet ability, BSData profile id e6a6-1d13-3027-3fce): "Once per
+        battle, when this model's unit is selected to fight, it can use this
+        ability. If it does, until that fight is resolved, both Ka'tah
+        Stances are active for that unit, instead of only one."
+
+        The sim already models the RENDAX stance ([LETHAL HITS]) as the
+        always-on optimal pick (`simulator.custodes_katah_lethal`); electing
+        BOTH stances therefore adds DACATARAI ([SUSTAINED HITS 1]) on top
+        for the led unit's fight. Trigger detection follows the leaders.py
+        "leading" convention (an alive Shield-Captain within its 6.0" aura
+        whose LeaderAbility.host_keys admit the fighting unit — the same
+        proximity + legal-host gate as `is_actually_led`). Grant:
+        `transient_sustained_hits` +1 fanned to the squad, cleared at round
+        start (the standard fight->round transient approximation).
+        AI approximation: the ability is elected at the led unit's FIRST
+        fight of the battle. Once-per-battle is tracked in the battle-level
+        `self._custodes_mots_used` UID set (the Nova Charge pattern; Unit
+        uses __slots__ so the marker cannot live on the Unit itself). Gated
+        SWEG_CUSTODES_MASTER_STANCES (default-on; `=0` is the
+        byte-identical kill-switch — the helper returns before touching any
+        state). Cited `simulator.custodes_master_of_stances`.
+        """
+        if os.environ.get("SWEG_CUSTODES_MASTER_STANCES", "1") == "0":
+            return
+        p = attacker.profile
+        if p.faction != "Adeptus Custodes":
+            return
+        if attacker.uid in self._custodes_mots_used:
+            return
+        from .leaders import (
+            in_range_leaders, lookup_ability, _name_to_catalog_keys,
+        )
+        att_keys = set(_name_to_catalog_keys(p.name))
+        if not att_keys:
+            return
+        led_by_shield_captain = False
+        for ldr in in_range_leaders(attacker):
+            ab = lookup_ability(ldr.profile.name)
+            if (ab is not None and ab.name == "Master of the Stances"
+                    and att_keys & set(ab.host_keys)):
+                led_by_shield_captain = True
+                break
+        if not led_by_shield_captain:
+            return
+        squad_id = getattr(attacker, "squad_id", -1)
+        army_ref = getattr(attacker, "army_ref", None)
+        members = [attacker]
+        if squad_id >= 0 and army_ref is not None:
+            members = [
+                m for m in army_ref.units
+                if getattr(m, "squad_id", -1) == squad_id and m.is_alive
+            ]
+        for m in members:
+            m.transient_sustained_hits = (
+                int(getattr(m, "transient_sustained_hits", 0) or 0) + 1
+            )
+            self._custodes_mots_used.add(m.uid)
+        if self.verbose:
+            print(
+                f"  MASTER OF THE STANCES: {p.name} fights with both "
+                "Ka'tah stances (once-per-battle)"
+            )
+
     def _apply_dark_pacts(self, round_num: int) -> None:
         """Chaos Space Marines Dark Pacts army rule (10e).
 
@@ -13563,6 +13633,11 @@ class Battle:
         if not in_range:
             return
         target = max(in_range, key=lambda e: _melee_target_score(attacker, e))
+        # Custodes Shield-Captain Master of the Stances — once-per-battle
+        # dual Ka'tah stance ([SUSTAINED HITS 1] on top of the modelled
+        # RENDAX [LETHAL HITS]) when the led unit is selected to fight
+        # (gated SWEG_CUSTODES_MASTER_STANCES; no-op off).
+        self._apply_master_of_stances(attacker)
         is_charging = attacker.uid in self._charging_this_round
         dmg = attacker.attack(
             target, distance=1.0, mode="melee", is_charging=is_charging,
