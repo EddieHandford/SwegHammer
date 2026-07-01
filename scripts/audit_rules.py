@@ -544,6 +544,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # via Battle._apply_nova_charge in the shooting activation. Cited in
     # data/rule_citations.d/tau_empire.json.
     "simulator.tau_nova_charge",
+    # SWEG_CUSTODES_KATAH_LETHAL (default-on 2026-07-01). Martial Ka'tah RENDAX
+    # stance [LETHAL HITS] on all Adeptus Custodes melee (the optimal stance the
+    # sim models; BSData shared rule id e348-7090-3aff-ee2c). Unit.attack sets
+    # effective_lethal_hits. Cited in data/rule_citations.d/adeptus_custodes.json.
+    "simulator.custodes_katah_lethal",
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
     # hard cap, but real-player CP economy averages ~1 stratagem per

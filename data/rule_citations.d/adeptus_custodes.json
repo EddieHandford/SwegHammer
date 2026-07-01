@@ -1,0 +1,12 @@
+{
+  "_comment": "Adeptus Custodes datasheet / army-rule citations. (The Auric Champions detachment rule Assemblage of Might is cited in detachments.json.)",
+
+  "simulator.custodes_katah_lethal": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/",
+    "rule_name": "Martial Ka'tah — RENDAX Stance [LETHAL HITS] (Adeptus Custodes army rule, 10e)",
+    "quoted_text": "Each time a unit with this ability is selected to fight, select one of the Ka'tah stances below. Until that unit has finished making its attacks, the selected Stance is active for it and it gains the relevant ability. RENDAX STANCE: Melee weapons equipped by models in this unit have the [LETHAL HITS] ability.",
+    "trigger": "SWEG_CUSTODES_KATAH_LETHAL default-on (ADOPTED 2026-07-01; '0' is the byte-identical kill-switch); a melee attack (mode == 'melee') by an Adeptus Custodes unit (p.faction == 'Adeptus Custodes') that does not already have [LETHAL HITS] from another source (effective_lethal_hits is False)",
+    "effect": "The melee attack gains [LETHAL HITS] (a Critical Hit auto-wounds): Unit.attack sets effective_lethal_hits = True. Martial Ka'tah lets a unit pick ONE stance per fight (RENDAX [LETHAL HITS], DACATARAI [SUSTAINED HITS 1], and others); the sim models the optimal RENDAX choice for all Custodes melee — [LETHAL HITS] is the high-value pick against the high-toughness targets Custodes prioritise. BSData source: Imperium - Adeptus Custodes.cat.gz shared rule id e348-7090-3aff-ee2c (verified verbatim). APPROXIMATION: always-RENDAX (the sim does not vary the stance per fight, per target, or across the Ka'tah stance menu); slight over-credit on the ~2 archetype units without the Ka'tah infoLink (Prosecutors / Anathema Psykana Rhino, negligible melee). Custodes-scoped paired N=80 vs sc30a: Adeptus Custodes +3.66 (42.8 -> 46.4, toward its real 49.5, no overshoot — the largest single lever of the lever-hunt batch), gated 2.35 -> 2.11. Off path (SWEG_CUSTODES_KATAH_LETHAL=0) leaves effective_lethal_hits unchanged — byte-identical.",
+    "scope": "army-wide"
+  }
+}

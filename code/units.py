@@ -3848,6 +3848,22 @@ class Unit:
             # LeaderAbility.Warrior-Forged Leadership.
             if mode == "melee" and att_buffs.get("lethal_hits_melee"):
                 effective_lethal_hits = True
+            # Adeptus Custodes Martial Ka'tah — RENDAX [LETHAL HITS] stance (10e
+            # datasheet ability, BSData shared rule id e348-7090-3aff-ee2c). Each
+            # time a Ka'tah unit is selected to fight it picks one stance; RENDAX
+            # gives its melee weapons [LETHAL HITS]. The sim models the optimal
+            # stance choice (RENDAX) for all Custodes melee — auto-wound on a crit
+            # hit, the high-value pick against the high-toughness targets Custodes
+            # face. ADOPTED default-on 2026-07-01 (`=0` is the byte-identical
+            # kill-switch); Custodes-scoped N=80 vs sc30a: Custodes +3.66 (42.8 ->
+            # 46.4, toward real 49.5, no overshoot), gated 2.35 -> 2.11 — the
+            # largest single lever of the lever-hunt batch. Cited
+            # `simulator.custodes_katah_lethal`.
+            if (mode == "melee" and p.faction == "Adeptus Custodes"
+                    and not effective_lethal_hits
+                    and __import__("os").environ.get(
+                        "SWEG_CUSTODES_KATAH_LETHAL", "1") != "0"):
+                effective_lethal_hits = True
             # World Eaters Blood Tithe — 4-BT spend grants [LETHAL HITS] on a
             # WE unit for the phase. SwegHammer collapses "this phase" to "this
             # round" since the activation loop doesn't break phases out. The
