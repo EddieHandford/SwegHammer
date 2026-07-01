@@ -927,6 +927,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # score multiplier), concentrating fire where the Prioritised Efficiency
     # +1-to-Hit compounds. Cited in data/rule_citations.d/votann.json.
     "simulator.votann_pe_target_bias",
+    # SWEG_VOTANN_RANGED_HOLD (default-on 2026-07-01). AI piloting heuristic (same
+    # as simulator.am_advance_discipline / ck_ranged_hold, Votann-scoped): Votann
+    # shooting platforms (Hekaton/Sagitaur/Hearthkyn) hold and shoot instead of
+    # Advancing and forfeiting their Shooting phase. Overshoots via the durability
+    # over-reward but improves the metric via collateral. Cited in votann.json.
+    "simulator.votann_ranged_hold",
     "unit.necrodermis",
     # Wave 181 — CA-2025-26 Tactical-track flat kill card VP values.
     # When a TACTICAL-track army (SWEG_TAC_DECK path) draws one of these three

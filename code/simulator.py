@@ -11598,7 +11598,21 @@ class Battle:
         _ad_ck = (os.environ.get("SWEG_CK_RANGED_HOLD", "1") != "0"
                   and (attacker.profile.faction or "") == "Chaos Knights"
                   and not getattr(attacker.profile, "extra_melee_profiles", None))
-        if ((_ad_generic or _ad_am or _ad_ck)
+        # VOTANN-SCOPED entry point (SWEG_VOTANN_RANGED_HOLD, ADOPTED default-on
+        # 2026-07-01, `=0` byte-identical kill-switch): the SAME gunline-hold logic
+        # scoped to Leagues of Votann. The shared rDPA >= 2.0 & range >= 18" filter
+        # below restricts it to Votann's heavy shooting platforms (Hekaton Land
+        # Fortress, Sagitaur, Hearthkyn) and excludes the short-range melee units
+        # (Cthonian Beserks). Votann-scoped N=80 vs sc32a: Votann +10.37 (42.9 ->
+        # 53.3), gated 2.09 -> 2.01. NB it OVERSHOOTS real 48.0 — same durability
+        # over-reward amplification as the CK ranged-hold (the durable Hekaton held
+        # alive over-scores); the metric still improves via broad opponent
+        # collateral deflating the over-poles toward real. Adopted fidelity-first
+        # (same disposition as CK ranged-hold: faithful piloting, the overshoot is
+        # the over-reward's fault). Cited simulator.votann_ranged_hold.
+        _ad_votann = (os.environ.get("SWEG_VOTANN_RANGED_HOLD", "1") != "0"
+                      and (attacker.profile.faction or "") == "Leagues of Votann")
+        if ((_ad_generic or _ad_am or _ad_ck or _ad_votann)
                 and intent in ("CAPTURE", "STEAL")
                 # Units that can shoot AFTER Advancing (ASSAULT weapons, or a
                 # transient ASSAULT grant) lose nothing by it — never suppress them
