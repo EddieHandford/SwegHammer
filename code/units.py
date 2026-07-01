@@ -2462,6 +2462,23 @@ class Unit:
                          or __import__("os").environ.get("SWEG_DG_CONTAGION_MELEE_WOUND", "1") != "0")):
                 wound_mod_delta += 1
 
+            # ---- Adeptus Custodes Auric Champions — Assemblage of Might (10e
+            # detachment rule, gated SWEG_CUSTODES_ASSEMBLAGE_OF_MIGHT). "each time
+            # a model in an ADEPTUS CUSTODES Character unit from your army makes an
+            # attack that targets that [designated] enemy unit, add 1 to the Wound
+            # roll." army._assemblage_target_uid is designated once per Command
+            # phase in Battle._run_round, ONLY for an Auric Champions army with the
+            # gate on; it is None otherwise, so this adds nothing on the off /
+            # non-Auric path (target.uid never equals None) — byte-identical.
+            # Attacker-side +1 to wound, ranged and melee (the rule is
+            # mode-agnostic). Cited `AURIC_CHAMPIONS.assemblage_of_might`.
+            if (self.profile.faction == "Adeptus Custodes"
+                    and "CHARACTER" in (self.profile.unit_keywords or ())
+                    and target.uid == getattr(
+                        getattr(self, "army_ref", None),
+                        "_assemblage_target_uid", None)):
+                wound_mod_delta += 1
+
             # ---- Chaos Knights — Harbingers of Dread (army rule, 10e). Verbatim
             # Wahapedia (https://wahapedia.ru/wh40k10ed/factions/chaos-knights/):
             # "The Deathly Terror ability is active for your army from the start

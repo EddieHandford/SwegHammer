@@ -10088,6 +10088,33 @@ class Battle:
             army.machine_vengeance_target_uid = None
             if any(u.profile.faction == "Adeptus Mechanicus" for u in army.units):
                 self._pick_machine_vengeance_target(army, opponent, round_num)
+        # ---- Adeptus Custodes Auric Champions — Assemblage of Might (10e
+        # detachment rule, env-gated SWEG_CUSTODES_ASSEMBLAGE_OF_MIGHT, default
+        # OFF). Parallel to Oath of Moment / Machine Vengeance above. BSData
+        # verbatim (AURIC_CHAMPIONS rule id 9eb2-2cdd-3df7-a94e): "At the start of
+        # your Command phase, select one unit from your opponent's army. Until the
+        # start of your next Command phase, each time a model in an ADEPTUS
+        # CUSTODES Character unit from your army makes an attack that targets that
+        # enemy unit, add 1 to the Wound roll." Designate the highest-threat enemy
+        # and store its uid; Unit.attack reads army._assemblage_target_uid for the
+        # +1-to-Wound on Custodes CHARACTER attacks. Only set for an army whose
+        # detachment carries assemblage_of_might (AURIC_CHAMPIONS); the off /
+        # non-Auric path leaves the uid None and is byte-identical. Cited as
+        # `AURIC_CHAMPIONS.assemblage_of_might`. ADOPTED default-on 2026-07-01
+        # (`=0` is the byte-identical kill-switch): Custodes-scoped N=80 vs sc26a
+        # was near-inert (14/3360 flips, Custodes -0.19 noise, gated 2.45 -> 2.46),
+        # adopted fidelity-first — it correctly models a real detachment rule that
+        # had been a deliberate no-op since sim-calibration-6 (the schema could not
+        # proxy the CHARACTER-only single-designated-target mechanic without
+        # fabrication until this bespoke flag).
+        if __import__("os").environ.get("SWEG_CUSTODES_ASSEMBLAGE_OF_MIGHT", "1") != "0":
+            for army, opponent in ((self.a, self.b), (self.b, self.a)):
+                army._assemblage_target_uid = None
+                _det_aom = army.resolve_detachment()
+                if getattr(_det_aom, "assemblage_of_might", False):
+                    _aom_t = self._highest_threat_enemy(opponent)
+                    if _aom_t is not None:
+                        army._assemblage_target_uid = _aom_t.uid
         # ---- World Eaters Blood Tithe spend (10e army rule). The codex
         # allows spending at the start of any phase; we elect once per round
         # at the start of the Command phase, priority-greedy on the WE

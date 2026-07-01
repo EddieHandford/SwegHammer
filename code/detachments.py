@@ -225,6 +225,15 @@ class Detachment:
     #     in case a future faction needs it with a real codex citation.
     melee_crit_on_5_plus_hits: bool = False
     melee_ap_plus_one: bool = False
+    # Adeptus Custodes Auric Champions — Assemblage of Might (10e detachment
+    # rule). BSData verbatim (AURIC_CHAMPIONS rule id 9eb2-2cdd-3df7-a94e): "At
+    # the start of your Command phase, select one unit from your opponent's army.
+    # Until the start of your next Command phase, each time a model in an ADEPTUS
+    # CUSTODES Character unit from your army makes an attack that targets that
+    # enemy unit, add 1 to the Wound roll." Set True on AURIC_CHAMPIONS only;
+    # gated SWEG_CUSTODES_ASSEMBLAGE_OF_MIGHT (default OFF). Cited as
+    # `AURIC_CHAMPIONS.assemblage_of_might`.
+    assemblage_of_might: bool = False
 
     # Astra Militarum Combined Arms detachment rule (Born Soldiers). Real text
     # (Wahapedia): "Each time a model in a REGIMENT unit from your army makes
@@ -724,9 +733,16 @@ AURIC_CHAMPIONS = Detachment(
         "Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Auric-Champions."
     ),
     # melee_sustained_hits_army_wide intentionally NOT set — see notes above.
-    # The real 'Assemblage of Might' cannot be proxied by any existing
-    # Detachment flag without fabrication (CHARACTER-only + single designated
-    # target). No-op ships until a bespoke flag is added.
+    # The real 'Assemblage of Might' is now modelled by a BESPOKE flag
+    # (assemblage_of_might, below) plus a per-round enemy designation in
+    # Battle._run_round and the +1-to-Wound in Unit.attack — the CHARACTER-only,
+    # single-designated-target mechanic the generic Detachment flags could not
+    # proxy without fabrication. Gated SWEG_CUSTODES_ASSEMBLAGE_OF_MIGHT
+    # (adopted default-on 2026-07-01, `=0` kill-switch; near-inert wash, adopted
+    # fidelity-first). NB the old note that Custodes over-shoots
+    # (~+5) is stale — post-audit Custodes sits ~44 vs its real 49.5 (under-pole),
+    # so modelling this buff is toward-real.
+    assemblage_of_might=True,
     stratagems=SHIELD_HOST_STRATAGEMS,  # share stratagems for now —
     # real Auric Champions has its own 6-stratagem pool that we'd need
     # to wire individually. Per-stratagem differences are smaller and follow-up.

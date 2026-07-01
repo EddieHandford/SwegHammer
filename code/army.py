@@ -408,6 +408,15 @@ class Army:
         # spamming the same anchor 5 rounds in a row. Cited as part of
         # `simulator.oath_of_moment` (heuristic, not a codex constraint).
         self.prev_oath_target_uid: Optional[str] = None
+        # Adeptus Custodes Auric Champions — Assemblage of Might (10e). The enemy
+        # unit designated at the start of this army's Command phase; ADEPTUS
+        # CUSTODES CHARACTER attacks against it get +1 to the Wound roll until the
+        # next Command phase. Set by Battle._run_round when
+        # SWEG_CUSTODES_ASSEMBLAGE_OF_MIGHT="1" and the army's detachment carries
+        # assemblage_of_might=True (AURIC_CHAMPIONS); None when the gate is off or
+        # the army is not Auric Champions, so Unit.attack adds nothing and the off
+        # path is byte-identical. Cited as `AURIC_CHAMPIONS.assemblage_of_might`.
+        self._assemblage_target_uid: Optional[str] = None
         # Adeptus Mechanicus — Belisarius Cawl's "Invocation of Machine
         # Vengeance" Canticle (10e). At the start of each Command phase, while
         # a Belisarius Cawl model is alive, the AdMech player designates one
