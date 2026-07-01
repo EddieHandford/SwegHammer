@@ -860,6 +860,47 @@ def _votann_pe_target_bonus(attacker, defender, attacker_army) -> float:
     return _VOTANN_PE_TARGET_BONUS
 
 
+_CK_DREAD_FOCUS_BONUS: float = 2.0
+
+
+def _ck_dread_cascade_target_bonus(attacker, defender) -> float:
+    """Return 2.0x when SWEG_CK_DREAD_FOCUS=1, `attacker` is a Chaos Knights unit,
+    and `defender` is Below Half-strength (current_health < profile.health / 2).
+    Else 1.0.
+
+    Chaos Knights Harbingers of Dread rewards finishing wounded enemies: Doom
+    (Dread ability 2) adds +1 to Wound vs Battle-shocked targets, the War Dog
+    Executioner gets +1 to Hit vs Below-Half targets and its kills cascade
+    Battle-shock to enemies within 3", and Delirium deals mortal wounds to
+    Below-Half units that fail Battle-shock. Below-Half is the unified proxy for
+    the class of targets this synergy rewards. This AI heuristic makes the Chaos
+    Knights shooting picker prefer that CLASS (not a single designated unit —
+    contrast the rejected T'au single-target guided bias). Caller divides the
+    target-score by this bonus, so 2.0x reads as 0.5x raw HP. AI heuristic; the
+    rules it exploits are cited as strategy.ck_dread_cascade_target. Same class as
+    _astartes_oath_target_bonus. ADOPTED default-on 2026-07-01 (`=0` is the
+    byte-identical kill-switch); Chaos-Knights-scoped N=80 vs sc27a: gated 2.46 ->
+    2.43, Chaos Knights +0.57 toward its real 44.7, no decisive collateral and no
+    overshoot — a CLASS bias (below-half enemies), the helpful kind (contrast the
+    rejected T'au single-target guided bias). Gate `=0` -> 1.0 -> byte-identical.
+    """
+    import os
+    if os.environ.get("SWEG_CK_DREAD_FOCUS", "1") == "0":
+        return 1.0
+    a_profile = getattr(attacker, "profile", None)
+    if a_profile is None or (a_profile.faction or "") != "Chaos Knights":
+        return 1.0
+    d_profile = getattr(defender, "profile", None)
+    if d_profile is None or not getattr(defender, "is_alive", True):
+        return 1.0
+    _max_h = getattr(d_profile, "health", 0.0) or 0.0
+    if _max_h <= 0.0:
+        return 1.0
+    if getattr(defender, "current_health", _max_h) < _max_h / 2.0:
+        return _CK_DREAD_FOCUS_BONUS
+    return 1.0
+
+
 # ---------------------------------------------------------------------------
 # AI-8 — Transport target priority (faction-neutral, AI play-style)
 # ---------------------------------------------------------------------------

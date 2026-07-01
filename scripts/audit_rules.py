@@ -422,6 +422,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # data/overrides.json today (BSData mapper does not yet emit it).
     # See data/rule_citations.d/chaos_knights.json#simulator.extra_melee_profiles.
     "simulator.extra_melee_profiles",
+    # SWEG_CK_DREAD_FOCUS (default-on 2026-07-01). An AI target-selection
+    # heuristic (not a separate rule): the Chaos Knights shooting picker prefers
+    # Below-Half-strength enemy targets (_ck_dread_cascade_target_bonus,
+    # code/strategy.py, 2.0x score multiplier), the class the Harbingers of Dread
+    # / War Dog Executioner cascade rewards. Cited in
+    # data/rule_citations.d/chaos_knights.json.
+    "strategy.ck_dread_cascade_target",
     # Core targeting restrictions (10e core rules). Both filter the ranged
     # candidate list inside Battle._do_shoot via code.army.can_target_for_ranged.
     # Look Out Sir gates non-MONSTER/VEHICLE CHARACTERS that have a non-CHARACTER
