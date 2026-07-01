@@ -663,8 +663,34 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "save": override.get("save", base.save),
         "codex": override.get("codex", base.codex),
         "points_listed": override.get("points_listed", base.points_listed),
-        "min_models": override.get("min_models", base.min_models),
-        "max_models": override.get("max_models", base.max_models),
+        # SWEG_IK_CANIS_SINGLE (default-on, `=0` byte-identical kill-switch) —
+        # data-correctness fix. BSData folds "Sir Hekhtur" into the Canis Rex
+        # datasheet as a second model_loadouts slot (the mapper then emits
+        # min_models=max_models=2), but Sir Hekhtur is the EJECTED-PILOT
+        # replacement — BSData verbatim: "Your Canis Rex unit is not
+        # considered to be destroyed until Sir Hekhtur is also destroyed" —
+        # a 3-wound INFANTRY character who only exists AFTER the Knight is
+        # destroyed. The per-model squad builder (code/army.py
+        # _add_squad_per_model) spawned one Unit per slot, and since
+        # dataclasses.replace only swaps weapon fields BOTH inherited the
+        # shared health=26 — the sim fielded TWO permanent 26-wound TITANIC
+        # combatants from turn 1 in every Imperial Knights game (the
+        # archetype seed guarantees Canis Rex). The faithful minimal model
+        # is ONE Knight; the post-destruction Hekhtur bail-out is an
+        # unmodelled mechanic (documented honest omission — far smaller than
+        # the phantom double Knight). Cited `simulator.ik_canis_single`.
+        "min_models": (
+            1
+            if (base.key == "imperial_knights_library_canis_rex"
+                and os.environ.get("SWEG_IK_CANIS_SINGLE", "1") != "0")
+            else override.get("min_models", base.min_models)
+        ),
+        "max_models": (
+            1
+            if (base.key == "imperial_knights_library_canis_rex"
+                and os.environ.get("SWEG_IK_CANIS_SINGLE", "1") != "0")
+            else override.get("max_models", base.max_models)
+        ),
         "strength": override.get("strength", base.strength),
         "toughness": override.get("toughness", base.toughness),
         "leadership": override.get("leadership", base.leadership),
@@ -938,8 +964,22 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         # override key replaces the whole list (overrides almost never touch it;
         # the mapper populates it from BSData). base value defaults to [] when
         # None.
-        "model_loadouts": override.get(
-            "model_loadouts", base.model_loadouts or []
+        "model_loadouts": (
+            # SWEG_IK_CANIS_SINGLE (see min_models above): drop the Sir
+            # Hekhtur loadout slot so the per-model builder fields exactly
+            # one Knight. `=0` restores the verbatim two-slot list.
+            [
+                e for e in override.get(
+                    "model_loadouts", base.model_loadouts or []
+                )
+                if not (isinstance(e, dict)
+                        and e.get("name") == "Sir Hekhtur")
+            ]
+            if (base.key == "imperial_knights_library_canis_rex"
+                and os.environ.get("SWEG_IK_CANIS_SINGLE", "1") != "0")
+            else override.get(
+                "model_loadouts", base.model_loadouts or []
+            )
         ),
         # DAMAGED-BRACKET (task #77) — per-stat Damaged-bracket reduction. The
         # mapper extracts these from BSData; overrides may correct a mis-parse.

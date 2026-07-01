@@ -572,6 +572,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # path (_effective_twin_linked). Cited in
     # data/rule_citations.d/adeptus_custodes.json.
     "simulator.custodes_slayers_of_tyrants",
+    # SWEG_IK_CANIS_SINGLE. Canis Rex phantom-second-model fix: BSData folds
+    # the ejected-pilot Sir Hekhtur into the Canis Rex entry as a second
+    # model_loadouts slot, so the sim fielded two permanent 26-wound TITANIC
+    # combatants in every Imperial Knights game. Loader gate sets the unit to
+    # one model and drops the Hekhtur slot. Cited in
+    # data/rule_citations.d/imperial_knights.json.
+    "simulator.ik_canis_single",
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
     # hard cap, but real-player CP economy averages ~1 stratagem per
