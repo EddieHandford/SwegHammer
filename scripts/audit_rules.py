@@ -275,6 +275,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Drukhari army rule (10e). Command-phase token award + while-held
     # buffs (Lethal Hits, FNP 6+). Faction-gated on attacker/defender.
     "simulator.power_from_pain",
+    # Drukhari Incubi "Tormentors" datasheet ability (env-gated
+    # SWEG_DRUKHARI_TORMENTORS, default OFF): force a Battle-shock test on
+    # enemy units within Engagement Range at Fight-phase start, and +1 to Hit
+    # on Incubi melee attacks vs Battle-shocked targets.
+    "simulator.drukhari_tormentors",
     # Death Guard army-wide FNP 5+ was a fabrication (no such rule exists
     # in the 10e codex per Wahapedia + Goonhammer review). Removed in
     # iter 15. Per-datasheet innate FNP (Plague Marines fnp=5, Deathshroud

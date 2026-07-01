@@ -9461,6 +9461,122 @@ class Battle:
                 harbinger_sources=harbinger_sources,
             )
 
+    def _apply_drukhari_tormentors_forced_tests(self, round_num: int) -> None:
+        """DRUKHARI-TORMENTORS Part 1 (env-gated SWEG_DRUKHARI_TORMENTORS,
+        default OFF). Incubi "Tormentors" (Drukhari, 10e): "At the start of
+        the Fight phase, each enemy unit within Engagement Range of one or
+        more units with this ability must take a Battle-shock test." Called at
+        the start of each player's fight pass in _run_round_vanilla_turns, so
+        it fires once per Fight phase (twice per battle round). Both armies'
+        Incubi trigger in every Fight phase, so the scan is bidirectional.
+
+        The below-half-strength gate is NOT applied — this is a forced test,
+        exactly like _apply_shadow_in_the_warp_forced_tests. The shared helper
+        _battleshock_test_squad is reused so the roll, modifier composition and
+        Battle-shock consequences are identical to the normal Command-phase
+        step; the failed unit's persistent `battleshocked_until_round` marker
+        is what the +1-to-Hit half in Unit.attack reads. A local `tested` set
+        dedupes so no enemy squad rolls more than once per Fight phase even if
+        it is within Engagement Range of several Incubi models. This method is
+        only ever called inside the SWEG_DRUKHARI_TORMENTORS gate, so the OFF
+        path is byte-identical (never called; no forced tests, no RNG).
+        Cited as `simulator.drukhari_tormentors`.
+        """
+        # (incubi_army, enemy_army) both ways — every Incubi unit on the board
+        # triggers at the start of the Fight phase.
+        for incubi_army, enemy_army in ((self.a, self.b), (self.b, self.a)):
+            incubi_units = [
+                u for u in incubi_army.alive_units
+                if (u.profile.name or "") == "Incubi"
+                and (u.profile.faction or "") == "Drukhari"
+            ]
+            if not incubi_units:
+                continue
+            # Battle-shock context for the enemy army taking the test — the
+            # Incubi army is the "opponent" providing penalties. Mirrors the
+            # (army=enemy_army, opponent=incubi_army) iteration of
+            # _run_battleshock_phase. Drukhari is not Tyranids / Death Guard /
+            # Chaos Daemons / Chaos Knights, so the shadow / contagion /
+            # shadow-of-chaos / harbinger source lists are empty in practice;
+            # they are still computed generally so the test target is scored
+            # exactly as the Command-phase step would score it.
+            opponent_det = incubi_army.resolve_detachment()
+            own_det = enemy_army.resolve_detachment()
+            ld_penalty = opponent_det.enemy_ld_penalty if opponent_det else 0
+            ld_bonus = own_det.ld_bonus if own_det else 0
+            own_synapse = [
+                s for s in enemy_army.alive_units
+                if "SYNAPSE" in (s.profile.unit_keywords or ())
+            ]
+            if (
+                incubi_army.shadow_in_the_warp_used_round is not None
+                and incubi_army.shadow_in_the_warp_used_round == round_num
+            ):
+                shadow_sources = [
+                    s for s in incubi_army.alive_units
+                    if "SYNAPSE" in (s.profile.unit_keywords or ())
+                    and s.profile.faction == "Tyranids"
+                ]
+            else:
+                shadow_sources = []
+            contagion_sources = (
+                [
+                    s for s in incubi_army.alive_units
+                    if s.profile.faction == "Death Guard"
+                ]
+                if round_num == 2 else []
+            )
+            _plaguesurge_active = getattr(
+                incubi_army, "plaguesurge_active", False
+            )
+            contagion_range = 3.0 + (3.0 if _plaguesurge_active else 0.0)
+            _shadow_round2_on = os.environ.get("SWEG_SHADOW_ROUND2", "0") == "1"
+            shadow_of_chaos_active = (
+                any(
+                    s.profile.faction == "Chaos Daemons"
+                    for s in incubi_army.alive_units
+                )
+                and (not _shadow_round2_on or round_num >= 2)
+            )
+            cx = self.map.width / 2.0
+            cy = self.map.height / 2.0
+            harbinger_sources = [
+                s for s in incubi_army.alive_units
+                if (s.profile.faction or "") == "Chaos Knights"
+            ]
+
+            # Force a test on each enemy squad with any model within Engagement
+            # Range (<= 1.0", the same _er_gap_units convention the Fight phase
+            # uses) of any Incubi model. squads() already yields each squad
+            # once (alive members only); the `tested` set is a belt-and-braces
+            # dedupe per the ability's "one or more units" wording.
+            tested = set()
+            for squad_key, members in enemy_army.squads().items():
+                if squad_key in tested:
+                    continue
+                if not any(
+                    _er_gap_units(m, inc) <= 1.0
+                    for m in members
+                    for inc in incubi_units
+                ):
+                    continue
+                tested.add(squad_key)
+                self._battleshock_test_squad(
+                    enemy_army,
+                    members,
+                    round_num,
+                    ld_penalty=ld_penalty,
+                    ld_bonus=ld_bonus,
+                    own_synapse=own_synapse,
+                    shadow_sources=shadow_sources,
+                    contagion_sources=contagion_sources,
+                    contagion_range=contagion_range,
+                    shadow_of_chaos_active=shadow_of_chaos_active,
+                    cx=cx,
+                    cy=cy,
+                    harbinger_sources=harbinger_sources,
+                )
+
     def _run_battleshock_phase(self, round_num: int) -> None:
         """10e Battle-shock step (every Command phase, from Round 1
         onward — Wahapedia /the-rules/core-rules/#Command-Phase). For
@@ -10838,6 +10954,18 @@ class Battle:
                     for _u in self._reserves.get(_army.name, []):
                         if _u.profile.faction == "Adepta Sororitas":
                             _u.aof_used_this_phase = False
+            # DRUKHARI-TORMENTORS Part 1 (env-gated SWEG_DRUKHARI_TORMENTORS,
+            # default OFF). Incubi "Tormentors": at the start of the Fight
+            # phase, each enemy unit within Engagement Range of one or more
+            # Incubi units must take a Battle-shock test. This block runs once
+            # per player's fight pass (i.e. once per Fight phase), matching the
+            # two Fight phases a 10e battle round contains; the helper scans
+            # both armies' Incubi so every Incubi on the board triggers in
+            # every Fight phase. Byte-identical when OFF — the helper is never
+            # called, so no tests are forced and no RNG is consumed. Cited as
+            # `simulator.drukhari_tormentors`.
+            if os.environ.get("SWEG_DRUKHARI_TORMENTORS", "1") != "0":
+                self._apply_drukhari_tormentors_forced_tests(self._current_round)
             # Fight phase — active player's units fight. Real 10e Fight phase
             # interleaves both players' chargers + locked units; this
             # approximates by giving the active player their full fight pass,

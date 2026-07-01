@@ -2548,6 +2548,41 @@ class Unit:
             ):
                 wound_mod_delta += 1
 
+            # ---- Drukhari Incubi — Tormentors (datasheet ability, 10e).
+            # BSData v10.6.0 (Aeldari - Aeldari Library.cat.gz, Incubi
+            # datasheet "Tormentors" ability id 8ffb-f801-cd2f-d05e) verbatim:
+            # "At the start of the Fight phase, each enemy unit within
+            # Engagement Range of one or more units with this ability must
+            # take a Battle-shock test. Each time a model in this unit makes a
+            # melee attack that targets a Battle-shocked unit, add 1 to the Hit
+            # roll." This block is the +1-to-Hit half (melee only). The
+            # force-a-Battle-shock-test half is applied in code/simulator.py
+            # (Battle._apply_drukhari_tormentors_forced_tests) at the start of
+            # each Fight phase; a failed test sets the target's persistent
+            # `battleshocked_until_round` marker, which is read here through the
+            # SAME is_currently_battle_shocked(current_round) check the Chaos
+            # Knights Doom block above uses. The +1 is added to hit_mod_delta
+            # and composes with any other +1-to-Hit source through the existing
+            # 10e +/-1 Hit-modifier cap (hit_mod_clamped) — it never doubles and
+            # never bypasses the cap. Faction- and datasheet-gated to Drukhari
+            # Incubi. Env-gated SWEG_DRUKHARI_TORMENTORS (default OFF); when OFF
+            # (unset or "0") this path is dead and byte-identical to base.
+            # Cited as `simulator.drukhari_tormentors`.
+            if (
+                mode == "melee"
+                and (p.faction or "") == "Drukhari"
+                and (p.name or "") == "Incubi"
+                and __import__("os").environ.get("SWEG_DRUKHARI_TORMENTORS", "1") != "0"
+                and target.is_currently_battle_shocked(
+                    getattr(
+                        getattr(getattr(self, "army_ref", None), "_battle_ref", None),
+                        "_current_round",
+                        0,
+                    )
+                )
+            ):
+                hit_mod_delta += 1
+
             # ---- Chaos Knights Iconoclast Fiefdom — Dread Tyrants Aura (10e).
             # BSData v10.6.0 (Chaos - Chaos Knights Library.cat.gz) verbatim
             # (Iconoclast Fiefdom, Dreaded Masters rule): "Dread Tyrants (Aura):
