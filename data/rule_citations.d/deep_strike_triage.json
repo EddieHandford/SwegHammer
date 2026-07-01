@@ -1,0 +1,103 @@
+{
+  "_comment": "Deep-strike triage citations (SWEG_DEEP_STRIKE_TRIAGE, default-on). BSData v10.6.0 attaches the standard Core Rules 'Deep Strike' ability directly to certain fast Aeldari/Drukhari skimmer, transport and gunship datasheets. Deep Strike is ALWAYS an optional player choice (the core rule reads 'you can set it up in Reserves instead of on the battlefield' — never mandatory). In 10th-edition competitive play these units are deployed on-board from Turn 1 because their value is Turn-1 board presence, but the simulator's faction-blind deploy AI (SWEG_DEPLOY_AI, simulator.py ~7404) routes every deep_strike=True unit into strategic reserves on Turn 1, breaking their doctrine — the same faction-blind reserve-split bug flagged in docs/DECISION_LEDGER.md (the deploy AI over-reserves deep-strike-capable units regardless of whether reserving is the competitively-correct choice). This gate corrects the DEPLOYMENT CHOICE for a confirmed list of these units by clearing deep_strike=False so the deploy AI keeps them on-board; it is a per-unit deployment-piloting correction, NOT a claim that the units lack the ability (they do have the real, optional Core Rules Deep Strike). Units that genuinely and routinely deep strike (Terminators, Crisis Battlesuits, Daemon units, Drop Pods, Nemesis Dreadknights, etc.) are NOT in the clear list. IMPORTANT CORRECTION (verified against local cache data/bsdata/cache/Aeldari - Aeldari Library.cat.gz): an earlier draft of these citations invented ability names ('Webway Portal', 'Webway Assault', 'Webway Gate') that do NOT appear on any of these datasheets (0 occurrences in the Aeldari Library); the actual and only mechanism is the standard unconditional Core Rules Deep Strike, quoted below.",
+  "loader.deep_strike_triage.deploy_piloting_correction": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Reinforcements",
+    "rule_name": "Deep Strike (10e Core Rules) — an optional deployment choice, applied as a per-unit deployment-piloting correction",
+    "quoted_text": "During the Declare Battle Formations step, if all of the models in a unit have the Deep Strike ability, you can set that unit up in Reserves instead of setting it up on the battlefield. In the Reinforcements step of one of your Movement phases you can set up this unit anywhere on the battlefield that is more than 9\" horizontally away from all enemy models.",
+    "trigger": "SWEG_DEEP_STRIKE_TRIAGE=1 (default); fires in code.bsdata.loader._apply_override for any unit key in _DEEP_STRIKE_TRIAGE_CLEAR_KEYS, overriding deep_strike to False. When the gate is OFF (SWEG_DEEP_STRIKE_TRIAGE=0) the BSData-verbatim flag is restored and the parse is byte-identical to the pre-triage code.",
+    "effect": "Clears deep_strike=True to False for the confirmed list of fast Aeldari/Drukhari skimmers, transports and gunships. The faction-blind SWEG_DEPLOY_AI then keeps these units on-board rather than routing them to strategic reserves on Turn 1, matching competitive play. This is a deployment-piloting correction expressed through the deep_strike flag (the flag is the only input the deploy AI reads); the units retain their real, optional Core Rules Deep Strike ability in the datasheet sense. NOT a rules claim that they cannot deep strike. The more faithful long-term fix is to make the deploy AI itself choose on-board deployment for these units (keeping deep_strike=True) — see docs/DECISION_LEDGER.md on the faction-blind reserve split; this per-unit gate is the scoped, only-improves interim that avoids a global deploy-AI change (which would also deploy over-pole factions such as Emperor's Children on-board, wrong-direction for the metric).",
+    "scope": "keyword-gated",
+    "approximation": true,
+    "note": "BSData verification (data/bsdata/cache/Aeldari - Aeldari Library.cat.gz): every cleared unit carries 'Deep Strike' as a DIRECT, UNCONDITIONAL infoLink on its unit entry (not nested in a wargear/upgrade subtree, and with no modifier or condition). The mandatory/default deep-strike use case only applies to units with no other legal deployment (Drop Pods); for these fast transports it is an optional tool competitive play does not use, so on-board deployment is the faithful default. BSData reference: Warhammer 40,000 core rules, Deep Strike (BSData Warhammer 40,000.gst rule id 7cb5-dd6b-dd87-ad3b; cross-reference https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Reinforcements)"
+  },
+  "loader.deep_strike_triage.drukhari_raider": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Aeldari%20-%20Aeldari%20Library.cat",
+    "rule_name": "Raider — optional Core Rules Deep Strike; deploy on-board (competitive default)",
+    "quoted_text": "During the Declare Battle Formations step, if all of the models in a unit have the Deep Strike ability, you can set that unit up in Reserves instead of setting it up on the battlefield.",
+    "trigger": "SWEG_DEEP_STRIKE_TRIAGE=1 (default); unit key aeldari_drukhari_raider is in _DEEP_STRIKE_TRIAGE_CLEAR_KEYS",
+    "effect": "deep_strike set to False, so the deploy AI keeps the Raider on-board from Turn 1 to execute the Skysplinter Assault Rain of Cruelty doctrine (disembark passengers for [IGNORES COVER] + [LANCE] in the same turn). Passengers embarked pre-game ride with the Raider instead of being co-routed to reserves.",
+    "scope": "keyword-gated",
+    "approximation": true,
+    "note": "Confirmed dominant misplay in data/_drukhari_strategy_investigation.md: with deep_strike=True, all three Raiders in the Skysplinter Assault archetype plus their pre-embarked passengers are parked in reserves Turn 1, cancelling the entire alpha-strike. Deep Strike is a real but optional ability on the Raider; the competitive default is on-board deployment. BSData reference: data/bsdata/cache/Aeldari - Aeldari Library.cat.gz (Raider selectionEntry, direct unconditional 'Deep Strike' infoLink); data/_drukhari_strategy_investigation.md"
+  },
+  "loader.deep_strike_triage.drukhari_venom": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Aeldari%20-%20Aeldari%20Library.cat",
+    "rule_name": "Venom — optional Core Rules Deep Strike; deploy on-board (competitive default)",
+    "quoted_text": "During the Declare Battle Formations step, if all of the models in a unit have the Deep Strike ability, you can set that unit up in Reserves instead of setting it up on the battlefield.",
+    "trigger": "SWEG_DEEP_STRIKE_TRIAGE=1 (default); unit key aeldari_drukhari_venom is in _DEEP_STRIKE_TRIAGE_CLEAR_KEYS",
+    "effect": "deep_strike set to False; the Venom deploys on-board from Turn 1 as a fast transport delivering melee units (Incubi, Wyches) rather than being parked in reserves. Its value is entirely Turn-1 positional.",
+    "scope": "keyword-gated",
+    "approximation": true,
+    "note": "Real but optional Deep Strike; competitive default is on-board. Holding it in reserves loses a whole turn of delivery. BSData reference: data/bsdata/cache/Aeldari - Aeldari Library.cat.gz (Venom selectionEntry, direct unconditional 'Deep Strike' infoLink)"
+  },
+  "loader.deep_strike_triage.drukhari_ravager": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Aeldari%20-%20Aeldari%20Library.cat",
+    "rule_name": "Ravager — optional Core Rules Deep Strike; deploy on-board (competitive default)",
+    "quoted_text": "During the Declare Battle Formations step, if all of the models in a unit have the Deep Strike ability, you can set that unit up in Reserves instead of setting it up on the battlefield.",
+    "trigger": "SWEG_DEEP_STRIKE_TRIAGE=1 (default); unit key aeldari_drukhari_ravager is in _DEEP_STRIKE_TRIAGE_CLEAR_KEYS",
+    "effect": "deep_strike set to False; the Ravager (triple Dark Lance anti-tank gunship) deploys on-board from Turn 1, firing its three lances in the critical first Shooting phase rather than missing Turn 1 entirely.",
+    "scope": "keyword-gated",
+    "approximation": true,
+    "note": "Confirmed misplay in data/_drukhari_strategy_investigation.md: the Ravager is the Skysplinter Assault list's primary anti-tank platform; parking it in reserves Turn 1 removes all anti-tank from the army's first turn. Real but optional Deep Strike. BSData reference: data/bsdata/cache/Aeldari - Aeldari Library.cat.gz (Ravager selectionEntry, direct unconditional 'Deep Strike' infoLink); data/_drukhari_strategy_investigation.md"
+  },
+  "loader.deep_strike_triage.drukhari_hellions": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Aeldari%20-%20Aeldari%20Library.cat",
+    "rule_name": "Hellions — optional Core Rules Deep Strike; deploy on-board (competitive default)",
+    "quoted_text": "During the Declare Battle Formations step, if all of the models in a unit have the Deep Strike ability, you can set that unit up in Reserves instead of setting it up on the battlefield.",
+    "trigger": "SWEG_DEEP_STRIKE_TRIAGE=1 (default); unit key aeldari_drukhari_hellions is in _DEEP_STRIKE_TRIAGE_CLEAR_KEYS",
+    "effect": "deep_strike set to False; the Hellions (MOUNTED, FLY, 14\" Move) deploy on-board from Turn 1 to contest objectives rather than being parked in reserves.",
+    "scope": "keyword-gated",
+    "approximation": true,
+    "note": "Fast objective-racing unit; its competitive role is Turn-1 board presence, not deep-strike ambush. Real but optional Deep Strike. BSData reference: data/bsdata/cache/Aeldari - Aeldari Library.cat.gz (Hellions selectionEntry, direct unconditional 'Deep Strike' infoLink)"
+  },
+  "loader.deep_strike_triage.ynnari_raider": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Aeldari%20-%20Aeldari%20Library.cat",
+    "rule_name": "Ynnari Raider — optional Core Rules Deep Strike; deploy on-board (competitive default)",
+    "quoted_text": "During the Declare Battle Formations step, if all of the models in a unit have the Deep Strike ability, you can set that unit up in Reserves instead of setting it up on the battlefield.",
+    "trigger": "SWEG_DEEP_STRIKE_TRIAGE=1 (default); unit key aeldari_craftworlds_ynnari_raider is in _DEEP_STRIKE_TRIAGE_CLEAR_KEYS",
+    "effect": "deep_strike set to False; the Ynnari Raider deploys on-board from Turn 1 as a mobile delivery platform.",
+    "scope": "keyword-gated",
+    "approximation": true,
+    "note": "Same Raider chassis as Drukhari (verified as a SEPARATE selectionEntry, id 8e15-3c74-d36f-7669, with Battle Focus / Disparate Paths infoLinks rather than Power from Pain — it is not a shared entry, correcting an earlier claim). Real but optional Deep Strike; competitive default is on-board. BSData reference: data/bsdata/cache/Aeldari - Aeldari Library.cat.gz (Ynnari Raider selectionEntry id 8e15-3c74-d36f-7669, direct unconditional 'Deep Strike' infoLink)"
+  },
+  "loader.deep_strike_triage.ynnari_venom": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Aeldari%20-%20Aeldari%20Library.cat",
+    "rule_name": "Ynnari Venom — optional Core Rules Deep Strike; deploy on-board (competitive default)",
+    "quoted_text": "During the Declare Battle Formations step, if all of the models in a unit have the Deep Strike ability, you can set that unit up in Reserves instead of setting it up on the battlefield.",
+    "trigger": "SWEG_DEEP_STRIKE_TRIAGE=1 (default); unit key aeldari_craftworlds_ynnari_venom is in _DEEP_STRIKE_TRIAGE_CLEAR_KEYS",
+    "effect": "deep_strike set to False; the Ynnari Venom deploys on-board from Turn 1.",
+    "scope": "keyword-gated",
+    "approximation": true,
+    "note": "Separate selectionEntry (id 5443-6671-baeb-77a3) sharing the Venom chassis. Real but optional Deep Strike; competitive default is on-board. BSData reference: data/bsdata/cache/Aeldari - Aeldari Library.cat.gz (Ynnari Venom selectionEntry id 5443-6671-baeb-77a3, direct unconditional 'Deep Strike' infoLink)"
+  },
+  "loader.deep_strike_triage.craftworlds_falcon": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Aeldari%20-%20Aeldari%20Library.cat",
+    "rule_name": "Craftworlds Falcon — optional Core Rules Deep Strike; deploy on-board (competitive default)",
+    "quoted_text": "During the Declare Battle Formations step, if all of the models in a unit have the Deep Strike ability, you can set that unit up in Reserves instead of setting it up on the battlefield.",
+    "trigger": "SWEG_DEEP_STRIKE_TRIAGE=1 (default); unit key aeldari_craftworlds_falcon is in _DEEP_STRIKE_TRIAGE_CLEAR_KEYS",
+    "effect": "deep_strike set to False; the Falcon deploys on-board from Turn 1 as a mobile transport for Fire Dragons / Wraithguard / Dire Avengers, using Battle Focus to shoot after moving.",
+    "scope": "keyword-gated",
+    "approximation": true,
+    "note": "BSData tags the Falcon with a direct unconditional 'Deep Strike' infoLink. Real but optional; competitive Craftworlds play deploys it on-board from Turn 1. There is no 'Webway Gate' ability on the Falcon datasheet (an earlier draft invented that name); Webway Gate exists only as a separate Legends fortification unit (id 2f21-23a3-48e0-5788). BSData reference: data/bsdata/cache/Aeldari - Aeldari Library.cat.gz (Falcon selectionEntry, direct unconditional 'Deep Strike' infoLink)"
+  },
+  "loader.deep_strike_triage.drukhari_reaper_legends": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Aeldari%20-%20Aeldari%20Library.cat",
+    "rule_name": "Reaper [Legends] — optional Core Rules Deep Strike; deploy on-board (competitive default)",
+    "quoted_text": "During the Declare Battle Formations step, if all of the models in a unit have the Deep Strike ability, you can set that unit up in Reserves instead of setting it up on the battlefield.",
+    "trigger": "SWEG_DEEP_STRIKE_TRIAGE=1 (default); unit key aeldari_drukhari_reaper_legends is in _DEEP_STRIKE_TRIAGE_CLEAR_KEYS",
+    "effect": "deep_strike set to False; the Reaper (Drukhari Kabal skimmer, same vehicle family as the Ravager) deploys on-board from Turn 1.",
+    "scope": "keyword-gated",
+    "approximation": true,
+    "note": "CLEAR-CONFIRMED by the adversarial deep-strike verification (data/_deepstrike_verify_report.md): identical infoLink structure to the cleared Ravager (Deep Strike + Deadly Demise + Power from Pain). Legends unit — likely inert in the current tournament-archetype lists, cleared for completeness/faithfulness. BSData reference: data/bsdata/cache/Aeldari - Aeldari Library.cat.gz (Reaper [Legends] selectionEntry, direct unconditional 'Deep Strike' + Deadly Demise + Power from Pain infoLinks)"
+  },
+  "loader.deep_strike_triage.drukhari_tantalus_legends": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Aeldari%20-%20Aeldari%20Library.cat",
+    "rule_name": "Tantalus [Legends] — optional Core Rules Deep Strike; deploy on-board (competitive default)",
+    "quoted_text": "During the Declare Battle Formations step, if all of the models in a unit have the Deep Strike ability, you can set that unit up in Reserves instead of setting it up on the battlefield.",
+    "trigger": "SWEG_DEEP_STRIKE_TRIAGE=1 (default); unit key aeldari_drukhari_tantalus_legends is in _DEEP_STRIKE_TRIAGE_CLEAR_KEYS",
+    "effect": "deep_strike set to False; the Tantalus (Drukhari super-transport, Firing Deck 16) deploys on-board from Turn 1 — losing Turn 1 is catastrophic for a large dedicated transport.",
+    "scope": "keyword-gated",
+    "approximation": true,
+    "note": "CLEAR-CONFIRMED by the adversarial deep-strike verification (data/_deepstrike_verify_report.md): identical structure to the cleared Raider. Legends unit — likely inert in the current tournament-archetype lists, cleared for completeness/faithfulness. BSData reference: data/bsdata/cache/Aeldari - Aeldari Library.cat.gz (Tantalus [Legends] selectionEntry, direct unconditional 'Deep Strike' infoLink; Firing Deck 16)"
+  }
+}

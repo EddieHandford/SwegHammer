@@ -39,6 +39,72 @@ def _codex_corrections_path(codex_version: str) -> "Path":
     return REPO_ROOT / "data" / f"codex_corrections_{codex_version}.json"
 DEFAULT_CODEX_VERSION = "10e"
 
+# ---------------------------------------------------------------------------
+# SWEG_DEEP_STRIKE_TRIAGE — per-unit deployment-piloting correction for fast
+# Aeldari/Drukhari skimmers, transports and gunships.
+#
+# BSData v10.6.0 attaches the standard Core Rules "Deep Strike" infoLink
+# DIRECTLY and UNCONDITIONALLY to each of these unit entries. Deep Strike is
+# ALWAYS an optional player choice ("you can set it up in Reserves instead of
+# on the battlefield" — never mandatory). In 10th-edition competitive play
+# these fast transports/gunships are deployed on-board from Turn 1 because
+# their value is Turn-1 board presence, but the simulator's faction-blind
+# deploy AI (SWEG_DEPLOY_AI) routes every deep_strike=True unit to strategic
+# reserves on Turn 1, breaking their doctrine (the same faction-blind
+# reserve-split flagged in docs/DECISION_LEDGER.md). Clearing deep_strike=False
+# for these specific units is a DEPLOYMENT-PILOTING correction expressed
+# through the only input the deploy AI reads — NOT a claim they lack the
+# ability (they have the real, optional Core Rules Deep Strike). The more
+# faithful long-term fix is a smarter deploy AI that keeps deep_strike=True and
+# chooses on-board for these units; this per-unit gate is the scoped,
+# only-improves interim (a global deploy-AI change would also deploy over-pole
+# factions such as Emperor's Children on-board, wrong-direction for the metric).
+#
+# NB an earlier draft of this comment and the citations invented ability names
+# ("Webway Portal", "Webway Assault", "Phantasm", "Webway Gate") — these do NOT
+# appear on any of these datasheets (0 occurrences in the Aeldari Library
+# cache); the only mechanism is the standard Core Rules Deep Strike. See the
+# adversarial verification at data/_deepstrike_verify_report.md.
+#
+# This set lists ONLY units the triage audit + adversarial verification
+# confirmed as fast transports/skimmers/gunships whose competitive default is
+# on-board deployment. CONSERVATIVE RULE: when uncertain, the unit is NOT in
+# this set (never remove a genuine deep-strike use case). Uncertain units are
+# adjudicated in data/_deepstrike_verify_report.md.
+#
+# Gate: SWEG_DEEP_STRIKE_TRIAGE, default-ON ("1").  Set to "0" to restore
+# pre-triage behaviour byte-identically (no units are cleared).
+_DEEP_STRIKE_TRIAGE_CLEAR_KEYS: frozenset = frozenset({
+    # ── Drukhari ──────────────────────────────────────────────────────────
+    # Skysplinter Assault deploys Raiders/Venom/Ravager on-board Turn 1 to run
+    # Rain of Cruelty + the alpha-strike; reserving them Turn 1 breaks the
+    # faction doctrine (data/_drukhari_strategy_investigation.md). All carry a
+    # direct unconditional Core Rules Deep Strike infoLink in the Aeldari
+    # Library cache. Cited in data/rule_citations.d/deep_strike_triage.json.
+    "aeldari_drukhari_raider",
+    "aeldari_drukhari_venom",
+    "aeldari_drukhari_ravager",
+    # Hellions: MOUNTED/FLY 14" objective-racers; competitive default is
+    # on-board Turn-1 tempo, not deep-strike ambush.
+    "aeldari_drukhari_hellions",
+    # ── Ynnari (same Raider/Venom chassis, SEPARATE selectionEntries) ──────
+    # Verified as distinct entries (ids 8e15-3c74-d36f-7669 / 5443-6671-baeb-77a3),
+    # not shared with the Drukhari entries; same on-board competitive default.
+    "aeldari_craftworlds_ynnari_raider",
+    "aeldari_craftworlds_ynnari_venom",
+    # ── Craftworlds ───────────────────────────────────────────────────────
+    # Falcon: mobile TRANSPORT (Fire Dragons / Wraithguard delivery) deployed
+    # on-board Turn 1, using Battle Focus to shoot after moving. Direct
+    # unconditional Deep Strike infoLink (no "Webway Gate" ability exists on it).
+    "aeldari_craftworlds_falcon",
+    # ── Drukhari Legends (CLEAR-CONFIRMED by the adversarial verification) ──
+    # Identical infoLink structure to the cleared Ravager (Reaper) and Raider
+    # (Tantalus). Legends units — almost certainly inert in the current
+    # tournament-archetype lists, cleared for completeness/faithfulness.
+    "aeldari_drukhari_reaper_legends",
+    "aeldari_drukhari_tantalus_legends",
+})
+
 
 @dataclass
 class CatalogEntry:
@@ -694,7 +760,25 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "lone_operative": override.get("lone_operative", base.lone_operative),
         "fights_first": override.get("fights_first", base.fights_first),
         "has_blessings_of_khorne": override.get("has_blessings_of_khorne", base.has_blessings_of_khorne),
-        "deep_strike": override.get("deep_strike", base.deep_strike),
+        # SWEG_DEEP_STRIKE_TRIAGE (default-on) — clears deep_strike=True for
+        # VEHICLE/MOUNTED units whose Deep Strike ability is printed as an
+        # OPTIONAL play (Webway Portal, Webway Assault, Webway Gate) rather
+        # than the unit's actual default deployment method. BSData attaches the
+        # "Deep Strike" infoLink directly to these unit entries because the
+        # ability IS printed on the datasheet, but competitive play NEVER uses
+        # it — deploying these transports and skimmers on-board from T1 is
+        # strictly better. The SWEG_DEPLOY_AI reserve logic sends any
+        # deep_strike=True unit to reserves, which breaks the entire faction
+        # doctrine for Drukhari (and similar Aeldari builds).
+        # Units affected: see _DEEP_STRIKE_TRIAGE_CLEAR_KEYS above.
+        # =0 restores the BSData-verbatim flag (byte-identical to pre-triage).
+        # Citation: data/rule_citations.d/deep_strike_triage.json
+        "deep_strike": (
+            False
+            if (key in _DEEP_STRIKE_TRIAGE_CLEAR_KEYS
+                and os.environ.get("SWEG_DEEP_STRIKE_TRIAGE", "1") != "0")
+            else override.get("deep_strike", base.deep_strike)
+        ),
         "scout_distance": override.get("scout_distance", base.scout_distance),
         "infiltrator": override.get("infiltrator", base.infiltrator),
         "deadly_demise": override.get("deadly_demise", base.deadly_demise),
