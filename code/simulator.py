@@ -738,10 +738,13 @@ class Battle:
             # deck-on early-return inside `_score_secondaries` does not skip this).
             # No-op / byte-identical when the gate is off.
             self._score_challenger_card(rnd)
+            _a_cap_disp, _b_cap_disp = self._capped_vp_pair()
             self._emit(RoundEnded(
                 round_num=rnd,
                 a_vp_total=self._a_vp,
                 b_vp_total=self._b_vp,
+                a_vp_capped=int(_a_cap_disp),
+                b_vp_capped=int(_b_cap_disp),
             ))
             round_history.append((self.a.unit_count, self.b.unit_count))
             # End early ONLY on a MUTUAL wipe — both sides have nothing left
@@ -803,6 +806,27 @@ class Battle:
     # Win condition (objectives + attrition + points)
     # ------------------------------------------------------------------
 
+    def _capped_vp_pair(self) -> Tuple[float, float]:
+        """The real Pariah Nexus standing as (a_vp, b_vp): primary capped at 50,
+        secondary at 40, challenger at its lifetime cap. The running
+        `_a_vp`/`_b_vp` totals are UNCAPPED — a primary- or secondary-dominator can
+        run past a ceiling — so anything that reasons about who is actually ahead
+        must read this capped view, not the raw totals. Single source of truth for
+        the winner decision (`_decide_winner`), the challenger-gap trailing side
+        (`_decide_challenger_draw`), and the displayed standing. Cited as
+        `simulator.primary_vp_cap_50` / `simulator.secondary_vp_cap_40`."""
+        _cap_primary = __import__("os").environ.get("SWEG_PRIMARY_CAP_50") != "0"
+        a_primary = self._a_vp - self._a_secondary_vp - self._a_challenger_vp
+        b_primary = self._b_vp - self._b_secondary_vp - self._b_challenger_vp
+        if _cap_primary:
+            a_primary = min(a_primary, 50)
+            b_primary = min(b_primary, 50)
+        a_vp = (a_primary + min(self._a_secondary_vp, 40)
+                + min(self._a_challenger_vp, self._CHALLENGER_LIFETIME_CAP))
+        b_vp = (b_primary + min(self._b_secondary_vp, 40)
+                + min(self._b_challenger_vp, self._CHALLENGER_LIFETIME_CAP))
+        return a_vp, b_vp
+
     def _decide_winner(
         self, a_surv: int, b_surv: int,
         a_pts: float, b_pts: float,
@@ -851,24 +875,13 @@ class Battle:
         # the 40-secondary cap here. A real rule: kept ON by default; set
         # SWEG_PRIMARY_CAP_50=0 to disable for the isolation A/B. Cited as
         # `simulator.primary_vp_cap_50`.
-        _cap_primary = __import__("os").environ.get("SWEG_PRIMARY_CAP_50") != "0"
-        # Challenger VP (Chapter Approved 2025-26) is a THIRD scoring track,
-        # separate from primary (50 cap) and secondary (40 cap): the deck's
-        # combined primary + secondary + challenger is capped at 90, with the
-        # challenger lifetime contribution capped at ~12 (already enforced at
-        # award time in `_score_challenger_card`). Peel it out of the running
-        # total so it is subject to NEITHER the primary nor the secondary cap,
-        # then add it back lifetime-capped. When the gate is off both challenger
-        # tallies are 0, so this is arithmetically identical to the prior code.
-        a_primary = self._a_vp - self._a_secondary_vp - self._a_challenger_vp
-        b_primary = self._b_vp - self._b_secondary_vp - self._b_challenger_vp
-        if _cap_primary:
-            a_primary = min(a_primary, 50)
-            b_primary = min(b_primary, 50)
-        a_vp = (a_primary + min(self._a_secondary_vp, 40)
-                + min(self._a_challenger_vp, self._CHALLENGER_LIFETIME_CAP))
-        b_vp = (b_primary + min(self._b_secondary_vp, 40)
-                + min(self._b_challenger_vp, self._CHALLENGER_LIFETIME_CAP))
+        # Decide on the real capped standing — primary <= 50, secondary <= 40,
+        # challenger <= lifetime cap — via the shared _capped_vp_pair helper (the
+        # SWEG_PRIMARY_CAP_50=0 kill-switch is honoured inside it). Challenger VP is
+        # a THIRD track peeled out so it is subject to neither the primary nor the
+        # secondary cap; when SWEG_CHALLENGER_CARDS is off both tallies are 0 and
+        # this is arithmetically identical to the pre-challenger code.
+        a_vp, b_vp = self._capped_vp_pair()
         if a_vp > b_vp:
             return self.a.name
         if b_vp > a_vp:
@@ -3034,7 +3047,24 @@ class Battle:
             return
         if round_num < 2:
             return
-        gap = self._a_vp - self._b_vp
+        # The trailing side must be judged on the REAL standing — the capped view
+        # that decides the winner — not the uncapped running totals. A primary- or
+        # secondary-dominator that has run past a cap is not as far ahead as
+        # `_a_vp - _b_vp` claims, so the uncapped gap over-triggers (and can
+        # mis-direct) the trailing-side challenger draw. Capping is the more faithful
+        # reading (real victory points are capped as they are scored), BUT it is a
+        # refinement of an APPROXIMATED mechanic (the challenger-card verbatim text
+        # is not yet fetched) and it SCREENED metric-negative: N=40 full-frame vs
+        # sc22a gated 3.03 -> 3.13 (+0.11), decisively hurting Astra Militarum -1.91
+        # and Adeptus Astartes -1.77 (the uncapped gap was quietly giving trailing
+        # under-poles extra catch-up draws). HELD default-off pending a verbatim
+        # challenger citation and the durability-over-reward context; SWEG_CHALLENGER_
+        # GAP_CAPPED=1 to enable the capped gap. Cited as `simulator.challenger_cards`.
+        if __import__("os").environ.get("SWEG_CHALLENGER_GAP_CAPPED", "0") == "1":
+            _a_cap, _b_cap = self._capped_vp_pair()
+            gap = _a_cap - _b_cap
+        else:
+            gap = self._a_vp - self._b_vp
         if abs(gap) < self._CHALLENGER_GAP:
             return
         trailing_side = "a" if gap < 0 else "b"
