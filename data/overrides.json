@@ -398,7 +398,8 @@
             }
           ]
         }
-      ]
+      ],
+      "range_inches": 72
     },
     "chaos_knights_library_knight_abominant": {
       "invuln_save": 5,
