@@ -7562,12 +7562,24 @@ class Battle:
         # strict proximity). See `VALOURSTRIKE_LANCE.bondsman_enabled` citation.
         buffed_uids: set = set()
 
+        # SWEG_IK_BONDSMAN_SCOPED (default-on) — the TITANIC+CHARACTER keyword gate
+        # wrongly admits Knight Castellan, Knight Valiant, and Canis Rex as Bondsman
+        # givers. BSData ("Imperium - Imperial Knights" cat) confirms none of the
+        # three carries a Bondsman ability (the Dominus-class Castellan/Valiant and
+        # the Freeblade Canis Rex have their own abilities); every OTHER
+        # TITANIC+CHARACTER Imperial Knight — the Questoris and Cerastus variants —
+        # does carry Bondsman, so the fix EXCLUDES exactly those three rather than
+        # restricting to a hand-picked five. =0 restores the over-broad gate.
+        _ik_bondsman_scoped = os.environ.get("SWEG_IK_BONDSMAN_SCOPED", "1") != "0"
+        _ik_no_bondsman = ("Knight Castellan", "Knight Valiant", "Canis Rex")
         for giver in list(army.alive_units):
             giver_kw = set(getattr(giver.profile, "unit_keywords", ()) or ())
             if (
                 getattr(giver.profile, "faction", "") != "Imperial Knights"
                 or "TITANIC" not in giver_kw
                 or "CHARACTER" not in giver_kw
+                or (_ik_bondsman_scoped
+                    and getattr(giver.profile, "name", "") in _ik_no_bondsman)
             ):
                 continue
 
@@ -10077,8 +10089,20 @@ class Battle:
         # that phase. Gate OFF records nothing and leaves the army-wide-for-the-
         # round behaviour byte-identical.
         _bt_scoped = os.environ.get("SWEG_WE_BLOOD_TITHE_SCOPED", "1") != "0"
+        # SWEG_WE_BLOOD_TITHE_DETACHMENT (default-on) — Blood Tithe is the KHORNE
+        # DAEMONKIN detachment rule, not an army-wide World Eaters rule (BSData
+        # "Chaos - World Eaters" cat: the Blood Tithe rule sits under the Khorne
+        # Daemonkin selection; the Berzerker Warband detachment carries Relentless
+        # Rage + Idols of Khorne instead). Every sim World Eaters archetype uses
+        # Berzerker Warband, so awarding Blood Tithe [Lethal Hits] to them is a
+        # fabricated buff on the number-one over-pole. The gate restricts the spend
+        # to Khorne Daemonkin armies (none in the current archetype set → the buff
+        # is removed). =0 restores the prior detachment-blind spend.
+        _bt_detach_gate = os.environ.get("SWEG_WE_BLOOD_TITHE_DETACHMENT", "1") != "0"
         for army in (self.a, self.b):
             if not any(u.profile.faction == "World Eaters" for u in army.units):
+                continue
+            if _bt_detach_gate and (getattr(army.detachment, "name", "") or "") != "Khorne Daemonkin":
                 continue
             if army.blood_tithe >= 4:
                 army.blood_tithe -= 4

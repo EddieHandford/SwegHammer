@@ -642,7 +642,7 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Overlord",           LeaderAbility(name="My Will Be Done",            aura_range=6.0, host_keys=_NECRON_HOSTS)),
     ("Chronomancer",       LeaderAbility(name="Chronometron",               aura_range=6.0, host_keys=_NECRON_HOSTS)),
     ("Plasmancer",         LeaderAbility(name="Harbinger of Destruction",   aura_range=6.0, host_keys=("necrons_immortals", "necrons_necron_warriors"))),
-    ("Technomancer",       LeaderAbility(name="Canoptek Cloak",             aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
+    ("Technomancer",       LeaderAbility(name="Rites of Reanimation",       aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
     # Orks — "Might is Right" (Warboss, Warboss In Mega Armour). Real rule:
     # "While this model is leading a unit, each time a model in that unit makes
     # a melee attack, add 1 to the Hit roll." (Wahapedia:

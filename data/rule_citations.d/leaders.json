@@ -184,12 +184,12 @@
     "scope": "unit-led"
   },
 
-  "LeaderAbility.Canoptek Cloak": {
+  "LeaderAbility.Rites of Reanimation": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/Technomancer",
     "rule_name": "Rites of Reanimation",
     "quoted_text": "While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.",
     "trigger": "defender's unit is led by a Technomancer in aura range",
-    "effect": "FNP 5+ in aura range (faithful match — our LeaderAbility.name 'Canoptek Cloak' is a flavour label for the codex ability 'Rites of Reanimation')",
+    "effect": "Feel No Pain 5+ in aura range (the codex ability 'Rites of Reanimation'; BSData Technomancer profile id ff0b-8063-e5bc-1646). The LeaderAbility.name now matches the real rule name — the prior 'Canoptek Cloak' label was invented (absent from BSData and Wahapedia).",
     "scope": "unit-led"
   },
 

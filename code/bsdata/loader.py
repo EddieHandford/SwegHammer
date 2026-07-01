@@ -625,13 +625,50 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
             base.melee_anti_keyword_basket_fractions,
         ),
         "twin_linked": override.get("twin_linked", base.twin_linked),
-        "devastating_wounds": override.get("devastating_wounds", base.devastating_wounds),
-        "invuln_save": override.get("invuln_save", base.invuln_save),
+        # SWEG_WE_DW_RANGED_FAB (default-on) — the overrides add a unit-level
+        # devastating_wounds=True to world_eaters_heldrake (its Baleflamer is a
+        # Torrent weapon) and world_eaters_master_of_executions (its Bolt pistol);
+        # neither ranged weapon carries [DEVASTATING WOUNDS] on its datasheet. The
+        # melee claws / axe of dismemberment do, and are represented separately via
+        # melee_devastating_wounds (mapper). =0 restores the fabricated ranged flag.
+        "devastating_wounds": (
+            False
+            if (key in ("world_eaters_heldrake",
+                        "world_eaters_master_of_executions")
+                and os.environ.get("SWEG_WE_DW_RANGED_FAB", "1") != "0")
+            else override.get("devastating_wounds", base.devastating_wounds)
+        ),
+        # SWEG_NECRON_LYCHGUARD_INVULN (default-on) — necrons_lychguard is modelled
+        # with the Warscythe loadout (parsed weapon "Warscythe", S8 AP-3 D2 with
+        # Devastating Wounds), but the override adds a 4+ invulnerable save that only
+        # exists on the mutually-exclusive Hyperphase-sword-and-dispersion-shield
+        # loadout. A Warscythe Lychguard has no invulnerable save; the combination is
+        # impossible. Gate forces the base (no invulnerable) across all three invuln
+        # fields; =0 restores the fabricated 4+.
+        "invuln_save": (
+            base.invuln_save
+            if (key == "necrons_lychguard"
+                and os.environ.get("SWEG_NECRON_LYCHGUARD_INVULN", "1") != "0")
+            else override.get("invuln_save", base.invuln_save)
+        ),
         "invuln_ranged_only": override.get("invuln_ranged_only", base.invuln_ranged_only),
         # Task #92: an override may set the per-attack invuln directly; else fall
         # back to any override of the single value, else the base per-attack value.
-        "invuln_save_melee": override.get("invuln_save_melee", override.get("invuln_save", base.invuln_save_melee)),
-        "invuln_save_ranged": override.get("invuln_save_ranged", override.get("invuln_save", base.invuln_save_ranged)),
+        # Lychguard invuln fabrication (SWEG_NECRON_LYCHGUARD_INVULN, see above) must
+        # also zero the per-attack invuln fields — they otherwise fall back to the
+        # override's single invuln_save value.
+        "invuln_save_melee": (
+            base.invuln_save_melee
+            if (key == "necrons_lychguard"
+                and os.environ.get("SWEG_NECRON_LYCHGUARD_INVULN", "1") != "0")
+            else override.get("invuln_save_melee", override.get("invuln_save", base.invuln_save_melee))
+        ),
+        "invuln_save_ranged": (
+            base.invuln_save_ranged
+            if (key == "necrons_lychguard"
+                and os.environ.get("SWEG_NECRON_LYCHGUARD_INVULN", "1") != "0")
+            else override.get("invuln_save_ranged", override.get("invuln_save", base.invuln_save_ranged))
+        ),
         "veterans_of_the_long_war": override.get("veterans_of_the_long_war", base.veterans_of_the_long_war),
         "csm_despoilers": override.get("csm_despoilers", base.csm_despoilers),
         "csm_unholy_bloodshed": override.get("csm_unholy_bloodshed", base.csm_unholy_bloodshed),
@@ -692,15 +729,37 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         # absolute error 3.26 -> 3.06, Death Guard -3.37 decisive toward its real
         # 47.6, only collateral Grey Knights -0.46). Set =0 as a kill-switch to
         # restore the fabricated fnp=5 and reproduce the sc20a anchor byte-identically.
+        # SWEG_EC_LUCIUS_FNP_FIX — RETIRED to default-OFF (2026-07-01). The wave-260
+        # removal was WRONG: the 2025 Emperor's Children codex gives Lucius the
+        # Eternal a real Feel No Pain 5+ (BSData infoLink 01a8-58fe-9d82-ae3c,
+        # unconditional; Wahapedia confirms). The mapper captured it correctly; the
+        # wave-260 gate deleted a faithful stat (EVAL_PROTOCOL section 9 forbidden-
+        # zone violation). Default-off now KEEPS his faithful fnp=5; set =1 to
+        # re-enable the old removal (reproduces the sc21a anchor byte-identically).
+        # SWEG_AUDIT2_FNP_FABS (default-ON) — audit-wave-2 fabrication removals. The
+        # mapper prose-walk stamped an aura's GRANTED Feel No Pain onto the granter's
+        # own profile: genestealer_cults_acolyte_iconward (Nexus of Devotion -> led
+        # unit), necrons_technomancer (Rites of Reanimation -> led unit),
+        # chaos_daemons_library_contorted_epitome (Swallow Energy -> Daemonettes).
+        # death_guard_typhus's override fnp instead cited the non-existent army-wide
+        # Disgustingly Resilient (his only relevant ability, The Destroyer Hive, is a
+        # -1-to-hit melee aura). BSData confirms none of the four carries a self Feel
+        # No Pain infoLink. (Locus / Cryptothralls were flagged but are already fnp=7
+        # -- no action.) =0 kill-switch restores the fabricated fnp / reproduces sc21a.
         "fnp": (
             7
             if (
                 (key == "emperor_s_children_lucius_the_eternal"
-                 and os.environ.get("SWEG_EC_LUCIUS_FNP_FIX", "1") != "0")
+                 and os.environ.get("SWEG_EC_LUCIUS_FNP_FIX", "0") == "1")
                 or (key in ("death_guard_plague_marines",
                             "chaos_space_marines_plague_marines",
                             "death_guard_blightlord_terminators")
                     and os.environ.get("SWEG_DG_PLAGUE_FNP_FAITHFUL", "1") != "0")
+                or (key in ("genestealer_cults_acolyte_iconward",
+                            "necrons_technomancer",
+                            "chaos_daemons_library_contorted_epitome",
+                            "death_guard_typhus")
+                    and os.environ.get("SWEG_AUDIT2_FNP_FABS", "1") != "0")
             )
             else override.get("fnp", base.fnp)
         ),
@@ -712,11 +771,21 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         # base.sticky_objective=False for this unit). Paired N=80 (AM-scoped):
         # Astra Militarum +1.87 (25.9 -> 27.8), gated mean absolute error
         # 3.96 -> 3.86. Every other unit takes the unchanged merge regardless.
+        # SWEG_GSC_STICKY_FAB (default-on) — genestealer_cults_acolyte_hybrids_with_
+        # hand_flamers / _with_autopistols carry a fabricated sticky_objective citing
+        # Cult Ambush, which has no sticky-objective clause (Cult Ambush is purely a
+        # marker-redeploy / set-back-up ability; the real sticky rule is the Outlander
+        # Claw detachment passive for Atalan Jackals). Gate zeroes them; =0 restores.
         "sticky_objective": (
-            override.get("sticky_objective", base.sticky_objective)
-            if (key != "astra_militarum_cadian_shock_troops"
-                or os.environ.get("SWEG_AM_STICKY_CADIAN", "1") != "0")
-            else base.sticky_objective
+            base.sticky_objective
+            if (
+                (key == "astra_militarum_cadian_shock_troops"
+                 and os.environ.get("SWEG_AM_STICKY_CADIAN", "1") == "0")
+                or (key in ("genestealer_cults_acolyte_hybrids_with_hand_flamers",
+                            "genestealer_cults_acolyte_hybrids_with_autopistols")
+                    and os.environ.get("SWEG_GSC_STICKY_FAB", "1") != "0")
+            )
+            else override.get("sticky_objective", base.sticky_objective)
         ),
         "resolute_will": override.get("resolute_will", base.resolute_will),
         "murderers_cowl": override.get("murderers_cowl", base.murderers_cowl),

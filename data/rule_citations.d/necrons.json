@@ -54,9 +54,9 @@
   "unit.necrodermis": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/",
     "rule_name": "Necrodermis (C'tan datasheet ability)",
-    "quoted_text": "Each time an attack is allocated to this model, halve the Damage characteristic of that attack (rounding up). Any time an attack is allocated to this model that has a Damage characteristic of 1, it has a Damage characteristic of 0 instead.",
+    "quoted_text": "Each time an attack is allocated to this model, subtract 1 from the Damage characteristic of that attack.",
     "trigger": "attack allocated to a model whose UnitProfile.necrodermis is True (C'tan Shards and the Transcendent C'tan)",
-    "effect": "halve incoming per-shot Damage (rounded up); attacks with Damage 1 deal 0 damage. Applied at the per-shot damage allocation sites in Unit.attack — both the devastating-wounds bypass path and the failed-save path.",
+    "effect": "subtract 1 from incoming per-shot Damage (floored at 0). Applied at the per-shot damage allocation sites in Unit.attack — both the devastating-wounds bypass path and the failed-save path. Gated SWEG_NECRODERMIS_MINUS_ONE (default-on, the faithful 10e rule per BSData shared profile 61c9-1b37-b067-44ba); =0 restores the prior 9th-edition halving.",
     "scope": "keyword-gated"
   },
 

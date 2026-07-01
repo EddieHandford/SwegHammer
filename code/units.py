@@ -4710,16 +4710,21 @@ class Unit:
                         and crit_wound
                         and random.random() < _dw_fraction
                     ):
-                        # NECRONS-CTAN: Necrodermis halves Damage characteristic
-                        # (rounding up); D1 attacks deal 0. Wahapedia C'tan
-                        # datasheet ability. Cited as `UnitProfile.necrodermis`.
-                        # PER-MODEL-LOADOUTS (Stage 4): apply the halving to the
-                        # ROLLED per-shot damage (10e: roll the Damage, THEN
-                        # modify). `_shot_dmg` == `per_shot_dmg` when the gate is
-                        # off / no dice, so the mean path is unchanged.
+                        # NECRONS-CTAN: Necrodermis. SWEG_NECRODERMIS_MINUS_ONE
+                        # (default-on) applies the faithful 10e rule "subtract 1
+                        # from the Damage characteristic" (BSData shared profile
+                        # 61c9-1b37-b067-44ba, linked by all four C'tan). The prior
+                        # code applied the 9e "halve (rounding up); D1 -> 0", which
+                        # over-protected every C'tan (Damage-6: real 5 vs halved 3).
+                        # =0 restores the old halving. Cited as `UnitProfile.necrodermis`.
+                        # PER-MODEL-LOADOUTS (Stage 4): applied to the ROLLED per-shot
+                        # damage (10e: roll the Damage, THEN modify). `_shot_dmg` ==
+                        # `per_shot_dmg` when the gate is off / no dice.
                         _dw_dmg = _shot_dmg
                         if target.profile.necrodermis:
-                            if _dw_dmg <= 1.0:
+                            if os.environ.get("SWEG_NECRODERMIS_MINUS_ONE", "1") != "0":
+                                _dw_dmg = max(0.0, _dw_dmg - 1.0)
+                            elif _dw_dmg <= 1.0:
                                 _dw_dmg = 0.0
                             else:
                                 _dw_dmg = math.ceil(_dw_dmg / 2.0)
@@ -4834,16 +4839,17 @@ class Unit:
                                     tgt_army.aof_squad_mark_used(target.profile.name, getattr(target, "squad_id", -1))  # SOROR-ACTS-OF-FAITH-V1
                         if sroll >= save_target:
                             continue   # saved
-                    # NECRONS-CTAN: Necrodermis halves Damage characteristic
-                    # (rounding up); D1 attacks deal 0. Wahapedia C'tan
-                    # datasheet ability. Cited as `UnitProfile.necrodermis`.
-                    # PER-MODEL-LOADOUTS (Stage 4): apply the halving to the ROLLED
-                    # per-shot damage (10e: roll the Damage, THEN modify). When the
-                    # gate is off / no dice, `_shot_dmg` == `per_shot_dmg`, so the
-                    # mean path is unchanged.
+                    # NECRONS-CTAN: Necrodermis. SWEG_NECRODERMIS_MINUS_ONE
+                    # (default-on) applies the faithful 10e rule "subtract 1 from the
+                    # Damage characteristic" (BSData shared profile 61c9-1b37-b067-44ba);
+                    # =0 restores the prior 9e "halve (rounding up); D1 -> 0". Cited as
+                    # `UnitProfile.necrodermis`. PER-MODEL-LOADOUTS (Stage 4): applied to
+                    # the ROLLED per-shot damage; `_shot_dmg` == `per_shot_dmg` off / no dice.
                     _alloc_dmg = _shot_dmg
                     if target.profile.necrodermis:
-                        if _alloc_dmg <= 1.0:
+                        if os.environ.get("SWEG_NECRODERMIS_MINUS_ONE", "1") != "0":
+                            _alloc_dmg = max(0.0, _alloc_dmg - 1.0)
+                        elif _alloc_dmg <= 1.0:
                             _alloc_dmg = 0.0
                         else:
                             _alloc_dmg = math.ceil(_alloc_dmg / 2.0)
