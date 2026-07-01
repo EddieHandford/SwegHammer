@@ -11369,8 +11369,32 @@ class Battle:
         # an enemy in shooting range; it Normal-moves and keeps the shot (still
         # contesting the board, unlike the rejected gunline-hold). Faithful piloting,
         # not a rules claim; helps shooting, no-op for melee. Off path byte-identical.
+        # AM-SCOPED entry point (SWEG_AM_ADVANCE_DISCIPLINE, per-faction lever;
+        # ADOPTED default-on 2026-07-01, `=0` is the byte-identical kill-switch):
+        # the SAME gunline-hold logic below, restricted to Astra Militarum. Per
+        # the per-faction AI thesis (Principle 2) the generic gate's lift is
+        # symmetric and durable over-poles bank it too (screened +2.19 harmful),
+        # so scope it to the built-for faction. Astra Militarum is the largest
+        # shooting under-pole and its tanks (Leman Russ variants, Rogal Dorn:
+        # ranged damage per activation >= 2.0, range >= 18") throw away their
+        # whole Shooting phase when the default logic Advances them to an
+        # objective; Cadian Shock Troops (rDPA ~0.5) stay below the 2.0 gate and
+        # still Advance to grab objectives. Screened N=80 paired vs sc22a: Astra
+        # Militarum +5.75 decisive, gated mean absolute error 2.91 -> 2.64 (the
+        # first per-faction lever adopted; Death Guard flat, proving the
+        # army-scoping banks the lift without the durable-over-pole contamination
+        # that washed the faction-agnostic gate). A "advance when more than 1.5
+        # Normal moves from the objective" refinement was tried and REVERTED — it
+        # cost the whole lift (+5.75 -> -2.00), because the benefit IS the
+        # far-holding; the Chaos-Daemons dip that motivated it was noise
+        # (self-cancelling, net -4/200, shrank with N). Off path byte-identical.
+        # Grounds in the core-rules fact that Advancing forfeits non-Assault
+        # shooting; cited as `simulator.am_advance_discipline`.
         _suppress_advance = False
-        if (os.environ.get("SWEG_ADVANCE_DISCIPLINE", "0") == "1"
+        _ad_generic = os.environ.get("SWEG_ADVANCE_DISCIPLINE", "0") == "1"
+        _ad_am = (os.environ.get("SWEG_AM_ADVANCE_DISCIPLINE", "1") != "0"
+                  and (attacker.profile.faction or "") == "Astra Militarum")
+        if ((_ad_generic or _ad_am)
                 and intent in ("CAPTURE", "STEAL")
                 # Units that can shoot AFTER Advancing (ASSAULT weapons, or a
                 # transient ASSAULT grant) lose nothing by it — never suppress them
