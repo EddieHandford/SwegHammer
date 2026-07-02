@@ -2254,6 +2254,39 @@ def _keyword_affinity_score(det: Detachment, units) -> float:
         # Rubricae Phalanx to the front when the army's RUBRICAE points
         # share is non-trivial.
         matched = sum(_pts(u) for u in units if "RUBRICAE" in _kw(u))
+    elif (
+        det_name == "Scintillating Legion"
+        and os.environ.get("SWEG_DAEMONS_BELAKOR") == "1"
+    ):
+        # SWEG_DAEMONS_BELAKOR (2026-07-02): the Scintillating Legion
+        # sub-archetype added to `ARCHETYPES["Chaos Daemons"]` in
+        # `code/archetypes.py` is anchored on Be'lakor and Kairos
+        # Fateweaver. A prior audit found that a Be'lakor/Kairos-anchored
+        # build only rolled the matching Chaos Daemons detachment
+        # (Scintillating Legion is one of five uniformly-weighted
+        # candidates in `FACTION_DETACHMENTS["Chaos Daemons"]`) about 20%
+        # of the time — the picker had no keyword signal tying these two
+        # flagship characters to their own detachment, unlike Cursed
+        # Legion / Canoptek Court / Rubricae Phalanx above. Both anchors
+        # are large point investments (375pt and 295pt respectively), so
+        # gating the SAME fraction-based scoring the other branches use
+        # against just the two of them is enough to clear the >=0.3
+        # threshold whenever a Scintillating Legion-shaped army is built.
+        # Gated: this branch is unreachable unless SWEG_DAEMONS_BELAKOR=1
+        # (the `and os.environ...` guard short-circuits to the `else`
+        # below when the gate is off), so the OFF path — where
+        # Scintillating Legion already existed as an ungated, no-flag,
+        # composition-only detachment — is byte-identical to the
+        # pre-change five-way uniform picker. No rule_citations.json entry
+        # is required: like the Cursed Legion / Canoptek Court / Rubricae
+        # Phalanx branches above, this is picker-heuristic scoring on
+        # `det.name`, not a `RULE_BEARING_FIELDS` flag toggle (confirmed
+        # against `scripts/audit_rules.py`, which only requires citations
+        # for Detachment/Leader fields in that tuple).
+        matched = sum(
+            _pts(u) for u in units
+            if _name(u) in ("Be'lakor", "Kairos Fateweaver")
+        )
     else:
         return 0.0
 

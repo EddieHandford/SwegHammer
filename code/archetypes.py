@@ -1040,6 +1040,72 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "chaos_daemons_library_the_masque_of_slaanesh": 1,
             "chaos_daemons_library_daemon_prince_of_chaos": 1,
         },
+        # SWEG_DAEMONS_BELAKOR (2026-07-02, default OFF) — Be'lakor-anchored
+        # multi-god "Scintillating Legion" fifth sub-archetype. The four
+        # mono-god templates above rotate uniformly (25% each) and cover the
+        # "one Greater Daemon of one god" shape, but the real 2026
+        # competitive Chaos Daemons meta is instead Be'lakor-anchored and
+        # deliberately multi-god:
+        #
+        # Source 1 — Spikey Bits, "Top 40k Tournament Army Lists: Leeds
+        #   Super Major" (https://spikeybits.com/top-40k-tournament-army-
+        #   lists-leeds-super-major/). Second place ran Be'lakor + Great
+        #   Unclean One + Kairos Fateweaver + Lord of Change + Skarbrand —
+        #   described as "five Greater Daemons" — under Daemonic Incursion
+        #   with a thin troop screen.
+        #
+        # Source 2 — Bell of Lost Souls, "Goatboys' Grimdark Army List:
+        #   Chaos Daemons Scintillating Legion, Kicking It Bird Style"
+        #   (https://www.belloflostsouls.net/2026/01/goatboys-grimdark-
+        #   armylist-chaos-daemons-scintillating-legion-kicking-it-bird-
+        #   style.html), cross-checked against Grimhammer Tactics, "Top 10
+        #   Competitive Warhammer 40k Lists — March 2026"
+        #   (https://grimhammertactics.com/top-10-competitive-warhammer-
+        #   40k-lists-march-2026/). Wheat City Grand Tournament first place
+        #   "Quad Birds" ran Be'lakor + Kairos Fateweaver + 2x Lord of
+        #   Change under the Scintillating Legion detachment.
+        #
+        # REAL-META SHAPE: this template takes the intersection sourced
+        # from both lists — Be'lakor (EPIC HERO anchor, both sources),
+        # Kairos Fateweaver (both sources), one Lord of Change (both
+        # sources; the "Quad Birds" list runs two but a single-copy seed
+        # keeps this template's core cost inside the archetype seed
+        # budget — the second Lord of Change is available to `_random_fill`
+        # via the MONSTER wrecker cap), and one Great Unclean One (source
+        # 1's "five Greater Daemons" reading, providing the Nurgle
+        # resilience leg the two all-Tzeentch lists omit). Skarbrand is not
+        # in the catalogue (verified against `data/bsdata/parsed.json` —
+        # no `chaos_daemons_library_skarbrand` key — so it is dropped
+        # rather than invented per CLAUDE.md rule 9). Pink Horrors (count=2)
+        # and Plaguebearers (count=1) supply the BATTLELINE troop screen
+        # both sources describe; The Changeling adds a cheap EPIC HERO
+        # scoring/infiltration piece (verified
+        # `chaos_daemons_library_the_changeling` resolves in the
+        # catalogue).
+        #
+        # Gating: this entry is ALWAYS present in the ARCHETYPES dict (a
+        # module-level dict literal cannot conditionally omit a key at
+        # import time without an import-order-dependent env read — see the
+        # CRITICAL GATING CONSTRAINT note on `build_archetype_army` below).
+        # Visibility is instead gated at the point `build_archetype_army`
+        # reads `ARCHETYPES[faction]` into `available` and rolls
+        # `rng.choice(list(available.keys()))`: when SWEG_DAEMONS_BELAKOR
+        # is not "1", "Scintillating Legion" is filtered out of `available`
+        # BEFORE the `rng.choice` call, so the choice list has the same 4
+        # entries, in the same order, as the pre-existing code — byte-
+        # identical off. See DAEMONS-FIX-1 below (in `_instantiate_template`)
+        # for the paired force-seed pre-pass that fields this template's
+        # four-Greater-Daemon core, and `_keyword_affinity_score` in
+        # `code/detachments.py` for the paired detachment-picker affinity.
+        "Scintillating Legion": {
+            "chaos_daemons_library_be_lakor": 1,
+            "chaos_daemons_library_kairos_fateweaver": 1,
+            "chaos_daemons_library_lord_of_change": 1,
+            "chaos_daemons_library_great_unclean_one": 1,
+            "chaos_daemons_library_pink_horrors": 2,
+            "chaos_daemons_library_plaguebearers": 1,
+            "chaos_daemons_library_the_changeling": 1,
+        },
     },
     "Astra Militarum": {
         # AX-C — flesh-out. Previous template (9 entries) was a thin Cadian +
@@ -1721,6 +1787,50 @@ def _instantiate_template(
         scaled[mono_god_anchor] = 1
         running += _squad_cost(mono_god_anchor)
 
+    # SWEG_DAEMONS_BELAKOR (2026-07-02) — Scintillating Legion multi-
+    # Greater-Daemon core force-seed. The DAEMONS-FIX-1 pre-pass just above
+    # force-seeds exactly ONE Greater Daemon per template, because each of
+    # the four mono-god templates names exactly one — it grabs Lord of
+    # Change here (the only Scintillating Legion entry that also appears
+    # in `_MONO_GOD_GREATER_DAEMONS`) and stops. The Scintillating Legion
+    # sub-archetype is deliberately built around FOUR flagship characters
+    # (Be'lakor, Kairos Fateweaver, Lord of Change, Great Unclean One) —
+    # that is the point of the archetype (see the template's sourcing
+    # comment above), so a single-anchor pre-pass under-fields it: the
+    # EPIC HERO anchor guarantee further down only rescues the single most
+    # expensive unseeded EPIC HERO (Be'lakor), and Kairos Fateweaver /
+    # Great Unclean One are left to compete for space in the regular
+    # (-count, -cost) walk below, where their high per-model cost usually
+    # loses to the count=2 Pink Horrors entry and they are frequently
+    # dropped. Force-seed the full flagship quartet before the regular
+    # walk, but ONLY when the template is unmistakably Scintillating
+    # Legion — identified by carrying BOTH Be'lakor and Kairos Fateweaver,
+    # a combination no other template uses — and only when the gate is
+    # explicitly on, so the four existing mono-god templates and the
+    # gate-off path are untouched (byte-identical off). `running` is
+    # allowed to exceed `seed_budget` here, mirroring the overflow
+    # allowance on the mono-god anchor above and the EPIC HERO anchor
+    # below — the flagship core is more important than staying under the
+    # nominal seed slice.
+    if (
+        os.environ.get("SWEG_DAEMONS_BELAKOR") == "1"
+        and "chaos_daemons_library_be_lakor" in template
+        and "chaos_daemons_library_kairos_fateweaver" in template
+    ):
+        for _sl_key in (
+            "chaos_daemons_library_be_lakor",
+            "chaos_daemons_library_kairos_fateweaver",
+            "chaos_daemons_library_lord_of_change",
+            "chaos_daemons_library_great_unclean_one",
+        ):
+            if (
+                _sl_key in template
+                and _sl_key in UNIT_CATALOG
+                and _sl_key not in scaled
+            ):
+                scaled[_sl_key] = 1
+                running += _squad_cost(_sl_key)
+
     # Wave 250 (gated SWEG_WE_REALISM) — World Eaters Khârn anchor. The template
     # filter above drops Angron when the gate is on; here we force-seed Khârn the
     # Betrayer (mirroring the mono-god Greater Daemon anchor pre-pass) so the
@@ -2129,6 +2239,25 @@ def build_archetype_army(
         raise KeyError(f"No archetype defined for faction {faction!r}")
 
     available = ARCHETYPES[faction]
+    # CRITICAL GATING CONSTRAINT (SWEG_DAEMONS_BELAKOR, 2026-07-02): the
+    # "Scintillating Legion" entry in ARCHETYPES["Chaos Daemons"] is always
+    # present in the module-level dict (a dict literal can't conditionally
+    # omit a key at import time without an import-order-dependent env
+    # read, which is fragile — see the entry's own comment). Filter it out
+    # of `available` HERE, at build time, whenever the gate is not
+    # explicitly on, so `rng.choice(list(available.keys()))` below sees the
+    # exact same 4-entry list, in the same order, that it saw before this
+    # sub-archetype was added — the OFF path is byte-identical to the
+    # pre-change code. When the gate IS on, "Scintillating Legion" is one
+    # of 5 uniformly-chosen entries, same as any other faction archetype.
+    if (
+        faction == "Chaos Daemons"
+        and "Scintillating Legion" in available
+        and os.environ.get("SWEG_DAEMONS_BELAKOR") != "1"
+    ):
+        available = {
+            k: v for k, v in available.items() if k != "Scintillating Legion"
+        }
     if archetype_name is None:
         archetype_name = rng.choice(list(available.keys()))
     # Apply the env-gated list-realism corrections ONCE so the seed walk
