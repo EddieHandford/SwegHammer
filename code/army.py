@@ -496,6 +496,18 @@ class Army:
         self.secondary_track: Optional[str] = None
         self.tactical_hand: List[str] = []
         self.tactical_deck: List[str] = []
+        # Voluntary-discard hold-age tracking (env-gated
+        # SWEG_TAC_VOLUNTARY_DISCARD; see Battle._score_tactical_hand and
+        # data/rule_citations.d/secondaries_pariah_nexus.json#simulator.tactical_voluntary_discard).
+        # Maps a card key currently in `tactical_hand` to the number of full
+        # rounds it has survived un-achieved since being drawn (0 the round
+        # it is drawn, incremented at the end of every round it survives
+        # without being discarded). Populated whenever a card enters the
+        # hand (`Battle._init_tactical_deck` and the redraw step of
+        # `Battle._score_tactical_hand`) regardless of the gate, so the
+        # bookkeeping itself is inert while the gate is off — only the
+        # discard DECISION reads it.
+        self.tactical_hand_age: Dict[str, int] = {}
         # Coordinated army-level activation plan (#161 / S3). Picked once per
         # round by the simulator's `_pick_army_plan` and consulted by both
         # `activation_queue` (to order units that align with the plan first)

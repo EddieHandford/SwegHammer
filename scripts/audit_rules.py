@@ -806,6 +806,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # out). Even-handed track split from unit count; OFF byte-identical.
     # See data/rule_citations.d/secondaries_pariah_nexus.json.
     "simulator.tactical_secondary_deck",
+    # Voluntary discard — the second half of the CA-2025-26 Tactical
+    # Missions end-of-turn rule (env-gated SWEG_TAC_VOLUNTARY_DISCARD,
+    # default off). The pre-existing achieved-card discard above only
+    # implemented the FIRST half of the sentence; this wires up "you can
+    # discard one or more of your active Secondary Mission cards, and if
+    # it is your turn, gain 1 command point". See
+    # data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.tactical_voluntary_discard",
     # Wave 133-135 — secondary dedication PLANNER (env-gated SWEG_SECONDARY),
     # a movement/positioning bias only. The wave-133 scoring gate on the
     # POSITION cards (Engage on All Fronts / Behind Enemy Lines) was REVERTED

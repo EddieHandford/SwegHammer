@@ -3219,6 +3219,19 @@ class Battle:
         data/rule_citations.d/core_secondary_hand_cap.json#simulator.secondary_two_card_hand_cap."""
         return __import__("os").environ.get("SWEG_SECONDARY_HANDCAP", "0") == "1"
 
+    def _tac_voluntary_discard_enabled(self) -> bool:
+        """CA-2025-26 Tactical Missions voluntary discard, the second half of
+        the end-of-turn card-management rule that `_score_tactical_hand`
+        previously only implemented half of (the achieved-card discard).
+        DEFAULT-OFF: `SWEG_TAC_VOLUNTARY_DISCARD` must be exactly "1"; unset /
+        anything else reproduces the OFF path byte-for-byte (no discard
+        decision, no command-point grant, no change to which cards are
+        drawn or when). See `_score_tactical_hand` for the implementation
+        and data/rule_citations.d/secondaries_pariah_nexus.json#simulator.tactical_voluntary_discard
+        for the verbatim rule text."""
+        return __import__("os").environ.get(
+            "SWEG_TAC_VOLUNTARY_DISCARD", "0") == "1"
+
     def _init_tactical_deck(self, army: Army) -> None:
         """Seed a TACTICAL army's 2-card hand + remaining deck deterministically.
 
@@ -3239,6 +3252,7 @@ class Battle:
         army.secondary_track = getattr(army, "secondary_track", None)
         army.tactical_hand = []
         army.tactical_deck = []
+        army.tactical_hand_age = {}
         if not self._tac_deck_enabled():
             return
         if army.secondary_track != "TACTICAL":
@@ -3260,6 +3274,9 @@ class Battle:
         # Draw the opening hand of two (or fewer if the pool is tiny).
         army.tactical_hand = deck[:2]
         army.tactical_deck = deck[2:]
+        # Voluntary-discard hold-age bookkeeping (see `Army.tactical_hand_age`
+        # docstring comment) — every freshly-drawn card starts at age 0.
+        army.tactical_hand_age = {card: 0 for card in army.tactical_hand}
 
     def _score_one_card(self, card_key: str, scoring_army: Army,
                         other_army: Army, own_is_army_a: bool,
@@ -3363,9 +3380,24 @@ class Battle:
         """M2: score a TACTICAL army's <=2 held cards this round, then run the
         achieve→discard→redraw step (a card that scored 1+ VP is discarded and
         replaced from the deck, refilling the hand to two if the deck has cards).
-        Returns the round's total VP from the hand. Scores ONLY the hand."""
+        Returns the round's total VP from the hand. Scores ONLY the hand.
+
+        Wave (voluntary discard, env-gated SWEG_TAC_VOLUNTARY_DISCARD): the
+        achieved-card discard above is only the FIRST half of the verbatim
+        CA-2025-26 end-of-turn rule. The second half lets a player also
+        discard one or more of their still-active (unscored) Secondary
+        Mission cards, gaining 1 command point for doing so on their own
+        turn. See data/rule_citations.d/secondaries_pariah_nexus.json#
+        simulator.tactical_voluntary_discard for the verbatim text. While the
+        gate is off this method is byte-identical to the pre-existing
+        achieve→discard→redraw behaviour."""
         total = 0
         achieved: list = []
+        # Snapshot the hold-age each held card entered this round with —
+        # the voluntary-discard eligibility check below must use "how long
+        # was this card ALREADY held before this round", not an age this
+        # round's own bookkeeping is about to bump.
+        entering_ages = dict(getattr(army, "tactical_hand_age", {}))
         for card in list(army.tactical_hand):
             vp = self._score_one_card(card, army, other_army,
                                       own_is_army_a, round_num)
@@ -3375,8 +3407,50 @@ class Battle:
         # Discard achieved cards and redraw to refill the hand to two.
         for card in achieved:
             army.tactical_hand.remove(card)
+            army.tactical_hand_age.pop(card, None)
+        # Voluntary discard: an ARTIFICIAL-INTELLIGENCE piloting heuristic
+        # decides WHICH card (if any) to discard — the RULE itself (discard +
+        # 1 command point) is verbatim CA-2025-26; the choice of card is not
+        # specified by the rule and is approximated here. A card is only a
+        # candidate once it has survived at least one full previous round
+        # un-achieved (entering_ages captures exactly that: cards drawn THIS
+        # round, whether the opening deal or this round's own redraw below,
+        # are never candidates in the round they are drawn). Every remaining
+        # hand card at this point scored zero this round by construction —
+        # anything that scored 1+ VP was already removed as "achieved" above.
+        # At most ONE voluntary discard per turn (a conservative reading of
+        # the rule's "one or more" — real players rarely dump both cards at
+        # once; see the citation for the full approximation note).
+        if self._tac_voluntary_discard_enabled():
+            eligible = [c for c in army.tactical_hand
+                       if entering_ages.get(c, 0) >= 1]
+            if eligible:
+                # Deterministic pick — no dice may enter this decision (RNG
+                # discipline: only `_init_tactical_deck`'s private stream may
+                # draw cards). Longest-held card first; ties broken by card
+                # key so the choice is reproducible under PYTHONHASHSEED=0.
+                eligible.sort(key=lambda c: (-entering_ages.get(c, 0), c))
+                discard_card = eligible[0]
+                army.tactical_hand.remove(discard_card)
+                army.tactical_hand_age.pop(discard_card, None)
+                # "If you do, and it is your turn, you gain 1CP." The
+                # simulator's round model collapses both players' turns into
+                # one interleaved round rather than modelling alternating
+                # per-player turns (see the ENTER-SCORE comment above
+                # `_run_round`), so each army's own hand-management here already
+                # stands in for the end of THAT army's own turn — the same
+                # approximation the pre-existing achieved-card discard makes
+                # turn-agnostically. The command point is therefore granted
+                # unconditionally to the discarding army.
+                army.command_points = min(CP_CAP, army.command_points + 1)
+        # Cards still held after both discard steps have survived this round
+        # un-achieved; age them by one full round for next round's check.
+        for card in army.tactical_hand:
+            army.tactical_hand_age[card] = army.tactical_hand_age.get(card, 0) + 1
         while len(army.tactical_hand) < 2 and army.tactical_deck:
-            army.tactical_hand.append(army.tactical_deck.pop(0))
+            new_card = army.tactical_deck.pop(0)
+            army.tactical_hand.append(new_card)
+            army.tactical_hand_age[new_card] = 0
         return total
 
     def _score_secondaries_deck(self, round_num: int) -> None:
