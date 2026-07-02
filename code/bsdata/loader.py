@@ -802,13 +802,40 @@ def _apply_override(
             base.invuln_save_melee
             if (key == "necrons_lychguard"
                 and os.environ.get("SWEG_NECRON_LYCHGUARD_INVULN", "1") != "0")
-            else override.get("invuln_save_melee", override.get("invuln_save", base.invuln_save_melee))
+            else override.get(
+                "invuln_save_melee",
+                # SWEG_INVULN_SPLIT_FIX (default-on, `=0` kill-switch) — a
+                # single-value `invuln_save` override must NOT clobber a REAL
+                # per-attack split the mapper extracted from BSData (base
+                # melee != ranged). The 10 Chaos Knight chassis carry
+                # BSData-verbatim "5+ invulnerable save against ranged
+                # attacks" (melee has none), correctly parsed as
+                # ranged=5/melee=7 — but their overrides' generic
+                # `invuln_save: 5` was re-derived onto melee here, a phantom
+                # melee 5++ that under-credits every fist/hammer/chainfist
+                # real armies charge Knights with (the 2026-07-02
+                # substrate-accounting diagnostic). When the base carries a
+                # genuine split, the base's per-attack value wins unless the
+                # override sets the per-attack field EXPLICITLY. Cited
+                # `simulator.invuln_split_fix`.
+                base.invuln_save_melee
+                if (base.invuln_save_melee != base.invuln_save_ranged
+                    and os.environ.get("SWEG_INVULN_SPLIT_FIX", "1") != "0")
+                else override.get("invuln_save", base.invuln_save_melee),
+            )
         ),
         "invuln_save_ranged": (
             base.invuln_save_ranged
             if (key == "necrons_lychguard"
                 and os.environ.get("SWEG_NECRON_LYCHGUARD_INVULN", "1") != "0")
-            else override.get("invuln_save_ranged", override.get("invuln_save", base.invuln_save_ranged))
+            else override.get(
+                "invuln_save_ranged",
+                # SWEG_INVULN_SPLIT_FIX — symmetric guard (see melee above).
+                base.invuln_save_ranged
+                if (base.invuln_save_melee != base.invuln_save_ranged
+                    and os.environ.get("SWEG_INVULN_SPLIT_FIX", "1") != "0")
+                else override.get("invuln_save", base.invuln_save_ranged),
+            )
         ),
         "veterans_of_the_long_war": override.get("veterans_of_the_long_war", base.veterans_of_the_long_war),
         "csm_despoilers": override.get("csm_despoilers", base.csm_despoilers),

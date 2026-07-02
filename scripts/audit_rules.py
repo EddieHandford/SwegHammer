@@ -624,6 +624,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # to Astra Militarum (Principle-2 recipe). Battle._secondary_pursuit_enabled.
     # Cited in data/rule_citations.d/secondaries_pariah_nexus.json.
     "simulator.am_secondary_pursuit",
+    # SWEG_INVULN_SPLIT_FIX. A generic single-value invuln_save override no
+    # longer clobbers a real BSData per-attack ranged/melee split (the Chaos
+    # Knights phantom melee 5++). code/bsdata/loader.py. Cited in
+    # data/rule_citations.d/chaos_knights.json.
+    "simulator.invuln_split_fix",
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
     # hard cap, but real-player CP economy averages ~1 stratagem per
