@@ -616,16 +616,29 @@ class OverridePrecedenceTests(unittest.TestCase):
     correction even though it merged correctly into the aggregate
     UNIT_CATALOG profile.
 
-    The Chaos Knights Knight Despoiler is the motivating real-catalogue case:
-    its overrides.json entry hand-sets `extra_melee_profiles` (a second
-    Reaper chainsword strike profile) AND carries `model_loadouts` (so it
-    takes the per-model path) — exactly the combination a prior audit found
-    silently inert. It is also a single-model unit (min_models == max_models
-    == 1), so the squad build yields exactly one per-model Unit and the
-    comparison against the aggregate profile is direct, no union needed.
+    The Imperial Knights Knight Gallant is the real-catalogue fixture: its
+    overrides.json entry hand-sets `extra_melee_profiles` (the Reaper
+    chainsword strike profile, kept by the 2026-07-02 override-staleness
+    adjudication because the aggregate parsed entry still lacks the second
+    mandatory melee arm) AND the unit carries mapper `model_loadouts` (so it
+    takes the per-model path). It is also a single-model unit (min_models ==
+    max_models == 1), so the squad build yields exactly one per-model Unit
+    and the comparison against the aggregate profile is direct, no union
+    needed. (The original fixture, the Chaos Knights Knight Despoiler, lost
+    its `extra_melee_profiles` override in that same adjudication — the
+    sourced gun build carries no melee arms — so the class moved to the
+    Gallant, which has the identical override shape.)
+
+    Unlike the Despoiler (whose gun-build loadout had no second melee
+    weapon), the Gallant's `model_loadouts` natively carries BOTH melee arms,
+    so the gate-off rebuild produces a non-empty AUTO-GENERATED extra melee
+    list (from the loadout, carrying loadout-only keys such as
+    `damage_dice`) rather than an empty one. The clobber test therefore
+    asserts the hand override is replaced by the loadout-derived value, not
+    that the field is emptied.
     """
 
-    KEY = "chaos_knights_library_knight_despoiler"
+    KEY = "imperial_knights_library_knight_gallant"
 
     def setUp(self):
         self._saved_permodel = os.environ.get("SWEG_PERMODEL")
@@ -652,11 +665,11 @@ class OverridePrecedenceTests(unittest.TestCase):
         army = Army(name="test")
         army.add_squad(prof, prof.max_models)
         self.assertEqual(
-            len(army.units), 1, "Knight Despoiler is a single-model unit"
+            len(army.units), 1, "Knight Gallant is a single-model unit"
         )
         return prof, army.units[0]
 
-    def test_despoiler_carries_the_hand_override_marker(self):
+    def test_gallant_carries_the_hand_override_marker(self):
         """The catalogue entry marks extra_melee_profiles as a hand override
         (from data/overrides.json) and its aggregate profile actually carries
         a non-empty value — the precondition the rest of this test class
@@ -677,7 +690,11 @@ class OverridePrecedenceTests(unittest.TestCase):
         discards the hand extra_melee_profiles override — byte-identical to
         pre-fix behaviour. This pins the bug's presence on the off path so a
         regression in the gate wiring (e.g. an inverted condition) is caught
-        by a test failure rather than a silent behaviour change."""
+        by a test failure rather than a silent behaviour change.
+
+        For the Gallant the loadout itself carries both melee arms, so the
+        clobbered value is the loadout-derived AUTO extra (one entry, with
+        loadout-only keys like `damage_dice`), not the empty tuple."""
         prof, unit = self._build_one()
         self.assertNotEqual(
             unit.profile.extra_melee_profiles,
@@ -686,7 +703,14 @@ class OverridePrecedenceTests(unittest.TestCase):
             "— the byte-identical-off guarantee depends on this clobber "
             "still happening when the gate is unset",
         )
-        self.assertEqual(unit.profile.extra_melee_profiles, ())
+        # The clobbered value is rebuilt FROM THE LOADOUT: exactly one auto
+        # extra (the non-primary melee arm) carrying the loadout-only
+        # `damage_dice` key, which the hand-written override entry lacks.
+        self.assertEqual(len(unit.profile.extra_melee_profiles), 1)
+        rebuilt_entry = dict(unit.profile.extra_melee_profiles[0])
+        self.assertIn("damage_dice", rebuilt_entry)
+        hand_entry = dict(prof.extra_melee_profiles[0])
+        self.assertNotIn("damage_dice", hand_entry)
 
     def test_gate_on_preserves_the_hand_override(self):
         """With SWEG_OVERRIDE_MELEE_PRECEDENCE=1, the per-model profile keeps
@@ -700,7 +724,7 @@ class OverridePrecedenceTests(unittest.TestCase):
 
     def test_gate_on_still_rebuilds_non_overridden_fields(self):
         """The precedence gate is scoped to fields overrides.json actually
-        set. extra_ranged_profiles is NOT in the Despoiler's override, so it
+        set. extra_ranged_profiles is NOT in the Gallant's override, so it
         must still be rebuilt from the per-model loadout data even with the
         gate on — the fix must not become a blanket 'never touch these two
         fields' switch."""
