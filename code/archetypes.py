@@ -1813,7 +1813,7 @@ def _instantiate_template(
     # below — the flagship core is more important than staying under the
     # nominal seed slice.
     if (
-        os.environ.get("SWEG_DAEMONS_BELAKOR") == "1"
+        os.environ.get("SWEG_DAEMONS_BELAKOR", "1") != "0"
         and "chaos_daemons_library_be_lakor" in template
         and "chaos_daemons_library_kairos_fateweaver" in template
     ):
@@ -2253,7 +2253,7 @@ def build_archetype_army(
     if (
         faction == "Chaos Daemons"
         and "Scintillating Legion" in available
-        and os.environ.get("SWEG_DAEMONS_BELAKOR") != "1"
+        and os.environ.get("SWEG_DAEMONS_BELAKOR", "1") == "0"
     ):
         available = {
             k: v for k, v in available.items() if k != "Scintillating Legion"

@@ -2256,7 +2256,7 @@ def _keyword_affinity_score(det: Detachment, units) -> float:
         matched = sum(_pts(u) for u in units if "RUBRICAE" in _kw(u))
     elif (
         det_name == "Scintillating Legion"
-        and os.environ.get("SWEG_DAEMONS_BELAKOR") == "1"
+        and os.environ.get("SWEG_DAEMONS_BELAKOR", "1") != "0"
     ):
         # SWEG_DAEMONS_BELAKOR (2026-07-02): the Scintillating Legion
         # sub-archetype added to `ARCHETYPES["Chaos Daemons"]` in
