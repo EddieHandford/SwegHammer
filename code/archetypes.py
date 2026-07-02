@@ -1482,6 +1482,142 @@ MENU_FACTIONS = frozenset({
 })
 
 
+def _effective_template(
+    faction: Optional[str], template: Dict[str, int]
+) -> Dict[str, int]:
+    """Apply every env-gated list-realism correction and return the
+    EFFECTIVE template.
+
+    Fidelity-first phase B (2026-07-02, owner-authorized; per-faction
+    sourcing in docs/ARCHETYPE_FIDELITY_AUDIT.md and the wave-250/251
+    citations below): called ONCE by `build_archetype_army` so the same
+    effective template reaches BOTH the seed walk AND `_random_fill` —
+    the old in-function gates leaked (the fill received the raw template,
+    so dropped units re-entered via the fill's template-count lookup;
+    with template-first fill adopted, that leak would have been fatal).
+    Every gate is idempotent (pure filters and explicit count
+    assignments), so double application through direct
+    `_instantiate_template` callers is harmless. All gates default OFF;
+    each is faithful list-realism matching sourced tournament lists, NOT
+    win-rate tuning — the metric direction is accepted whatever it is.
+    """
+    fac = faction or ""
+
+    # SWEG_WE_REALISM (wave 250, EXTENDED 2026-07-02) — World Eaters.
+    # Sourced (wave-250 Grimhammer/Best Coast Pairings lists + the
+    # 2026-07-01 audit re-verification, e.g. Bell of Lost Souls April
+    # 2026 "Defiled World Eaters"): real Berzerker Warband lists are
+    # Khârn-anchored with NO Angron, and field none of Bloodletters /
+    # Bloodcrushers / Chaos Terminators / Helbrute; the freshest sourced
+    # list runs 2x Defiler. Drop the phantoms (Khârn, already templated,
+    # becomes the epic-hero anchor) and add the Defiler pillar.
+    if os.environ.get("SWEG_WE_REALISM") == "1" and fac == "World Eaters":
+        _we_drop = {
+            "world_eaters_angron",
+            "world_eaters_bloodletters",
+            "world_eaters_bloodcrushers",
+            "world_eaters_chaos_terminators",
+            "world_eaters_helbrute",
+        }
+        template = {k: v for k, v in template.items() if k not in _we_drop}
+        template["world_eaters_defiler"] = 2
+
+    # SWEG_AM_REALISM (wave 251, moved here 2026-07-02 unchanged) —
+    # Astra Militarum infantry-heavy Combined Arms spine. Sourced:
+    #   https://bladesandbolts.com/2025/10/06/astra-militarum-warhammer-40k-lvo/
+    #   https://grimhammertactics.com/top-10-competitive-warhammer-40k-lists-november-2025/
+    #   https://spikeybits.com/top-40k-tournament-army-lists-rise-of-the-empire-gt/
+    if os.environ.get("SWEG_AM_REALISM") == "1" and fac == "Astra Militarum":
+        template = {
+            "astra_militarum_cadian_shock_troops": 3,
+            "astra_militarum_death_korps_of_krieg": 2,
+            "astra_militarum_kasrkin": 3,
+            "astra_militarum_tempestus_scions": 1,
+            "astra_militarum_cadian_command_squad": 1,
+            "astra_militarum_cadian_heavy_weapons_squad": 1,
+            "astra_militarum_leman_russ_battle_tank": 1,
+            "astra_militarum_leman_russ_demolisher": 1,
+            "astra_militarum_rogal_dorn_battle_tank": 1,
+            "astra_militarum_chimera": 1,
+            "astra_militarum_cadian_castellan": 1,
+            "astra_militarum_ursula_creed": 1,
+            "astra_militarum_lord_solar_leontus": 1,
+        }
+
+    # SWEG_DG_REALISM (2026-07-02) — Death Guard. Sourced (audit agent:
+    # Warhammer Open Tacoma 1st, Lorecast Major 1st, tabletopbattles
+    # detachment focus; zero sourced lists field Typhus or the Foul
+    # Blightspawn; the Daemon Prince of Nurgle "shows up in most, if not
+    # all, competitive lists"; "at least two units of Deathshroud";
+    # ~48-58 real models vs the sim's ~34): drop the two phantom
+    # characters, add the Daemon Prince + a second Lord of Contagion,
+    # double Deathshroud and Poxwalkers bodies, and thin the Plagueburst
+    # Crawler seed to one (the post-Q1-2026-dataslate meta moved off
+    # multi-Crawler builds — the weakest-sourced item here, flagged for
+    # re-verification in the audit).
+    if os.environ.get("SWEG_DG_REALISM") == "1" and fac == "Death Guard":
+        _dg_drop = {"death_guard_typhus", "death_guard_foul_blightspawn"}
+        template = {k: v for k, v in template.items() if k not in _dg_drop}
+        template["death_guard_daemon_prince_of_nurgle"] = 1
+        template["death_guard_lord_of_contagion"] = 2
+        template["death_guard_deathshroud_terminators"] = 2
+        template["death_guard_poxwalkers"] = 2
+        template["death_guard_plagueburst_crawler"] = 1
+
+    # SWEG_EC_REALISM (2026-07-02) — Emperor's Children. Sourced (audit
+    # agent: Kyle Sams 2nd Battle For The Capital, Bell of Lost Souls
+    # "Triple Defiler" April 2026, Stoke Gifford Supermajor): Fulgrim /
+    # Keeper of Secrets / Daemonettes / Seekers / Fiends / Chaos
+    # Terminators / Heldrake appear in ZERO sourced lists (Fulgrim alone
+    # was 17% of every sim army's points); real lists run 3x Lord
+    # Exultant, 2x Noise Marines, and Defilers as the monster pillar.
+    if os.environ.get("SWEG_EC_REALISM") == "1" and fac == "Emperor's Children":
+        _ec_drop = {
+            "emperor_s_children_fulgrim",
+            "emperor_s_children_keeper_of_secrets",
+            "emperor_s_children_daemonettes",
+            "emperor_s_children_seekers",
+            "emperor_s_children_fiends",
+            "emperor_s_children_chaos_terminators",
+            "emperor_s_children_heldrake",
+        }
+        template = {k: v for k, v in template.items() if k not in _ec_drop}
+        template["emperor_s_children_lord_exultant"] = 3
+        template["emperor_s_children_noise_marines"] = 2
+        template["emperor_s_children_defiler"] = 2
+
+    # SWEG_IK_REALISM (2026-07-02) — Imperial Knights. Sourced (audit
+    # agent: CaptainCon 2026 1st place ran Cerastus Atrapos + Cerastus
+    # Lancer + Knight Defender + Armigers; ZERO sourced lists ran Canis
+    # Rex, which the greedy walk force-seeded into 100% of builds): drop
+    # Canis Rex and add the real big-Knight core to the menu. With Canis
+    # dropped the deterministic anchor becomes the Knight Defender (415),
+    # matching the sourced core.
+    if os.environ.get("SWEG_IK_REALISM") == "1" and fac == "Imperial Knights":
+        template = {
+            k: v for k, v in template.items()
+            if k != "imperial_knights_library_canis_rex"
+        }
+        template["imperial_knights_library_cerastus_knight_lancer"] = 1
+        template["imperial_knights_library_cerastus_knight_atrapos"] = 1
+        template["imperial_knights_library_knight_defender"] = 1
+
+    # SWEG_CK_REALISM (2026-07-02) — Chaos Knights. Sourced (audit agent:
+    # CaptainCon 2026 2nd ran 2x Chaos Cerastus Lancer + Despoilers; Big
+    # Sky Open 1st ran Chaos Cerastus Atrapos + 2x Despoiler; the meta
+    # commentary pick is "three Knight Despoilers"): add the Chaos
+    # Cerastus pair and raise the Despoiler count to two. The Knight
+    # Tyrant (410) remains the deterministic anchor, matching the
+    # Tyrant-anchored Iconoclast 3-0 sourced list.
+    if os.environ.get("SWEG_CK_REALISM") == "1" and fac == "Chaos Knights":
+        template = dict(template)
+        template["chaos_knights_library_chaos_cerastus_knight_lancer"] = 1
+        template["chaos_knights_library_chaos_cerastus_knight_atrapos"] = 1
+        template["chaos_knights_library_knight_despoiler"] = 2
+
+    return template
+
+
 def _instantiate_template(
     template: Dict[str, int],
     points_budget: float,
@@ -1512,70 +1648,15 @@ def _instantiate_template(
     if not template or points_budget <= 0:
         return {}
 
-    # Wave 250 (gated SWEG_WE_REALISM, default-off) — World Eaters list-realism
-    # anchor swap. The (-count, -cost) walk and the EPIC HERO anchor below
-    # force-seed the most expensive template EPIC HERO; for World Eaters that is
-    # Angron (the priciest WE epic hero), so the builder fields him in nearly
-    # every game. But three sourced May-2026 competitive Berzerker Warband lists
-    # are Khârn-anchored with no Angron, and dedicated Angron lists are a small
-    # minority at top tables:
-    #   https://grimhammertactics.com/top-10-competitive-warhammer-40k-lists-september-2025/
-    #   https://grimhammertactics.com/top-10-competitive-warhammer-40k-lists-october-2025/
-    #   https://grimhammertactics.com/top-10-competitive-warhammer-40k-lists-december-2025/
-    # (extracted from Best Coast Pairings tournament results). When the gate is
-    # on, drop Angron from the World Eaters template so the next-most-expensive
-    # EPIC HERO — Khârn the Betrayer — anchors instead, matching the cited lists.
-    # Faithful list-realism (wave-174/175 precedent), NOT win-rate tuning: the
-    # change matches the real list and accepts whatever metric direction results.
-    # OFF path (the default) is byte-identical to the pre-wave-250 build.
-    if (
-        os.environ.get("SWEG_WE_REALISM") == "1"
-        and (faction or "") == "World Eaters"
-        and "world_eaters_angron" in template
-    ):
-        template = {
-            k: v for k, v in template.items() if k != "world_eaters_angron"
-        }
+    # List-realism gates now live in `_effective_template` (2026-07-02,
+    # fidelity-first phase B) so the SAME effective template reaches BOTH
+    # this seed walk and `_random_fill` — the old in-function gates leaked:
+    # the fill received the RAW template, so a unit the gate dropped
+    # (Angron) re-entered ~27% of builds via the fill's template-count
+    # lookup. Applied here for direct callers; idempotent, so the second
+    # application via build_archetype_army is harmless.
+    template = _effective_template(faction, template)
 
-    # Wave 251 (gated SWEG_AM_REALISM, default-off) — Astra Militarum list-realism.
-    # The current "Combined Arms" template hard-seeds 7 vehicles + 3 characters
-    # (~1600pt); the (-count, -cost) walk seeds the expensive tanks first, so the
-    # seed budget is exhausted before the infantry and the build fields only
-    # ~20-33 infantry bodies / ~28-63 total models with 59-75% of points in hulls
-    # — the hull-spam variant the meta rates C-D tier (40-44% win rate), not the
-    # competitive shape. Real competitive Astra Militarum (Combined Arms / Grizzled
-    # Company) fields ~55-75 INFANTRY bodies + 4-6 vehicles; the LVO XII champion
-    # (Recon Element, 9-0-1) ran ~184 infantry and a single vehicle:
-    #   https://bladesandbolts.com/2025/10/06/astra-militarum-warhammer-40k-lvo/
-    #   https://grimhammertactics.com/top-10-competitive-warhammer-40k-lists-november-2025/
-    #   https://spikeybits.com/top-40k-tournament-army-lists-rise-of-the-empire-gt/
-    # (extracted from Best Coast Pairings / tournament results). When the gate is
-    # on, seed an infantry-heavy Combined Arms spine — high BATTLELINE counts so the
-    # count-ordered walk seeds the BODIES first — and cut the vehicle seed to four
-    # (2 Leman Russ + Rogal Dorn + a Chimera transport), dropping the surplus
-    # artillery (Basilisk / Manticore / Taurox Prime / Rough Riders). Faithful
-    # list-realism (wave-250 precedent), NOT win-rate tuning — matches the cited
-    # lists and accepts whatever metric direction results. OFF path (the default)
-    # is byte-identical to the pre-wave-251 build.
-    if (
-        os.environ.get("SWEG_AM_REALISM") == "1"
-        and (faction or "") == "Astra Militarum"
-    ):
-        template = {
-            "astra_militarum_cadian_shock_troops": 3,
-            "astra_militarum_death_korps_of_krieg": 2,
-            "astra_militarum_kasrkin": 3,
-            "astra_militarum_tempestus_scions": 1,
-            "astra_militarum_cadian_command_squad": 1,
-            "astra_militarum_cadian_heavy_weapons_squad": 1,
-            "astra_militarum_leman_russ_battle_tank": 1,
-            "astra_militarum_leman_russ_demolisher": 1,
-            "astra_militarum_rogal_dorn_battle_tank": 1,
-            "astra_militarum_chimera": 1,
-            "astra_militarum_cadian_castellan": 1,
-            "astra_militarum_ursula_creed": 1,
-            "astra_militarum_lord_solar_leontus": 1,
-        }
 
     # Wave 244 leader-stack gate — read once, consulted by the sort-key
     # tiebreak, the EPIC HERO anchor trigger, and the fraction override
@@ -1923,8 +2004,15 @@ def _random_fill(
     # seed slice. All caps (BATTLELINE, wrecker, EPIC HERO, per-name spend)
     # apply unchanged on both paths. OFF path byte-identical (the template
     # preference is never consulted). Cited `simulator.fill_template_pool`.
+    # ADOPTED default-on 2026-07-02: full-frame N=40 vs sc36a read an
+    # aggregate WASH (5.01 -> 4.96) over a huge faithful redistribution —
+    # good templates snapped toward real (Chaos Daemons -13.5 onto its
+    # target as the off-god contamination cured), bad templates were
+    # AMPLIFIED (Death Guard +14.2 = the phantom-heavy template expressed
+    # fully). Template quality now governs the army; the phase-B template
+    # corrections land on this frame. `=0` kill-switch.
     _fill_template_pool = (
-        os.environ.get("SWEG_FILL_TEMPLATE_POOL", "0") == "1"
+        os.environ.get("SWEG_FILL_TEMPLATE_POOL", "1") != "0"
         and bool(template_count_by_name)
     )
 
@@ -2043,7 +2131,11 @@ def build_archetype_army(
     available = ARCHETYPES[faction]
     if archetype_name is None:
         archetype_name = rng.choice(list(available.keys()))
-    template = available[archetype_name]
+    # Apply the env-gated list-realism corrections ONCE so the seed walk
+    # and `_random_fill` see the SAME effective template (the fix for the
+    # wave-250 gate leak; `_instantiate_template` re-applies internally
+    # for direct callers — idempotent, harmless).
+    template = _effective_template(faction, available[archetype_name])
 
     counts = _instantiate_template(template, points_budget, rng, faction=faction)
 
