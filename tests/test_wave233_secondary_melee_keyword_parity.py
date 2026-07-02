@@ -113,45 +113,62 @@ class SecondaryKeywordParityParsedJsonTests(unittest.TestCase):
             ),
         )
 
-    def test_csm_helbrute_secondary_hazardous(self):
-        """The Chaos Space Marines Helbrute secondary (Helbrute plasma cannon)
-        carries secondary_hazardous=True in parsed.json.
+    def test_helbrute_secondary_hazardous(self):
+        """The Death Guard Helbrute secondary (Plasma cannon) carries
+        secondary_hazardous=True in parsed.json.
 
         Before the fix, secondary_hazardous did not exist, so the secondary
         profile silently inherited hazardous=False from the primary multi-melta,
-        meaning the Helbrute never self-harmed when firing the plasma cannon."""
-        unit = self.by_key.get("chaos_space_marines_helbrute")
+        meaning the Helbrute never self-harmed when firing the plasma cannon.
+
+        Re-anchored from the Chaos Space Marines Helbrute to the Death Guard
+        Helbrute when the SWEG_CHOICE_TARGET_BASKET regeneration re-resolved the
+        Chaos Space Marines Helbrute's secondary to a Twin lascannon (a
+        higher-value anti-tank weapon that is not hazardous). Both Helbrutes
+        share the Multi-melta primary; the Death Guard Helbrute keeps the
+        hazardous Plasma cannon secondary, so it exercises the same
+        keyword-propagation mechanism this guard was written for."""
+        unit = self.by_key.get("death_guard_helbrute")
         if unit is None:
-            self.skipTest("chaos_space_marines_helbrute not in parsed.json")
+            self.skipTest("death_guard_helbrute not in parsed.json")
         self.assertIn(
             "secondary_hazardous",
             unit,
-            msg="secondary_hazardous field absent from Chaos Space Marines Helbrute unit record",
+            msg="secondary_hazardous field absent from Death Guard Helbrute unit record",
         )
         self.assertTrue(
             unit["secondary_hazardous"],
             msg=(
-                f"Chaos Space Marines Helbrute secondary_hazardous="
+                f"Death Guard Helbrute secondary_hazardous="
                 f"{unit['secondary_hazardous']!r}, expected True "
                 f"(secondary weapon: {unit.get('secondary_weapon')!r})"
             ),
         )
 
-    def test_genestealer_saboteur_secondary_indirect_fire(self):
-        """The Genestealer Cults Reductus Saboteur secondary (Remote explosives)
-        carries secondary_indirect_fire=True in parsed.json."""
-        unit = self.by_key.get("genestealer_cults_reductus_saboteur")
+    def test_exorcist_secondary_indirect_fire(self):
+        """The Adepta Sororitas Exorcist secondary (Exorcist Conflagration
+        Rockets) carries secondary_indirect_fire=True in parsed.json.
+
+        Re-anchored from the Genestealer Cults Reductus Saboteur: under
+        SWEG_CHOICE_TARGET_BASKET the Saboteur's every-round Remote explosives
+        (not one-shot) now out-scores its one-shot Demolition charges, so Remote
+        explosives becomes the primary and the indirect Remote-explosives profile
+        leaves the secondary slot. The Exorcist is a canonical indirect-fire
+        artillery tank whose secondary rockets stay indirect through the regen,
+        so it exercises the same secondary_indirect_fire propagation this guard
+        was written for."""
+        unit = self.by_key.get("adepta_sororitas_exorcist")
         if unit is None:
-            self.skipTest("genestealer_cults_reductus_saboteur not in parsed.json")
+            self.skipTest("adepta_sororitas_exorcist not in parsed.json")
         self.assertIn(
             "secondary_indirect_fire",
             unit,
-            msg="secondary_indirect_fire field absent from Reductus Saboteur unit record",
+            msg="secondary_indirect_fire field absent from Exorcist unit record",
         )
         self.assertTrue(
             unit["secondary_indirect_fire"],
             msg=(
-                f"Reductus Saboteur secondary_indirect_fire="
+                f"Exorcist secondary_indirect_fire="
                 f"{unit['secondary_indirect_fire']!r}, expected True "
                 f"(secondary weapon: {unit.get('secondary_weapon')!r})"
             ),
@@ -227,12 +244,15 @@ class SecondaryKeywordParityUnitCatalogTests(unittest.TestCase):
             ),
         )
 
-    def test_csm_helbrute_catalog_secondary_hazardous(self):
-        """After the full load, the Chaos Space Marines Helbrute UnitProfile
-        carries secondary_hazardous=True."""
-        profile = UNIT_CATALOG.get("chaos_space_marines_helbrute")
+    def test_helbrute_catalog_secondary_hazardous(self):
+        """After the full load, the Death Guard Helbrute UnitProfile carries
+        secondary_hazardous=True. Re-anchored from the Chaos Space Marines
+        Helbrute (see test_helbrute_secondary_hazardous for why the basket
+        regeneration moved that unit's hazardous plasma cannon off the secondary
+        slot)."""
+        profile = UNIT_CATALOG.get("death_guard_helbrute")
         if profile is None:
-            self.skipTest("chaos_space_marines_helbrute not in UNIT_CATALOG")
+            self.skipTest("death_guard_helbrute not in UNIT_CATALOG")
         self.assertTrue(
             hasattr(profile, "secondary_hazardous"),
             msg="secondary_hazardous attribute absent from UnitProfile",
@@ -240,7 +260,7 @@ class SecondaryKeywordParityUnitCatalogTests(unittest.TestCase):
         self.assertTrue(
             profile.secondary_hazardous,
             msg=(
-                f"Chaos Space Marines Helbrute UnitProfile.secondary_hazardous="
+                f"Death Guard Helbrute UnitProfile.secondary_hazardous="
                 f"{profile.secondary_hazardous!r}, expected True"
             ),
         )

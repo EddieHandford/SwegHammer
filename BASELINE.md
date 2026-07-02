@@ -123,6 +123,21 @@ tree. Overrides correct residual mapper artefacts (missing armour profiles
 that fall outside the depth-3 wargear walk, units whose squad SEG fails to
 parse, etc.).
 
+When the mapper resolves a weapon CHOICE — which option a "replace this weapon
+with one of the following" group takes, or which of a chassis's guns is its
+primary — it scores each candidate. The legacy score was expected damage against
+the baseline Marine alone, which has no wound roll, so a weapon's Strength was
+ignored and every anti-tank option (high Strength, low volume) lost to the
+higher-volume anti-infantry option in its group (the Drukhari Ravager fired
+Strength 6 Disintegrator Cannons instead of Strength 12 Dark Lances). The
+`SWEG_CHOICE_TARGET_BASKET` gate (read at mapper-regeneration time; the shipped
+`data/bsdata/parsed.json` is generated with it on) instead scores each option
+against a representative target basket — a weighted set of the three target
+classes a real 2000-point field presents (light infantry, heavy infantry,
+monster/vehicle, with weights taken from the tournament archetype census) —
+with the Strength-versus-Toughness wound roll included, so an anti-tank option
+wins wherever its Strength earns it against the field's armour.
+
 This does **not** guarantee Lanchester balance (equal aggregate score for equal
 points), but provides a well-understood baseline for the simulation to measure
 against.

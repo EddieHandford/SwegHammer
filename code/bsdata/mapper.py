@@ -23,6 +23,7 @@ the SwegHammer offensive metric  attacks * hit_prob * damage *
 from __future__ import annotations
 
 import json
+import os
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import asdict, dataclass, field
@@ -43,6 +44,90 @@ PARSED_PATH = CACHE_DIR.parent / "parsed.json"
 # Baseline Marine for the offensive metric — kept in sync with code/units.py
 BASELINE_SAVE = 3
 BASELINE_AP = 0
+
+
+# ---------------------------------------------------------------------------
+# Weapon-CHOICE target basket (SWEG_CHOICE_TARGET_BASKET)
+# ---------------------------------------------------------------------------
+#
+# The legacy weapon-choice score `expected_damage_through_baseline` scores a
+# weapon as  attacks * hit_prob * damage * (1 - marine_save_after_ap)  — it has
+# NO strength-versus-toughness wound roll at all, so a weapon's Strength is
+# ignored entirely when a choice group is resolved. Consequence: every anti-tank
+# option (high Strength, low volume) loses to the higher-volume anti-infantry
+# option in its group, because the only thing the score rewards is raw shot
+# volume times flat damage. The canonical live case is the Drukhari Ravager,
+# which the mapper equips with Disintegrator Cannons (Strength 6) instead of
+# Dark Lances (Strength 12); the whole field ends up under-armed against
+# vehicles and monsters.
+#
+# The fix, gated behind SWEG_CHOICE_TARGET_BASKET, scores every weapon-choice
+# option against a REPRESENTATIVE TARGET BASKET — a weighted set of the three
+# target classes a real 2000-point field presents — WITH the wound roll the
+# baseline metric omitted. An option's basket score is the weighted sum of its
+# expected damage against each class, so an anti-tank option wins wherever its
+# Strength earns it against the monster/vehicle share of the field.
+#
+# The class weights are the census of the tournament ARCHETYPES templates
+# (code/archetypes.py): every unit the archetypes field was classified into one
+# of the three classes (monster/vehicle if it carries the VEHICLE, MONSTER or
+# TITANIC keyword; heavy infantry if it has a 3+-or-better save, Toughness 5+ or
+# 2+ wounds; light infantry otherwise), and the classes were counted weighted by
+# the archetypes' own template counts. That census is:
+#     light infantry     15.2 %   (Gaunts / Guardsmen / Cultists — Toughness 3, save 5+)
+#     heavy infantry      51.4 %   (Marines / Terminators / Custodes — Toughness 4, save 3+)
+#     monster / vehicle   33.4 %   (Toughness 10, save 3+)
+# rounded to the weights below (which sum to exactly 1.0). The representative
+# Toughness / Save per class are the medians of the units the archetypes field
+# in that class. Damage is NOT capped at the target's wounds — this keeps the
+# metric's damage treatment identical to the legacy baseline metric, so the only
+# structural change is the newly-added wound roll and the multi-class basket.
+#
+# Each entry: (weight, toughness, save, keywords, melta_applies). `keywords` is
+# the target-class keyword set an Anti-X weapon keyword improves the wound roll
+# against; `melta_applies` adds the weapon's Melta bonus to its damage (half-range
+# assumption) only against the monster/vehicle class.
+_CHOICE_TARGET_BASKET = (
+    (0.15, 3, 5, frozenset({"INFANTRY"}), False),               # light infantry
+    (0.51, 4, 3, frozenset({"INFANTRY"}), False),               # heavy infantry
+    (0.34, 10, 3, frozenset({"VEHICLE", "MONSTER"}), True),     # monster / vehicle
+)
+
+# Whether the choice scorers use the target basket. Read once at mapper import /
+# regeneration time (rule 13 — an explicit, documented default, not a silent
+# fallback). Default OFF reproduces parsed.json byte-for-byte; the fix ships by
+# regenerating parsed.json with this ON and committing the new data, exactly as
+# the choice-group fix did.
+_USE_CHOICE_BASKET = os.environ.get(
+    "SWEG_CHOICE_TARGET_BASKET", "0"
+).strip().lower() not in ("", "0", "false", "off", "no")
+
+
+def _wound_probability(strength: int, toughness: int) -> float:
+    """10e Strength-versus-Toughness wound chart. Mirrors
+    code/units.wound_probability verbatim; kept local so the mapper does not
+    import the catalogue module (avoids an import cycle)."""
+    if strength >= 2 * toughness:
+        return 5 / 6
+    if 2 * strength <= toughness:
+        return 1 / 6
+    if strength > toughness:
+        return 4 / 6
+    if strength == toughness:
+        return 3 / 6
+    return 2 / 6   # strength < toughness but not 2S <= T
+
+
+def _save_prob_after_ap(save: int, ap: int) -> float:
+    """Probability a model with this armour save passes against a weapon with
+    this AP. Generalises `_baseline_save_after_ap` to any save characteristic.
+    A save can never be better than 2+ (a natural 1 always fails)."""
+    effective = save - ap  # ap is negative
+    if effective > 6:
+        return 0.0
+    if effective < 2:
+        effective = 2
+    return max(0.0, (7 - effective) / 6.0)
 
 
 # ---------------------------------------------------------------------------
@@ -246,16 +331,11 @@ class WeaponStats:
     lance_basket_fraction: float = 1.0
     anti_keyword_basket_fractions: Dict[str, float] = field(default_factory=dict)
 
-    def expected_damage_through_baseline(self) -> float:
-        """Expected damage per activation against a baseline Marine."""
-        base = (
-            self.attacks
-            * self.hit_prob
-            * self.damage
-            * (1.0 - _baseline_save_after_ap(self.ap))
-        )
-        # Approximate ability boosts so the loadout optimiser doesn't undervalue
-        # high-ability weapons. Small multiplicative bumps based on common math.
+    def _apply_keyword_bumps(self, base: float) -> float:
+        """Approximate ability boosts so the loadout optimiser doesn't
+        undervalue high-ability weapons. Small multiplicative bumps based on
+        common math. Shared by the baseline-Marine and target-basket scorers so
+        both rank abilities on the same footing."""
         if self.lethal_hits:
             base *= 1.15
         if self.sustained_hits:
@@ -265,6 +345,74 @@ class WeaponStats:
         if self.devastating_wounds:
             base *= 1.10
         return base
+
+    def expected_damage_through_baseline(self) -> float:
+        """Expected damage per activation against a baseline Marine."""
+        base = (
+            self.attacks
+            * self.hit_prob
+            * self.damage
+            * (1.0 - _baseline_save_after_ap(self.ap))
+        )
+        return self._apply_keyword_bumps(base)
+
+    def expected_damage_vs_basket(self) -> float:
+        """Expected damage per activation against the representative target
+        basket (`_CHOICE_TARGET_BASKET`).
+
+        Unlike `expected_damage_through_baseline`, this INCLUDES the
+        Strength-versus-Toughness wound roll — the term the baseline metric
+        omits, which made every anti-tank option lose to a higher-volume
+        anti-infantry option in its choice group. The score is the weighted sum
+        over the three target classes of
+
+            attacks * hit_prob * wound_prob(S, T) * unsaved(save, AP) * damage
+
+        with the same multiplicative ability bumps applied on top. An Anti-X
+        weapon keyword improves the wound roll against a class carrying keyword
+        X, and Melta adds its bonus to damage against the monster/vehicle class
+        (half-range assumption). Damage is NOT capped at the target's wounds,
+        matching the baseline metric's damage treatment.
+
+        A [ONE SHOT] weapon is discounted to one fifth of its per-activation
+        score: it fires once in a roughly five-round battle, whereas a normal
+        weapon fires every round, so a one-shot bonus weapon (a hunter-killer
+        missile) must never out-rank a unit's every-round gun as its primary.
+        The baseline metric could not surface this because, lacking the wound
+        roll, it already under-rated the high-Strength one-shot missiles; adding
+        the wound roll makes the discount necessary."""
+        base = 0.0
+        anti = self.anti_keywords or {}
+        for weight, toughness, save, class_keywords, melta_applies in _CHOICE_TARGET_BASKET:
+            wound = _wound_probability(self.strength, toughness)
+            for keyword, threshold in anti.items():
+                if keyword in class_keywords:
+                    try:
+                        wound = max(wound, (7 - int(threshold)) / 6.0)
+                    except (TypeError, ValueError):
+                        continue
+            damage = self.damage + (self.melta if melta_applies else 0)
+            unsaved = 1.0 - _save_prob_after_ap(save, self.ap)
+            base += weight * self.attacks * self.hit_prob * wound * unsaved * damage
+        score = self._apply_keyword_bumps(base)
+        if self.one_shot:
+            score *= 0.2   # fires once per ~5-round battle, not every round
+        return score
+
+
+def _choice_score(weapon: "WeaponStats") -> float:
+    """Score a weapon for a CHOICE decision (which option a choice group takes,
+    which weapon is a chassis's primary, the ranking of secondary profiles).
+
+    Behind `SWEG_CHOICE_TARGET_BASKET` (read once at mapper-run / regeneration
+    time) this is the Toughness-aware target-basket score, so anti-tank options
+    win where their Strength earns it. With the gate OFF (the default) it is
+    byte-for-byte the legacy baseline-Marine score, so a gate-off regeneration
+    reproduces `parsed.json` exactly. Every weapon-choice scorer in the mapper
+    routes through this one function so the catalogue is scored consistently."""
+    if _USE_CHOICE_BASKET:
+        return weapon.expected_damage_vs_basket()
+    return weapon.expected_damage_through_baseline()
 
 
 def weighted_basket_average(basket: "List[tuple[float, WeaponStats]]") -> Optional["WeaponStats"]:
@@ -1287,11 +1435,11 @@ def _collect_weapons_for_model(
                     melee_modes.append(w)
         if ranged_modes:
             ranged_picks.append(
-                max(ranged_modes, key=lambda w: w.expected_damage_through_baseline())
+                max(ranged_modes, key=lambda w: _choice_score(w))
             )
         if melee_modes:
             melee_picks.append(
-                max(melee_modes, key=lambda w: w.expected_damage_through_baseline())
+                max(melee_modes, key=lambda w: _choice_score(w))
             )
 
     # Weapon-option groups — pick the BEST single alternative within each.
@@ -1307,10 +1455,10 @@ def _collect_weapons_for_model(
             continue
         candidates_ranged, candidates_melee = _gather_group_candidates(grp, reg)
         if candidates_ranged:
-            best_r = max(candidates_ranged, key=lambda w: w.expected_damage_through_baseline())
+            best_r = max(candidates_ranged, key=lambda w: _choice_score(w))
             ranged_picks.append(best_r)
         if candidates_melee:
-            best_m = max(candidates_melee, key=lambda w: w.expected_damage_through_baseline())
+            best_m = max(candidates_melee, key=lambda w: _choice_score(w))
             melee_picks.append(best_m)
 
     # GSC-REGRESSION-V1 / HETERO-SQUAD-MAPPER-V2: keep only the BEST single
@@ -1349,7 +1497,7 @@ def _collect_weapons_for_model(
         if non_pistol:
             # Keep only the single best non-pistol (primary) ranged weapon.
             ranged_picks = [
-                max(non_pistol, key=lambda w: w.expected_damage_through_baseline())
+                max(non_pistol, key=lambda w: _choice_score(w))
             ]
         # else: all weapons are [PISTOL]; keep all (pistol-only model).
 
@@ -1440,11 +1588,11 @@ def _gather_group_candidates(
         # single candidate this entry contributes.
         if r_list:
             candidates_ranged.append(
-                max(r_list, key=lambda w: w.expected_damage_through_baseline())
+                max(r_list, key=lambda w: _choice_score(w))
             )
         if m_list:
             candidates_melee.append(
-                max(m_list, key=lambda w: w.expected_damage_through_baseline())
+                max(m_list, key=lambda w: _choice_score(w))
             )
 
     # 3. inline nested selectionEntryGroup children — flatten their candidates up
@@ -1525,11 +1673,11 @@ def _gather_group_options(
             continue
         r_list, m_list = _weapons_from_inline_entry(child)
         best_r = (
-            max(r_list, key=lambda w: w.expected_damage_through_baseline())
+            max(r_list, key=lambda w: _choice_score(w))
             if r_list else None
         )
         best_m = (
-            max(m_list, key=lambda w: w.expected_damage_through_baseline())
+            max(m_list, key=lambda w: _choice_score(w))
             if m_list else None
         )
         if best_r is not None or best_m is not None:
@@ -1726,7 +1874,7 @@ def _best_candidate(
     candidate list (the player's one pick from that group)."""
     if not candidates:
         return None
-    return max(candidates, key=lambda w: w.expected_damage_through_baseline())
+    return max(candidates, key=lambda w: _choice_score(w))
 
 
 def _weapon_base_name(name: str) -> str:
@@ -1749,9 +1897,9 @@ def _option_expected_damage(option: WeaponOption) -> float:
     r, m = option
     total = 0.0
     if r is not None:
-        total += r.expected_damage_through_baseline()
+        total += _choice_score(r)
     if m is not None:
-        total += m.expected_damage_through_baseline()
+        total += _choice_score(m)
     return total
 
 
@@ -2621,7 +2769,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     if used_heterogeneous and loadout_basket_ranged:
         best = weighted_basket_average(loadout_basket_ranged)
     elif gear.ranged_weapons:
-        best = max(gear.ranged_weapons, key=lambda w: w.expected_damage_through_baseline())
+        best = max(gear.ranged_weapons, key=lambda w: _choice_score(w))
     else:
         best = None
     # ---- Phase 2 / iter33: pick a SECONDARY ranged weapon, distinct from
@@ -2650,7 +2798,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         ]
         remaining_sorted = sorted(
             remaining,
-            key=lambda w: w.expected_damage_through_baseline(),
+            key=lambda w: _choice_score(w),
             reverse=True,
         )
         # De-duplicate by (name, range) so the same profile under different
@@ -2672,7 +2820,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     if used_heterogeneous and loadout_basket_melee:
         best_melee = weighted_basket_average(loadout_basket_melee)
     elif gear.melee_weapons:
-        best_melee = max(gear.melee_weapons, key=lambda w: w.expected_damage_through_baseline())
+        best_melee = max(gear.melee_weapons, key=lambda w: _choice_score(w))
     else:
         best_melee = None
     # DAEMONS-EXTRA-MELEE-MAPPER-V1 — collect EXTRA ATTACKS melee weapons.
