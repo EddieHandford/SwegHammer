@@ -869,11 +869,31 @@ _TACTICAL_TRACK_MIN_UNITS: int = 8   # broad-enough roster to spread + redraw
 
 
 def _tac_deck_enabled() -> bool:
-    """M2 real 2-card Tactical secondary deck. Env-gated SWEG_TAC_DECK; unset →
-    legacy `pick_secondaries` / `_score_secondaries` (union of all sources)
-    runs byte-identical. Kept as a function so a future A/B can re-gate via a
-    one-line edit and so OFF is unambiguous at every call site."""
+    """M2 real 2-card Tactical secondary deck — CONSUMER gate-read.
+
+    GATE-MISMATCH FIX (SWEG_TAC_DECK_CONSUMER_FIX, default-off while
+    screening): the deck was ADOPTED default-on at wave 210, but only the
+    simulator-side read (`Battle._tac_deck_enabled`, `!= "0"` = default-ON)
+    was flipped — this module-side read stayed at `== "1"` (default-OFF), so
+    at production defaults the two halves of the pipeline DISAGREED: the
+    Battle initialised 2-card tactical decks while this module's
+    `pick_secondaries` path stuffed the full legacy union of card sources,
+    and the scorer's fallback branch scored all of them, every round,
+    uncapped — the measured ~39 secondary victory points per player per game
+    versus the real 22.7 (docs/REAL_META_SIGNATURES.md). Same defect class
+    as the wave-254 markerlight consumer gate-read fix. With the fix gate ON
+    this read matches the simulator's (`SWEG_TAC_DECK != "0"`, default-ON);
+    with it OFF the legacy mismatched read is preserved byte-identically.
+    Rides on the existing wave-210 deck citation; the fix changes no rule
+    content, only makes the adopted rule actually run end-to-end."""
     import os
+    # ADOPTED default-on 2026-07-02 (fidelity-first ruling): full-frame N=40
+    # vs sc35a read gated 2.37 -> 5.09 — the quantified compensating error
+    # (durables up to +17.9, hordes to -12.5) — and the going-first signature
+    # fell from ~69% to 50.0% (real 49-52%). `=0` restores the mismatched
+    # legacy read byte-identically.
+    if os.environ.get("SWEG_TAC_DECK_CONSUMER_FIX", "1") != "0":
+        return os.environ.get("SWEG_TAC_DECK", "1") != "0"
     return os.environ.get("SWEG_TAC_DECK") == "1"
 
 

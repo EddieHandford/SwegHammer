@@ -79,5 +79,13 @@
     "trigger": "The Ritual primary mission: a player controlling objective markers in No Man's Land at the end of its Command phase (from the second battle round). Home / deployment-zone markers score nothing.",
     "effect": "wave 203 (#87, active under the the_ritual primary): score 5 VP per controlled No Man's Land marker, capped at 15 VP/round. The No-Man's-Land-only scoring forces every army to contest the centre (a back-camping gunline scores 0). The Ritual ACTION (set up a NEW No Man's Land marker) is NOT modelled — the sim's objective set is fixed, so dynamic marker creation is out of scope for the bounded avenue-1 close; only the No-Man's-Land-only hold pressure is captured (the same partial-then-extend pattern as Scorched's hold-before-Burn). Verified verbatim 2026-06-05 (Wahapedia CA-2025-26).",
     "scope": "phase-gated"
+  },
+  "simulator.primary_vp_round5_second_player": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/",
+    "rule_name": "Primary Mission scoring timing — fifth-battle-round going-second exception (Chapter Approved 2025-26)",
+    "quoted_text": "End of the Command phase (or the end of your turn if it is the fifth battle round and you are going second).",
+    "trigger": "SWEG_R5_SECOND_LAST=1 (default-off while screening); the per-Command-phase primary scoring path (SWEG_CMDSCORE) is active, the battle is in round 5, and the scoring player is the round's second player (Battle._run_round_vanilla_turns)",
+    "effect": "The second player's round-5 primary-mission score is deferred from their Command phase (turn start) to the END of their turn, after their movement and combat resolve — the real Chapter Approved 2025-26 timing, which rewards the going-second player's last-turn objective grab. All other scoring moments are unchanged. First built at wave 253 (worktree-only) and rejected on the stale 4.86-era frame as a load-bearing compensating error; rebuilt under the owner's 2026-07-01 fidelity-first ruling (see docs/ARCHETYPE_FIDELITY_AUDIT.md). Off path byte-identical (the deferral branch is never taken).",
+    "scope": "phase-gated"
   }
 }

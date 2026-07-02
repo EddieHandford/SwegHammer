@@ -579,6 +579,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # one model and drops the Hekhtur slot. Cited in
     # data/rule_citations.d/imperial_knights.json.
     "simulator.ik_canis_single",
+    # SWEG_R5_SECOND_LAST. Chapter Approved 2025-26 round-5 going-second
+    # primary-scoring timing (score at end of turn, not Command phase).
+    # Battle._run_round_vanilla_turns. Cited in
+    # data/rule_citations.d/core_primary_vp_cap.json.
+    "simulator.primary_vp_round5_second_player",
+    # SWEG_OC_PER_MARKER. Level of Control computed per marker (removes the
+    # wave-67 one-marker-per-squad clamp). Battle._score_objectives
+    # _assign_army_oc. Cited in data/rule_citations.d/core_win_condition.json.
+    "simulator.oc_per_marker",
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
     # hard cap, but real-player CP economy averages ~1 stratagem per

@@ -1017,12 +1017,35 @@ class Battle:
             oc_by_obj: dict = {}
             sticky_by_obj: dict = {}
             dg_by_obj: dict = {}
+            # SWEG_OC_PER_MARKER (default-off while screening) — remove the
+            # wave-67 one-marker-per-squad clamp. The real 10e Level of
+            # Control is computed PER MARKER: "add together the OC
+            # characteristics of all ... models within range" — every model
+            # within 3" of a marker counts toward that marker, and a model
+            # within range of TWO markers counts toward both. The clamp below
+            # (credit the squad's summed OC to only its best marker,
+            # majority-count then centroid tie-break) was justified by Unit
+            # Coherency, but coherency is a 2"-chain placement condition, not
+            # a scoring cap — no rule limits how many markers a unit may
+            # contribute Objective Control to. The clamp is a no-op for
+            # single-model units and forecloses a real horde tactic (a
+            # stretched coherent squad straddling two markers), so it
+            # selectively under-credits multi-model armies. Found by the
+            # 2026-07-01 scoring-fidelity audit (docs/ARCHETYPE_FIDELITY_AUDIT.md).
+            # When ON, credit each marker with the squad's models within ITS
+            # range; sticky / Death Guard flags apply to every credited
+            # marker. OFF path byte-identical (the clamp logic runs as
+            # before). Cited `simulator.oc_per_marker`.
+            # ADOPTED default-on 2026-07-02 (fidelity-first ruling): N=40 vs
+            # sc35a gated 2.37 -> 2.51 alone. `=0` kill-switch.
+            _oc_per_marker = os.environ.get("SWEG_OC_PER_MARKER", "1") != "0"
             for members in army.squads().values():
                 # Per-objective tally for THIS squad: model count + summed OC.
                 best_idx = None
                 best_count = 0
                 best_dist2 = None
                 best_oc = 0
+                _credited: list = []
                 for obj_idx2, obj2 in enumerate(self.map.objectives):
                     r2b = obj2.control_radius * obj2.control_radius
                     count = 0
@@ -1058,6 +1081,11 @@ class Battle:
                             sum_dy += dy
                     if count == 0:
                         continue
+                    if _oc_per_marker and oc_sum > 0:
+                        _credited.append(obj_idx2)
+                        oc_by_obj[obj_idx2] = (
+                            oc_by_obj.get(obj_idx2, 0) + oc_sum
+                        )
                     # Centroid-of-on-objective-models distance for tie-break.
                     cx = sum_dx / count
                     cy = sum_dy / count
@@ -1071,6 +1099,32 @@ class Battle:
                         best_count = count
                         best_dist2 = dist2
                         best_oc = oc_sum
+                if _oc_per_marker:
+                    # Per-marker path already credited every in-range marker;
+                    # apply the squad's sticky / Death Guard flags to each of
+                    # them, then skip the single-best clamp entirely.
+                    if not _credited:
+                        continue
+                    _nec_nostick_pm = (
+                        os.environ.get("SWEG_NECRON_NO_STICKY") == "1"
+                    )
+                    _squad_sticky = any(
+                        getattr(u.profile, "sticky_objective", False)
+                        and not (_nec_nostick_pm
+                                 and (u.profile.faction or "") == "Necrons"
+                                 and u.profile.name == "Necron Warriors")
+                        for u in members
+                    )
+                    _squad_dg = any(
+                        (u.profile.faction or "") == "Death Guard"
+                        for u in members
+                    )
+                    for _pm_idx in _credited:
+                        if _squad_sticky:
+                            sticky_by_obj[_pm_idx] = True
+                        if _squad_dg:
+                            dg_by_obj[_pm_idx] = True
+                    continue
                 if best_idx is None or best_oc <= 0:
                     continue
                 oc_by_obj[best_idx] = oc_by_obj.get(best_idx, 0) + best_oc
@@ -10821,7 +10875,29 @@ class Battle:
             # entering-round (once/round) experiment did not test. Rounds 2-5
             # only (no round-1 primary). No-op unless the gate is set, so the OFF
             # path is byte-identical. Cited as `simulator.primary_vp_command_phase`.
-            if self._cmd_score and self._current_round >= 2:
+            # SWEG_R5_SECOND_LAST (default-off while screening) — the round-5
+            # going-second exception. Chapter Approved 2025-26 scores Primary
+            # at the "End of the Command phase (or the end of your turn if it
+            # is the fifth battle round and you are going second)". The
+            # per-Command-phase path below scores the second player at their
+            # round-5 TURN START, denying them the last-turn objective grab
+            # the real rule rewards. When the gate is ON, the second player's
+            # round-5 primary score is DEFERRED to after their turn resolves
+            # (end of this function); everyone else scores as before. First
+            # built at wave 253 (worktree-only, rejected on the stale 4.86
+            # frame as a load-bearing compensating error); rebuilt under the
+            # 2026-07-01 fidelity-first ruling. OFF path byte-identical.
+            # Cited `simulator.primary_vp_round5_second_player`.
+            # ADOPTED default-on 2026-07-02 (fidelity-first ruling): N=40 vs
+            # sc35a gated 2.37 -> 2.82 alone; part of the going-first
+            # signature fix (69% -> 50.0%). `=0` kill-switch.
+            _r5_defer = (
+                os.environ.get("SWEG_R5_SECOND_LAST", "1") != "0"
+                and self._current_round >= MAX_ROUNDS
+                and active is second
+            )
+            if (self._cmd_score and self._current_round >= 2
+                    and not _r5_defer):
                 self._score_objectives(only_for=active.name)
             # Clear the effective_buffs cache once per phase — positions don't
             # change mid-phase, so all units in a phase safely share cached results.
@@ -11123,6 +11199,17 @@ class Battle:
             # `simulator.relentless_carnage`. Wahapedia source:
             # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster
             self._apply_relentless_carnage(active, other)
+        # SWEG_R5_SECOND_LAST deferred score (see the gate comment at the top
+        # of the turns loop): the second player's round-5 primary is scored
+        # HERE, after their whole turn has resolved — the Chapter Approved
+        # 2025-26 "end of your turn if it is the fifth battle round and you
+        # are going second" timing. No-op unless the gate is on and the
+        # per-Command-phase scoring path is active.
+        if (os.environ.get("SWEG_R5_SECOND_LAST", "1") != "0"
+                and self._cmd_score
+                and self._current_round >= MAX_ROUNDS
+                and self._current_round >= 2):
+            self._score_objectives(only_for=second.name)
 
     def _apply_relentless_carnage(self, active: Army, other: Army) -> None:
         """End-of-Fight-phase Bloodthirster mortal-wound payload.
