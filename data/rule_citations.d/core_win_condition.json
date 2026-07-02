@@ -15,5 +15,13 @@
     "trigger": "SWEG_OC_PER_MARKER=1 (default-off while screening); the per-squad Objective Control assignment in Battle._score_objectives -> _assign_army_oc",
     "effect": "Each objective marker is credited with the summed Objective Control of the squad's models within THAT marker's range, per the verbatim per-marker computation above — a model within range of two markers counts toward both. Replaces the wave-67 clamp that credited a squad's summed Objective Control to at most ONE marker per round (majority-count, centroid tie-break), which was justified by Unit Coherency; coherency is a 2-inch-chain placement condition, not a scoring cap, and no rule limits how many markers a unit may contribute Objective Control to. The clamp was a no-op for single-model units and selectively under-credited multi-model armies (forecloses a stretched coherent squad straddling two markers). Found by the 2026-07-01 scoring-fidelity audit (docs/ARCHETYPE_FIDELITY_AUDIT.md). Off path byte-identical (the clamp runs as before).",
     "scope": "army-wide"
+  },
+  "simulator.fill_template_pool": {
+    "source": "https://warpfriends.wordpress.com/2026/05/06/40k-meta-stats-from-may-5-2026/",
+    "rule_name": "Template-first random fill (evaluation-frame list-realism mechanism, not a 10th-edition rule)",
+    "quoted_text": "Not a 10th-edition rules claim; the source is the real-meta aggregate the calibration targets. The 2026-07-01 archetype audit (docs/ARCHETYPE_FIDELITY_AUDIT.md, with per-faction sourced tournament lists cited in its agent reports) measured that ~55-70% of every archetype build's points are drawn uniformly from the whole faction catalogue by _random_fill, fielding units that appear in essentially no sourced 2026 tournament list and contaminating mono-god Chaos Daemons armies with ~35% off-god points.",
+    "trigger": "SWEG_FILL_TEMPLATE_POOL=1 (default-off while screening); code/archetypes.py _random_fill, when the faction archetype supplies a template",
+    "effect": "EVALUATION-FRAME MECHANISM (list realism), owner-authorized under the 2026-07-01 fidelity-first ruling: the fill draw prefers curated-template units (the units sourced real lists field) whenever any is affordable, falling back to the whole-catalogue pool otherwise. All existing caps (BATTLELINE, MONSTER/TITANIC/EPIC-HERO wrecker, per-name spend, Legends exclusion) apply unchanged. Exactly one rng.choice per pick on both paths. Off path byte-identical (the preference filter is never consulted). The general random-army capability is retained un-gated for Stage-2 whole-catalogue pricing work (code/balancer.py and build_faction_random_army are untouched).",
+    "scope": "army-wide"
   }
 }

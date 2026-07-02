@@ -1908,6 +1908,26 @@ def _random_fill(
         u.profile.name for u in army.units if is_epic_hero(u.profile)
     }
 
+    # SWEG_FILL_TEMPLATE_POOL (fidelity-first phase B mechanism lever,
+    # default-off while screening) — template-first random fill. The
+    # 2026-07-01 archetype-fidelity audit (docs/ARCHETYPE_FIDELITY_AUDIT.md)
+    # measured that ~55-70% of every build's points come from this fill
+    # drawing UNIFORMLY across the whole faction catalogue, which is how
+    # units appearing in essentially no sourced tournament list (Chaos
+    # Predators, Land Raiders, Heldrakes) reach production armies, and how
+    # every "mono-god" Chaos Daemons army ends up ~35% off-god. When the
+    # gate is ON the fill draws from the CURATED TEMPLATE pool first (the
+    # units real lists actually field, at the template's intended shape)
+    # and falls back to the whole-catalogue pool only when no template unit
+    # is affordable — so the archetype governs the whole army, not just the
+    # seed slice. All caps (BATTLELINE, wrecker, EPIC HERO, per-name spend)
+    # apply unchanged on both paths. OFF path byte-identical (the template
+    # preference is never consulted). Cited `simulator.fill_template_pool`.
+    _fill_template_pool = (
+        os.environ.get("SWEG_FILL_TEMPLATE_POOL", "0") == "1"
+        and bool(template_count_by_name)
+    )
+
     while remaining_budget > 0:
         affordable = []
         for p in pool:
@@ -1957,6 +1977,18 @@ def _random_fill(
             affordable.append((p, size, cost))
         if not affordable:
             break
+        # Template-first pick (see the SWEG_FILL_TEMPLATE_POOL comment
+        # above): when any affordable candidate is a curated-template unit,
+        # restrict the draw to those; the whole-catalogue candidates serve
+        # only as the fallback once the template pool is exhausted or
+        # unaffordable. Exactly one rng.choice per pick on both paths.
+        if _fill_template_pool:
+            _tpl_affordable = [
+                a for a in affordable
+                if a[0].name in template_count_by_name
+            ]
+            if _tpl_affordable:
+                affordable = _tpl_affordable
         chosen, size, cost = rng.choice(affordable)
         # RANDOM-FILL RE-BASE (gated SWEG_FILL_SQUADS). The template seed path
         # already fields proper squads via add_squad; this aligns the random

@@ -588,6 +588,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # wave-67 one-marker-per-squad clamp). Battle._score_objectives
     # _assign_army_oc. Cited in data/rule_citations.d/core_win_condition.json.
     "simulator.oc_per_marker",
+    # SWEG_FILL_TEMPLATE_POOL. Template-first random fill (evaluation-frame
+    # list-realism mechanism from the 2026-07-01 archetype audit; owner-
+    # authorized fidelity-first). code/archetypes.py _random_fill. Cited in
+    # data/rule_citations.d/core_win_condition.json.
+    "simulator.fill_template_pool",
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
     # hard cap, but real-player CP economy averages ~1 stratagem per
