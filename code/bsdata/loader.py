@@ -22,7 +22,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PARSED_PATH = REPO_ROOT / "data" / "bsdata" / "parsed.json"
@@ -353,6 +353,30 @@ class CatalogEntry:
     # it for behaviour yet; it is purely carried from parsed.json → UnitProfile.
     # Empty / missing = no per-model loadout recorded (legacy entries).
     model_loadouts: Optional[List[Dict[str, Any]]] = None
+    # OVERRIDE-PRECEDENCE (env-gated SWEG_OVERRIDE_MELEE_PRECEDENCE) — the
+    # names of fields that data/overrides.json explicitly set for this unit
+    # (the hand-tuning layer only; the codex-corrections and calibrated-points
+    # layers do not count as "hand override" for this marker). Populated in
+    # `load_catalog` from the raw overrides.json entry, before the three
+    # layers (corrections, overrides, calibrated) are merged together, so it
+    # names exactly what a human typed into overrides.json.
+    #
+    # This exists because the per-model-loadout builder
+    # (`code.army._add_squad_per_model`) rebuilds every model-Unit's weapon
+    # fields — INCLUDING `extra_melee_profiles` / `extra_ranged_profiles` —
+    # straight from the mapper's `model_loadouts` data, unconditionally
+    # overwriting whatever the merged CatalogEntry carried for those two
+    # fields. When a hand override in overrides.json sets one of those two
+    # fields to correct a mapper mis-parse (a multi-profile weapon, a
+    # datasheet's second melee weapon), the per-model rebuild silently
+    # discards the correction — the override still merges into the
+    # UNIT_CATALOG-level UnitProfile, but every per-model Unit the army
+    # actually fires with reverts to the mapper's version. Gated by
+    # SWEG_OVERRIDE_MELEE_PRECEDENCE (default-off, byte-identical off): when
+    # on, `_add_squad_per_model` consults this tuple and leaves any listed
+    # field alone rather than overwriting it. Cited as
+    # `simulator.override_melee_precedence`.
+    override_field_names: Tuple[str, ...] = ()
     # DAMAGED-BRACKET (task #77) — the 10e "Damaged: 1-X Wounds Remaining"
     # datasheet bracket, carried from parsed.json. `damaged_threshold == 0` means
     # no bracket. GATE-INERT until the simulator reads it (Stage 3, gated
@@ -521,6 +545,11 @@ class CatalogEntry:
             # nested ranged/melee weapon dicts are not flattened until the
             # UnitProfile build in code.units._build_catalog).
             model_loadouts=list(d.get("model_loadouts") or []),
+            # OVERRIDE-PRECEDENCE — see the field comment above. Missing key =
+            # empty tuple (no fields marked as hand-override-explicit; the
+            # common case for parsed.json base entries, which never carry
+            # this key).
+            override_field_names=tuple(d.get("override_field_names") or ()),
             # DAMAGED-BRACKET (task #77) — carried verbatim from parsed.json.
             # Missing key = 0 (no bracket / legacy entries predating extraction).
             damaged_threshold=int(d.get("damaged_threshold", 0) or 0),
@@ -631,8 +660,20 @@ def _load_calibrated_overrides() -> Dict[str, Dict]:
     return out
 
 
-def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> CatalogEntry:
-    """Apply an override dict to a base entry, or create a new entry from scratch."""
+def _apply_override(
+    base: Optional[CatalogEntry],
+    override: Dict,
+    key: str,
+    hand_override_field_names: Tuple[str, ...] = (),
+) -> CatalogEntry:
+    """Apply an override dict to a base entry, or create a new entry from scratch.
+
+    `hand_override_field_names` names the fields data/overrides.json (the
+    hand-tuning layer specifically, not codex-corrections or calibrated-points)
+    explicitly set for `key`. It is stamped onto the resulting CatalogEntry's
+    `override_field_names` unchanged — see that field's comment for why it
+    exists (OVERRIDE-PRECEDENCE, SWEG_OVERRIDE_MELEE_PRECEDENCE).
+    """
     if base is None:
         # An override with no BSData base is only legitimate when it carries
         # the core stat fields needed to describe a unit from scratch. A
@@ -651,7 +692,11 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
                 f"Either fix the typo so it matches a BSData key, or fill in "
                 f"the missing fields to create a fresh unit from scratch."
             )
-        return CatalogEntry.from_dict({"key": key, **override})
+        return CatalogEntry.from_dict({
+            "key": key,
+            **override,
+            "override_field_names": hand_override_field_names,
+        })
 
     merged = {
         "key": base.key,
@@ -981,6 +1026,12 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
                 "model_loadouts", base.model_loadouts or []
             )
         ),
+        # OVERRIDE-PRECEDENCE — see CatalogEntry.override_field_names. Carried
+        # straight through from the caller; not derived from `override` here
+        # because `override` is the corrections+overrides+calibrated merge,
+        # and this marker must name ONLY the hand-tuning (overrides.json)
+        # layer.
+        "override_field_names": hand_override_field_names,
         # DAMAGED-BRACKET (task #77) — per-stat Damaged-bracket reduction. The
         # mapper extracts these from BSData; overrides may correct a mis-parse.
         # Default to the base (mapper) value, falling back to 0 (no bracket).
@@ -1061,7 +1112,15 @@ def load_catalog(
         merged_override = dict(corrections.get(key, {}))
         merged_override.update(overrides.get(key, {}))
         merged_override.update(calibrated.get(key, {}))
-        entry = _apply_override(base.get(key), merged_override, key)
+        # OVERRIDE-PRECEDENCE — names of the fields the HAND-TUNING layer
+        # (overrides.json) explicitly set for this unit, sourced before the
+        # corrections/calibrated merge above so it names only what a human
+        # actually typed. See CatalogEntry.override_field_names.
+        hand_override_field_names = tuple(sorted(overrides.get(key, {}).keys()))
+        entry = _apply_override(
+            base.get(key), merged_override, key,
+            hand_override_field_names=hand_override_field_names,
+        )
         if not include_disabled and not entry.enabled:
             continue
         out[entry.key] = entry

@@ -8,5 +8,14 @@
     "trigger": "a model in a unit makes an attack, or a model is destroyed",
     "effect": "each model uses only the weapons it is equipped with, so a unit's distinct model types fire their own real loadouts (special-weapon model, sergeant, single-model gun rack) rather than one shared squad average, and a destroyed model's weapons are removed from the unit's firepower; alt-mode and pistol exclusivity are still enforced per the existing multi-profile picker",
     "scope": "army-wide"
+  },
+
+  "simulator.override_melee_precedence": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Weapons",
+    "rule_name": "Weapons / Making Attacks — override precedence for the per-model loadout rebuild",
+    "quoted_text": "Each time a model makes an attack, you must use one of the weapons it is equipped with. ... Each model is equipped with the weapons shown on its unit's datasheet.",
+    "trigger": "SWEG_OVERRIDE_MELEE_PRECEDENCE default-off ('1' opts in, unset/'0' is byte-identical); code.army.Army._add_squad_per_model builds each per-model UnitProfile via dataclasses.replace(profile, **weapon_fields), where weapon_fields comes from code.units._loadout_entry_to_weapon_fields(entry).",
+    "effect": "DATA-CORRECTNESS FIX, companion to simulator.per_model_loadouts. _loadout_entry_to_weapon_fields unconditionally rebuilds extra_melee_profiles and extra_ranged_profiles on every per-model Unit straight from the mapper's model_loadouts data, which silently discards a hand correction in data/overrides.json that explicitly set one of those two fields to fix a mapper mis-parse of a unit's real datasheet weapon list (for example the Chaos Knights Knight Despoiler's second Reaper chainsword strike profile, or the Knight Tyrant's hand-corrected extra_ranged_profiles list). The override still merged correctly into the aggregate UNIT_CATALOG-level UnitProfile, but every per-model Unit the army actually fired with reverted to the mapper's uncorrected version, so the hand fix was inert in every simulated battle. When the gate is on, code.army._add_squad_per_model consults the new UnitProfile.override_field_names marker (populated in code.bsdata.loader._apply_override from the raw overrides.json entry, before the codex-corrections and calibrated-points layers are merged in) and leaves any field it names untouched during the rebuild, so dataclasses.replace keeps the aggregate's override-derived value instead of overwriting it. A blast-radius audit of data/overrides.json found 33 units carrying an extra_melee_profiles or extra_ranged_profiles hand override with a resolved per-model loadout; 26 of them were actively affected (the hand-set value differed from what the per-model rebuild produced) before this fix. Off path (SWEG_OVERRIDE_MELEE_PRECEDENCE unset or '0') restores the unconditional rebuild byte-identically.",
+    "scope": "keyword-gated"
   }
 }

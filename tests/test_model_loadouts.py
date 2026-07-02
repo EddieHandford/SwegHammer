@@ -606,5 +606,144 @@ class LoadoutFlagParityTests(unittest.TestCase):
         self.assertTrue(u.profile.lance)
 
 
+class OverridePrecedenceTests(unittest.TestCase):
+    """OVERRIDE-PRECEDENCE (env-gated SWEG_OVERRIDE_MELEE_PRECEDENCE) — a hand
+    override in data/overrides.json that explicitly sets `extra_melee_profiles`
+    or `extra_ranged_profiles` for a unit must survive the per-model weapon-
+    field rebuild in `Army._add_squad_per_model`. Without the gate, that
+    rebuild unconditionally overwrites both fields on every per-model Unit
+    from the mapper's `model_loadouts` data, silently discarding the hand
+    correction even though it merged correctly into the aggregate
+    UNIT_CATALOG profile.
+
+    The Chaos Knights Knight Despoiler is the motivating real-catalogue case:
+    its overrides.json entry hand-sets `extra_melee_profiles` (a second
+    Reaper chainsword strike profile) AND carries `model_loadouts` (so it
+    takes the per-model path) — exactly the combination a prior audit found
+    silently inert. It is also a single-model unit (min_models == max_models
+    == 1), so the squad build yields exactly one per-model Unit and the
+    comparison against the aggregate profile is direct, no union needed.
+    """
+
+    KEY = "chaos_knights_library_knight_despoiler"
+
+    def setUp(self):
+        self._saved_permodel = os.environ.get("SWEG_PERMODEL")
+        self._saved_precedence = os.environ.get("SWEG_OVERRIDE_MELEE_PRECEDENCE")
+        os.environ["SWEG_PERMODEL"] = "1"
+        os.environ.pop("SWEG_OVERRIDE_MELEE_PRECEDENCE", None)
+
+    def tearDown(self):
+        for var, saved in (
+            ("SWEG_PERMODEL", self._saved_permodel),
+            ("SWEG_OVERRIDE_MELEE_PRECEDENCE", self._saved_precedence),
+        ):
+            if saved is None:
+                os.environ.pop(var, None)
+            else:
+                os.environ[var] = saved
+
+    def _build_one(self):
+        from code.army import Army
+
+        prof = UNIT_CATALOG.get(self.KEY)
+        if prof is None:
+            self.skipTest(f"unit '{self.KEY}' missing from UNIT_CATALOG")
+        army = Army(name="test")
+        army.add_squad(prof, prof.max_models)
+        self.assertEqual(
+            len(army.units), 1, "Knight Despoiler is a single-model unit"
+        )
+        return prof, army.units[0]
+
+    def test_despoiler_carries_the_hand_override_marker(self):
+        """The catalogue entry marks extra_melee_profiles as a hand override
+        (from data/overrides.json) and its aggregate profile actually carries
+        a non-empty value — the precondition the rest of this test class
+        exercises."""
+        prof = UNIT_CATALOG.get(self.KEY)
+        if prof is None:
+            self.skipTest(f"unit '{self.KEY}' missing from UNIT_CATALOG")
+        self.assertIn("extra_melee_profiles", prof.override_field_names)
+        self.assertTrue(
+            prof.model_loadouts, "expected a per-model loadout to exist"
+        )
+        self.assertTrue(
+            prof.extra_melee_profiles, "expected the hand override to be non-empty"
+        )
+
+    def test_gate_off_rebuild_clobbers_the_hand_override(self):
+        """With the gate unset (default-off), the per-model rebuild still
+        discards the hand extra_melee_profiles override — byte-identical to
+        pre-fix behaviour. This pins the bug's presence on the off path so a
+        regression in the gate wiring (e.g. an inverted condition) is caught
+        by a test failure rather than a silent behaviour change."""
+        prof, unit = self._build_one()
+        self.assertNotEqual(
+            unit.profile.extra_melee_profiles,
+            prof.extra_melee_profiles,
+            "gate-off per-model profile unexpectedly kept the hand override "
+            "— the byte-identical-off guarantee depends on this clobber "
+            "still happening when the gate is unset",
+        )
+        self.assertEqual(unit.profile.extra_melee_profiles, ())
+
+    def test_gate_on_preserves_the_hand_override(self):
+        """With SWEG_OVERRIDE_MELEE_PRECEDENCE=1, the per-model profile keeps
+        the aggregate's hand-overridden extra_melee_profiles exactly."""
+        os.environ["SWEG_OVERRIDE_MELEE_PRECEDENCE"] = "1"
+        prof, unit = self._build_one()
+        self.assertEqual(
+            unit.profile.extra_melee_profiles, prof.extra_melee_profiles
+        )
+        self.assertTrue(unit.profile.extra_melee_profiles)
+
+    def test_gate_on_still_rebuilds_non_overridden_fields(self):
+        """The precedence gate is scoped to fields overrides.json actually
+        set. extra_ranged_profiles is NOT in the Despoiler's override, so it
+        must still be rebuilt from the per-model loadout data even with the
+        gate on — the fix must not become a blanket 'never touch these two
+        fields' switch."""
+        os.environ["SWEG_OVERRIDE_MELEE_PRECEDENCE"] = "1"
+        prof, unit = self._build_one()
+        self.assertNotIn("extra_ranged_profiles", prof.override_field_names)
+        # The per-model rebuild still runs for this field: the loadout-derived
+        # count of extra ranged profiles (from the mapper's model_loadouts)
+        # differs from the aggregate override-merged count.
+        self.assertNotEqual(
+            len(unit.profile.extra_ranged_profiles),
+            len(prof.extra_ranged_profiles),
+        )
+
+    def test_gate_byte_identical_for_units_without_the_marker(self):
+        """A unit with a per-model loadout but no hand-overridden weapon-list
+        field (the Devastator squad) builds identically whether the gate is
+        on or off — the fix must not perturb units it doesn't apply to."""
+        from code.army import Army
+
+        prof = UNIT_CATALOG["space_marines_devastator_squad"]
+        self.assertEqual(prof.override_field_names, ())
+
+        os.environ.pop("SWEG_OVERRIDE_MELEE_PRECEDENCE", None)
+        off_army = Army(name="off")
+        off_army.add_squad(prof, prof.max_models)
+        off_weapons = [
+            (u.profile.weapon, u.profile.extra_ranged_profiles,
+             u.profile.extra_melee_profiles)
+            for u in off_army.units
+        ]
+
+        os.environ["SWEG_OVERRIDE_MELEE_PRECEDENCE"] = "1"
+        on_army = Army(name="on")
+        on_army.add_squad(prof, prof.max_models)
+        on_weapons = [
+            (u.profile.weapon, u.profile.extra_ranged_profiles,
+             u.profile.extra_melee_profiles)
+            for u in on_army.units
+        ]
+
+        self.assertEqual(off_weapons, on_weapons)
+
+
 if __name__ == "__main__":
     unittest.main()

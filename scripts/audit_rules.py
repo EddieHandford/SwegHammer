@@ -937,6 +937,17 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # and pistol exclusivity still enforced by the existing picker. See
     # data/rule_citations.d/core_per_model_loadouts.json.
     "simulator.per_model_loadouts",
+    # OVERRIDE-PRECEDENCE (env-gated SWEG_OVERRIDE_MELEE_PRECEDENCE, default
+    # OFF). Companion fix to simulator.per_model_loadouts: the per-model
+    # rebuild in code/army.py _add_squad_per_model unconditionally overwrites
+    # extra_melee_profiles / extra_ranged_profiles from the mapper's
+    # model_loadouts data, silently discarding a hand correction in
+    # data/overrides.json that explicitly set one of those two fields. When
+    # on, the rebuild leaves a field alone whenever UnitProfile.override_
+    # field_names marks it as hand-overridden, so the correction survives
+    # onto the per-model Unit the army actually fires with. See
+    # data/rule_citations.d/core_per_model_loadouts.json.
+    "simulator.override_melee_precedence",
     # PER-MODEL-LOADOUTS (Stage 4, env-gated SWEG_ROLLDMG). Roll a weapon's real
     # random Damage characteristic (D6, D3+3, 2D6, ...) per shot instead of using
     # its expected-value mean. Tests whether mean-overkill on big single-shot guns

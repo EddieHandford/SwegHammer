@@ -247,6 +247,22 @@ collided with the equilibrium solver's own Phase 1–6 ladder
   `[EXTRA ATTACKS]` keyword (fires in addition to the model's other melee
   weapons; distinct from the ranged `extra_ranged_profiles` picker, which
   is mutex / pick-one per group). 135 units populated in BSData v10.6.0.
+- **Override precedence for the per-model weapon-list rebuild** (env-gated
+  `SWEG_OVERRIDE_MELEE_PRECEDENCE`, default off) — `Army._add_squad_per_model`
+  (the per-model-loadouts firing path) rebuilds every per-model Unit's
+  `extra_melee_profiles` / `extra_ranged_profiles` from the BSData mapper's
+  `model_loadouts` data, which unconditionally overwrote a hand correction to
+  either field in `data/overrides.json` even though that correction merged
+  correctly into the aggregate catalogue profile — the fix was silently inert
+  in every simulated battle. When the gate is on, the rebuild leaves a field
+  alone whenever `data/overrides.json` explicitly set it for that unit
+  (tracked via `UnitProfile.override_field_names`, populated in
+  `code/bsdata/loader.py`). A blast-radius audit of `data/overrides.json`
+  found 33 units carrying an `extra_melee_profiles` or `extra_ranged_profiles`
+  hand override with a resolved per-model loadout, 26 of which were actively
+  affected before this fix (the Chaos Knights Knight Despoiler and Knight
+  Tyrant among them). Off (the default) reproduces the unconditional rebuild
+  byte-identically. Cited as `simulator.override_melee_precedence`.
 - **Sweep coverage** — `scripts/evaluate_vs_meta.py` runs the per-faction
   matchup matrix and reports mean absolute error vs the May 2026 Warp
   Friends tournament aggregate. This is the Stage 1 success metric.

@@ -831,6 +831,19 @@ class UnitProfile:
     # reverses it exactly (round-trips to the original list-of-dicts).
     # Empty tuple = no per-model loadout recorded (legacy entries).
     model_loadouts: Tuple[Tuple[Tuple[str, Any], ...], ...] = ()
+    # OVERRIDE-PRECEDENCE (env-gated SWEG_OVERRIDE_MELEE_PRECEDENCE) — names
+    # of the fields data/overrides.json explicitly set for this unit (the
+    # hand-tuning layer only), carried from CatalogEntry.override_field_names.
+    # `code.army._add_squad_per_model` reads this so that, when the gate is
+    # on, a hand-written `extra_melee_profiles` / `extra_ranged_profiles`
+    # override is not silently discarded by the per-model weapon-field
+    # rebuild (which otherwise unconditionally overwrites both fields from
+    # the mapper's `model_loadouts` data — see the field comment on
+    # CatalogEntry.override_field_names in code/bsdata/loader.py for the full
+    # bug writeup). Empty tuple = no field explicitly hand-overridden
+    # (legacy entries and units with no overrides.json entry at all). Cited
+    # as `simulator.override_melee_precedence`.
+    override_field_names: Tuple[str, ...] = ()
     # DAMAGED-BRACKET (task #77) — the 10e "Damaged: 1-X Wounds Remaining"
     # datasheet bracket, extracted per-unit from BSData. `damaged_threshold == 0`
     # means the model has no bracket. While the model is at 1..threshold wounds,
@@ -5823,6 +5836,9 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             # fire each model's real loadout. Empty entry → () (no per-model
             # loadout recorded).
             model_loadouts=_flatten_model_loadouts(entry.model_loadouts),
+            # OVERRIDE-PRECEDENCE — carried verbatim from the CatalogEntry;
+            # see UnitProfile.override_field_names for the full contract.
+            override_field_names=tuple(entry.override_field_names or ()),
             # DAMAGED-BRACKET (task #77) — flat ints, trivially hashable. Carried
             # from the CatalogEntry; nothing reads them for behaviour until the
             # gated application stage (Stage 3, SWEG_DMGBRACKET).

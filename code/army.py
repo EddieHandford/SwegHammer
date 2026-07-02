@@ -25,6 +25,26 @@ _LOS_RANGE_INCHES: float = 12.0
 # within this distance of the target shields it. Wahapedia 10e core wording.
 _BODYGUARD_RADIUS_INCHES: float = 3.0
 
+# OVERRIDE-PRECEDENCE (env-gated SWEG_OVERRIDE_MELEE_PRECEDENCE, default-off,
+# byte-identical off) — `_loadout_entry_to_weapon_fields` unconditionally
+# rebuilds these two weapon-list fields on every per-model Unit from the
+# mapper's `model_loadouts` data, which silently discards a hand override in
+# data/overrides.json that explicitly set one of them to correct a
+# mapper mis-parse (for example the Chaos Knights Knight Despoiler's Reaper
+# chainsword `extra_melee_profiles` entry, or the Knight Tyrant's hand-fixed
+# `extra_ranged_profiles` list — the override merges correctly into the
+# aggregate UNIT_CATALOG UnitProfile, but every per-model Unit the army
+# actually fires with reverts to the mapper's uncorrected version). When the
+# gate is on, `_add_squad_per_model` drops any field named here from the
+# rebuilt weapon-field dict whenever the squad's aggregate profile marks it
+# as hand-overridden (`UnitProfile.override_field_names`); `dataclasses.replace`
+# then leaves the profile's own (override-derived) value in place instead of
+# overwriting it. Cited as `simulator.override_melee_precedence`.
+_OVERRIDE_PRECEDENCE_FIELDS: Tuple[str, ...] = (
+    "extra_melee_profiles",
+    "extra_ranged_profiles",
+)
+
 
 def _xy_distance(a, b) -> float:
     dx = a[0] - b[0]
@@ -770,11 +790,27 @@ class Army:
         reference to the original aggregate profile (`squad_profile_ref`) so
         unit-level consumers (which read squad-wide stats) still see the
         aggregate; the firing path reads the per-model `Unit.profile`.
+
+        OVERRIDE-PRECEDENCE (env-gated SWEG_OVERRIDE_MELEE_PRECEDENCE,
+        default-off): when the gate is on, any of `_OVERRIDE_PRECEDENCE_FIELDS`
+        that `profile.override_field_names` marks as hand-overridden is
+        dropped from the rebuilt weapon-field dict before
+        `dataclasses.replace`, so the per-model profile keeps the aggregate's
+        (override-derived) value rather than the mapper's rebuilt one. Gate
+        unset/"0" reproduces today's behaviour byte-identically — the field
+        is always rebuilt.
         """
         loadouts = _unflatten_model_loadouts(profile.model_loadouts)
         slots = _distribute_squad_slots(loadouts, size)
+        override_precedence = (
+            os.environ.get("SWEG_OVERRIDE_MELEE_PRECEDENCE", "0") == "1"
+        )
         for entry in slots:
             weapon_fields = _loadout_entry_to_weapon_fields(entry)
+            if override_precedence:
+                for field_name in _OVERRIDE_PRECEDENCE_FIELDS:
+                    if field_name in profile.override_field_names:
+                        weapon_fields.pop(field_name, None)
             model_profile = dataclasses.replace(profile, **weapon_fields)
             unit = Unit(model_profile, in_cover=self.in_cover)
             unit.army_ref = self

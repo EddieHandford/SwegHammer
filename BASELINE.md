@@ -67,7 +67,13 @@ import time from:
   victim per shape.
 - `data/overrides.json` — per-unit hand tuning. Any field listed here overrides
   the BSData base. Entries without a corresponding BSData entry become
-  fully hand-rolled units.
+  fully hand-rolled units. A hand-set `extra_melee_profiles` or
+  `extra_ranged_profiles` merges correctly into the aggregate catalogue
+  profile, but on a unit that also carries a per-model loadout the firing
+  path rebuilds those two fields per model from the mapper's raw loadout
+  data and, by default, overwrites the override — see `SIMULATION.md`
+  "Override precedence for the per-model weapon-list rebuild"
+  (`SWEG_OVERRIDE_MELEE_PRECEDENCE`) for the gate that fixes this.
 
 Refresh the BSData base with:
 
