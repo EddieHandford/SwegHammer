@@ -1555,7 +1555,7 @@ def _effective_template(
     # Crawler seed to one (the post-Q1-2026-dataslate meta moved off
     # multi-Crawler builds — the weakest-sourced item here, flagged for
     # re-verification in the audit).
-    if os.environ.get("SWEG_DG_REALISM") == "1" and fac == "Death Guard":
+    if os.environ.get("SWEG_DG_REALISM", "1") != "0" and fac == "Death Guard":
         _dg_drop = {"death_guard_typhus", "death_guard_foul_blightspawn"}
         template = {k: v for k, v in template.items() if k not in _dg_drop}
         template["death_guard_daemon_prince_of_nurgle"] = 1
@@ -1571,7 +1571,7 @@ def _effective_template(
     # Terminators / Heldrake appear in ZERO sourced lists (Fulgrim alone
     # was 17% of every sim army's points); real lists run 3x Lord
     # Exultant, 2x Noise Marines, and Defilers as the monster pillar.
-    if os.environ.get("SWEG_EC_REALISM") == "1" and fac == "Emperor's Children":
+    if os.environ.get("SWEG_EC_REALISM", "1") != "0" and fac == "Emperor's Children":
         _ec_drop = {
             "emperor_s_children_fulgrim",
             "emperor_s_children_keeper_of_secrets",
@@ -1593,7 +1593,7 @@ def _effective_template(
     # Canis Rex and add the real big-Knight core to the menu. With Canis
     # dropped the deterministic anchor becomes the Knight Defender (415),
     # matching the sourced core.
-    if os.environ.get("SWEG_IK_REALISM") == "1" and fac == "Imperial Knights":
+    if os.environ.get("SWEG_IK_REALISM", "1") != "0" and fac == "Imperial Knights":
         template = {
             k: v for k, v in template.items()
             if k != "imperial_knights_library_canis_rex"
