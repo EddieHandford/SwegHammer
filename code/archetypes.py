@@ -1511,7 +1511,7 @@ def _effective_template(
     # Bloodcrushers / Chaos Terminators / Helbrute; the freshest sourced
     # list runs 2x Defiler. Drop the phantoms (Khârn, already templated,
     # becomes the epic-hero anchor) and add the Defiler pillar.
-    if os.environ.get("SWEG_WE_REALISM") == "1" and fac == "World Eaters":
+    if os.environ.get("SWEG_WE_REALISM", "1") != "0" and fac == "World Eaters":
         _we_drop = {
             "world_eaters_angron",
             "world_eaters_bloodletters",
@@ -1730,7 +1730,7 @@ def _instantiate_template(
     # below only fires when no epic hero is seeded — without this pre-pass,
     # dropping Angron would let an arbitrary character anchor instead of Khârn.
     if (
-        os.environ.get("SWEG_WE_REALISM") == "1"
+        os.environ.get("SWEG_WE_REALISM", "1") != "0"
         and (faction or "") == "World Eaters"
         and "world_eaters_kh_rn_the_betrayer" in template
         and "world_eaters_kh_rn_the_betrayer" in UNIT_CATALOG
