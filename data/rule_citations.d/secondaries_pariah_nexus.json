@@ -204,5 +204,13 @@
     "effect": "ARTIFICIAL-INTELLIGENCE PILOTING HEURISTIC — not a 10e rules claim in itself; grounds in the quoted fact that a Tactical Missions army holds active Secondary Mission cards it is actively trying to achieve every turn, exactly as a real player manoeuvres spare bodies to satisfy the card in hand rather than leaving their positioning to chance. WHICH spare unit is sent and WHERE is not specified by any rule and is decided entirely by this heuristic (Battle._assign_card_pursuit, wave 121, extended here with an Engage on All Fronts branch): it sets Unit.pursue_target, which code/strategy.py pick_move_intent reads as a high-priority override ahead of every other move-intent branch (CAPTURE, STEAL, Fall Back, kiting) so the unit heads straight for the card's geographic goal that activation. Even-handed: no faction branch, no model-count branch — a low-model army with no spare chaff routes nothing and stays faithfully unhelped, exactly as SWEG_TAC_PURSUE's own wave-121/122 build. Deterministic and free of any global `random` draw (pure geometry against already-known board state), so the paired common-random-number evaluation's downstream stream is unaffected relative to itself. Implemented in Battle._assign_card_pursuit / _board_pursuit_goals, read by strategy.pick_move_intent's pursue_target override.",
     "scope": "phase-gated",
     "approximation": true
+  },
+  "simulator.am_secondary_pursuit": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/",
+    "rule_name": "Tactical Missions card pursuit — Astra Militarum army-scoped entry point (artificial-intelligence piloting heuristic)",
+    "quoted_text": "Grounded in the Tactical Missions mechanic itself (players draw Secondary Mission cards and play toward them): a real player routes spare units to score their active cards. Not a new rules claim — the cards and their scoring conditions are separately cited in this file.",
+    "trigger": "SWEG_AM_SECONDARY_PURSUIT=1 (default-off while screening); the SWEG_SECONDARY_PURSUIT package's gate reads accept the acting army and also enable when that army's faction is Astra Militarum",
+    "effect": "ARTIFICIAL-INTELLIGENCE PILOTING, army-scoped per the Principle-2 recipe proven by simulator.am_advance_discipline: the universal package (establish-locus positional filter + card-pursuit movement + your-turn-only voluntary discard) screened Astra Militarum +5.17 toward its real 45.3 but fed the over-credited factions (Necrons +4.89, Chaos Daemons +5.80; headline +0.46), so the universal gate is HELD and the built-for faction's lift banks army-scoped. Off path (both gates unset) byte-identical.",
+    "scope": "army-wide"
   }
 }

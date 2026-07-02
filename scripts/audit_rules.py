@@ -620,6 +620,10 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # authorized fidelity-first). code/archetypes.py _random_fill. Cited in
     # data/rule_citations.d/core_win_condition.json.
     "simulator.fill_template_pool",
+    # SWEG_AM_SECONDARY_PURSUIT. The secondary card-pursuit package army-scoped
+    # to Astra Militarum (Principle-2 recipe). Battle._secondary_pursuit_enabled.
+    # Cited in data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.am_secondary_pursuit",
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
     # hard cap, but real-player CP economy averages ~1 stratagem per

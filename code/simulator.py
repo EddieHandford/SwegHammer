@@ -2077,7 +2077,7 @@ class Battle:
     # byte-for-byte.
     # ------------------------------------------------------------------
 
-    def _secondary_pursuit_enabled(self) -> bool:
+    def _secondary_pursuit_enabled(self, army=None) -> bool:
         """SWEG_SECONDARY_PURSUIT gate. DEFAULT-OFF: returns True only when the
         environment variable is explicitly "1".
 
@@ -2115,7 +2115,21 @@ class Battle:
         already-known board / hand state, so the paired common-random-number
         evaluation's downstream RNG stream is untouched on the ON path
         relative to itself, and untouched at all on the OFF path."""
-        return os.environ.get("SWEG_SECONDARY_PURSUIT", "0") == "1"
+        # ARMY-SCOPED ENTRY POINT (`SWEG_AM_SECONDARY_PURSUIT`, default-off)
+        # — the Principle-2 recipe proven by simulator.am_advance_discipline:
+        # the universal package screened Astra Militarum +5.17 toward its
+        # real win rate but fed the over-credited factions (Necrons +4.89,
+        # Chaos Daemons +5.80; headline +0.46), so the universal gate stays
+        # held and the built-for faction's lift is banked army-scoped.
+        # Cited `simulator.am_secondary_pursuit`.
+        if os.environ.get("SWEG_SECONDARY_PURSUIT", "0") == "1":
+            return True
+        if army is None or not getattr(army, "units", None):
+            return False
+        return (
+            (army.units[0].profile.faction or "") == "Astra Militarum"
+            and os.environ.get("SWEG_AM_SECONDARY_PURSUIT", "0") == "1"
+        )
 
     def _unit_zone(self, u, own_is_army_a: bool) -> str:
         """Classify a unit's position into one of the three Recover Assets areas:
@@ -2170,7 +2184,7 @@ class Battle:
         if "establish_locus" not in (getattr(active, "chosen_secondaries", ()) or ()):
             return
         own_is_a = active is self.a
-        _positional_filter = self._secondary_pursuit_enabled()
+        _positional_filter = self._secondary_pursuit_enabled(active)
         cx = self.map.width / 2.0
         cy = self.map.height / 2.0
         for u in active.alive_units:
@@ -2553,7 +2567,7 @@ class Battle:
     # (env-gated SWEG_TAC_PURSUE; sub-gate of SWEG_TAC_DECK)
     # ------------------------------------------------------------------
 
-    def _tac_pursue_enabled(self) -> bool:
+    def _tac_pursue_enabled(self, army=None) -> bool:
         """Sub-gate for the AI card-pursuit layer (wave 121-122). DEFAULT-OFF:
         returns True only when SWEG_TAC_DECK is ON AND SWEG_TAC_PURSUE is
         EXPLICITLY "1".
@@ -2580,7 +2594,7 @@ class Battle:
         if not self._tac_deck_enabled():
             return False
         return (__import__("os").environ.get("SWEG_TAC_PURSUE", "0") == "1"
-                or self._secondary_pursuit_enabled())
+                or self._secondary_pursuit_enabled(army))
 
     def _assign_card_pursuit(self, active, other) -> None:
         """Wave 121 — AI card-pursuit pre-movement hook.  Sets `pursue_target`
@@ -2616,7 +2630,7 @@ class Battle:
         pick_move_intent reads pursue_target during each unit's activation.
         pursuit is cleared at the top of each army's turn (per-turn).
         """
-        if not self._tac_pursue_enabled():
+        if not self._tac_pursue_enabled(active):
             return
         if getattr(active, "secondary_track", None) != "TACTICAL":
             return
@@ -3353,7 +3367,7 @@ class Battle:
         data/rule_citations.d/core_secondary_hand_cap.json#simulator.secondary_two_card_hand_cap."""
         return __import__("os").environ.get("SWEG_SECONDARY_HANDCAP", "0") == "1"
 
-    def _tac_voluntary_discard_enabled(self) -> bool:
+    def _tac_voluntary_discard_enabled(self, army=None) -> bool:
         """CA-2025-26 Tactical Missions voluntary discard, the second half of
         the end-of-turn card-management rule that `_score_tactical_hand`
         previously only implemented half of (the achieved-card discard).
@@ -3376,7 +3390,7 @@ class Battle:
         original semantics are unchanged when the package gate is off."""
         return (__import__("os").environ.get(
                     "SWEG_TAC_VOLUNTARY_DISCARD", "0") == "1"
-                or self._secondary_pursuit_enabled())
+                or self._secondary_pursuit_enabled(army))
 
     def _init_tactical_deck(self, army: Army) -> None:
         """Seed a TACTICAL army's 2-card hand + remaining deck deterministically.
@@ -3585,10 +3599,11 @@ class Battle:
         # alone — a package that is inert on that path is strictly better
         # than one that silently drops the mechanic.
         _pursuit_own_turn_active = (
-            self._secondary_pursuit_enabled()
+            self._secondary_pursuit_enabled(army)
             and not self.rules.alternating_activations
         )
-        if self._tac_voluntary_discard_enabled() and not _pursuit_own_turn_active:
+        if (self._tac_voluntary_discard_enabled(army)
+                and not _pursuit_own_turn_active):
             eligible = [c for c in army.tactical_hand
                        if entering_ages.get(c, 0) >= 1]
             if eligible:
@@ -3705,7 +3720,7 @@ class Battle:
         points, and no new draw on the global `random` stream (the discard
         choice is a pure, deterministic function of already-known board and
         hand state)."""
-        if not self._secondary_pursuit_enabled():
+        if not self._secondary_pursuit_enabled(active):
             return
         if not self._tac_deck_enabled():
             return
