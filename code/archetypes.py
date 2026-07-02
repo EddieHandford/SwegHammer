@@ -1629,6 +1629,29 @@ def _effective_template(
         template["death_guard_deathshroud_terminators"] = 2
         template["death_guard_poxwalkers"] = 2
         template["death_guard_plagueburst_crawler"] = 1
+        # MYPHITIC-REENABLE (2026-07-02) — the Myphitic Blight-hauler was
+        # disabled by the 38-unit no-canonical-points sweep (BSData encodes
+        # no cost for its datasheet) despite being a real near-universal
+        # tournament pick: docs/ARCHETYPE_FIDELITY_AUDIT.md's decision menu
+        # calls for "re-enable the Myphitic Blight-hauler at its cited 100
+        # points", and the sourced "Virulent Vectorium" Death Guard lists in
+        # docs/WAVE250_LIST_REALISM.md field 2 per list. Re-enabled in
+        # data/overrides.json with the canonical Wahapedia cost (100 points,
+        # cited there); added here at a conservative floor of 1 rather than
+        # the sourced list's 2, since the audit's claim is "near-universal
+        # presence", not a fixed count. Guarded per CLAUDE.md rule 13 (fail
+        # loud on missing data, no silent defaults): if the override entry
+        # ever stops resolving in UNIT_CATALOG, this raises instead of
+        # silently dropping the unit from an already-default-on template.
+        if "death_guard_myphitic_blight_hauler" not in UNIT_CATALOG:
+            raise KeyError(
+                "archetypes._effective_template: SWEG_DG_REALISM expects "
+                "'death_guard_myphitic_blight_hauler' to resolve in "
+                "UNIT_CATALOG (re-enabled in data/overrides.json) but it is "
+                "missing — check the override entry for a typo'd key or a "
+                "regression that dropped it from the catalogue."
+            )
+        template["death_guard_myphitic_blight_hauler"] = 1
 
     # SWEG_EC_REALISM (2026-07-02) — Emperor's Children. Sourced (audit
     # agent: Kyle Sams 2nd Battle For The Capital, Bell of Lost Souls
