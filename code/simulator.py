@@ -192,6 +192,32 @@ def _er_gap_units(a, b) -> float:
     return _er_gap(a.position, a.profile, b.position, b.profile)
 
 
+# ---------------------------------------------------------------------------
+# SWEG_STAGING — threat-range-aware commit discipline (AI piloting heuristic).
+# ---------------------------------------------------------------------------
+# The closing-side counterpart of the adopted ranged-hold family
+# (simulator.am_advance_discipline / ck_ranged_hold / votann_ranged_hold): the
+# gunline side got a hold-discipline lever, but the side that must CLOSE never
+# got its counterpart, so opponents Advance everything into a gunline kill zone
+# turn 1 and deliver themselves piecemeal. Universal competitive doctrine (Stat
+# Check, "objective within threat range of the Fiends, but the Fiends outside of
+# threat range themselves") stages outside the enemy's threat envelope and
+# commits together, never trickling. These constants parameterise that heuristic.
+# Faction-neutral; default-off; byte-identical off. Cited simulator.staging_discipline.
+#
+# The envelope radius is CAPPED so a board-wide gun does not blanket the whole
+# map (which would freeze every closer and reproduce the rejected gunline-hold
+# passivity, ledger 2026-06-15): a threat is "significant within ~30 inches",
+# the real deliverable danger band, not its full weapon range.
+_STAGING_MAX_RADIUS: float = 30.0
+_STAGING_ENGAGEMENT_RANGE: float = 1.0
+_STAGING_AVG_CHARGE: float = 7.0        # average 2D6 charge distance (melee reach)
+_STAGING_MAX_CHARGE: float = 12.0       # generous max 2D6 charge (can-charge test)
+_STAGING_THREAT_FLOOR: float = 2.0      # min expected DPA to project a significant envelope
+_STAGING_COMMIT_FRACTION: float = 0.5   # friendly poised output / local enemy output to release the commit
+_STAGING_MAX_ADVANCE: float = 6.0       # max Advance d6 used to test the would-be sprint destination
+
+
 @dataclass(frozen=True)
 class RulesConfig:
     """Toggles for SwegHammer's non-10e rule modifications.
@@ -11290,6 +11316,15 @@ class Battle:
             _phase_our_oc: Dict[int, int] = {
                 id(obj): _oc_on_objective(active.alive_units, obj) for obj in _objectives
             }
+            # SWEG_STAGING (default-off): precompute the enemy threat envelope
+            # once per move phase (enemy units don't move during our phase, the
+            # `_phase_their_oc` convention) and pass it down to _do_move so the
+            # commit heuristic can stage closers at the envelope edge. None when
+            # the gate is off → _do_move's staging block is skipped entirely
+            # (byte-identical off).
+            _phase_staging = None
+            if os.environ.get("SWEG_STAGING", "0") == "1":
+                _phase_staging = self._precompute_staging_envelope(other, active)
             # Wave 121: reset any pursuit targets from the previous turn. The
             # field is per-turn (not per-round) so that each army's turn gets a
             # fresh assignment. When the pursuit gate is off this is a no-op
@@ -11364,7 +11399,8 @@ class Battle:
                             army_name=active.name,
                         ))
                 self._do_move(unit, active, other, _phase_their_oc=_phase_their_oc,
-                              _phase_our_oc=_phase_our_oc)
+                              _phase_our_oc=_phase_our_oc,
+                              _phase_staging=_phase_staging)
                 # OC-cache incremental maintenance (byte-identical to the per-call
                 # rescan): this unit may have entered/left objectives' control
                 # radii, so adjust _phase_our_oc by ±its OC on each affected marker.
@@ -11950,8 +11986,208 @@ class Battle:
                     m.moved_this_round = True
                     self._emit(UnitMoved(unit_uid=m.uid, from_pos=old_pos, to_pos=new_pos))
 
+    def _precompute_staging_envelope(self, defender_army: Army, active_army: Army):
+        """Precompute the enemy threat envelope for SWEG_STAGING, once per move
+        phase (enemy units do not move during our phase, so this is stable for
+        the whole phase — the same `_phase_their_oc` convention). Returns
+        `(threats, commit_ready)` or None when no enemy projects a significant
+        envelope.
+
+          threats      — list of (ex, ey, radius, is_melee, out) for every enemy
+                         whose expected damage per activation clears the
+                         significance floor. `radius` = enemy Move + max(weapon
+                         range, charge reach), CAPPED at _STAGING_MAX_RADIUS so a
+                         board-wide gun does not blanket the map. `is_melee` marks
+                         a threat delivered primarily by charge (a melee
+                         platform), which is the only kind that gets a positional
+                         cap in _staging_capped_target.
+          commit_ready — parallel list of bools; True when a friendly mass is
+                         already poised inside this envelope at phase start
+                         (friendly expected output within the envelope >=
+                         _STAGING_COMMIT_FRACTION of the local enemy output). A
+                         True entry RELEASES the commit for units binding on that
+                         envelope — the "commit together" clause. Computed from
+                         the phase-start snapshot only (no per-activation lookahead
+                         loop), matching the deterministic-precompute constraint.
+
+        Pure geometry + cached expected-DPA; no RNG draws.
+        """
+        from .roles import expected_ranged_dpa, expected_melee_dpa
+        e_alive = defender_army.alive_units
+        threats = []
+        for e in e_alive:
+            p = e.profile
+            out = expected_ranged_dpa(p) + expected_melee_dpa(p)
+            if out < _STAGING_THREAT_FLOOR:
+                continue
+            rng = float(getattr(p, "range_inches", 0.0) or 0.0)
+            melee_capable = expected_melee_dpa(p) > 0.0
+            charge_reach = (_STAGING_ENGAGEMENT_RANGE + _STAGING_AVG_CHARGE) if melee_capable else 0.0
+            reach = rng if rng >= charge_reach else charge_reach
+            radius = effective_move(e) + reach
+            if radius > _STAGING_MAX_RADIUS:
+                radius = _STAGING_MAX_RADIUS
+            is_melee = melee_capable and charge_reach >= rng
+            ex, ey = e.position
+            threats.append((ex, ey, radius, is_melee, out))
+        if not threats:
+            return None
+        f_out = [
+            (u.position[0], u.position[1],
+             expected_ranged_dpa(u.profile) + expected_melee_dpa(u.profile))
+            for u in active_army.alive_units
+        ]
+        e_out = [
+            (e.position[0], e.position[1],
+             expected_ranged_dpa(e.profile) + expected_melee_dpa(e.profile))
+            for e in e_alive
+        ]
+        commit_ready = []
+        for (ex, ey, radius, is_melee, out) in threats:
+            enemy_local = 0.0
+            for (ox, oy, oo) in e_out:
+                if _distance((ex, ey), (ox, oy)) <= radius:
+                    enemy_local += oo
+            friendly_poised = 0.0
+            for (fx, fy, fo) in f_out:
+                if _distance((ex, ey), (fx, fy)) <= radius:
+                    friendly_poised += fo
+            commit_ready.append(friendly_poised >= _STAGING_COMMIT_FRACTION * enemy_local)
+        return (threats, commit_ready)
+
+    def _staging_can_act_this_turn(self, attacker, intent, target_pos,
+                                   normal_move, defender_army) -> bool:
+        """True when `attacker` can accomplish its commit THIS turn — the
+        mission-play override (2a) of the staging heuristic. Objective claimers
+        that reach the marker this turn, melee units that can complete a charge
+        this turn, and shooters whose target is in range after moving all commit
+        freely; only a commit that is WASTED this turn is eligible to stage
+        (the fall-back-only-when-wasted precedent)."""
+        apos = attacker.position
+        if intent in ("CAPTURE", "STEAL"):
+            # target_pos is the snapped destination near the objective marker;
+            # reaching it (even by Advancing) claims/contests the objective — a
+            # mission-critical move that MUST override staging.
+            return _distance(apos, target_pos) <= normal_move + _STAGING_MAX_ADVANCE + 0.5
+        e_alive = defender_army.alive_units
+        if not e_alive:
+            return True
+        nearest = min(_distance(apos, e.position) for e in e_alive)
+        from .roles import expected_ranged_dpa, expected_melee_dpa
+        p = attacker.profile
+        if expected_melee_dpa(p) >= expected_ranged_dpa(p):
+            # A melee closer acts only if it can Normal-move then charge home
+            # this turn (Advancing forfeits the charge, so the reach is the
+            # Normal move plus a charge, not an Advance).
+            return nearest <= normal_move + _STAGING_ENGAGEMENT_RANGE + _STAGING_MAX_CHARGE
+        # A ranged closer acts if a target is within its own weapon range after
+        # a Normal move.
+        own_range = float(getattr(p, "range_inches", 0.0) or 0.0)
+        return nearest <= normal_move + own_range
+
+    def _staging_capped_target(self, apos, target_pos, normal_move, threats):
+        """Cap the forward move so the unit stops at the edge of the nearest
+        MELEE-delivery envelope it is currently OUTSIDE of (do not walk into a
+        charge bubble while staging). Shooting envelopes are NOT capped — a unit
+        cannot stage outside a gun it out-ranges, so it still Normal-moves
+        forward (board presence preserved, per constraint 3). A unit already
+        inside every melee bubble is not capped either (that would freeze it)."""
+        ax, ay = apos
+        dgoal = _distance(apos, target_pos)
+        if dgoal < 1e-6:
+            return apos
+        dx = (target_pos[0] - ax) / dgoal
+        dy = (target_pos[1] - ay) / dgoal
+        allowed = normal_move
+        for (ex, ey, radius, is_melee, out) in threats:
+            if not is_melee:
+                continue
+            fx = ax - ex
+            fy = ay - ey
+            c = fx * fx + fy * fy - radius * radius
+            if c <= 0.0:
+                continue                 # already inside this bubble — no cap
+            b = 2.0 * (fx * dx + fy * dy)
+            disc = b * b - 4.0 * c
+            if disc <= 0.0:
+                continue                 # ray misses the bubble
+            t_hit = (-b - disc ** 0.5) / 2.0
+            if 0.0 <= t_hit < allowed:
+                allowed = t_hit
+        if allowed <= 0.0:
+            return apos
+        return (ax + allowed * dx, ay + allowed * dy)
+
+    def _staging_decision(self, attacker, target_pos, intent, normal_move,
+                          defender_army, staging_ctx):
+        """The SWEG_STAGING commit heuristic. Returns (new_target_pos,
+        suppress_advance) when `attacker` should STAGE at the enemy threat edge
+        instead of committing, or None when it should commit freely.
+
+        A unit stages when its would-be sprint destination ends EXPOSED (inside
+        a significant enemy threat envelope) AND it cannot act effectively this
+        turn, UNLESS (a) it claims/contests an objective this turn [handled by
+        _staging_can_act_this_turn], (b) it is cheap chaff/screen (screens are
+        SUPPOSED to be exposed), or (c) a friendly mass is committing into the
+        same envelope this turn (commit_ready). Staging suppresses the Advance
+        sprint (which for a melee unit also forfeits its charge) and, for melee
+        threats, caps the Normal move at the bubble edge; the unit still
+        Normal-moves toward its goal, so board presence is never surrendered —
+        only the reckless piecemeal over-commit is delayed."""
+        if intent not in ("ENGAGE", "CAPTURE", "STEAL"):
+            return None
+        threats, commit_ready = staging_ctx
+        # Override (b): cheap chaff / screens are meant to be exposed.
+        from .strategy import _is_chaff_unit
+        if _is_chaff_unit(attacker):
+            return None
+        apos = attacker.position
+        ax, ay = apos
+        dist_to_goal = _distance(apos, target_pos)
+        if dist_to_goal < 0.5:
+            return None
+        # Would-be sprint destination: a full Normal move plus a full Advance
+        # toward the goal — the position the default logic would deliver into.
+        reach_sprint = normal_move + _STAGING_MAX_ADVANCE
+        if dist_to_goal <= reach_sprint:
+            adv_dest = target_pos
+        else:
+            t = reach_sprint / dist_to_goal
+            adv_dest = (ax + t * (target_pos[0] - ax), ay + t * (target_pos[1] - ay))
+        # EXPOSED test: does the sprint destination enter a significant envelope?
+        binding_idx = -1
+        binding_pen = -1.0
+        for i, (ex, ey, radius, is_melee, out) in enumerate(threats):
+            pen = radius - _distance(adv_dest, (ex, ey))
+            if pen >= 0.0 and pen > binding_pen:
+                binding_pen = pen
+                binding_idx = i
+        if binding_idx < 0:
+            return None                  # not exposed — commit freely
+        # Override (a): the unit can accomplish its commit this turn.
+        if self._staging_can_act_this_turn(
+                attacker, intent, target_pos, normal_move, defender_army):
+            return None
+        # Override (c): a friendly mass is committing into this envelope.
+        if commit_ready[binding_idx]:
+            return None
+        capped_target = self._staging_capped_target(
+            apos, target_pos, normal_move, threats)
+        if os.environ.get("SWEG_STAGING_INSTR"):
+            log = getattr(self, "_staging_log", None)
+            if log is None:
+                log = self._staging_log = []
+            _held = _distance(apos, capped_target) < 0.5
+            log.append((
+                self._current_round, attacker.profile.faction,
+                attacker.profile.name, intent,
+                round(dist_to_goal, 1), "HOLD" if _held else "EDGE",
+            ))
+        return (capped_target, True)
+
     def _do_move(self, attacker, attacker_army: Army, defender_army: Army,
-                 _phase_their_oc=None, _phase_our_oc=None) -> None:
+                 _phase_their_oc=None, _phase_our_oc=None,
+                 _phase_staging=None) -> None:
         # Embarked passengers do not act on their own activation — the
         # transport carries them. The simulator emits UnitActivated for the
         # transport, not the passenger. Cited as `simulator.embark`.
@@ -12005,6 +12241,25 @@ class Battle:
         # squad fans out under collision instead of stacking on the centre. No-op
         # (byte-identical) unless SWEG_MOVEPLAN+SWEG_COLLISION and a multi-model squad.
         target_pos = self._make_way_target(attacker, intent, target_pos)
+
+        # SWEG_STAGING (threat-range-aware commit discipline, AI piloting
+        # heuristic; default-off, byte-identical off). The closing-side
+        # counterpart of the ranged-hold family below: a unit whose ENGAGE /
+        # CAPTURE / STEAL commit would deliver it EXPOSED into a significant
+        # enemy threat envelope, while it cannot itself act (charge / claim the
+        # objective / bring a gun to bear) this turn and no friendly mass is
+        # committing with it, STAGES at the envelope edge instead of trickling
+        # into the kill zone. `_phase_staging` is None whenever the gate is off
+        # (the precompute is gated in the move loop), so this whole block is
+        # skipped and the OFF path is byte-identical. Cited
+        # `simulator.staging_discipline`.
+        _stage_suppress = False
+        if _phase_staging is not None and intent in ("ENGAGE", "CAPTURE", "STEAL"):
+            _stage = self._staging_decision(
+                attacker, target_pos, intent, effective_move(attacker),
+                defender_army, _phase_staging)
+            if _stage is not None:
+                target_pos, _stage_suppress = _stage
 
         # Fall Back (10e core). Units already locked in melee that the
         # strategy layer wants to disengage move up to M" toward the picked
@@ -12113,7 +12368,11 @@ class Battle:
         # (self-cancelling, net -4/200, shrank with N). Off path byte-identical.
         # Grounds in the core-rules fact that Advancing forfeits non-Assault
         # shooting; cited as `simulator.am_advance_discipline`.
-        _suppress_advance = False
+        # `_stage_suppress` (SWEG_STAGING, above) folds into the same
+        # advance-suppression as the ranged-hold family: a staged closer never
+        # Advance-sprints into the kill zone (for a melee unit the Advance would
+        # also forfeit its charge). False whenever the gate is off.
+        _suppress_advance = _stage_suppress
         _ad_generic = os.environ.get("SWEG_ADVANCE_DISCIPLINE", "0") == "1"
         _ad_am = (os.environ.get("SWEG_AM_ADVANCE_DISCIPLINE", "1") != "0"
                   and (attacker.profile.faction or "") == "Astra Militarum")

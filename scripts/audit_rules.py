@@ -1022,6 +1022,18 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Advancing and forfeiting their Shooting phase. Overshoots via the durability
     # over-reward but improves the metric via collateral. Cited in votann.json.
     "simulator.votann_ranged_hold",
+    # SWEG_STAGING (default-off, byte-identical off). The faction-neutral
+    # closing-side counterpart of the ranged-hold family: a unit whose commit
+    # would deliver it EXPOSED into a significant enemy threat envelope while it
+    # cannot act (charge / claim an objective / bring a gun to bear) this turn,
+    # and which is not part of a friendly mass committing together, STAGES at the
+    # envelope edge (Advance sprint suppressed, forward move capped at melee
+    # bubbles) instead of trickling into the kill zone. Battle._staging_decision
+    # / _precompute_staging_envelope / _staging_can_act_this_turn /
+    # _staging_capped_target in code/simulator.py _do_move. Grounds in the
+    # universal competitive staging doctrine plus the symmetry with the adopted
+    # ranged-hold family. Cited in data/rule_citations.d/core_staging.json.
+    "simulator.staging_discipline",
     "unit.necrodermis",
     # Wave 181 — CA-2025-26 Tactical-track flat kill card VP values.
     # When a TACTICAL-track army (SWEG_TAC_DECK path) draws one of these three
