@@ -1458,6 +1458,92 @@ def _gather_group_candidates(
     return candidates_ranged, candidates_melee
 
 
+# A single choice-group OPTION: the (ranged, melee) profiles a player receives
+# by taking ONE selection from the group. Either half may be None; a dual-profile
+# weapon (a weapon selectionEntry that carries BOTH a Ranged and a Melee profile,
+# or a combined-arm entry such as "Siege claw and rad cleanser") fills both.
+WeaponOption = tuple[Optional[WeaponStats], Optional[WeaponStats]]
+
+
+def _gather_group_options(
+    grp: ET.Element,
+    reg: Registry,
+    _seen: Optional[set] = None,
+) -> List[WeaponOption]:
+    """Collect a selectionEntryGroup's candidate weapons AS OPTIONS, keeping
+    each option's ranged and melee profiles PAIRED.
+
+    This is the option-preserving sibling of `_gather_group_candidates` (which
+    flattens every leaf into two independent ranged / melee lists). Pairing
+    matters for the single-model choice-group resolver: taking ONE option from a
+    `max=1` group must bring ALL of that option's profiles, never one profile
+    from option A and another from option B. A dual-profile weapon — the Aeldari
+    Singing Spear, the Necron Staff of light, a Knight's "siege claw and rad
+    cleanser" combined arm — is one selection carrying both a ranged and a melee
+    profile; it must count as ONE choice, not two competing candidates.
+
+    Walks the same three shapes `_gather_group_candidates` does — cross-referenced
+    entryLinks (to a weapon selectionEntry OR a shared choice group), inline
+    child selectionEntries, and inline nested selectionEntryGroups — so the
+    candidate SET is identical; only the pairing differs. Linked / nested
+    sub-groups flatten their options up (each sub-option is an independent option
+    of this group, mirroring the original union-of-choices behaviour)."""
+    if _seen is None:
+        _seen = set()
+    gid = id(grp)
+    if gid in _seen:
+        return []
+    _seen.add(gid)
+
+    options: List[WeaponOption] = []
+
+    # 1. entryLink children — cross-reference into the shared weapon catalogue.
+    for el in grp.findall("./entryLinks/entryLink"):
+        if _is_crusade_only_entry(el):
+            continue
+        target_id = el.get("targetId") or ""
+        resolved = reg.resolve(target_id)
+        if resolved is not None and _is_crusade_only_entry(resolved):
+            continue
+        if el.get("type") == "selectionEntryGroup" or (
+            resolved is not None and resolved.tag == "selectionEntryGroup"
+        ):
+            if resolved is not None:
+                options.extend(_gather_group_options(resolved, reg, _seen))
+            continue
+        if el.get("type") != "selectionEntry":
+            continue
+        r, m = _resolve_weapon_target(target_id, reg)
+        if r is not None or m is not None:
+            options.append((r, m))
+
+    # 2. inline selectionEntry children — one entry is one option; its multiple
+    #    firing modes (Plasma standard / supercharge) each collapse to the best
+    #    mode of that type, and a dual-profile entry keeps both halves together.
+    for child in grp.findall("./selectionEntries/selectionEntry"):
+        if _is_crusade_only_entry(child):
+            continue
+        r_list, m_list = _weapons_from_inline_entry(child)
+        best_r = (
+            max(r_list, key=lambda w: w.expected_damage_through_baseline())
+            if r_list else None
+        )
+        best_m = (
+            max(m_list, key=lambda w: w.expected_damage_through_baseline())
+            if m_list else None
+        )
+        if best_r is not None or best_m is not None:
+            options.append((best_r, best_m))
+
+    # 3. inline nested selectionEntryGroup children — flatten their options up.
+    for sub in grp.findall("./selectionEntryGroups/selectionEntryGroup"):
+        if _is_crusade_only_entry(sub):
+            continue
+        options.extend(_gather_group_options(sub, reg, _seen))
+
+    return options
+
+
 def gather_squad_loadout(entry: ET.Element, reg: Registry) -> Optional[List[ModelLoadout]]:
     """
     Build a per-model loadout list for a multi-model squad.
@@ -1654,37 +1740,86 @@ def _weapon_base_name(name: str) -> str:
     return n
 
 
-def _pick_group_weapons(
-    candidates: List[WeaponStats], max_sel: int,
-    exclude: Optional[set] = None,
-) -> List[WeaponStats]:
-    """Pick a choice group's actual equipped weapons: the `max_sel` best
-    distinct weapons (best firing mode per base weapon name), highest expected
-    damage first. A `max=1` slot yields one weapon; a `max=2` "Secondary
-    Weapons" slot yields its two best. This is the per-slot pick that replaced
-    the old union-by-shared-name clustering, which collapsed every independent
-    weapon slot of a multi-weapon chassis into a single gun.
+def _option_expected_damage(option: WeaponOption) -> float:
+    """Score a whole choice-group OPTION by the combined expected damage of its
+    profiles, so ranged-only, melee-only and dual-profile options are ranked on
+    one comparable expected-value basis. A dual-profile option (both a ranged and
+    a melee profile) is worth the sum — that is the value of taking the one
+    selection that grants both."""
+    r, m = option
+    total = 0.0
+    if r is not None:
+        total += r.expected_damage_through_baseline()
+    if m is not None:
+        total += m.expected_damage_through_baseline()
+    return total
 
-    `exclude` (base weapon names) skips weapons the model already carries as
-    FIXED wargear, so a choice group that also lists a fixed weapon does not
-    re-pick it (a Knight Tyrant's "Main weapons" group lists its fixed Warpshock
-    harpoon, which out-ranks the volcano lance; without this the group re-picks
-    the harpoon and the real main gun is lost)."""
+
+def _pick_group_options(
+    options: List[WeaponOption], max_sel: int,
+    exclude_ranged: Optional[set] = None,
+    exclude_melee: Optional[set] = None,
+) -> tuple[List[WeaponStats], List[WeaponStats]]:
+    """Resolve ONE choice group by picking its `max_sel` best OPTIONS from the
+    COMBINED (ranged + melee) candidate pool, then partitioning the winners'
+    profiles back into ranged and melee.
+
+    -- BUG CLASS FIXED: mixed-type choice-group double-equip -----------------
+    The previous resolver picked a group's best RANGED candidate and its best
+    MELEE candidate INDEPENDENTLY (two separate `_pick_group_weapons` calls).
+    For a MIXED group — one whose options are of different weapon types, e.g. a
+    Knight arm group that is "keep the Reaper chainsword (melee) OR replace it
+    with a gatling / battle / thermal cannon (ranged)" — that equipped BOTH the
+    melee default AND the best ranged alternative, when the `max=1` constraint
+    means the player takes exactly ONE. No legal build carries both.
+
+    Proven live cases (verified unit audit):
+      * Knight Despoiler fired Daemonbreath thermal cannon + Ruinspear rocket
+        pod + Daemonbreath meltagun AND fought with Warpstrike claw + Reaper
+        chainsword + Titanic feet — a mix of mutually-exclusive arm options.
+      * Chaos Defiler fired four ranged weapons including a baleflamer that
+        REPLACES the battle-cannon slot, and carried a DUPLICATED electroscourge
+        in melee.
+
+    Scoring ranged and melee options on the same expected-damage basis and
+    taking the top `max_sel` OPTIONS means a `max=1` mixed group contributes
+    exactly one weapon — of whichever type won — and a ranged-only or
+    melee-only group behaves exactly as before (its options are all one type,
+    so the pick is unchanged). Because each option is taken whole, a
+    dual-profile option contributes both its profiles as ONE selection.
+
+    `exclude_ranged` / `exclude_melee` (base weapon names) skip profiles the
+    model already carries as FIXED wargear, so a choice group that also lists a
+    fixed weapon does not re-pick it (a Knight Tyrant's "Main weapons" group
+    lists its fixed Warpshock harpoon, which out-ranks the volcano lance;
+    without this the group re-picks the harpoon and the real main gun is lost).
+    An option counts toward `max_sel` when it contributes at least one NEW
+    profile of either type."""
     n = max(1, int(max_sel))
-    chosen: List[WeaponStats] = []
-    seen_bases: set = set(exclude) if exclude else set()
-    n_pre = len(seen_bases)
-    for w in sorted(
-        candidates, key=lambda w: w.expected_damage_through_baseline(), reverse=True
-    ):
-        base = _weapon_base_name(w.name)
-        if base in seen_bases:
+    seen_ranged: set = set(exclude_ranged) if exclude_ranged else set()
+    seen_melee: set = set(exclude_melee) if exclude_melee else set()
+    chosen_ranged: List[WeaponStats] = []
+    chosen_melee: List[WeaponStats] = []
+    picked = 0
+    for r, m in sorted(options, key=_option_expected_damage, reverse=True):
+        r_base = _weapon_base_name(r.name) if r is not None else None
+        m_base = _weapon_base_name(m.name) if m is not None else None
+        take_r = r is not None and r_base not in seen_ranged
+        take_m = m is not None and m_base not in seen_melee
+        # Skip an option whose every profile is already carried (a fixed-weapon
+        # re-pick, or a duplicate of a weapon this group already selected).
+        if not take_r and not take_m:
             continue
-        seen_bases.add(base)
-        chosen.append(w)
-        if len(seen_bases) - n_pre >= n:
+        if take_r:
+            seen_ranged.add(r_base)
+            chosen_ranged.append(r)
+        if take_m:
+            seen_melee.add(m_base)
+            chosen_melee.append(m)
+        picked += 1
+        if picked >= n:
             break
-    return chosen
+    return chosen_ranged, chosen_melee
 
 
 def _collect_single_model_weapons(
@@ -1701,8 +1836,10 @@ def _collect_single_model_weapons(
       - Fixed weapons (entryLinks / inline selectionEntries with min>=1, or
         no selection constraint at all) fire together — collect every one.
       - A CHOICE group (selectionEntryGroup, or an entryLink resolving to one,
-        that carries a `max` selections constraint) contributes ONE best
-        option, chosen by expected damage.
+        that carries a `max` selections constraint) contributes its `max`
+        best OPTIONS, chosen by expected damage from the COMBINED ranged +
+        melee pool so a mixed group's pick spans both types (see
+        `_pick_group_options`).
       - A CONTAINER group ("Wargear" wrapper, no `max` constraint) is
         transparent: descend into it and classify each of its members the
         same way.
@@ -1719,10 +1856,12 @@ def _collect_single_model_weapons(
 
     ranged_picks: List[WeaponStats] = []
     melee_picks: List[WeaponStats] = []
-    # Choice-group candidate lists accumulate here and are resolved (with
-    # overlap-clustering, below) AFTER every group at this node is seen. Each
-    # entry is (candidates_ranged, candidates_melee) for one choice group.
-    choice_groups: List[tuple[List[WeaponStats], List[WeaponStats], int]] = []
+    # Choice-group option lists accumulate here and are resolved AFTER every
+    # group at this node is seen. Each entry is (options, max_sel) for one
+    # choice group, where `options` pairs each candidate's ranged / melee
+    # profiles so a mixed group's `max_sel` pick spans BOTH types (see
+    # `_pick_group_options` for the mixed-type double-equip bug this fixes).
+    choice_groups: List[tuple[List[WeaponOption], int]] = []
 
     def _add_group(grp: ET.Element) -> None:
         """Classify a resolved selectionEntryGroup as choice vs container."""
@@ -1730,14 +1869,15 @@ def _collect_single_model_weapons(
             return
         max_sel = _seg_max_selections(grp)
         if max_sel is not None:
-            # CHOICE group — record its candidate leaves plus its slot count
+            # CHOICE group — record its candidate OPTIONS plus its slot count
             # (the group's `max` selections). Each group is an INDEPENDENT
             # weapon slot, resolved on its own below: a Knight's two arm groups
             # plus carapace each contribute their pick, instead of collapsing
-            # to one gun.
-            cand_r, cand_m = _gather_group_candidates(grp, reg)
-            if cand_r or cand_m:
-                choice_groups.append((cand_r, cand_m, max_sel))
+            # to one gun. Options keep each candidate's ranged / melee profiles
+            # PAIRED so a mixed group picks ONE weapon across both types.
+            options = _gather_group_options(grp, reg)
+            if options:
+                choice_groups.append((options, max_sel))
         else:
             # CONTAINER — its direct weapon leaves are simultaneous fixed
             # weapons and its sub-groups are independent choices. Recurse.
@@ -1836,23 +1976,34 @@ def _collect_single_model_weapons(
         _add_group(grp)
 
     # Resolve the accumulated choice groups. Each group is an INDEPENDENT
-    # weapon slot and contributes its own `max`-selections best weapons (best
-    # firing mode per base weapon name). A titanic chassis's two arm groups
-    # plus carapace therefore each fire, and a "Secondary Weapons" group with
-    # max=2 yields its two best. Mutually-exclusive options WITHIN one group
-    # still collapse to that group's best (a single arm slot fires one gun).
+    # weapon slot and contributes its own `max`-selections best weapons. A
+    # titanic chassis's two arm groups plus carapace therefore each fire, and a
+    # "Secondary Weapons" group with max=2 yields its two best. Mutually-
+    # exclusive options WITHIN one group still collapse to that group's best.
     #
-    # This replaced a union-by-shared-weapon-name clustering that picked ONE
-    # weapon across every group sharing any candidate name — it wrongly merged
-    # genuinely-independent slots (Left Arm / Right Arm of a Wraithknight, Main
-    # / Carapace of a Knight Tyrant) and stripped the main guns off ~250
-    # multi-weapon chassis (Knights, Titans, Dreadnoughts, super-heavy tanks).
-    # See tests/test_model_loadouts.py.
+    # Each group is resolved across its COMBINED ranged + melee option pool
+    # (`_pick_group_options`), so a MIXED group — one whose `max=1` choice is
+    # "keep the melee weapon OR replace it with a ranged gun" — contributes
+    # exactly one weapon, of whichever type won, rather than double-equipping
+    # the melee default AND the best ranged alternative (the Knight Despoiler /
+    # Chaos Defiler illegal-loadout bug). A ranged-only or melee-only group is
+    # unaffected: all its options are one type, so the pick is identical.
+    #
+    # The per-group INDEPENDENCE itself replaced an earlier union-by-shared-
+    # weapon-name clustering that picked ONE weapon across every group sharing
+    # any candidate name — it wrongly merged genuinely-independent slots (Left
+    # Arm / Right Arm of a Wraithknight, Main / Carapace of a Knight Tyrant) and
+    # stripped the main guns off ~250 multi-weapon chassis (Knights, Titans,
+    # Dreadnoughts, super-heavy tanks). See tests/test_model_loadouts.py.
     fixed_bases_r = {_weapon_base_name(w.name) for w in ranged_picks}
     fixed_bases_m = {_weapon_base_name(w.name) for w in melee_picks}
-    for cand_r, cand_m, max_sel in choice_groups:
-        ranged_picks.extend(_pick_group_weapons(cand_r, max_sel, exclude=fixed_bases_r))
-        melee_picks.extend(_pick_group_weapons(cand_m, max_sel, exclude=fixed_bases_m))
+    for options, max_sel in choice_groups:
+        grp_r, grp_m = _pick_group_options(
+            options, max_sel,
+            exclude_ranged=fixed_bases_r, exclude_melee=fixed_bases_m,
+        )
+        ranged_picks.extend(grp_r)
+        melee_picks.extend(grp_m)
 
     return ranged_picks, melee_picks
 
