@@ -461,6 +461,59 @@ class Detachment:
     # Cited as `BRINGERS_OF_FLAME.army_wide_assault`.
     army_wide_assault: bool = False
 
+    # Leagues of Votann Hearthband detachment rule (Methodical Annihilation).
+    # Verbatim text, fetched directly from the live Wahapedia page for the
+    # Leagues of Votann faction (https://wahapedia.ru/wh40k10ed/factions/
+    # leagues-of-votann/#Hearthband) on 2026-07-02, and cross-checked against
+    # the raw BSData v10.6.0 cache (Leagues of Votann.cat.gz, rule id
+    # 70a5-9f3d-4e2f-8eb3) — both sources match word for word:
+    #   "Each time a LEAGUES OF VOTANN model from your army makes an attack
+    #   with a weapon that targets the closest eligible target or a target
+    #   that is within Engagement Range of that model's unit:
+    #   - Re-roll a Wound roll of 1.
+    #   - If your unit is a KÂHL, EINHYR HEARTHGUARD or ÛTHAR THE DESTINED
+    #   unit, improve the Armour Penetration characteristic of that attack
+    #   by 1."
+    # APPROXIMATION — only the melee half of the first bullet is modelled.
+    # A Fight-phase attack is, by the 10e core-rules definition of the Fight
+    # phase, always made against a target within Engagement Range of the
+    # attacker's unit, so the rule's "...or a target that is within
+    # Engagement Range of that model's unit" branch is unconditionally
+    # satisfied whenever mode == "melee" — the melee Wound-reroll-of-1 is
+    # therefore modelled EXACTLY, no approximation needed. The alternative
+    # "targets the closest eligible target" branch, which is what would let
+    # the same reroll fire on RANGED attacks too, is NOT modelled:
+    # Unit.attack has no "is this the closest eligible target" signal at the
+    # attack call site (the same limitation already documented on
+    # UnitProfile.votann_native_reroll_ranged for Einhyr Hearthguard's native
+    # re-roll, where it was accepted as a deliberate, moderate over-credit on
+    # a SINGLE datasheet). Extending that same unenforced-restriction
+    # over-credit to an ARMY-WIDE ranged re-roll here would be a materially
+    # larger and less faithful buff, and Leagues of Votann is already
+    # over-performing in the simulator (sim ~53-55 vs real ~48.0 per the May
+    # 2026 Warp Friends tournament aggregate) — so the ranged branch is
+    # honestly left un-modelled rather than fabricated toward a rough shape.
+    # The second bullet (Armour Penetration improved by 1 for KÂHL, EINHYR
+    # HEARTHGUARD or ÛTHAR THE DESTINED units) is ALSO not modelled: it
+    # restricts to three specific named units/keywords, and no existing
+    # Detachment or UnitProfile accumulator expresses a unit-identity-gated
+    # Armour Penetration improvement without a new per-datasheet override
+    # mechanism (the existing `melee_ap_plus_one` field is unconditional
+    # army-wide within its own faction gate, not unit-identity-restricted) —
+    # building that bespoke mechanism is out of scope for this change (see
+    # HEARTHBAND notes below for the full omission rationale — the same
+    # "model the expressible part, document the rest honestly" approach used
+    # for Adeptus Custodes Assemblage of Might; see `assemblage_of_might`
+    # above).
+    # Read in Unit.attack: mode == "melee" AND attacker faction ==
+    # "Leagues of Votann" AND the army's resolved detachment carries this
+    # flag. Gated SWEG_VOTANN_HEARTHBAND (default OFF); with the gate off the
+    # Leagues of Votann faction default and its only FACTION_DETACHMENTS
+    # entry remain "oathband", byte-identical to the pre-Hearthband code.
+    # Cited as `HEARTHBAND.hearthband_methodical_annihilation` and
+    # `simulator.hearthband_methodical_annihilation`.
+    hearthband_methodical_annihilation: bool = False
+
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
     enemy_ld_penalty: int = 0            # -N to enemy Ld (higher target)
@@ -1601,6 +1654,61 @@ OATHBAND = Detachment(
     preferred_composition="balanced",
 )
 
+# Leagues of Votann Hearthband detachment (env-gated SWEG_VOTANN_HEARTHBAND,
+# default OFF). See `hearthband_methodical_annihilation` above for the full
+# verbatim rule text, sourcing, and the modelled-vs-omitted rationale.
+HEARTHBAND = Detachment(
+    name="Hearthband",
+    faction="Leagues of Votann",
+    notes=(
+        "Real Leagues of Votann codex detachment (Wahapedia, "
+        "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/"
+        "#Hearthband, fetched 2026-07-02; cross-checked word for word "
+        "against the raw BSData v10.6.0 cache, Leagues of Votann.cat.gz, "
+        "rule id 70a5-9f3d-4e2f-8eb3). Detachment rule 'Methodical "
+        "Annihilation', verbatim: \"Each time a LEAGUES OF VOTANN model "
+        "from your army makes an attack with a weapon that targets the "
+        "closest eligible target or a target that is within Engagement "
+        "Range of that model's unit: Re-roll a Wound roll of 1. If your "
+        "unit is a KÂHL, EINHYR HEARTHGUARD or ÛTHAR THE DESTINED unit, "
+        "improve the Armour Penetration characteristic of that attack by "
+        "1.\" Built because the 2026 real-world Leagues of Votann meta is "
+        "roughly 45 percent Hearthband and 36 percent Needgaârd Oathband "
+        "per a prior sourced tournament-placement audit, while the "
+        "simulator previously only knew the generic 'Oathband' stub — this "
+        "fix gives the simulator the actually-played detachment shape "
+        "alongside that stub. Only the melee wound-reroll clause is "
+        "modelled, and it is modelled EXACTLY: 'within Engagement Range of "
+        "that model's unit' is unconditionally true for every Fight-phase "
+        "attack under the 10e core rules, so no approximation is needed "
+        "for mode == 'melee'. Two pieces are honestly NOT modelled rather "
+        "than fabricated: (1) the ranged half of the same clause, gated on "
+        "'targets the closest eligible target', because Unit.attack has no "
+        "closest-eligible-target signal at the attack call site (the same "
+        "limitation already accepted as a deliberate over-credit for the "
+        "single-datasheet Einhyr Hearthguard native re-roll — extending "
+        "that over-credit to an army-wide ranged buff on an already "
+        "over-performing faction, sim ~53-55 versus real ~48.0, was judged "
+        "unfaithful rather than merely approximate); and (2) the Armour "
+        "Penetration improvement for KÂHL, EINHYR HEARTHGUARD and ÛTHAR THE "
+        "DESTINED units, which restricts to three named units/keywords "
+        "with no existing accumulator to express the restriction without "
+        "a new per-datasheet override mechanism. See "
+        "`Detachment.hearthband_methodical_annihilation` for the full "
+        "field-level citation. Gated SWEG_VOTANN_HEARTHBAND (default OFF): "
+        "the Leagues of Votann `DEFAULT_BY_FACTION` / `FACTION_DETACHMENTS` "
+        "entries resolve to this detachment only when the gate is on; the "
+        "default off-path continues to resolve the pre-existing 'Oathband' "
+        "generic stub, byte-identical to the pre-Hearthband behaviour. "
+        "Stratagems and Enhancements catalogued on Wahapedia for Hearthband "
+        "are OUT OF SCOPE for this change — not wired, matching the Astra "
+        "Militarum Grizzled Company precedent of keeping a detachment-rule "
+        "fix small and reviewable on its own."
+    ),
+    hearthband_methodical_annihilation=True,
+    preferred_composition="balanced",
+)
+
 
 # ---------------------------------------------------------------------------
 # Second detachments per major faction (#126). Each is keyword-gated so the
@@ -1813,6 +1921,9 @@ DETACHMENTS: Dict[str, Detachment] = {
     "daemonic_incursion":      DAEMONIC_INCURSION,
     "final_day":               FINAL_DAY,
     "oathband":                OATHBAND,
+    # Leagues of Votann Hearthband (SWEG_VOTANN_HEARTHBAND gate — see
+    # HEARTHBAND notes and DEFAULT_BY_FACTION / FACTION_DETACHMENTS below).
+    "hearthband":              HEARTHBAND,
     # Second detachments per major faction (#126).
     "ironstorm_spearhead":     IRONSTORM_SPEARHEAD,
     "canoptek_court":          CANOPTEK_COURT,
@@ -1889,6 +2000,7 @@ RUBRICAE_PHALANX   = DETACHMENTS["rubricae_phalanx"]
 WAR_HORDE          = DETACHMENTS["war_horde"]
 SHIELD_HOST        = DETACHMENTS["shield_host"]
 OATHBAND           = DETACHMENTS["oathband"]
+HEARTHBAND         = DETACHMENTS["hearthband"]
 COMBINED_REGIMENT  = DETACHMENTS["combined_regiment"]
 # Codex-correct alias — the detachment was renamed from "Combined Regiment"
 # (SwegHammer launch label) to "Combined Arms" (Wahapedia codex name) in
@@ -1908,6 +2020,15 @@ COMBINED_ARMS      = DETACHMENTS["combined_regiment"]
 # pre-Grizzled-Company code. When True, both resolve to "grizzled_company"
 # instead. See GRIZZLED_COMPANY notes above for the rule text.
 _AM_GRIZZLED_ON: bool = os.environ.get("SWEG_AM_GRIZZLED", "0") == "1"
+
+# Leagues of Votann Hearthband gate (SWEG_VOTANN_HEARTHBAND, default OFF).
+# Read once at import time — same convention as _AM_GRIZZLED_ON above. When
+# False, the two dict entries this feeds below ("Leagues of Votann" in
+# DEFAULT_BY_FACTION and FACTION_DETACHMENTS) are the literal pre-existing
+# "oathband" strings — byte-identical to the pre-Hearthband code. When True,
+# both resolve to "hearthband" instead. See HEARTHBAND notes above for the
+# rule text.
+_VOTANN_HEARTHBAND_ON: bool = os.environ.get("SWEG_VOTANN_HEARTHBAND", "0") == "1"
 
 # Default detachment per faction (used when Army.detachment is None and a
 # faction is known). Picks a sensible competitive default; user can override.
@@ -1974,7 +2095,10 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "World Eaters":             "berzerker_warband",
     "Chaos Daemons":            "daemonic_incursion",
     "Genestealer Cults":        "final_day",
-    "Leagues of Votann":        "oathband",
+    # SWEG_VOTANN_HEARTHBAND (default OFF): "hearthband" when the gate is
+    # on, else the pre-existing "oathband" generic stub (see
+    # _VOTANN_HEARTHBAND_ON above).
+    "Leagues of Votann":        "hearthband" if _VOTANN_HEARTHBAND_ON else "oathband",
 }
 
 
@@ -2096,7 +2220,12 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
                                  "legion_of_excess", "plague_legion",
                                  "scintillating_legion"),
     "Genestealer Cults":        ("final_day",),
-    "Leagues of Votann":        ("oathband",),
+    # SWEG_VOTANN_HEARTHBAND (default OFF): the sole entry is "hearthband"
+    # when the gate is on, else the pre-existing "oathband" (single-entry
+    # tuple either way, so pick_detachment_for_army's len(keys) == 1
+    # deterministic branch is unaffected — see _VOTANN_HEARTHBAND_ON above).
+    "Leagues of Votann":        (("hearthband",) if _VOTANN_HEARTHBAND_ON
+                                 else ("oathband",)),
 }
 
 

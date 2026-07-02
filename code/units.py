@@ -3681,6 +3681,40 @@ class Unit:
             # The re-roll branch is intentionally removed — do not re-add
             # without a verbatim Wahapedia citation per CLAUDE.md §10.
 
+            # ---- Leagues of Votann Hearthband detachment — Methodical
+            # Annihilation (gated SWEG_VOTANN_HEARTHBAND, default OFF).
+            # Verbatim (Wahapedia https://wahapedia.ru/wh40k10ed/factions/
+            # leagues-of-votann/#Hearthband, fetched 2026-07-02;
+            # cross-checked word for word against BSData v10.6.0, Leagues of
+            # Votann.cat.gz, rule id 70a5-9f3d-4e2f-8eb3): "Each time a
+            # LEAGUES OF VOTANN model from your army makes an attack with a
+            # weapon that targets the closest eligible target or a target
+            # that is within Engagement Range of that model's unit: Re-roll
+            # a Wound roll of 1. If your unit is a KÂHL, EINHYR HEARTHGUARD
+            # or ÛTHAR THE DESTINED unit, improve the Armour Penetration
+            # characteristic of that attack by 1." Only the melee half of
+            # the wound-reroll clause is modelled, and modelled EXACTLY: a
+            # Fight-phase attack is, by the 10e core-rules definition of the
+            # Fight phase, always made against a target within Engagement
+            # Range of the attacker's unit, so the "...or a target that is
+            # within Engagement Range of that model's unit" branch is
+            # unconditionally satisfied whenever mode == "melee" — no
+            # approximation is required for that half. The ranged branch
+            # ("targets the closest eligible target") and the Armour
+            # Penetration bullet (restricted to KÂHL / EINHYR HEARTHGUARD /
+            # ÛTHAR THE DESTINED units) are honestly NOT modelled — see
+            # `Detachment.hearthband_methodical_annihilation` in
+            # code/detachments.py for the full omission rationale. Cited as
+            # `HEARTHBAND.hearthband_methodical_annihilation` and
+            # `simulator.hearthband_methodical_annihilation`.
+            if mode == "melee" and (p.faction or "") == "Leagues of Votann":
+                try:
+                    _det_hb = own_army.resolve_detachment() if own_army is not None else None
+                except Exception:
+                    _det_hb = None
+                if getattr(_det_hb, "hearthband_methodical_annihilation", False):
+                    att_reroll_wound_ones = True
+
             # ---- Adeptus Astartes Oath of Moment (army rule, 10e). When the
             # attacker is a Marine (any chapter) AND its army has declared
             # this round's oath target on this defender's uid, every attack

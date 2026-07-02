@@ -145,6 +145,15 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # `simulator.grizzled_ruthless_discipline` in
     # data/rule_citations.d/astra_militarum.json.
     ("grizzled_ruthless_discipline", False),
+    # Leagues of Votann Hearthband detachment rule — Methodical Annihilation
+    # (melee-only, exact half of the wound-reroll clause; the ranged half
+    # and the Armour Penetration bullet are honestly not modelled — see the
+    # field-level comment on Detachment.hearthband_methodical_annihilation
+    # in code/detachments.py). Gated SWEG_VOTANN_HEARTHBAND (default OFF).
+    # Cited as `HEARTHBAND.hearthband_methodical_annihilation` and
+    # `simulator.hearthband_methodical_annihilation` in
+    # data/rule_citations.d/votann.json.
+    ("hearthband_methodical_annihilation", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
@@ -1017,6 +1026,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # citation: GRIZZLED_COMPANY.grizzled_ruthless_discipline. Cited in
     # data/rule_citations.d/astra_militarum.json.
     "simulator.grizzled_ruthless_discipline",
+    # Leagues of Votann Hearthband — Methodical Annihilation (env-gated
+    # SWEG_VOTANN_HEARTHBAND, default OFF). Simulator-side gate in
+    # code/units.py Unit.attack: mode == "melee" AND attacker faction ==
+    # "Leagues of Votann" AND the army's resolved detachment carries
+    # `hearthband_methodical_annihilation`, re-rolling a Wound roll of 1.
+    # Detachment-flag citation: HEARTHBAND.hearthband_methodical_annihilation.
+    # Cited in data/rule_citations.d/votann.json.
+    "simulator.hearthband_methodical_annihilation",
 )
 
 
