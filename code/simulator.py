@@ -2059,6 +2059,64 @@ class Battle:
         method below short-circuits here before touching the board or the RNG."""
         return __import__("os").environ.get("SWEG_ACTION_ECONOMY", "0") == "1"
 
+    # ------------------------------------------------------------------
+    # SWEG_SECONDARY_PURSUIT — the tactical-secondary-pursuit package.
+    #
+    # A 2026-07-02 diagnostic (docs/DECISION_LEDGER.md) found the tactical
+    # secondary track scoring a mean of roughly nine and a half victory points
+    # per game against a real-world figure of roughly twenty two point seven —
+    # with the Astra Militarum tactical-track engine, the biggest under-pole,
+    # measuring only four to four point six — and ranked three faithful causes:
+    # a positional hole in Establish Locus's action assignment, a card-pursuit
+    # movement layer that exists but was held off, and a voluntary-discard
+    # command-point grant that fires without regard to whose turn it is. This
+    # ONE flag composes all three fixes so they are validated and adopted or
+    # rejected together, since they interact (the movement layer can put a
+    # spare unit into the position the assignment filter then checks for).
+    # DEFAULT-OFF; unset / anything but "1" reproduces every touched code path
+    # byte-for-byte.
+    # ------------------------------------------------------------------
+
+    def _secondary_pursuit_enabled(self) -> bool:
+        """SWEG_SECONDARY_PURSUIT gate. DEFAULT-OFF: returns True only when the
+        environment variable is explicitly "1".
+
+        Composes three fixes, each documented in full at its own call site:
+
+        (a) `_assign_establish_locus_actions` gains a positional filter so a
+            spare unit is only flagged for the Establish Locus action when it
+            is ALREADY standing where the card pays (mirrors
+            `_score_establish_locus`'s own enemy-deployment-zone / 6"-of-centre
+            test) — previously any spare unit was flagged regardless of
+            position, and the card's measured achieve rate (6.1%) was the
+            worst in the pool.
+        (b) The AI card-pursuit movement layer (`_assign_card_pursuit`,
+            normally behind the separately-held `SWEG_TAC_PURSUE`) is switched
+            on, and extended with an Engage on All Fronts branch, so spare
+            units route toward the geographic goal of an unscored held
+            tactical card. Cited `simulator.secondary_card_pursuit_ai`. This
+            gate IMPLIES `SWEG_TAC_PURSUE` (see `_tac_pursue_enabled`); that
+            gate's own environment variable keeps its narrower, independently
+            screened semantics unchanged while this package gate is off.
+        (c) The `SWEG_TAC_VOLUNTARY_DISCARD` command-point grant is corrected
+            to fire only on the discarding army's own turn, using the genuine
+            active/other turn context `_run_round_vanilla_turns` already
+            tracks, and the discard heuristic is replaced with an
+            achievability read in place of the base gate's `age >= 1` trigger
+            (see `_apply_tactical_voluntary_discard_own_turn` and
+            `_tac_discard_card_cannot_pay`). This gate IMPLIES
+            `SWEG_TAC_VOLUNTARY_DISCARD` (see `_tac_voluntary_discard_enabled`);
+            that gate's own environment variable keeps its original,
+            unconditional-grant / age-only semantics unchanged while this
+            package gate is off.
+
+        No new draws are added to the global `random` stream anywhere in the
+        package — every decision above is a deterministic function of
+        already-known board / hand state, so the paired common-random-number
+        evaluation's downstream RNG stream is untouched on the ON path
+        relative to itself, and untouched at all on the OFF path."""
+        return os.environ.get("SWEG_SECONDARY_PURSUIT", "0") == "1"
+
     def _unit_zone(self, u, own_is_army_a: bool) -> str:
         """Classify a unit's position into one of the three Recover Assets areas:
         "own_dz" (the scoring army's own deployment zone), "nml" (No Man's Land),
@@ -2092,17 +2150,41 @@ class Battle:
 
         The unit is chosen by the rules-authentic `_unit_can_perform_action`
         contract (the even-handed, EMERGENT spare-unit test) — no faction or
-        model-count branch. Cited `simulator.secondary_establish_locus`."""
+        model-count branch. Cited `simulator.secondary_establish_locus`.
+
+        SWEG_SECONDARY_PURSUIT positional filter: without it, ANY spare unit
+        passing `_unit_can_perform_action` is flagged, including one nowhere
+        near either scoring position — the action then locks it out of
+        shooting/charging for nothing, since `_score_establish_locus` only
+        pays when the performing unit is in the opponent's deployment zone or
+        within 6" of the battlefield centre. Assignment runs AFTER the
+        Movement phase (see the call site in `_run_round_vanilla_turns`), so a
+        unit's position here is exactly where it will stay for the rest of
+        the turn — the filter below re-uses `_score_establish_locus`'s own
+        test at assignment time so only a unit that is ALREADY standing in a
+        scoring position (whether it walked there on its own or was routed
+        there by the SWEG_SECONDARY_PURSUIT card-pursuit movement layer, part
+        (b) of the same package) is ever committed to the action."""
         if not self._action_economy_enabled():
             return
         if "establish_locus" not in (getattr(active, "chosen_secondaries", ()) or ()):
             return
+        own_is_a = active is self.a
+        _positional_filter = self._secondary_pursuit_enabled()
+        cx = self.map.width / 2.0
+        cy = self.map.height / 2.0
         for u in active.alive_units:
             if u.action_this_round is not None:
                 continue
-            if self._unit_can_perform_action(u, other):
-                u.action_this_round = "establish_locus"
-                break  # CAP = 1 ("One unit from your army")
+            if not self._unit_can_perform_action(u, other):
+                continue
+            if _positional_filter and not self._unit_in_enemy_dz(u, own_is_a):
+                dx = u.position[0] - cx
+                dy = u.position[1] - cy
+                if dx * dx + dy * dy > 6.0 * 6.0:
+                    continue  # not yet in a position the card would pay for
+            u.action_this_round = "establish_locus"
+            break  # CAP = 1 ("One unit from your army")
 
     def _score_establish_locus(self, army, opponent, own_is_army_a: bool,
                                chosen_override=None) -> int:
@@ -2488,10 +2570,17 @@ class Battle:
         one-Unit-per-model REPRESENTATION gap (fragile distributed bodies cannot
         reach/hold targets), the same root as the Imperial Knights primary
         over-hold — that is M4, not the pursuit AI. AI heuristic only — no 10e
-        rule citation required."""
+        rule citation required.
+
+        SWEG_SECONDARY_PURSUIT composition: the tactical-secondary-pursuit
+        package gate IMPLIES this sub-gate, so the whole pursuit layer runs
+        whenever the package is on (part (b) of that gate's docstring) —
+        SWEG_TAC_PURSUE keeps its own narrower semantics, and its own
+        wave-122 held-off default, unchanged when the package gate is off."""
         if not self._tac_deck_enabled():
             return False
-        return __import__("os").environ.get("SWEG_TAC_PURSUE", "0") == "1"
+        return (__import__("os").environ.get("SWEG_TAC_PURSUE", "0") == "1"
+                or self._secondary_pursuit_enabled())
 
     def _assign_card_pursuit(self, active, other) -> None:
         """Wave 121 — AI card-pursuit pre-movement hook.  Sets `pursue_target`
@@ -2499,13 +2588,19 @@ class Battle:
         pick_move_intent routes them toward the geographic goal of their held
         Tactical card this activation.
 
-        Only two movement-pursuable cards are handled:
+        Movement-pursuable cards handled:
           * 'behind_enemy_lines' — sends spare chaff into the opponent's
             deployment zone (the strip at the far edge of the board).
+          * 'engage_on_all_fronts' (SWEG_SECONDARY_PURSUIT part (b)) — sends
+            one spare chaff unit toward the nearest table quarter the army
+            does not already occupy.
           * 'cleanse' — sends spare chaff toward the nearest objective that is
             OUTSIDE the active army's own deployment zone, so the existing
             _assign_cleanse_actions (which runs AFTER movement) can then flag
             the unit once it has arrived.
+          * the five BOARD take-and-hold cards (defend_stronghold,
+            secure_no_mans_land, extend_battle_lines, storm_hostile_objective,
+            area_denial) via `_board_pursuit_goals` below.
 
         Selection is strictly even-handed by CAPABILITY:
           * _is_chaff_unit gate (cheap non-CHARACTER unit, any faction).
@@ -2557,6 +2652,45 @@ class Battle:
                     continue
                 u.pursue_target = bel_target
                 n += 1
+
+        # SWEG_SECONDARY_PURSUIT part (b) — Engage on All Fronts is a
+        # positional card `_assign_card_pursuit` never routed toward (only
+        # `_assign_card_dedication`, gated separately behind SWEG_SECONDARY,
+        # handled it, alongside unrelated Action-cost changes this package
+        # does not want to pull in). Spread a spare chaff unit toward a board
+        # quarter the army does not already occupy. Quarter encoding mirrors
+        # `secondaries.score_position_delta` and `_assign_card_dedication`'s
+        # identical branch: (qx, qy) with qx=0 for x<cx else 1, qy=0 for
+        # y<cy else 1. Cited `simulator.secondary_card_pursuit_ai`.
+        if "engage_on_all_fronts" in hand:
+            cx = self.map.width / 2.0
+            cy = self.map.height / 2.0
+            occupied = set()
+            for u in active.alive_units:
+                ux, uy = u.position
+                occupied.add((0 if ux < cx else 1, 0 if uy < cy else 1))
+            quarter_centre = {
+                (0, 0): (cx * 0.5, cy * 0.5),
+                (1, 0): (cx + cx * 0.5, cy * 0.5),
+                (0, 1): (cx * 0.5, cy + cy * 0.5),
+                (1, 1): (cx + cx * 0.5, cy + cy * 0.5),
+            }
+            empty_quarters = [q for q in quarter_centre if q not in occupied]
+            if empty_quarters:
+                # Deterministic pick: the lowest-keyed empty quarter.
+                engage_target = quarter_centre[sorted(empty_quarters)[0]]
+                n = 0
+                for u in active.alive_units:
+                    if n >= PURSUIT_CAP:
+                        break
+                    if u.action_this_round is not None:
+                        continue
+                    if u.pursue_target is not None:
+                        continue
+                    if not _is_chaff_unit(u):
+                        continue
+                    u.pursue_target = engage_target
+                    n += 1
 
         if "cleanse" in hand:
             # Target: the nearest forward objective (outside the active army's
@@ -3228,9 +3362,21 @@ class Battle:
         decision, no command-point grant, no change to which cards are
         drawn or when). See `_score_tactical_hand` for the implementation
         and data/rule_citations.d/secondaries_pariah_nexus.json#simulator.tactical_voluntary_discard
-        for the verbatim rule text."""
-        return __import__("os").environ.get(
-            "SWEG_TAC_VOLUNTARY_DISCARD", "0") == "1"
+        for the verbatim rule text.
+
+        SWEG_SECONDARY_PURSUIT composition: the tactical-secondary-pursuit
+        package gate IMPLIES this gate, so the voluntary discard mechanic runs
+        whenever the package is on — but `_score_tactical_hand` only runs the
+        ORIGINAL round-end implementation (unconditional command-point grant,
+        `age >= 1` heuristic) when the package gate is off; when the package
+        gate is on, that block is skipped in favour of the refined, own-turn
+        implementation in `_apply_tactical_voluntary_discard_own_turn` (see
+        that method and `_tac_discard_card_cannot_pay` for the replacement).
+        SWEG_TAC_VOLUNTARY_DISCARD's own environment variable and its
+        original semantics are unchanged when the package gate is off."""
+        return (__import__("os").environ.get(
+                    "SWEG_TAC_VOLUNTARY_DISCARD", "0") == "1"
+                or self._secondary_pursuit_enabled())
 
     def _init_tactical_deck(self, army: Army) -> None:
         """Seed a TACTICAL army's 2-card hand + remaining deck deterministically.
@@ -3421,7 +3567,28 @@ class Battle:
         # At most ONE voluntary discard per turn (a conservative reading of
         # the rule's "one or more" — real players rarely dump both cards at
         # once; see the citation for the full approximation note).
-        if self._tac_voluntary_discard_enabled():
+        #
+        # SWEG_SECONDARY_PURSUIT part (c): this block is the ORIGINAL
+        # implementation (unconditional command-point grant, `age >= 1`
+        # heuristic) and keeps running byte-for-byte when only the base
+        # SWEG_TAC_VOLUNTARY_DISCARD gate is set. When the package gate is
+        # ALSO on, this block is skipped IN FAVOUR of
+        # `_apply_tactical_voluntary_discard_own_turn` (called from
+        # `_run_round_vanilla_turns`, once per army at the true end of that
+        # army's own turn, before this round-end method even runs) — running
+        # this block too would double-process. That replacement only exists
+        # on the vanilla per-player-turn path this package was built against
+        # (mirrors the identical `cmd_score` fallback at the top of
+        # `_run_round`): under alternating activations there is no clean
+        # per-player turn boundary to plumb, so this block keeps running
+        # there even with the package gate on, exactly like the base gate
+        # alone — a package that is inert on that path is strictly better
+        # than one that silently drops the mechanic.
+        _pursuit_own_turn_active = (
+            self._secondary_pursuit_enabled()
+            and not self.rules.alternating_activations
+        )
+        if self._tac_voluntary_discard_enabled() and not _pursuit_own_turn_active:
             eligible = [c for c in army.tactical_hand
                        if entering_ages.get(c, 0) >= 1]
             if eligible:
@@ -3452,6 +3619,117 @@ class Battle:
             army.tactical_hand.append(new_card)
             army.tactical_hand_age[new_card] = 0
         return total
+
+    def _tac_discard_card_cannot_pay(self, card_key: str, army: Army,
+                                     other_army: Army, own_is_army_a: bool,
+                                     round_num: int) -> bool:
+        """SWEG_SECONDARY_PURSUIT part (c) — voluntary-discard eligibility
+        test. True when `card_key`, currently held by `army`, cannot pay in
+        this game state: either a genuine structural impossibility (the
+        card's qualifying target/marker/actor no longer exists in this
+        matchup, so it can NEVER score again this battle) where one is
+        cheaply computable, or — for the cards without a cheap structural
+        test — a persistent zero read (held un-achieved for at least one
+        full previous round, per `Army.tactical_hand_age`, AND still scoring
+        zero right now via `_score_one_card`, which is read-only and so safe
+        to call for this probe without double-counting any victory points).
+
+        Replaces the base SWEG_TAC_VOLUNTARY_DISCARD gate's `age >= 1`-only
+        trigger, which discarded a card the instant it survived one round
+        even when it was about to pay — this is strictly NARROWER (a card
+        must ALSO fail the structural or zero-read test), so it is a less
+        aggressive heuristic, per the tactical-secondary-pursuit diagnostic's
+        finding that the real bottleneck is card ACHIEVABILITY, not merely
+        hand turnover speed."""
+        from .secondaries import _is_monster_or_vehicle, _is_horde_unit, _is_character
+        other_alive = other_army.alive_units
+        if card_key == "bring_it_down":
+            if not any(_is_monster_or_vehicle(u) for u in other_alive):
+                return True  # no MONSTER/VEHICLE left to kill — impossible
+        elif card_key == "cull_the_horde":
+            if not any(_is_horde_unit(u) for u in other_alive):
+                return True  # no 13+model unit left to kill — impossible
+        elif card_key == "assassination":
+            if not any(_is_character(u) for u in other_alive):
+                return True  # no CHARACTER left to kill — impossible
+        elif card_key == "a_tempting_target":
+            if self._tempting_target_obj_idx(own_is_army_a) is None:
+                return True  # no No Man's Land marker on this map — impossible
+        elif card_key in ("cleanse", "sabotage", "establish_locus", "recover_assets"):
+            if not any((getattr(u.profile, "oc", 0) or 0) > 0
+                       for u in army.alive_units):
+                return True  # no Objective-Control-capable body left — impossible
+        # Fallback for cards without a cheap structural test (no_prisoners,
+        # engage_on_all_fronts, behind_enemy_lines, and the remaining board
+        # cards secure_no_mans_land / defend_stronghold / extend_battle_lines
+        # / storm_hostile_objective / area_denial): persistent zero expected
+        # value — held un-achieved for a full previous round AND still
+        # reading zero right now.
+        if army.tactical_hand_age.get(card_key, 0) < 1:
+            return False
+        return self._score_one_card(card_key, army, other_army,
+                                    own_is_army_a, round_num) <= 0
+
+    def _apply_tactical_voluntary_discard_own_turn(self, active: Army,
+                                                    other: Army) -> None:
+        """SWEG_SECONDARY_PURSUIT part (c) — the your-turn-only voluntary
+        discard. Called once per battle round from `_run_round_vanilla_turns`,
+        at the genuine end of `active`'s own turn (immediately after its
+        Fight phase resolves, before the loop moves on to the other army),
+        using the real active/other turn context that function already
+        tracks. `active` really is the army whose turn is ending at this
+        call site, so "if it is your turn, you gain 1CP" is honestly true
+        here — unlike the base SWEG_TAC_VOLUNTARY_DISCARD gate's round-end
+        call (`_score_tactical_hand`, run once for BOTH armies together after
+        the round has fully closed), which could not tell either army's turn
+        from the other's and so granted the command point unconditionally.
+        `other`'s own voluntary discard is handled symmetrically, later, when
+        it is `other`'s turn to be `active` in the loop's second iteration —
+        so each army still gets exactly one voluntary-discard opportunity per
+        round, precisely as the base gate already modelled, just correctly
+        timed and correctly scoped to the discarding army alone.
+
+        No-op unless the package gate is on (`_secondary_pursuit_enabled`) —
+        while it is off, `_score_tactical_hand`'s original round-end block
+        keeps running the base gate's own semantics unchanged (see
+        `_tac_voluntary_discard_enabled`'s composition note).
+
+        Uses `_tac_discard_card_cannot_pay` (achievability, not mere age) to
+        pick the candidate; at most one voluntary discard per turn, matching
+        the base gate's conservative reading of the rule's "one or more".
+        The removed card leaves both `tactical_hand` and `tactical_hand_age`
+        immediately, so the round-end achieved-card-discard/redraw step in
+        `_score_tactical_hand` (unchanged, still gate-independent) sees a
+        hand already missing it and simply redraws a replacement as it would
+        for any other departed card — no double-scoring, no lost victory
+        points, and no new draw on the global `random` stream (the discard
+        choice is a pure, deterministic function of already-known board and
+        hand state)."""
+        if not self._secondary_pursuit_enabled():
+            return
+        if not self._tac_deck_enabled():
+            return
+        if getattr(active, "secondary_track", None) != "TACTICAL":
+            return
+        hand = getattr(active, "tactical_hand", None)
+        if not hand:
+            return
+        own_is_a = active is self.a
+        round_num = self._current_round
+        candidates = [
+            c for c in hand
+            if self._tac_discard_card_cannot_pay(c, active, other, own_is_a,
+                                                 round_num)
+        ]
+        if not candidates:
+            return
+        # Deterministic pick among hopeless candidates — longest-held first
+        # (mirrors the base gate's tie-break), then card key.
+        candidates.sort(key=lambda c: (-active.tactical_hand_age.get(c, 0), c))
+        discard_card = candidates[0]
+        active.tactical_hand.remove(discard_card)
+        active.tactical_hand_age.pop(discard_card, None)
+        active.command_points = min(CP_CAP, active.command_points + 1)
 
     def _score_secondaries_deck(self, round_num: int) -> None:
         """M2 deck-aware per-round secondary scoring (SWEG_TAC_DECK ON). Each army
@@ -11277,6 +11555,14 @@ class Battle:
             # `simulator.relentless_carnage`. Wahapedia source:
             # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster
             self._apply_relentless_carnage(active, other)
+            # SWEG_SECONDARY_PURSUIT part (c) — the your-turn-only voluntary
+            # discard. `active`'s entire turn (Movement through Fight) has
+            # now resolved, so this is the genuine end of ITS OWN turn — the
+            # correct, honestly-plumbed moment for "if it is your turn, you
+            # gain 1CP" to apply to `active` specifically. No-op unless the
+            # package gate is on. See `_apply_tactical_voluntary_discard_
+            # own_turn` for the full contract.
+            self._apply_tactical_voluntary_discard_own_turn(active, other)
         # SWEG_R5_SECOND_LAST deferred score (see the gate comment at the top
         # of the turns loop): the second player's round-5 primary is scored
         # HERE, after their whole turn has resolved — the Chapter Approved

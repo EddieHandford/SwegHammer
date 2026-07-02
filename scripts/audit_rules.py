@@ -272,6 +272,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.secondary_establish_locus",
     "simulator.secondary_recover_assets",
     "secondaries.a_tempting_target",
+    # Tactical-secondary-pursuit package (gated SWEG_SECONDARY_PURSUIT):
+    # the AI card-pursuit movement layer's citation, grounding the
+    # heuristic in the Tactical Missions Secondary Mission card mechanic
+    # it pursues. simulator.secondary_establish_locus (above) and
+    # simulator.tactical_voluntary_discard (below) already cover the
+    # positional-filter and voluntary-discard parts of the same package.
+    "simulator.secondary_card_pursuit_ai",
     "simulator.judgement_tokens",
     # Orks faction army rules (10e). mob_rule auto-passes Battle-shock for
     # Ork units when the army has 10+ Ork models on the battlefield;
