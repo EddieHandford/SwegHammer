@@ -1083,6 +1083,20 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # strongly deprioritised in favour of a candidate it can actually kill
     # (a low-Wounds War Dog). Cited in data/rule_citations.d/target_economics.json.
     "simulator.target_economics",
+    # Substrate-accounting diagnostic (2026-07-02 ledger) — focus-fire
+    # completion (env-gated SWEG_FOCUS_FIRE, default OFF). AI ranged target-
+    # priority heuristic in both shooting pickers (Battle._plan_squad_fire
+    # and Battle._do_shoot's per-model fallback): a candidate already below
+    # its starting health (10e has no in-battle healing, so this is durable
+    # cross-activation proof friendly fire already landed) scores a bonus
+    # that scales with how much it has already lost, gated on the same
+    # can-this-attacker-actually-wound-it screen simulator.target_economics
+    # uses. Supplies the cross-activation "finish the wounded target"
+    # completion simulator.target_economics does not: that term fixes
+    # per-activation target choice, this one makes successive activations
+    # converge on the same already-hurt target instead of scattering onto
+    # fresh ones. Cited in data/rule_citations.d/focus_fire_completion.json.
+    "simulator.focus_fire_completion",
 )
 
 

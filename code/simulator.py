@@ -12730,6 +12730,105 @@ class Battle:
             self._TARGET_ECONOMICS_CAP - self._TARGET_ECONOMICS_FLOOR
         )
 
+    # Focus-fire completion range for the "finish the wounded" bonus below.
+    # 1.0 (no bonus) at full health, rising to this cap as the candidate
+    # approaches zero health. Chosen to comfortably outscore the existing
+    # class-bias ceiling (Astartes Oath of Moment / Votann / Chaos Knights
+    # class biases all run 1.4x-2.2x) so a genuinely half-dead-or-worse
+    # candidate decisively outscores a fresh target of the same class, while
+    # staying low enough that it never swamps the target-economics
+    # can't-hurt-it floor this term always composes with (see below).
+    _FOCUS_FIRE_CAP: float = 3.0
+
+    def _focus_fire_bonus(self, attacker, target) -> float:
+        """`simulator.focus_fire_completion` — cross-activation FINISH-THE-
+        WOUNDED completion term (env-gated SWEG_FOCUS_FIRE, default OFF).
+
+        THE FINDING (2026-07-02 substrate-accounting diagnostic): the army's
+        anti-Knight fire BUDGET across a game is sufficient — every archetype
+        can kill a Knight Despoiler in roughly one round of concentrated
+        fire, the whole 164-wound Chaos Knights list in 5.5-9.3 rounds of
+        fire — but 86-95 percent of shooting activations aimed at a Knight
+        deal zero damage, and almost none of the output that IS dealt lands
+        on the same TITANIC platform two activations running: the fire
+        SCATTERS across the board instead of finishing what it started. Real
+        players do the opposite — pick ONE Knight and kill it before moving
+        on to the next (the researched anti-Knight playbook in
+        docs/PILOT_FINDINGS.md already recorded this as "absolute focus-fire
+        on one Knight", sourced from the Goonhammer / Tabletop Battles
+        Knights faction-focus guides; see
+        data/rule_citations.d/focus_fire_completion.json for the exact
+        sources and an honest note on what could and could not be
+        re-verified this session). `_target_economics_bonus` above fixed the
+        PER-ACTIVATION half of this (never dump fire into a hull this weapon
+        cannot wound) but has no CROSS-ACTIVATION memory at all — nothing
+        makes a LATER activation prefer a target an EARLIER activation this
+        same game already hurt over an equally-woundable fresh one.
+
+        NOT the same lever as the already-rejected `SWEG_SHOOT_HOLDERS`
+        (DECISION_LEDGER, 2026-06-27): that heuristic required the candidate
+        to be standing on an objective marker AND excluded anti-armour
+        weapons, hunting for the most-wounded objective camper specifically,
+        and it regressed the metric by inflating durable over-poles further.
+        This term has neither restriction — it rewards ANY already-wounded,
+        currently-woundable candidate continuously by how hurt it already is,
+        with no objective-marker gate and no weapon-class exclusion — so it
+        is a materially different, narrower-purpose axis (cross-activation
+        completion, not objective-camper triage) and is not assumed to
+        inherit that rejection; it is screened fresh on its own probe.
+
+        This term supplies that memory the cheapest way the Battle already
+        has it: `target.current_health` versus `target.profile.health`. 10e
+        has no in-battle healing, so a candidate below its starting health
+        carries lasting, monotonic proof that friendly fire already landed on
+        it — whether that damage came from this same army earlier this round
+        or survived over from a prior round, either way it is a target worth
+        finishing, so no separate round-scoped snapshot needs to be built
+        beyond the health the Unit already tracks.
+
+        `damage_taken_frac = 1 - current_health / starting_health`, scaled
+        onto `[1.0, _FOCUS_FIRE_CAP]` — 1.0x (no bonus) for an untouched
+        candidate, rising toward the cap as it nears death. GATED, not
+        unconditional: the bonus only applies when THIS attacker's weapon can
+        meaningfully wound the candidate at all (`_ranged_expected_wounds >
+        0`, the exact same screen `_target_economics_bonus` uses), so
+        SWEG_FOCUS_FIRE always composes with the target-economics
+        can't-hurt-it floor even when SWEG_TARGET_ECONOMICS itself is left
+        unset — a half-dead Knight a lasgun cannot scratch never gets an
+        artificial score bump. When both gates are on, the two multiply
+        together (already-wounded AND currently-killable outscores either
+        alone).
+
+        CLASS-shaped, not single-designated-target: every candidate meeting
+        the already-wounded-and-woundable test gets the same formula, with no
+        per-unit or per-faction pin. The batch lesson from the per-faction
+        target-selection levers (DECISION_LEDGER: Votann's on-objective bias
+        and Chaos Knights' below-half bias both helped because they reward a
+        CLASS of target, while the rejected T'au single-Spotted-target bias
+        over-concentrated and dragged the metric via closed-matrix
+        collateral) is deliberately preserved here: this is "any wounded,
+        finishable target", never "the one unit the army designated".
+
+        Deterministic: reads only current-vs-starting health and the
+        pre-computed expected-wounds math, draws no random number. Composed
+        multiplicatively into the same `min()` target-priority chain as every
+        other bonus in both picker branches (the squad split-fire planner
+        `_plan_squad_fire` and the per-model fallback picker in `_do_shoot`).
+        Env-gated SWEG_FOCUS_FIRE, default OFF: unset returns 1.0 for every
+        candidate, reproducing the pre-existing denominator byte-for-byte."""
+        if __import__("os").environ.get("SWEG_FOCUS_FIRE") != "1":
+            return 1.0
+        starting_hp = target.profile.health or 0.0
+        if starting_hp <= 0.0:
+            return 1.0
+        damage_taken_frac = 1.0 - (target.current_health / starting_hp)
+        if damage_taken_frac <= 0.0:
+            return 1.0
+        if self._ranged_expected_wounds(attacker.profile, target) <= 0.0:
+            return 1.0
+        damage_taken_frac = min(1.0, damage_taken_frac)
+        return 1.0 + damage_taken_frac * (self._FOCUS_FIRE_CAP - 1.0)
+
     def _nominate_focus_target(self, army, opponent) -> None:
         """Wave 79 — army-level focus fire (env-gated SWEG_FOCUS). Once per turn,
         nominate the single most valuable durable enemy threat the army can hurt,
@@ -13036,6 +13135,7 @@ class Battle:
                         * _drukhari_fragile_flyer_bonus(e)
                         * _kite_target_bonus(e, attacker_army)
                         * self._target_economics_bonus(model, e)
+                        * self._focus_fire_bonus(model, e)
                     )
                     key = remaining / bonus
                     if best is None or key < best_key:
@@ -13469,6 +13569,7 @@ class Battle:
                     * _kite_target_bonus(u, attacker_army)
                     * self._threat_priority_bonus(attacker, u)
                     * self._target_economics_bonus(attacker, u)
+                    * self._focus_fire_bonus(attacker, u)
                 ),
             )
 
