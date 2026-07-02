@@ -1606,17 +1606,52 @@ def _gather_group_candidates(
     return candidates_ranged, candidates_melee
 
 
-# A single choice-group OPTION: the (ranged, melee) profiles a player receives
-# by taking ONE selection from the group. Either half may be None; a dual-profile
-# weapon (a weapon selectionEntry that carries BOTH a Ranged and a Melee profile,
-# or a combined-arm entry such as "Siege claw and rad cleanser") fills both.
-WeaponOption = tuple[Optional[WeaponStats], Optional[WeaponStats]]
+# A single choice-group OPTION: the ranged + melee weapons a player receives by
+# taking ONE selection from the group. Each half is a LIST, so one option can
+# carry MORE THAN ONE weapon:
+#   - a plain weapon selectionEntry  -> one entry in one list (e.g. ([gun], []));
+#   - a dual-profile weapon (a Ranged and a Melee profile on one entry, or a
+#     combined-arm entry such as "Siege claw and rad cleanser") -> one entry in
+#     EACH list;
+#   - a Dominus-chassis carapace BUNDLE ("2 shieldbreaker missile launchers and
+#     twin siegebreaker cannon") whose weapons live in NESTED entryLinks -> every
+#     bundled weapon, with min=N/max=N multiplicity already expanded (the two
+#     shieldbreakers appear as two list entries).
+# An empty list means the option grants no weapon of that type.
+WeaponOption = tuple[List[WeaponStats], List[WeaponStats]]
+
+
+def _entry_has_own_weapon(entry: ET.Element, reg: Registry) -> bool:
+    """True when `entry` is a LEAF weapon that carries its OWN Ranged / Melee
+    profile — inline (`./profiles/profile`) or by direct infoLink reference — as
+    opposed to a BUNDLE whose weapons live in NESTED child selectionEntries /
+    entryLinks (the Dominus carapace "2 shieldbreaker missile launchers and twin
+    siegebreaker cannon", the Predator's "2 Lascannons").
+
+    This is the plain-weapon-vs-bundle test the choice-option builder needs.
+    Testing only the entry's OWN (depth-1) profiles matters: a recursive
+    `.//profile` search reaches DOWN into a bundle's nested weapon components and
+    would mis-read the bundle as a single one-copy weapon, dropping both the rest
+    of the bundle and each component's min=N/max=N multiplicity (the "2 Lascannons"
+    bundle read as one Lascannon)."""
+    for prof in entry.findall("./profiles/profile"):
+        tn = prof.get("typeName") or ""
+        if "Ranged" in tn or "Melee" in tn:
+            return True
+    for il in entry.findall("./infoLinks/infoLink"):
+        tgt = reg.resolve(il.get("targetId") or "")
+        if tgt is not None and tgt.tag == "profile":
+            tn = tgt.get("typeName") or ""
+            if "Ranged" in tn or "Melee" in tn:
+                return True
+    return False
 
 
 def _gather_group_options(
     grp: ET.Element,
     reg: Registry,
     _seen: Optional[set] = None,
+    single_model: bool = True,
 ) -> List[WeaponOption]:
     """Collect a selectionEntryGroup's candidate weapons AS OPTIONS, keeping
     each option's ranged and melee profiles PAIRED.
@@ -1657,19 +1692,57 @@ def _gather_group_options(
             resolved is not None and resolved.tag == "selectionEntryGroup"
         ):
             if resolved is not None:
-                options.extend(_gather_group_options(resolved, reg, _seen))
+                options.extend(
+                    _gather_group_options(resolved, reg, _seen, single_model)
+                )
             continue
         if el.get("type") != "selectionEntry":
             continue
+        if single_model and resolved is not None and not _entry_has_own_weapon(
+            resolved, reg
+        ):
+            # BUNDLE — a choice option whose own selectionEntry carries no weapon
+            # profile but wraps its weapons in NESTED entryLinks / selectionEntries.
+            # Collect every nested weapon (with min=N/max=N multiplicity) as ONE
+            # option; without this the bundle contributed zero weapons (the
+            # Dominus carapace bug that stripped the Castellan / Valiant guns).
+            # Gated on `single_model`: on the multi-model-squad fallback the old
+            # single-weapon extraction below is kept byte-identical, so squads
+            # like the lasgun-only Cadian Shock Troops (whose special-weapon
+            # models are reconstructed at load) do not gain bundle weapons here.
+            b_r, b_m = _collect_single_model_weapons(
+                resolved, reg, single_model=single_model
+            )
+            if b_r or b_m:
+                options.append((b_r, b_m))
+            continue
         r, m = _resolve_weapon_target(target_id, reg)
         if r is not None or m is not None:
-            options.append((r, m))
+            options.append((
+                [r] if r is not None else [],
+                [m] if m is not None else [],
+            ))
 
     # 2. inline selectionEntry children — one entry is one option; its multiple
     #    firing modes (Plasma standard / supercharge) each collapse to the best
     #    mode of that type, and a dual-profile entry keeps both halves together.
     for child in grp.findall("./selectionEntries/selectionEntry"):
         if _is_crusade_only_entry(child):
+            continue
+        if single_model and not _entry_has_own_weapon(child, reg):
+            # BUNDLE — an inline choice option carrying no weapon profile of its
+            # own but wrapping its weapons in nested entryLinks / selectionEntries
+            # (the Knight Tyrant "2 Gheiststrike missile launchers and 1 twin
+            # desecrator cannon" carapace bundle; the Predator's "2 Lascannons"
+            # whose nested Lascannon is min=2/max=2). Collect every nested weapon,
+            # multiplicity included, as ONE option. Gated on `single_model` so the
+            # multi-model-squad fallback keeps the byte-identical single-weapon
+            # extraction below (the lasgun-only Cadian / Krieg base loadout).
+            b_r, b_m = _collect_single_model_weapons(
+                child, reg, single_model=single_model
+            )
+            if b_r or b_m:
+                options.append((b_r, b_m))
             continue
         r_list, m_list = _weapons_from_inline_entry(child)
         best_r = (
@@ -1681,13 +1754,16 @@ def _gather_group_options(
             if m_list else None
         )
         if best_r is not None or best_m is not None:
-            options.append((best_r, best_m))
+            options.append((
+                [best_r] if best_r is not None else [],
+                [best_m] if best_m is not None else [],
+            ))
 
     # 3. inline nested selectionEntryGroup children — flatten their options up.
     for sub in grp.findall("./selectionEntryGroups/selectionEntryGroup"):
         if _is_crusade_only_entry(sub):
             continue
-        options.extend(_gather_group_options(sub, reg, _seen))
+        options.extend(_gather_group_options(sub, reg, _seen, single_model))
 
     return options
 
@@ -1890,15 +1966,17 @@ def _weapon_base_name(name: str) -> str:
 
 def _option_expected_damage(option: WeaponOption) -> float:
     """Score a whole choice-group OPTION by the combined expected damage of its
-    profiles, so ranged-only, melee-only and dual-profile options are ranked on
-    one comparable expected-value basis. A dual-profile option (both a ranged and
-    a melee profile) is worth the sum — that is the value of taking the one
-    selection that grants both."""
-    r, m = option
+    profiles, so ranged-only, melee-only, dual-profile and BUNDLE options are
+    ranked on one comparable expected-value basis. A dual-profile option (a ranged
+    plus a melee profile) is worth the sum — the value of taking the one selection
+    that grants both. A bundle option is worth the SUM of every bundled weapon's
+    basket score, multiplicity included, so two shieldbreaker missile launchers
+    count for twice one, and the bundle competes fairly against a single weapon."""
+    opt_ranged, opt_melee = option
     total = 0.0
-    if r is not None:
+    for r in opt_ranged:
         total += _choice_score(r)
-    if m is not None:
+    for m in opt_melee:
         total += _choice_score(m)
     return total
 
@@ -1933,8 +2011,11 @@ def _pick_group_options(
     taking the top `max_sel` OPTIONS means a `max=1` mixed group contributes
     exactly one weapon — of whichever type won — and a ranged-only or
     melee-only group behaves exactly as before (its options are all one type,
-    so the pick is unchanged). Because each option is taken whole, a
-    dual-profile option contributes both its profiles as ONE selection.
+    so the pick is unchanged). Because each option is taken WHOLE, a dual-profile
+    option contributes both its profiles as ONE selection, and a BUNDLE option
+    (a Dominus carapace "2 shieldbreaker missile launchers and twin siegebreaker
+    cannon") contributes ALL of its bundled weapons — with the two shieldbreakers
+    kept as two copies — as ONE selection.
 
     `exclude_ranged` / `exclude_melee` (base weapon names) skip profiles the
     model already carries as FIXED wargear, so a choice group that also lists a
@@ -1942,28 +2023,40 @@ def _pick_group_options(
     lists its fixed Warpshock harpoon, which out-ranks the volcano lance;
     without this the group re-picks the harpoon and the real main gun is lost).
     An option counts toward `max_sel` when it contributes at least one NEW
-    profile of either type."""
+    profile of either type. Membership in the seen sets is tested BEFORE they are
+    updated for the current option, so an option that legitimately carries two
+    copies of one weapon (the two shieldbreakers in a bundle) keeps both, while a
+    cross-option or fixed-wargear duplicate is still dropped."""
     n = max(1, int(max_sel))
     seen_ranged: set = set(exclude_ranged) if exclude_ranged else set()
     seen_melee: set = set(exclude_melee) if exclude_melee else set()
     chosen_ranged: List[WeaponStats] = []
     chosen_melee: List[WeaponStats] = []
     picked = 0
-    for r, m in sorted(options, key=_option_expected_damage, reverse=True):
-        r_base = _weapon_base_name(r.name) if r is not None else None
-        m_base = _weapon_base_name(m.name) if m is not None else None
-        take_r = r is not None and r_base not in seen_ranged
-        take_m = m is not None and m_base not in seen_melee
-        # Skip an option whose every profile is already carried (a fixed-weapon
-        # re-pick, or a duplicate of a weapon this group already selected).
-        if not take_r and not take_m:
+    for opt_ranged, opt_melee in sorted(
+        options, key=_option_expected_damage, reverse=True
+    ):
+        # Weapons this option contributes that are NOT already carried (a fixed-
+        # weapon re-pick, or a duplicate a PRIOR option in this group already
+        # took). Filtered against the seen sets as they stand BEFORE this option,
+        # so two copies of one weapon WITHIN this option both survive.
+        new_ranged = [
+            w for w in opt_ranged
+            if _weapon_base_name(w.name) not in seen_ranged
+        ]
+        new_melee = [
+            w for w in opt_melee
+            if _weapon_base_name(w.name) not in seen_melee
+        ]
+        # Skip an option whose every profile is already carried.
+        if not new_ranged and not new_melee:
             continue
-        if take_r:
-            seen_ranged.add(r_base)
-            chosen_ranged.append(r)
-        if take_m:
-            seen_melee.add(m_base)
-            chosen_melee.append(m)
+        chosen_ranged.extend(new_ranged)
+        chosen_melee.extend(new_melee)
+        for w in new_ranged:
+            seen_ranged.add(_weapon_base_name(w.name))
+        for w in new_melee:
+            seen_melee.add(_weapon_base_name(w.name))
         picked += 1
         if picked >= n:
             break
@@ -1974,6 +2067,7 @@ def _collect_single_model_weapons(
     node: ET.Element,
     reg: Registry,
     _seen: Optional[set] = None,
+    single_model: bool = True,
 ) -> tuple[List[WeaponStats], List[WeaponStats]]:
     """Recursively collect ONE single model's actual weapon loadout.
 
@@ -1991,6 +2085,16 @@ def _collect_single_model_weapons(
       - A CONTAINER group ("Wargear" wrapper, no `max` constraint) is
         transparent: descend into it and classify each of its members the
         same way.
+
+    `single_model` gates the min=N/max=N MULTIPLICITY expansion (Defect 1): when
+    True (a genuine one-model chassis — a Knight, a Baneblade, a Manta), a fixed
+    weapon pinned at min=N is emitted N times because that ONE model really
+    carries N of it (the Armiger's two autocannons, a Castellan's two twin
+    meltaguns, a Manta's ten seeker missiles). When False the multiplier is
+    forced to 1: this path is also the FALLBACK for a multi-model squad whose
+    per-model squad walk failed, where the collapsed pseudo-model carries
+    `count=1.0` and a weapon's min=N encodes the SQUAD-wide count (eleven Grot
+    blastas across eleven Gretchin), which must NOT be piled onto one model.
 
     Returns (ranged_picks, melee_picks). Unlike `_collect_weapons_for_model`,
     this does NOT collapse multiple fixed ranged weapons to a single best —
@@ -2023,13 +2127,15 @@ def _collect_single_model_weapons(
             # plus carapace each contribute their pick, instead of collapsing
             # to one gun. Options keep each candidate's ranged / melee profiles
             # PAIRED so a mixed group picks ONE weapon across both types.
-            options = _gather_group_options(grp, reg)
+            options = _gather_group_options(grp, reg, single_model=single_model)
             if options:
                 choice_groups.append((options, max_sel))
         else:
             # CONTAINER — its direct weapon leaves are simultaneous fixed
             # weapons and its sub-groups are independent choices. Recurse.
-            sub_r, sub_m = _collect_single_model_weapons(grp, reg, _seen)
+            sub_r, sub_m = _collect_single_model_weapons(
+                grp, reg, _seen, single_model=single_model
+            )
             ranged_picks.extend(sub_r)
             melee_picks.extend(sub_m)
 
@@ -2070,10 +2176,17 @@ def _collect_single_model_weapons(
         if min_val < 1:
             continue
         r, m = _resolve_weapon_target(target_id, reg)
+        # MULTIPLICITY — a fixed weapon pinned at min=N/max=N (the Knight
+        # Castellan / Valiant "Twin meltagun" link at min=2/max=2) is carried N
+        # times and fires N times; emit N copies. `min_val` is >=1 here (optional
+        # upgrades were skipped above). Only genuine single-model chassis expand
+        # (see `single_model`): on the multi-model-squad fallback min=N is a
+        # squad-wide count, not a per-model one.
+        copies = min_val if single_model else 1
         if r is not None:
-            ranged_picks.append(r)
+            ranged_picks.extend([r] * copies)
         if m is not None:
-            melee_picks.append(m)
+            melee_picks.extend([m] * copies)
 
     # 2. inline selectionEntry children carrying their own weapon profiles
     #    (min>=1 == fixed). Multiple profile modes on one entry (Plasma
@@ -2114,10 +2227,15 @@ def _collect_single_model_weapons(
                     m_modes.append(w)
         best_r = _best_candidate(r_modes)
         best_m = _best_candidate(m_modes)
+        # MULTIPLICITY — an inline fixed weapon pinned at min=N/max=N (the Armiger
+        # Helverin's "Armiger autocannon" at min=2/max=2, a twin-shoulder pair) is
+        # carried N times; emit N copies. `min_val` is >=1 here. Gated on
+        # `single_model` so the multi-model-squad fallback stays at one copy.
+        copies = min_val if single_model else 1
         if best_r is not None:
-            ranged_picks.append(best_r)
+            ranged_picks.extend([best_r] * copies)
         if best_m is not None:
-            melee_picks.append(best_m)
+            melee_picks.extend([best_m] * copies)
 
     # 3. direct selectionEntryGroup children — classify each.
     for grp in node.findall("./selectionEntryGroups/selectionEntryGroup"):
@@ -2191,8 +2309,16 @@ def _build_single_model_loadout(
     unit's already-resolved best weapons in `fallback_weapons` so every firing
     unit still ends with >=1 model entry holding >=1 weapon with a real
     `damage_dice`. Returns None only when there is genuinely nothing to fire."""
+    # min=N/max=N weapon MULTIPLICITY only expands for a genuine one-model unit.
+    # This path is also the fallback for a multi-model squad whose per-model walk
+    # failed (its collapsed pseudo-model carries count=1.0), where a weapon's
+    # min=N encodes a squad-wide count that must not be heaped onto one model.
+    _min_m, _max_m = extract_squad_size(entry)
+    single_model = _max_m <= 1
     node = _find_single_model_node(entry)
-    ranged_picks, melee_picks = _collect_single_model_weapons(node, reg)
+    ranged_picks, melee_picks = _collect_single_model_weapons(
+        node, reg, single_model=single_model
+    )
     name = node.get("name") or entry.get("name") or "?"
     if fallback_weapons is not None:
         # Synthesis fallback — when the option-picker resolves no weapon in a
