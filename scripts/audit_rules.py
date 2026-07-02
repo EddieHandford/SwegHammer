@@ -1056,6 +1056,16 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Detachment-flag citation: HEARTHBAND.hearthband_methodical_annihilation.
     # Cited in data/rule_citations.d/votann.json.
     "simulator.hearthband_methodical_annihilation",
+    # THE GAP counterplay diagnostic (2026-07-02 ledger) — target economics
+    # (env-gated SWEG_TARGET_ECONOMICS, default OFF). AI ranged target-
+    # priority heuristic in Battle._do_shoot's shooting picker: multiplies
+    # the existing screen / synapse / transport / oath / class-bias chain by
+    # an expected-unsaved-damage kill-fraction bonus (reusing
+    # simulator._ranged_expected_wounds) so a shooter that cannot meaningfully
+    # wound a candidate (e.g. a lasgun into a Toughness-12 2+ save Knight) is
+    # strongly deprioritised in favour of a candidate it can actually kill
+    # (a low-Wounds War Dog). Cited in data/rule_citations.d/target_economics.json.
+    "simulator.target_economics",
 )
 
 

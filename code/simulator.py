@@ -12387,6 +12387,90 @@ class Battle:
             return 3.0
         return 1.0
 
+    # Target-priority range for the expected-unsaved-damage bonus below. The
+    # floor is a strong DEPRIORITISATION (not zero — the bonus is a divisor in
+    # the picker's `min()` key, and a zero divisor would raise ZeroDivisionError
+    # and any value close to zero would send the score toward infinity instead
+    # of merely making the candidate unattractive) for a candidate this
+    # attacker's weapon cannot meaningfully wound at all. The cap matches the
+    # top of the range the loop has already adopted for a "definitely commit
+    # here" class bias (Astartes Oath of Moment is 2.0x; the Votann / Chaos
+    # Knights class biases the loop adopted run 1.4x-2.2x).
+    _TARGET_ECONOMICS_FLOOR: float = 0.35
+    _TARGET_ECONOMICS_CAP: float = 2.0
+
+    def _target_economics_bonus(self, attacker, target) -> float:
+        """`simulator.target_economics` — expected-unsaved-damage ranged
+        target-priority bonus (env-gated SWEG_TARGET_ECONOMICS, default OFF).
+
+        THE GAP (counterplay diagnostic, 2026-07-02 ledger): the ranged
+        target picker below composes contest-presence and a chain of class
+        biases (screen, transport, synapse, Astartes Oath of Moment, the
+        adopted Votann / Chaos Knights class biases) but had NO expected-
+        unsaved-damage term at all and no victory-points-per-kill term — the
+        same missing-wound-roll defect class the weapon-choice basket fix
+        closed one layer down ("the scorer had no wound roll at all").
+        Measured behaviour: roughly 35 consecutive zero-damage shooting
+        activations dumped into Toughness-12/2+ Knight hulls while 2-victory-
+        point War Dogs the same small arms COULD kill sat on markers
+        untouched; 72.8 percent of shots into Knights dealt zero damage.
+
+        This reuses `_ranged_expected_wounds` (shots * hit fraction *
+        Strength-vs-Toughness wound fraction, raised to any matching Anti-X
+        floor, * the fraction of wounds that get through the target's armour
+        save or invulnerable save, * damage per shot) — the exact wound-roll-
+        and-save math the 10e core rules define, already built and proven for
+        the wave-101 collective focus-fire gate (`simulator.focus_fire`).
+        Turning that raw expected-damage number into a KILL FRACTION of the
+        candidate's own current health (rather than using the absolute
+        damage figure) keeps the term comparable across every weapon/target
+        pairing on the board: a shot that would one-round a 6-wound War Dog
+        and a shot that chips a twentieth off a 26-wound Dominus both read on
+        the same [0, 1] scale, and either shape of weapon can out-score the
+        other depending on which target it can actually hurt.
+
+        A candidate this attacker's weapon literally cannot wound at all
+        (`_ranged_expected_wounds` returns 0.0 — e.g. a lasgun's Strength 3
+        against a Knight's Toughness 12 and 2+ save) floors the bonus at
+        `_TARGET_ECONOMICS_FLOOR`, strongly deprioritising it without ever
+        producing a zero or infinite score. A candidate this attacker's
+        weapon can outright remove this activation (kill fraction saturates
+        at 1.0) caps the bonus at `_TARGET_ECONOMICS_CAP`. Real target-
+        priority doctrine (the diagnostic's citation, also the source
+        `simulator.focus_fire` draws on): commit small arms into the target
+        they can actually kill (the War Dog) rather than dumping fire into a
+        hull the weapon cannot wound at all (the Knight).
+
+        Kill-efficiency nudge (Chapter Approved 2025-26 Bring It Down Fixed
+        secondary: 2 victory points for a destroyed MONSTER/VEHICLE at ANY
+        wound count, so a low-Wounds War Dog banks the same base 2 victory
+        points as a 26-wound Dominus) drops OUT of this formula naturally,
+        exactly as the briefing asks for rather than being forced in as a
+        second term: a War Dog the shooter can actually finish off this
+        activation already saturates kill fraction at 1.0 and receives the
+        maximum bonus, while a Dominus this shooter can only chip a sliver
+        off scores much lower even though the raw expected damage number
+        might be similar — no separate victory-point-weighted term is
+        needed because "can I secure the kill" and "is the kill worth
+        pursuing" collapse to the same signal once damage is measured as a
+        fraction of the target's own health.
+
+        Multiplicative, composed with the existing screen / synapse / oath /
+        transport / Votann / Chaos-Knights-dread-cascade / Drukhari-flyer /
+        kite / threat-priority chain in the `min()` key below. Deterministic
+        — reads only pre-computed profile stats and current health, draws no
+        random number. Env-gated SWEG_TARGET_ECONOMICS, default OFF: unset
+        returns 1.0 for every candidate, reproducing the pre-existing
+        denominator byte-for-byte."""
+        if __import__("os").environ.get("SWEG_TARGET_ECONOMICS") != "1":
+            return 1.0
+        ew = self._ranged_expected_wounds(attacker.profile, target)
+        hp = max(1.0, target.current_health)
+        kill_frac = min(1.0, max(0.0, ew) / hp)
+        return self._TARGET_ECONOMICS_FLOOR + kill_frac * (
+            self._TARGET_ECONOMICS_CAP - self._TARGET_ECONOMICS_FLOOR
+        )
+
     def _nominate_focus_target(self, army, opponent) -> None:
         """Wave 79 — army-level focus fire (env-gated SWEG_FOCUS). Once per turn,
         nominate the single most valuable durable enemy threat the army can hurt,
@@ -12692,6 +12776,7 @@ class Battle:
                         * _transport_target_bonus(e)
                         * _drukhari_fragile_flyer_bonus(e)
                         * _kite_target_bonus(e, attacker_army)
+                        * self._target_economics_bonus(model, e)
                     )
                     key = remaining / bonus
                     if best is None or key < best_key:
@@ -13124,6 +13209,7 @@ class Battle:
                     * _drukhari_fragile_flyer_bonus(u)
                     * _kite_target_bonus(u, attacker_army)
                     * self._threat_priority_bonus(attacker, u)
+                    * self._target_economics_bonus(attacker, u)
                 ),
             )
 
