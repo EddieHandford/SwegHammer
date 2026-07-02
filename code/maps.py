@@ -56,10 +56,30 @@ def _quincunx_objectives(width: float, height: float) -> tuple:
     )
 
 
-def _competitive_terrain(width: float, height: float) -> tuple:
+def _competitive_terrain(width: float, height: float, dense_layout=None) -> tuple:
     """Build a competitive-density Pariah Nexus terrain layout for a board of the
     given size, EVEN-HANDED by construction via 180-degree rotational symmetry
     about the board centre (so neither deployment zone gets a terrain advantage).
+
+    ``dense_layout`` (a stock-map key such as ``"crucible_of_battle"``) selects one
+    of the SOURCED published tournament layouts used by the env-gated
+    ``SWEG_TERRAIN_DENSE`` path below. It is IGNORED on the default (gate-off) path,
+    so the argument never changes the byte-identical baseline.
+
+    SWEG_TERRAIN_DENSE (default-off, byte-identical off): the Wave-97 default layout
+    below is a homebrew competitive-density approximation built from eleven SMALL
+    ruins (five-to-six-inch footprints); dense fields of small pieces still leave
+    firing lanes between them, so the static Chaos / Imperial Knights gunline can
+    fire across the board and the sim over-credits it (a diagnostic measured
+    72.8 percent of the opponent's shots into a Knights gunline dealing zero damage
+    while the opponent walked through open ground). The real published Pariah Nexus
+    tournament layouts instead use a FEW LARGE line-of-sight-blocking ruins (roughly
+    six-to-ten-inch footprints, about eight ruins plus two to three Woods per board)
+    arranged as a central ruin mass with flanking ruins so there is no clean
+    deployment-zone-to-deployment-zone sightline. When ``SWEG_TERRAIN_DENSE`` is set
+    to ``"1"`` this function returns those sourced layouts (see
+    ``_dense_competitive_terrain``); when unset it returns the Wave-97 layout below
+    unchanged. Cited ``terrain.competitive_density``.
 
     Reproduces the published competitive standard rather than tuning a metric:
     the Games Workshop Pariah Nexus Tournament Companion ships eight measured
@@ -85,6 +105,8 @@ def _competitive_terrain(width: float, height: float) -> tuple:
     inches (ruins stay roughly five-to-six inches regardless of board length).
     Each non-central seed is emitted together with its 180-degree partner.
     """
+    if os.environ.get("SWEG_TERRAIN_DENSE") == "1":
+        return _dense_competitive_terrain(width, height, dense_layout)
     R = TerrainType.RUIN
     O = TerrainType.OBSCURING
     L = TerrainType.LIGHT_COVER
@@ -119,6 +141,177 @@ def _competitive_terrain(width: float, height: float) -> tuple:
         if abs(rx - x) < 1e-6 and abs(ry - y) < 1e-6:
             continue
         out.append(Terrain(name + " (mirror)", rx, ry, w, h, t))
+    return tuple(out)
+
+
+# ---------------------------------------------------------------------------
+# SWEG_TERRAIN_DENSE — sourced competitive Pariah Nexus tournament layouts
+# ---------------------------------------------------------------------------
+#
+# The Wave-97 default `_competitive_terrain` reproduces the competitive DENSITY
+# with a homebrew field of eleven small (five-to-six-inch) ruins, but a dense
+# field of small pieces still leaves clean firing lanes between them, so it did
+# not close the static-gunline over-credit (the Chaos / Imperial Knights gunline
+# still fires table-wide). The REAL published Pariah Nexus tournament layouts use
+# a FEW LARGE line-of-sight-blocking ruins (about eight ruins of six-to-ten-inch
+# footprints, plus two to three Woods) arranged as a central ruin mass with
+# flanking ruins so there is no clean deployment-zone-to-deployment-zone sightline.
+#
+# SOURCE. The per-map layouts below reproduce the STRUCTURE of the eight numbered
+# Games Workshop Pariah Nexus tournament terrain layouts as published by Glass
+# Hammer Gaming's measured Pariah Nexus terrain guide (archived copy:
+# https://web.archive.org/web/20250804222340/https://www.glasshammergaming.co.uk/GHG-TERRAIN-PARIAH-NEXUS.pdf),
+# which draws each of the deployment-named layouts (Crucible of Battle, Hammer and
+# Anvil, Tipping Point, Search and Destroy, Dawn of War, Sweeping Engagement) on a
+# 44 by 60 inch board with roughly eight large L-shaped / block ruins plus two to
+# three Woods. The GHG diagrams give board-edge measurements but are isometric-
+# tinged top-downs, so exact per-piece coordinates are APPROXIMATED from the
+# sourced piece counts, footprint sizes and placement pattern (central mass plus
+# flanking ruins, per-deployment structure), NOT transcribed pixel-for-pixel — an
+# approximation the citation records explicitly.
+#
+# EVEN-HANDED / PRIME DIRECTIVE. Each layout is built by 180-degree rotational
+# symmetry about the board centre, exactly like `_competitive_terrain`. Army A
+# always deploys along the bottom edge and Army B along the top edge
+# (code.simulator.Battle._deploy_armies), so a 180-degree rotation maps one
+# deployment zone onto the other and neither side gets a terrain advantage. The
+# terrain is faction-neutral and is NOT tuned to move any faction's win rate; only
+# the terrain changes, the mission's deployment zones and objectives are untouched.
+# Ruins are the existing line-of-sight-blocking RUIN type (passable — the 10e
+# INFANTRY/BEAST move-through-walls rule — and grant Benefit of Cover); no piece is
+# IMPASSABLE, so no objective marker can ever fall inside impassable terrain.
+#
+# Each named layout is a list of LOWER-half seed pieces `(name, x, y, w, h, type)`
+# in inches; every seed is emitted together with its 180-degree partner. Optional
+# `centrals` are self-symmetric pieces placed on the board centre (their own
+# 180-degree image, so they are emitted once). Cited `terrain.competitive_density`.
+
+_DENSE_LAYOUTS = {
+    # Crucible of Battle — diagonal deployment: a heavier ruin mass on one
+    # diagonal (big corner bastion) with a central knot sealing the centre lane.
+    "crucible_of_battle": (
+        (
+            ("Corner Bastion", 5.0, 15.0, 9.0, 7.0, "R"),
+            ("Centre Knot",   14.0, 23.0, 10.0, 6.0, "R"),
+            ("Diagonal Flank", 30.0, 9.0, 8.0, 6.0, "R"),
+            ("Front Ruin",    19.0, 4.0, 8.0, 5.0, "R"),
+            ("Flank Wood",    33.0, 21.0, 5.0, 5.0, "O"),
+        ),
+        (),
+    ),
+    # Hammer and Anvil — two big central redoubts stacked across the centreline
+    # with flanking ruins ahead of each deployment zone.
+    "hammer_and_anvil": (
+        (
+            ("Central Redoubt", 15.0, 19.0, 10.0, 8.0, "R"),
+            ("West Flank",       3.0, 14.0, 8.0, 6.0, "R"),
+            ("East Flank",      33.0, 14.0, 8.0, 6.0, "R"),
+            ("Front Bunker",     8.0, 4.0, 6.0, 5.0, "R"),
+            ("Mid Wood",        30.0, 22.0, 5.0, 5.0, "O"),
+        ),
+        (
+            ("Central Copse", 5.0, 5.0, "O"),
+        ),
+    ),
+    # Tipping Point — three ruin columns (left / centre / right) ringing the
+    # central objective, which sits in a central copse.
+    "tipping_point": (
+        (
+            ("West Column",  4.0, 17.0, 8.0, 9.0, "R"),
+            ("Centre Ruin", 15.0, 22.0, 9.0, 6.0, "R"),
+            ("East Column", 32.0, 17.0, 8.0, 9.0, "R"),
+            ("Front Ruin",  18.0, 5.0, 8.0, 5.0, "R"),
+            ("Wing Wood",   33.0, 28.0, 5.0, 5.0, "O"),
+        ),
+        (
+            ("Central Copse", 5.0, 5.0, "O"),
+        ),
+    ),
+    # Search and Destroy — corner clusters of ruins with a central ruin sealing
+    # the middle (opposing-corner push).
+    "search_and_destroy": (
+        (
+            ("Corner Cluster A", 4.0, 7.0, 8.0, 6.0, "R"),
+            ("Corner Cluster B", 6.0, 18.0, 7.0, 6.0, "R"),
+            ("Centre Ruin",     16.0, 23.0, 9.0, 6.0, "R"),
+            ("Flank Ruin",      31.0, 11.0, 8.0, 6.0, "R"),
+            ("Mid Wood",        30.0, 22.0, 5.0, 5.0, "O"),
+        ),
+        (),
+    ),
+    # Take and Hold — the symmetric Dawn of War three-by-three grid of ruins with
+    # a central copse over the middle no-man's-land.
+    "take_and_hold": (
+        (
+            ("SW Ruin",       4.0, 6.0, 7.0, 6.0, "R"),
+            ("SE Ruin",      33.0, 6.0, 7.0, 6.0, "R"),
+            ("Mid-West Ruin", 4.0, 23.0, 7.0, 6.0, "R"),
+            ("Centre Ruin",  16.0, 21.0, 9.0, 7.0, "R"),
+            ("Wing Wood",    33.0, 26.0, 5.0, 5.0, "O"),
+        ),
+        (
+            ("Central Copse", 5.0, 5.0, "O"),
+        ),
+    ),
+    # Sweeping Engagement — long-axis spine: flanking ruins with a central ruin
+    # and a forward chevron ahead of each deployment zone.
+    "sweeping_engagement": (
+        (
+            ("West Ruin",    4.0, 14.0, 8.0, 6.0, "R"),
+            ("Centre Ruin", 15.0, 22.0, 9.0, 6.0, "R"),
+            ("East Ruin",   32.0, 12.0, 8.0, 6.0, "R"),
+            ("Front Chevron", 18.0, 5.0, 8.0, 5.0, "R"),
+            ("Flank Wood",   8.0, 26.0, 5.0, 5.0, "O"),
+        ),
+        (),
+    ),
+}
+
+
+def _dense_generic_seeds(width: float, height: float):
+    """Fallback dense layout for boards without a named sourced layout (e.g. the
+    44x90 Onslaught boards). Positions scale with the board (fractions) while the
+    ruin footprints stay physically large; structure is central-mass-plus-flanks
+    like the named layouts, 180-degree symmetric, central copse sealing the centre."""
+    w, h = width, height
+    lower = (
+        ("West Ruin",   0.10 * w, 0.22 * h, 8.0, 6.0, "R"),
+        ("Centre Ruin", 0.34 * w, 0.35 * h, 9.0, 6.0, "R"),
+        ("East Ruin",   0.72 * w, 0.20 * h, 8.0, 6.0, "R"),
+        ("Front Ruin",  0.40 * w, 0.08 * h, 8.0, 5.0, "R"),
+        ("Flank Wood",  0.75 * w, 0.40 * h, 5.0, 5.0, "O"),
+    )
+    centrals = (("Central Copse", 5.0, 5.0, "O"),)
+    return lower, centrals
+
+
+def _dense_competitive_terrain(width: float, height: float, layout=None) -> tuple:
+    """Sourced competitive Pariah Nexus tournament layout (SWEG_TERRAIN_DENSE=1).
+
+    See the module comment above for the source, the approximation note and the
+    even-handedness construction. Returns a tuple of `Terrain`. Ruins are the
+    line-of-sight-blocking RUIN type; Woods are OBSCURING. Every non-central seed
+    is emitted with its 180-degree rotational partner about the board centre."""
+    type_map = {"R": TerrainType.RUIN, "O": TerrainType.OBSCURING,
+                "L": TerrainType.LIGHT_COVER}
+    if layout in _DENSE_LAYOUTS:
+        lower, centrals = _DENSE_LAYOUTS[layout]
+    else:
+        lower, centrals = _dense_generic_seeds(width, height)
+    out = []
+    for (name, x, y, w, h, tcode) in lower:
+        t = type_map[tcode]
+        out.append(Terrain(name, x, y, w, h, t))
+        rx, ry = width - x - w, height - y - h
+        # Guard against a degenerate self-overlapping partner (none in the
+        # tuned layouts, but keep the invariant explicit).
+        if abs(rx - x) < 1e-6 and abs(ry - y) < 1e-6:
+            continue
+        out.append(Terrain(name + " (mirror)", rx, ry, w, h, t))
+    for (name, w, h, tcode) in centrals:
+        t = type_map[tcode]
+        out.append(Terrain(name, width / 2.0 - w / 2.0,
+                           height / 2.0 - h / 2.0, w, h, t))
     return tuple(out)
 
 
@@ -164,7 +357,7 @@ CRUCIBLE_OF_BATTLE = Map(
     # Diagonal asymmetry: heavy terrain on the NE-SW diagonal, light on NW-SE.
     # Large ruin top-right, wooded copse mid-left, two short barricade ridges
     # bridging them, one impassable wall blocking centre.
-    terrain=_competitive_terrain(44.0, 60.0),
+    terrain=_competitive_terrain(44.0, 60.0, dense_layout="crucible_of_battle"),
     deployment_width=12.0,
 )
 
@@ -193,7 +386,7 @@ SEARCH_AND_DESTROY = Map(
     # Corner deployment: NW and SE clusters of terrain, central no-man's-land
     # mostly open. Players push out of corners across exposed ground to
     # contest mid-board objectives.
-    terrain=_competitive_terrain(44.0, 60.0),
+    terrain=_competitive_terrain(44.0, 60.0, dense_layout="search_and_destroy"),
     deployment_width=12.0,
 )
 
@@ -238,7 +431,7 @@ SWEEPING_ENGAGEMENT_2K = Map(
     width=44.0,
     height=60.0,
     objectives=_sweeping_engagement_objectives(44.0, 60.0),
-    terrain=_competitive_terrain(44.0, 60.0),
+    terrain=_competitive_terrain(44.0, 60.0, dense_layout="sweeping_engagement"),
     deployment_width=12.0,
 )
 
@@ -266,7 +459,7 @@ TAKE_AND_HOLD = Map(
     # 4 mid-board objectives, no central; classic Pariah Nexus push-forward
     # mission. Light cover scattered across no-man's-land, two large ruins
     # at the wings.
-    terrain=_competitive_terrain(44.0, 60.0),
+    terrain=_competitive_terrain(44.0, 60.0, dense_layout="take_and_hold"),
     deployment_width=12.0,
 )
 
@@ -296,7 +489,7 @@ HAMMER_AND_ANVIL = Map(
     # Short-edge deployment (DZ width=12.0 on each short edge, leaving a 36"
     # no-man's-land along the long axis). Terrain alternates side-to-side
     # along the long axis to channel movement.
-    terrain=_competitive_terrain(44.0, 60.0),
+    terrain=_competitive_terrain(44.0, 60.0, dense_layout="hammer_and_anvil"),
     deployment_width=12.0,
 )
 
@@ -325,7 +518,7 @@ TIPPING_POINT = Map(
     # Central objective surrounded by 4 satellite objectives. Terrain
     # forms a ring around the centre — taking it requires committing
     # through exposed lanes between the ring features.
-    terrain=_competitive_terrain(44.0, 60.0),
+    terrain=_competitive_terrain(44.0, 60.0, dense_layout="tipping_point"),
     deployment_width=12.0,
 )
 
