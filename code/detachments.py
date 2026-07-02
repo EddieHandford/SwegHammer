@@ -263,6 +263,53 @@ class Detachment:
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
     am_born_soldiers_lethal_hits: bool = False
 
+    # Astra Militarum Grizzled Company detachment rule (Ruthless Discipline).
+    # Released Grotmas December 2025 (Wahapedia Faction Pack, Astra Militarum,
+    # version 1.6). Verbatim, sourced from the live Wahapedia page HTML
+    # (https://wahapedia.ru/wh40k10ed/factions/astra-militarum/#Ruthless-
+    # Discipline) on 2026-07-02 — fetched the raw markup directly rather than
+    # relying on an AI page summary, because independent secondary sources
+    # (press write-ups aggregated via web search) disagreed with each other
+    # about a second clause. The two-sentence rule, in full:
+    #   "Add 1 to the number of Orders each ASTRA MILITARUM OFFICER model
+    #   from your army can issue, as stated on their datasheet.
+    #   While an ASTRA MILITARUM unit from your army is affected by an
+    #   Order, each time a model in that unit makes an attack, re-roll a
+    #   Hit roll of 1."
+    # CITATION CORRECTION: several secondary web sources (a Wargamer article
+    # and a web-search synthesis pulling in tabletopbattles.com,
+    # spikeybits.com, admechknight.blogspot.com, prismnews.com) describe a
+    # THIRD clause — re-rolling Wound rolls of 1 when the target is within
+    # range of an objective marker. That clause is NOT present in the
+    # canonical Wahapedia mirror (cross-checked twice, including a raw-HTML
+    # fetch that bypasses any AI-summary truncation risk) nor in 40k.app's
+    # rendering of the same detachment. Wahapedia mirrors GW's official
+    # Warhammer 40,000 app data and is the project's designated canonical
+    # source (CLAUDE.md rule 6); the secondary press articles are treated as
+    # unreliable on this point and the wound-reroll clause is NOT modelled.
+    # Two legs, both wired:
+    #   * +1 Order per OFFICER — code/orders.py dispatch_orders adds 1 to
+    #     each AM Officer's OFFICER_ORDER_COUNTS-derived per-round cap when
+    #     the army's resolved detachment carries this flag.
+    #   * Re-roll Hit rolls of 1 on Ordered units — code/orders.py
+    #     `_apply_order` stamps `transient_affected_by_order = True` on any
+    #     unit that receives a real Order this round (harmless on every
+    #     other detachment — nothing else reads the flag); code/units.py
+    #     `Unit.attack` sets `att_reroll_hit_ones = True` for both ranged
+    #     and melee attacks (the rule says "makes an attack" with no mode
+    #     restriction) when the attacker is Astra Militarum, is stamped
+    #     affected-by-an-Order, and the army's resolved detachment carries
+    #     this flag.
+    # Gated `SWEG_AM_GRIZZLED` (default OFF): when unset, the Astra
+    # Militarum faction default and its only `FACTION_DETACHMENTS` entry
+    # remain "combined_regiment" (Combined Arms), byte-identical to the
+    # pre-Grizzled-Company path. When set to "1", both resolve to
+    # "grizzled_company" instead. See `DEFAULT_BY_FACTION` /
+    # `FACTION_DETACHMENTS` below. Cited as
+    # `GRIZZLED_COMPANY.grizzled_ruthless_discipline` and
+    # `simulator.grizzled_ruthless_discipline`.
+    grizzled_ruthless_discipline: bool = False
+
     # Thousand Sons Rubricae Phalanx detachment rule (All Is Dust). Wahapedia
     # verbatim: "Each time an attack with an unmodified Damage characteristic
     # of 1 is allocated to a RUBRICAE model from your army, add 1 to any
@@ -892,6 +939,50 @@ COMBINED_REGIMENT = Detachment(
     ),
     am_born_soldiers_lethal_hits=True,
     stratagems=COMBINED_ARMS_STRATAGEMS,
+    preferred_composition="balanced",
+)
+
+GRIZZLED_COMPANY = Detachment(
+    name="Grizzled Company",
+    faction="Astra Militarum",
+    notes=(
+        "Real Astra Militarum detachment released Grotmas December 2025 — "
+        "the top-performing Astra Militarum detachment in the 2026 meta and "
+        "entirely absent from SwegHammer before this fix. Detachment rule "
+        "'Ruthless Discipline' (Wahapedia, raw HTML fetch of "
+        "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/"
+        "#Ruthless-Discipline on 2026-07-02, Faction Pack version 1.6): "
+        "\"Add 1 to the number of Orders each ASTRA MILITARUM OFFICER model "
+        "from your army can issue, as stated on their datasheet. While an "
+        "ASTRA MILITARUM unit from your army is affected by an Order, each "
+        "time a model in that unit makes an attack, re-roll a Hit roll of "
+        "1.\" Two clauses, both wired on the single `grizzled_ruthless_"
+        "discipline` flag: (1) code/orders.py dispatch_orders adds 1 to "
+        "each Officer's per-round Order cap; (2) code/orders.py "
+        "_apply_order stamps affected units, and code/units.py Unit.attack "
+        "re-rolls Hit rolls of 1 for both ranged and melee attacks made by "
+        "an affected Astra Militarum unit. A wound-reroll-near-objective "
+        "third clause appears in some secondary press write-ups but is NOT "
+        "present in the canonical Wahapedia text (checked twice, including "
+        "a raw-HTML fetch) or in 40k.app's rendering of the same rule, so "
+        "it is NOT modelled — see the field-level comment on "
+        "`Detachment.grizzled_ruthless_discipline` for the full citation "
+        "discrepancy note. Enhancements and Stratagems for this detachment "
+        "(Abhuman Detail, Aquilan Eye, Spec Ops Veteran, Laud Hailer; Snap "
+        "To It, No Retreat!, Veteran Sharpshooters, Purging Fire, Mordian "
+        "Minute, Additional Armour) are catalogued on Wahapedia but are OUT "
+        "OF SCOPE for this fix — not wired, to avoid fabricating their "
+        "exact mechanical text without a dedicated sourcing pass. Voice of "
+        "Command Order economy otherwise unchanged — same "
+        "`code.orders.dispatch_orders` four wired Orders (Take Aim! / Fix "
+        "Bayonets! / First Rank Fire Second Rank Fire! / Take Cover!) as "
+        "Combined Arms. Gated `SWEG_AM_GRIZZLED` (default OFF): the Astra "
+        "Militarum `DEFAULT_BY_FACTION` / `FACTION_DETACHMENTS` entries "
+        "resolve to this detachment only when the gate is on; the default "
+        "off-path continues to resolve Combined Arms, byte-identical to "
+        "the pre-Grizzled-Company behaviour."
+    ),
+    grizzled_ruthless_discipline=True,
     preferred_composition="balanced",
 )
 
@@ -1709,6 +1800,10 @@ DETACHMENTS: Dict[str, Detachment] = {
     "skitarii_hunter_cohort":  SKITARII_HUNTER_COHORT,
     "inquisition_task_force":  INQUISITION_TASK_FORCE,
     "combined_regiment":       COMBINED_REGIMENT,
+    # Astra Militarum Grizzled Company (Grotmas December 2025 release,
+    # SWEG_AM_GRIZZLED gate — see GRIZZLED_COMPANY notes and
+    # DEFAULT_BY_FACTION / FACTION_DETACHMENTS below).
+    "grizzled_company":        GRIZZLED_COMPANY,
     "teleport_strike_force":   TELEPORT_STRIKE_FORCE,
     "warhost":                 WARHOST,
     "skysplinter_assault":     SKYSPLINTER_ASSAULT,
@@ -1803,6 +1898,17 @@ COMBINED_ARMS      = DETACHMENTS["combined_regiment"]
 # CULT_OF_MAGIC and PLAGUE_COMPANY re-bindings removed per fabrication
 # audit (commit fa9a957); the detachments themselves are gone.
 
+# Astra Militarum Grizzled Company gate (SWEG_AM_GRIZZLED, default OFF).
+# Read once at import time — the evaluation harness sets environment
+# variables before the interpreter starts, so a module-level read is
+# sufficient (matches the SWEG_DG_PLAGUE_NO_NECRON_PROTOCOLS convention in
+# PLAGUE_COMPANY above). When False, the two dict entries this feeds below
+# ("Astra Militarum" in DEFAULT_BY_FACTION and FACTION_DETACHMENTS) are the
+# literal pre-existing "combined_regiment" strings — byte-identical to the
+# pre-Grizzled-Company code. When True, both resolve to "grizzled_company"
+# instead. See GRIZZLED_COMPANY notes above for the rule text.
+_AM_GRIZZLED_ON: bool = os.environ.get("SWEG_AM_GRIZZLED", "0") == "1"
+
 # Default detachment per faction (used when Army.detachment is None and a
 # faction is known). Picks a sensible competitive default; user can override.
 DEFAULT_BY_FACTION: Dict[str, str] = {
@@ -1845,7 +1951,10 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "Adeptus Mechanicus":       "skitarii_hunter_cohort",
     "Agents of the Imperium":   "inquisition_task_force",
     "Imperial Agents":          "inquisition_task_force",
-    "Astra Militarum":          "combined_regiment",
+    # SWEG_AM_GRIZZLED (default OFF): "grizzled_company" when the gate is
+    # on, else the pre-existing "combined_regiment" (see _AM_GRIZZLED_ON
+    # above).
+    "Astra Militarum":          "grizzled_company" if _AM_GRIZZLED_ON else "combined_regiment",
     "Grey Knights":             "teleport_strike_force",
     "Aeldari":                  "warhost",
     "Aeldari (Craftworlds)":    "warhost",
@@ -1939,7 +2048,12 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Adeptus Mechanicus":       ("skitarii_hunter_cohort", "cohort_cybernetica"),
     "Agents of the Imperium":   ("inquisition_task_force",),
     "Imperial Agents":          ("inquisition_task_force",),
-    "Astra Militarum":          ("combined_regiment",),
+    # SWEG_AM_GRIZZLED (default OFF): the sole entry is "grizzled_company"
+    # when the gate is on, else the pre-existing "combined_regiment" (single-
+    # entry tuple either way, so pick_detachment_for_army's len(keys) == 1
+    # deterministic branch is unaffected — see _AM_GRIZZLED_ON above).
+    "Astra Militarum":          (("grizzled_company",) if _AM_GRIZZLED_ON
+                                 else ("combined_regiment",)),
     "Grey Knights":             ("teleport_strike_force",),
     # Aeldari: Warhost only (renamed from "battle_host" in #197 to match
     # the codex name). saim_hann_wild_host was deleted per fabrication

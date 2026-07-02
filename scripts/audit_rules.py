@@ -134,6 +134,17 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # `BRINGERS_OF_FLAME.army_wide_assault` in
     # data/rule_citations.d/detachments.json.
     ("army_wide_assault", False),
+    # Astra Militarum Grizzled Company — Ruthless Discipline (Grotmas
+    # December 2025 detachment). Two clauses on one flag: +1 to every
+    # Officer's per-round Order cap (code/orders.py dispatch_orders) and a
+    # re-roll of Hit rolls of 1 on both ranged and melee attacks made by a
+    # unit affected by an Order (code/orders.py _apply_order stamps
+    # transient_affected_by_order; code/units.py Unit.attack reads it).
+    # Gated SWEG_AM_GRIZZLED (default OFF). Cited as
+    # `GRIZZLED_COMPANY.grizzled_ruthless_discipline` and
+    # `simulator.grizzled_ruthless_discipline` in
+    # data/rule_citations.d/astra_militarum.json.
+    ("grizzled_ruthless_discipline", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
@@ -989,6 +1000,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # out all five rounds on a one-sided tabling, so the VP totals are complete at
     # decision time. Cited in data/rule_citations.d/core_win_condition.json.
     "simulator.win_on_vp_not_tabling",
+    # Astra Militarum Grizzled Company — Ruthless Discipline (env-gated
+    # SWEG_AM_GRIZZLED, default OFF). Simulator-side gate for the two
+    # clauses of the detachment rule: code/orders.py dispatch_orders adds 1
+    # to every Officer's per-round Order cap, and code/units.py Unit.attack
+    # re-rolls Hit rolls of 1 for both ranged and melee attacks made by a
+    # unit stamped `transient_affected_by_order` this round. Detachment-flag
+    # citation: GRIZZLED_COMPANY.grizzled_ruthless_discipline. Cited in
+    # data/rule_citations.d/astra_militarum.json.
+    "simulator.grizzled_ruthless_discipline",
 )
 
 

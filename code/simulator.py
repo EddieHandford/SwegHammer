@@ -3657,6 +3657,10 @@ class Battle:
             # Duty and Honour! (AM Order) per-round flag. Mirrors the codex
             # 'until the start of your next Command phase' Order duration.
             u.transient_plus_one_oc = False
+            # Grizzled Company (AM detachment, SWEG_AM_GRIZZLED) — "affected
+            # by an Order" stamp for the Ruthless Discipline Hit-1 re-roll.
+            # Same round-scope convention as the other AM Order flags above.
+            u.transient_affected_by_order = False
             u.transient_halve_damage = False
             u.transient_undying_legions_pulse = 0
             # ST-1 proper-keyword transient flags.

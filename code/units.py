@@ -1065,6 +1065,18 @@ class Unit:
         #       Read by `Battle._effective_oc` behind SWEG_AM_DUTY_AND_HONOUR.
         #       Cited as `Order.Duty and Honour!`.
         "transient_plus_one_oc",
+        # Astra Militarum Grizzled Company — Ruthless Discipline (detachment
+        # rule, gated SWEG_AM_GRIZZLED):
+        #   transient_affected_by_order — set True by `orders._apply_order`
+        #       on any unit that receives a real Order this round (any AM
+        #       detachment, not just Grizzled Company — the flag is cheap
+        #       substrate bookkeeping and inert unless read). Read by
+        #       `Unit.attack` to re-roll Hit rolls of 1 on both ranged and
+        #       melee attacks, gated on the attacker's army detachment
+        #       carrying `grizzled_ruthless_discipline`. Cleared with all
+        #       other transient flags. Cited as
+        #       `simulator.grizzled_ruthless_discipline`.
+        "transient_affected_by_order",
         "transient_plus_one_to_wound_shooting",
         "transient_invuln_4",
         "transient_minus_one_damage_taken",
@@ -1305,6 +1317,11 @@ class Unit:
         # unit's models for the round. Read by Battle._effective_oc behind
         # SWEG_AM_DUTY_AND_HONOUR; cleared per round. Default False = no-op.
         self.transient_plus_one_oc: bool = False
+        # Grizzled Company (AM detachment, SWEG_AM_GRIZZLED): set True by
+        # any Order landing on this unit this round; read by Unit.attack
+        # for the Ruthless Discipline Hit-roll-of-1 re-roll. Cleared per
+        # round. Default False = no-op on every other detachment.
+        self.transient_affected_by_order: bool = False
         # Saim-Hann (Aeldari) per-round stratagem flag.
         self.transient_halve_damage: bool = False
         # Awakened Dynasty (Necrons) Protocol of the Undying Legions: integer
@@ -3612,6 +3629,36 @@ class Unit:
             # Resolve the attacker's owning Army once; downstream gates
             # (Oath of Moment, Votann tokens) all read it.
             own_army = getattr(self, "army_ref", None)
+
+            # ---- Astra Militarum Grizzled Company — Ruthless Discipline
+            # (detachment rule, gated SWEG_AM_GRIZZLED). Wahapedia verbatim
+            # (raw HTML fetch of https://wahapedia.ru/wh40k10ed/factions/
+            # astra-militarum/#Ruthless-Discipline, Faction Pack v1.6):
+            # "While an ASTRA MILITARUM unit from your army is affected by
+            # an Order, each time a model in that unit makes an attack,
+            # re-roll a Hit roll of 1." No mode restriction in the rule
+            # text, so this applies to both ranged and melee attacks (this
+            # code block runs for both — see the mode-gated blocks above and
+            # below it for the established convention). Gate: attacker is
+            # Astra Militarum, the attacking unit was stamped
+            # `transient_affected_by_order` this round by
+            # `orders._apply_order`, and the army's resolved detachment
+            # carries `grizzled_ruthless_discipline` (True only for
+            # GRIZZLED_COMPANY, itself only reachable when
+            # SWEG_AM_GRIZZLED=1 — see code/detachments.py). Cited as
+            # `GRIZZLED_COMPANY.grizzled_ruthless_discipline` and
+            # `simulator.grizzled_ruthless_discipline`.
+            if (
+                own_army is not None
+                and (p.faction or "") == "Astra Militarum"
+                and getattr(self, "transient_affected_by_order", False)
+            ):
+                try:
+                    _det_gc = own_army.resolve_detachment()
+                except Exception:
+                    _det_gc = None
+                if getattr(_det_gc, "grizzled_ruthless_discipline", False):
+                    att_reroll_hit_ones = True
 
             # ---- Leagues of Votann — Eye of the Ancestors (RETIRED) ----
             # iter25-V1: the launch-day Eye of the Ancestors rule granted
