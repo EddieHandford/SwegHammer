@@ -13324,8 +13324,15 @@ class Battle:
         _ad_tyranids = (os.environ.get("SWEG_TYRANIDS_RANGED_HOLD", "0") == "1"
                         and (attacker.profile.faction or "") == "Tyranids")
         # ADEPTUS-ASTARTES-SCOPED entry point (SWEG_ASTARTES_RANGED_HOLD —
-        # default-OFF screening gate; "1" opt-in, unset/"0" is the byte-identical
-        # off path): the SAME gunline-hold logic, restricted to Adeptus Astartes.
+        # ADOPTED default-on 2026-07-03, `=0` kill-switch; N=80 Adeptus-Astartes-
+        # scoped screen vs sc52a: Adeptus Astartes +14.03 (42.0 -> 56.1), gated
+        # 4.23 -> 3.96. Same disposition as the Chaos Knights / Votann ranged-
+        # holds — the faction OVERSHOOTS its real 47.6 (to +8.5 over) and the
+        # metric improves via the broad over-pole collateral deflating toward
+        # real in the Astartes matchup; the +8.5 is the model-count / survivor
+        # over-reward economy expressed through Marines' now-effective held
+        # shooting, consistent with the Stage-1-floor finding): the SAME
+        # gunline-hold logic, restricted to Adeptus Astartes.
         # Derived from watched pilot-observation (2026-07-03, docs/PILOT_FINDINGS.md):
         # across three piloted games (versus Chaos Knights seed 0, Orks seed 1,
         # Necrons seed 2) the Marine non-[ASSAULT] fire platforms Advanced their
@@ -13364,7 +13371,7 @@ class Battle:
         # _ad_soror / _ad_tyranids and the eighth entry point on the shared
         # advance-suppression block. Off path (gate unset) byte-identical. Cited
         # simulator.astartes_ranged_hold.
-        _ad_astartes = (os.environ.get("SWEG_ASTARTES_RANGED_HOLD", "0") == "1"
+        _ad_astartes = (os.environ.get("SWEG_ASTARTES_RANGED_HOLD", "1") != "0"
                         and (attacker.profile.faction or "") == "Adeptus Astartes")
         if ((_ad_generic or _ad_am or _ad_ck or _ad_votann or _ad_tsons
                 or _ad_soror or _ad_tyranids or _ad_astartes)
