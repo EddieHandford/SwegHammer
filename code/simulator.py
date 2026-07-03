@@ -2141,7 +2141,9 @@ class Battle:
         already-known board / hand state, so the paired common-random-number
         evaluation's downstream RNG stream is untouched on the ON path
         relative to itself, and untouched at all on the OFF path."""
-        # ARMY-SCOPED ENTRY POINT (`SWEG_AM_SECONDARY_PURSUIT`, default-off)
+        # ARMY-SCOPED ENTRY POINT (`SWEG_AM_SECONDARY_PURSUIT`, ADOPTED
+        # default-on — the flip was lost in a later merge and restored
+        # 2026-07-03 after an agent caught the anchor-config mismatch)
         # — the Principle-2 recipe proven by simulator.am_advance_discipline:
         # the universal package screened Astra Militarum +5.17 toward its
         # real win rate but fed the over-credited factions (Necrons +4.89,
@@ -2154,7 +2156,7 @@ class Battle:
             return False
         return (
             (army.units[0].profile.faction or "") == "Astra Militarum"
-            and os.environ.get("SWEG_AM_SECONDARY_PURSUIT", "0") == "1"
+            and os.environ.get("SWEG_AM_SECONDARY_PURSUIT", "1") != "0"
         )
 
     # ------------------------------------------------------------------
