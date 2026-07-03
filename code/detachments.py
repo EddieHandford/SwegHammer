@@ -263,6 +263,53 @@ class Detachment:
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
     am_born_soldiers_lethal_hits: bool = False
 
+    # Astra Militarum Grizzled Company detachment rule (Ruthless Discipline).
+    # Released Grotmas December 2025 (Wahapedia Faction Pack, Astra Militarum,
+    # version 1.6). Verbatim, sourced from the live Wahapedia page HTML
+    # (https://wahapedia.ru/wh40k10ed/factions/astra-militarum/#Ruthless-
+    # Discipline) on 2026-07-02 — fetched the raw markup directly rather than
+    # relying on an AI page summary, because independent secondary sources
+    # (press write-ups aggregated via web search) disagreed with each other
+    # about a second clause. The two-sentence rule, in full:
+    #   "Add 1 to the number of Orders each ASTRA MILITARUM OFFICER model
+    #   from your army can issue, as stated on their datasheet.
+    #   While an ASTRA MILITARUM unit from your army is affected by an
+    #   Order, each time a model in that unit makes an attack, re-roll a
+    #   Hit roll of 1."
+    # CITATION CORRECTION: several secondary web sources (a Wargamer article
+    # and a web-search synthesis pulling in tabletopbattles.com,
+    # spikeybits.com, admechknight.blogspot.com, prismnews.com) describe a
+    # THIRD clause — re-rolling Wound rolls of 1 when the target is within
+    # range of an objective marker. That clause is NOT present in the
+    # canonical Wahapedia mirror (cross-checked twice, including a raw-HTML
+    # fetch that bypasses any AI-summary truncation risk) nor in 40k.app's
+    # rendering of the same detachment. Wahapedia mirrors GW's official
+    # Warhammer 40,000 app data and is the project's designated canonical
+    # source (CLAUDE.md rule 6); the secondary press articles are treated as
+    # unreliable on this point and the wound-reroll clause is NOT modelled.
+    # Two legs, both wired:
+    #   * +1 Order per OFFICER — code/orders.py dispatch_orders adds 1 to
+    #     each AM Officer's OFFICER_ORDER_COUNTS-derived per-round cap when
+    #     the army's resolved detachment carries this flag.
+    #   * Re-roll Hit rolls of 1 on Ordered units — code/orders.py
+    #     `_apply_order` stamps `transient_affected_by_order = True` on any
+    #     unit that receives a real Order this round (harmless on every
+    #     other detachment — nothing else reads the flag); code/units.py
+    #     `Unit.attack` sets `att_reroll_hit_ones = True` for both ranged
+    #     and melee attacks (the rule says "makes an attack" with no mode
+    #     restriction) when the attacker is Astra Militarum, is stamped
+    #     affected-by-an-Order, and the army's resolved detachment carries
+    #     this flag.
+    # Gated `SWEG_AM_GRIZZLED` (default OFF): when unset, the Astra
+    # Militarum faction default and its only `FACTION_DETACHMENTS` entry
+    # remain "combined_regiment" (Combined Arms), byte-identical to the
+    # pre-Grizzled-Company path. When set to "1", both resolve to
+    # "grizzled_company" instead. See `DEFAULT_BY_FACTION` /
+    # `FACTION_DETACHMENTS` below. Cited as
+    # `GRIZZLED_COMPANY.grizzled_ruthless_discipline` and
+    # `simulator.grizzled_ruthless_discipline`.
+    grizzled_ruthless_discipline: bool = False
+
     # Thousand Sons Rubricae Phalanx detachment rule (All Is Dust). Wahapedia
     # verbatim: "Each time an attack with an unmodified Damage characteristic
     # of 1 is allocated to a RUBRICAE model from your army, add 1 to any
@@ -413,6 +460,59 @@ class Detachment:
     # legacy no-[ASSAULT] path).
     # Cited as `BRINGERS_OF_FLAME.army_wide_assault`.
     army_wide_assault: bool = False
+
+    # Leagues of Votann Hearthband detachment rule (Methodical Annihilation).
+    # Verbatim text, fetched directly from the live Wahapedia page for the
+    # Leagues of Votann faction (https://wahapedia.ru/wh40k10ed/factions/
+    # leagues-of-votann/#Hearthband) on 2026-07-02, and cross-checked against
+    # the raw BSData v10.6.0 cache (Leagues of Votann.cat.gz, rule id
+    # 70a5-9f3d-4e2f-8eb3) — both sources match word for word:
+    #   "Each time a LEAGUES OF VOTANN model from your army makes an attack
+    #   with a weapon that targets the closest eligible target or a target
+    #   that is within Engagement Range of that model's unit:
+    #   - Re-roll a Wound roll of 1.
+    #   - If your unit is a KÂHL, EINHYR HEARTHGUARD or ÛTHAR THE DESTINED
+    #   unit, improve the Armour Penetration characteristic of that attack
+    #   by 1."
+    # APPROXIMATION — only the melee half of the first bullet is modelled.
+    # A Fight-phase attack is, by the 10e core-rules definition of the Fight
+    # phase, always made against a target within Engagement Range of the
+    # attacker's unit, so the rule's "...or a target that is within
+    # Engagement Range of that model's unit" branch is unconditionally
+    # satisfied whenever mode == "melee" — the melee Wound-reroll-of-1 is
+    # therefore modelled EXACTLY, no approximation needed. The alternative
+    # "targets the closest eligible target" branch, which is what would let
+    # the same reroll fire on RANGED attacks too, is NOT modelled:
+    # Unit.attack has no "is this the closest eligible target" signal at the
+    # attack call site (the same limitation already documented on
+    # UnitProfile.votann_native_reroll_ranged for Einhyr Hearthguard's native
+    # re-roll, where it was accepted as a deliberate, moderate over-credit on
+    # a SINGLE datasheet). Extending that same unenforced-restriction
+    # over-credit to an ARMY-WIDE ranged re-roll here would be a materially
+    # larger and less faithful buff, and Leagues of Votann is already
+    # over-performing in the simulator (sim ~53-55 vs real ~48.0 per the May
+    # 2026 Warp Friends tournament aggregate) — so the ranged branch is
+    # honestly left un-modelled rather than fabricated toward a rough shape.
+    # The second bullet (Armour Penetration improved by 1 for KÂHL, EINHYR
+    # HEARTHGUARD or ÛTHAR THE DESTINED units) is ALSO not modelled: it
+    # restricts to three specific named units/keywords, and no existing
+    # Detachment or UnitProfile accumulator expresses a unit-identity-gated
+    # Armour Penetration improvement without a new per-datasheet override
+    # mechanism (the existing `melee_ap_plus_one` field is unconditional
+    # army-wide within its own faction gate, not unit-identity-restricted) —
+    # building that bespoke mechanism is out of scope for this change (see
+    # HEARTHBAND notes below for the full omission rationale — the same
+    # "model the expressible part, document the rest honestly" approach used
+    # for Adeptus Custodes Assemblage of Might; see `assemblage_of_might`
+    # above).
+    # Read in Unit.attack: mode == "melee" AND attacker faction ==
+    # "Leagues of Votann" AND the army's resolved detachment carries this
+    # flag. Gated SWEG_VOTANN_HEARTHBAND (default OFF); with the gate off the
+    # Leagues of Votann faction default and its only FACTION_DETACHMENTS
+    # entry remain "oathband", byte-identical to the pre-Hearthband code.
+    # Cited as `HEARTHBAND.hearthband_methodical_annihilation` and
+    # `simulator.hearthband_methodical_annihilation`.
+    hearthband_methodical_annihilation: bool = False
 
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
@@ -892,6 +992,50 @@ COMBINED_REGIMENT = Detachment(
     ),
     am_born_soldiers_lethal_hits=True,
     stratagems=COMBINED_ARMS_STRATAGEMS,
+    preferred_composition="balanced",
+)
+
+GRIZZLED_COMPANY = Detachment(
+    name="Grizzled Company",
+    faction="Astra Militarum",
+    notes=(
+        "Real Astra Militarum detachment released Grotmas December 2025 — "
+        "the top-performing Astra Militarum detachment in the 2026 meta and "
+        "entirely absent from SwegHammer before this fix. Detachment rule "
+        "'Ruthless Discipline' (Wahapedia, raw HTML fetch of "
+        "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/"
+        "#Ruthless-Discipline on 2026-07-02, Faction Pack version 1.6): "
+        "\"Add 1 to the number of Orders each ASTRA MILITARUM OFFICER model "
+        "from your army can issue, as stated on their datasheet. While an "
+        "ASTRA MILITARUM unit from your army is affected by an Order, each "
+        "time a model in that unit makes an attack, re-roll a Hit roll of "
+        "1.\" Two clauses, both wired on the single `grizzled_ruthless_"
+        "discipline` flag: (1) code/orders.py dispatch_orders adds 1 to "
+        "each Officer's per-round Order cap; (2) code/orders.py "
+        "_apply_order stamps affected units, and code/units.py Unit.attack "
+        "re-rolls Hit rolls of 1 for both ranged and melee attacks made by "
+        "an affected Astra Militarum unit. A wound-reroll-near-objective "
+        "third clause appears in some secondary press write-ups but is NOT "
+        "present in the canonical Wahapedia text (checked twice, including "
+        "a raw-HTML fetch) or in 40k.app's rendering of the same rule, so "
+        "it is NOT modelled — see the field-level comment on "
+        "`Detachment.grizzled_ruthless_discipline` for the full citation "
+        "discrepancy note. Enhancements and Stratagems for this detachment "
+        "(Abhuman Detail, Aquilan Eye, Spec Ops Veteran, Laud Hailer; Snap "
+        "To It, No Retreat!, Veteran Sharpshooters, Purging Fire, Mordian "
+        "Minute, Additional Armour) are catalogued on Wahapedia but are OUT "
+        "OF SCOPE for this fix — not wired, to avoid fabricating their "
+        "exact mechanical text without a dedicated sourcing pass. Voice of "
+        "Command Order economy otherwise unchanged — same "
+        "`code.orders.dispatch_orders` four wired Orders (Take Aim! / Fix "
+        "Bayonets! / First Rank Fire Second Rank Fire! / Take Cover!) as "
+        "Combined Arms. Gated `SWEG_AM_GRIZZLED` (default OFF): the Astra "
+        "Militarum `DEFAULT_BY_FACTION` / `FACTION_DETACHMENTS` entries "
+        "resolve to this detachment only when the gate is on; the default "
+        "off-path continues to resolve Combined Arms, byte-identical to "
+        "the pre-Grizzled-Company behaviour."
+    ),
+    grizzled_ruthless_discipline=True,
     preferred_composition="balanced",
 )
 
@@ -1510,6 +1654,61 @@ OATHBAND = Detachment(
     preferred_composition="balanced",
 )
 
+# Leagues of Votann Hearthband detachment (env-gated SWEG_VOTANN_HEARTHBAND,
+# default OFF). See `hearthband_methodical_annihilation` above for the full
+# verbatim rule text, sourcing, and the modelled-vs-omitted rationale.
+HEARTHBAND = Detachment(
+    name="Hearthband",
+    faction="Leagues of Votann",
+    notes=(
+        "Real Leagues of Votann codex detachment (Wahapedia, "
+        "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/"
+        "#Hearthband, fetched 2026-07-02; cross-checked word for word "
+        "against the raw BSData v10.6.0 cache, Leagues of Votann.cat.gz, "
+        "rule id 70a5-9f3d-4e2f-8eb3). Detachment rule 'Methodical "
+        "Annihilation', verbatim: \"Each time a LEAGUES OF VOTANN model "
+        "from your army makes an attack with a weapon that targets the "
+        "closest eligible target or a target that is within Engagement "
+        "Range of that model's unit: Re-roll a Wound roll of 1. If your "
+        "unit is a KÂHL, EINHYR HEARTHGUARD or ÛTHAR THE DESTINED unit, "
+        "improve the Armour Penetration characteristic of that attack by "
+        "1.\" Built because the 2026 real-world Leagues of Votann meta is "
+        "roughly 45 percent Hearthband and 36 percent Needgaârd Oathband "
+        "per a prior sourced tournament-placement audit, while the "
+        "simulator previously only knew the generic 'Oathband' stub — this "
+        "fix gives the simulator the actually-played detachment shape "
+        "alongside that stub. Only the melee wound-reroll clause is "
+        "modelled, and it is modelled EXACTLY: 'within Engagement Range of "
+        "that model's unit' is unconditionally true for every Fight-phase "
+        "attack under the 10e core rules, so no approximation is needed "
+        "for mode == 'melee'. Two pieces are honestly NOT modelled rather "
+        "than fabricated: (1) the ranged half of the same clause, gated on "
+        "'targets the closest eligible target', because Unit.attack has no "
+        "closest-eligible-target signal at the attack call site (the same "
+        "limitation already accepted as a deliberate over-credit for the "
+        "single-datasheet Einhyr Hearthguard native re-roll — extending "
+        "that over-credit to an army-wide ranged buff on an already "
+        "over-performing faction, sim ~53-55 versus real ~48.0, was judged "
+        "unfaithful rather than merely approximate); and (2) the Armour "
+        "Penetration improvement for KÂHL, EINHYR HEARTHGUARD and ÛTHAR THE "
+        "DESTINED units, which restricts to three named units/keywords "
+        "with no existing accumulator to express the restriction without "
+        "a new per-datasheet override mechanism. See "
+        "`Detachment.hearthband_methodical_annihilation` for the full "
+        "field-level citation. Gated SWEG_VOTANN_HEARTHBAND (default OFF): "
+        "the Leagues of Votann `DEFAULT_BY_FACTION` / `FACTION_DETACHMENTS` "
+        "entries resolve to this detachment only when the gate is on; the "
+        "default off-path continues to resolve the pre-existing 'Oathband' "
+        "generic stub, byte-identical to the pre-Hearthband behaviour. "
+        "Stratagems and Enhancements catalogued on Wahapedia for Hearthband "
+        "are OUT OF SCOPE for this change — not wired, matching the Astra "
+        "Militarum Grizzled Company precedent of keeping a detachment-rule "
+        "fix small and reviewable on its own."
+    ),
+    hearthband_methodical_annihilation=True,
+    preferred_composition="balanced",
+)
+
 
 # ---------------------------------------------------------------------------
 # Second detachments per major faction (#126). Each is keyword-gated so the
@@ -1709,6 +1908,10 @@ DETACHMENTS: Dict[str, Detachment] = {
     "skitarii_hunter_cohort":  SKITARII_HUNTER_COHORT,
     "inquisition_task_force":  INQUISITION_TASK_FORCE,
     "combined_regiment":       COMBINED_REGIMENT,
+    # Astra Militarum Grizzled Company (Grotmas December 2025 release,
+    # SWEG_AM_GRIZZLED gate — see GRIZZLED_COMPANY notes and
+    # DEFAULT_BY_FACTION / FACTION_DETACHMENTS below).
+    "grizzled_company":        GRIZZLED_COMPANY,
     "teleport_strike_force":   TELEPORT_STRIKE_FORCE,
     "warhost":                 WARHOST,
     "skysplinter_assault":     SKYSPLINTER_ASSAULT,
@@ -1718,6 +1921,9 @@ DETACHMENTS: Dict[str, Detachment] = {
     "daemonic_incursion":      DAEMONIC_INCURSION,
     "final_day":               FINAL_DAY,
     "oathband":                OATHBAND,
+    # Leagues of Votann Hearthband (SWEG_VOTANN_HEARTHBAND gate — see
+    # HEARTHBAND notes and DEFAULT_BY_FACTION / FACTION_DETACHMENTS below).
+    "hearthband":              HEARTHBAND,
     # Second detachments per major faction (#126).
     "ironstorm_spearhead":     IRONSTORM_SPEARHEAD,
     "canoptek_court":          CANOPTEK_COURT,
@@ -1794,6 +2000,7 @@ RUBRICAE_PHALANX   = DETACHMENTS["rubricae_phalanx"]
 WAR_HORDE          = DETACHMENTS["war_horde"]
 SHIELD_HOST        = DETACHMENTS["shield_host"]
 OATHBAND           = DETACHMENTS["oathband"]
+HEARTHBAND         = DETACHMENTS["hearthband"]
 COMBINED_REGIMENT  = DETACHMENTS["combined_regiment"]
 # Codex-correct alias — the detachment was renamed from "Combined Regiment"
 # (SwegHammer launch label) to "Combined Arms" (Wahapedia codex name) in
@@ -1802,6 +2009,26 @@ COMBINED_REGIMENT  = DETACHMENTS["combined_regiment"]
 COMBINED_ARMS      = DETACHMENTS["combined_regiment"]
 # CULT_OF_MAGIC and PLAGUE_COMPANY re-bindings removed per fabrication
 # audit (commit fa9a957); the detachments themselves are gone.
+
+# Astra Militarum Grizzled Company gate (SWEG_AM_GRIZZLED, default OFF).
+# Read once at import time — the evaluation harness sets environment
+# variables before the interpreter starts, so a module-level read is
+# sufficient (matches the SWEG_DG_PLAGUE_NO_NECRON_PROTOCOLS convention in
+# PLAGUE_COMPANY above). When False, the two dict entries this feeds below
+# ("Astra Militarum" in DEFAULT_BY_FACTION and FACTION_DETACHMENTS) are the
+# literal pre-existing "combined_regiment" strings — byte-identical to the
+# pre-Grizzled-Company code. When True, both resolve to "grizzled_company"
+# instead. See GRIZZLED_COMPANY notes above for the rule text.
+_AM_GRIZZLED_ON: bool = os.environ.get("SWEG_AM_GRIZZLED", "0") == "1"
+
+# Leagues of Votann Hearthband gate (SWEG_VOTANN_HEARTHBAND, default OFF).
+# Read once at import time — same convention as _AM_GRIZZLED_ON above. When
+# False, the two dict entries this feeds below ("Leagues of Votann" in
+# DEFAULT_BY_FACTION and FACTION_DETACHMENTS) are the literal pre-existing
+# "oathband" strings — byte-identical to the pre-Hearthband code. When True,
+# both resolve to "hearthband" instead. See HEARTHBAND notes above for the
+# rule text.
+_VOTANN_HEARTHBAND_ON: bool = os.environ.get("SWEG_VOTANN_HEARTHBAND", "0") == "1"
 
 # Default detachment per faction (used when Army.detachment is None and a
 # faction is known). Picks a sensible competitive default; user can override.
@@ -1845,7 +2072,10 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "Adeptus Mechanicus":       "skitarii_hunter_cohort",
     "Agents of the Imperium":   "inquisition_task_force",
     "Imperial Agents":          "inquisition_task_force",
-    "Astra Militarum":          "combined_regiment",
+    # SWEG_AM_GRIZZLED (default OFF): "grizzled_company" when the gate is
+    # on, else the pre-existing "combined_regiment" (see _AM_GRIZZLED_ON
+    # above).
+    "Astra Militarum":          "grizzled_company" if _AM_GRIZZLED_ON else "combined_regiment",
     "Grey Knights":             "teleport_strike_force",
     "Aeldari":                  "warhost",
     "Aeldari (Craftworlds)":    "warhost",
@@ -1865,7 +2095,10 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "World Eaters":             "berzerker_warband",
     "Chaos Daemons":            "daemonic_incursion",
     "Genestealer Cults":        "final_day",
-    "Leagues of Votann":        "oathband",
+    # SWEG_VOTANN_HEARTHBAND (default OFF): "hearthband" when the gate is
+    # on, else the pre-existing "oathband" generic stub (see
+    # _VOTANN_HEARTHBAND_ON above).
+    "Leagues of Votann":        "hearthband" if _VOTANN_HEARTHBAND_ON else "oathband",
 }
 
 
@@ -1939,7 +2172,12 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Adeptus Mechanicus":       ("skitarii_hunter_cohort", "cohort_cybernetica"),
     "Agents of the Imperium":   ("inquisition_task_force",),
     "Imperial Agents":          ("inquisition_task_force",),
-    "Astra Militarum":          ("combined_regiment",),
+    # SWEG_AM_GRIZZLED (default OFF): the sole entry is "grizzled_company"
+    # when the gate is on, else the pre-existing "combined_regiment" (single-
+    # entry tuple either way, so pick_detachment_for_army's len(keys) == 1
+    # deterministic branch is unaffected — see _AM_GRIZZLED_ON above).
+    "Astra Militarum":          (("grizzled_company",) if _AM_GRIZZLED_ON
+                                 else ("combined_regiment",)),
     "Grey Knights":             ("teleport_strike_force",),
     # Aeldari: Warhost only (renamed from "battle_host" in #197 to match
     # the codex name). saim_hann_wild_host was deleted per fabrication
@@ -1982,7 +2220,12 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
                                  "legion_of_excess", "plague_legion",
                                  "scintillating_legion"),
     "Genestealer Cults":        ("final_day",),
-    "Leagues of Votann":        ("oathband",),
+    # SWEG_VOTANN_HEARTHBAND (default OFF): the sole entry is "hearthband"
+    # when the gate is on, else the pre-existing "oathband" (single-entry
+    # tuple either way, so pick_detachment_for_army's len(keys) == 1
+    # deterministic branch is unaffected — see _VOTANN_HEARTHBAND_ON above).
+    "Leagues of Votann":        (("hearthband",) if _VOTANN_HEARTHBAND_ON
+                                 else ("oathband",)),
 }
 
 
@@ -2140,6 +2383,39 @@ def _keyword_affinity_score(det: Detachment, units) -> float:
         # Rubricae Phalanx to the front when the army's RUBRICAE points
         # share is non-trivial.
         matched = sum(_pts(u) for u in units if "RUBRICAE" in _kw(u))
+    elif (
+        det_name == "Scintillating Legion"
+        and os.environ.get("SWEG_DAEMONS_BELAKOR", "1") != "0"
+    ):
+        # SWEG_DAEMONS_BELAKOR (2026-07-02): the Scintillating Legion
+        # sub-archetype added to `ARCHETYPES["Chaos Daemons"]` in
+        # `code/archetypes.py` is anchored on Be'lakor and Kairos
+        # Fateweaver. A prior audit found that a Be'lakor/Kairos-anchored
+        # build only rolled the matching Chaos Daemons detachment
+        # (Scintillating Legion is one of five uniformly-weighted
+        # candidates in `FACTION_DETACHMENTS["Chaos Daemons"]`) about 20%
+        # of the time — the picker had no keyword signal tying these two
+        # flagship characters to their own detachment, unlike Cursed
+        # Legion / Canoptek Court / Rubricae Phalanx above. Both anchors
+        # are large point investments (375pt and 295pt respectively), so
+        # gating the SAME fraction-based scoring the other branches use
+        # against just the two of them is enough to clear the >=0.3
+        # threshold whenever a Scintillating Legion-shaped army is built.
+        # Gated: this branch is unreachable unless SWEG_DAEMONS_BELAKOR=1
+        # (the `and os.environ...` guard short-circuits to the `else`
+        # below when the gate is off), so the OFF path — where
+        # Scintillating Legion already existed as an ungated, no-flag,
+        # composition-only detachment — is byte-identical to the
+        # pre-change five-way uniform picker. No rule_citations.json entry
+        # is required: like the Cursed Legion / Canoptek Court / Rubricae
+        # Phalanx branches above, this is picker-heuristic scoring on
+        # `det.name`, not a `RULE_BEARING_FIELDS` flag toggle (confirmed
+        # against `scripts/audit_rules.py`, which only requires citations
+        # for Detachment/Leader fields in that tuple).
+        matched = sum(
+            _pts(u) for u in units
+            if _name(u) in ("Be'lakor", "Kairos Fateweaver")
+        )
     else:
         return 0.0
 

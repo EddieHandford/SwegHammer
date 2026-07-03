@@ -192,6 +192,32 @@ def _er_gap_units(a, b) -> float:
     return _er_gap(a.position, a.profile, b.position, b.profile)
 
 
+# ---------------------------------------------------------------------------
+# SWEG_STAGING — threat-range-aware commit discipline (AI piloting heuristic).
+# ---------------------------------------------------------------------------
+# The closing-side counterpart of the adopted ranged-hold family
+# (simulator.am_advance_discipline / ck_ranged_hold / votann_ranged_hold): the
+# gunline side got a hold-discipline lever, but the side that must CLOSE never
+# got its counterpart, so opponents Advance everything into a gunline kill zone
+# turn 1 and deliver themselves piecemeal. Universal competitive doctrine (Stat
+# Check, "objective within threat range of the Fiends, but the Fiends outside of
+# threat range themselves") stages outside the enemy's threat envelope and
+# commits together, never trickling. These constants parameterise that heuristic.
+# Faction-neutral; default-off; byte-identical off. Cited simulator.staging_discipline.
+#
+# The envelope radius is CAPPED so a board-wide gun does not blanket the whole
+# map (which would freeze every closer and reproduce the rejected gunline-hold
+# passivity, ledger 2026-06-15): a threat is "significant within ~30 inches",
+# the real deliverable danger band, not its full weapon range.
+_STAGING_MAX_RADIUS: float = 30.0
+_STAGING_ENGAGEMENT_RANGE: float = 1.0
+_STAGING_AVG_CHARGE: float = 7.0        # average 2D6 charge distance (melee reach)
+_STAGING_MAX_CHARGE: float = 12.0       # generous max 2D6 charge (can-charge test)
+_STAGING_THREAT_FLOOR: float = 2.0      # min expected DPA to project a significant envelope
+_STAGING_COMMIT_FRACTION: float = 0.5   # friendly poised output / local enemy output to release the commit
+_STAGING_MAX_ADVANCE: float = 6.0       # max Advance d6 used to test the would-be sprint destination
+
+
 @dataclass(frozen=True)
 class RulesConfig:
     """Toggles for SwegHammer's non-10e rule modifications.
@@ -1017,12 +1043,35 @@ class Battle:
             oc_by_obj: dict = {}
             sticky_by_obj: dict = {}
             dg_by_obj: dict = {}
+            # SWEG_OC_PER_MARKER (default-off while screening) — remove the
+            # wave-67 one-marker-per-squad clamp. The real 10e Level of
+            # Control is computed PER MARKER: "add together the OC
+            # characteristics of all ... models within range" — every model
+            # within 3" of a marker counts toward that marker, and a model
+            # within range of TWO markers counts toward both. The clamp below
+            # (credit the squad's summed OC to only its best marker,
+            # majority-count then centroid tie-break) was justified by Unit
+            # Coherency, but coherency is a 2"-chain placement condition, not
+            # a scoring cap — no rule limits how many markers a unit may
+            # contribute Objective Control to. The clamp is a no-op for
+            # single-model units and forecloses a real horde tactic (a
+            # stretched coherent squad straddling two markers), so it
+            # selectively under-credits multi-model armies. Found by the
+            # 2026-07-01 scoring-fidelity audit (docs/ARCHETYPE_FIDELITY_AUDIT.md).
+            # When ON, credit each marker with the squad's models within ITS
+            # range; sticky / Death Guard flags apply to every credited
+            # marker. OFF path byte-identical (the clamp logic runs as
+            # before). Cited `simulator.oc_per_marker`.
+            # ADOPTED default-on 2026-07-02 (fidelity-first ruling): N=40 vs
+            # sc35a gated 2.37 -> 2.51 alone. `=0` kill-switch.
+            _oc_per_marker = os.environ.get("SWEG_OC_PER_MARKER", "1") != "0"
             for members in army.squads().values():
                 # Per-objective tally for THIS squad: model count + summed OC.
                 best_idx = None
                 best_count = 0
                 best_dist2 = None
                 best_oc = 0
+                _credited: list = []
                 for obj_idx2, obj2 in enumerate(self.map.objectives):
                     r2b = obj2.control_radius * obj2.control_radius
                     count = 0
@@ -1058,6 +1107,11 @@ class Battle:
                             sum_dy += dy
                     if count == 0:
                         continue
+                    if _oc_per_marker and oc_sum > 0:
+                        _credited.append(obj_idx2)
+                        oc_by_obj[obj_idx2] = (
+                            oc_by_obj.get(obj_idx2, 0) + oc_sum
+                        )
                     # Centroid-of-on-objective-models distance for tie-break.
                     cx = sum_dx / count
                     cy = sum_dy / count
@@ -1071,6 +1125,32 @@ class Battle:
                         best_count = count
                         best_dist2 = dist2
                         best_oc = oc_sum
+                if _oc_per_marker:
+                    # Per-marker path already credited every in-range marker;
+                    # apply the squad's sticky / Death Guard flags to each of
+                    # them, then skip the single-best clamp entirely.
+                    if not _credited:
+                        continue
+                    _nec_nostick_pm = (
+                        os.environ.get("SWEG_NECRON_NO_STICKY") == "1"
+                    )
+                    _squad_sticky = any(
+                        getattr(u.profile, "sticky_objective", False)
+                        and not (_nec_nostick_pm
+                                 and (u.profile.faction or "") == "Necrons"
+                                 and u.profile.name == "Necron Warriors")
+                        for u in members
+                    )
+                    _squad_dg = any(
+                        (u.profile.faction or "") == "Death Guard"
+                        for u in members
+                    )
+                    for _pm_idx in _credited:
+                        if _squad_sticky:
+                            sticky_by_obj[_pm_idx] = True
+                        if _squad_dg:
+                            dg_by_obj[_pm_idx] = True
+                    continue
                 if best_idx is None or best_oc <= 0:
                     continue
                 oc_by_obj[best_idx] = oc_by_obj.get(best_idx, 0) + best_oc
@@ -2005,6 +2085,189 @@ class Battle:
         method below short-circuits here before touching the board or the RNG."""
         return __import__("os").environ.get("SWEG_ACTION_ECONOMY", "0") == "1"
 
+    # ------------------------------------------------------------------
+    # SWEG_SECONDARY_PURSUIT — the tactical-secondary-pursuit package.
+    #
+    # A 2026-07-02 diagnostic (docs/DECISION_LEDGER.md) found the tactical
+    # secondary track scoring a mean of roughly nine and a half victory points
+    # per game against a real-world figure of roughly twenty two point seven —
+    # with the Astra Militarum tactical-track engine, the biggest under-pole,
+    # measuring only four to four point six — and ranked three faithful causes:
+    # a positional hole in Establish Locus's action assignment, a card-pursuit
+    # movement layer that exists but was held off, and a voluntary-discard
+    # command-point grant that fires without regard to whose turn it is. This
+    # ONE flag composes all three fixes so they are validated and adopted or
+    # rejected together, since they interact (the movement layer can put a
+    # spare unit into the position the assignment filter then checks for).
+    # DEFAULT-OFF; unset / anything but "1" reproduces every touched code path
+    # byte-for-byte.
+    # ------------------------------------------------------------------
+
+    def _secondary_pursuit_enabled(self, army=None) -> bool:
+        """SWEG_SECONDARY_PURSUIT gate. DEFAULT-OFF: returns True only when the
+        environment variable is explicitly "1".
+
+        Composes three fixes, each documented in full at its own call site:
+
+        (a) `_assign_establish_locus_actions` gains a positional filter so a
+            spare unit is only flagged for the Establish Locus action when it
+            is ALREADY standing where the card pays (mirrors
+            `_score_establish_locus`'s own enemy-deployment-zone / 6"-of-centre
+            test) — previously any spare unit was flagged regardless of
+            position, and the card's measured achieve rate (6.1%) was the
+            worst in the pool.
+        (b) The AI card-pursuit movement layer (`_assign_card_pursuit`,
+            normally behind the separately-held `SWEG_TAC_PURSUE`) is switched
+            on, and extended with an Engage on All Fronts branch, so spare
+            units route toward the geographic goal of an unscored held
+            tactical card. Cited `simulator.secondary_card_pursuit_ai`. This
+            gate IMPLIES `SWEG_TAC_PURSUE` (see `_tac_pursue_enabled`); that
+            gate's own environment variable keeps its narrower, independently
+            screened semantics unchanged while this package gate is off.
+        (c) The `SWEG_TAC_VOLUNTARY_DISCARD` command-point grant is corrected
+            to fire only on the discarding army's own turn, using the genuine
+            active/other turn context `_run_round_vanilla_turns` already
+            tracks, and the discard heuristic is replaced with an
+            achievability read in place of the base gate's `age >= 1` trigger
+            (see `_apply_tactical_voluntary_discard_own_turn` and
+            `_tac_discard_card_cannot_pay`). This gate IMPLIES
+            `SWEG_TAC_VOLUNTARY_DISCARD` (see `_tac_voluntary_discard_enabled`);
+            that gate's own environment variable keeps its original,
+            unconditional-grant / age-only semantics unchanged while this
+            package gate is off.
+
+        No new draws are added to the global `random` stream anywhere in the
+        package — every decision above is a deterministic function of
+        already-known board / hand state, so the paired common-random-number
+        evaluation's downstream RNG stream is untouched on the ON path
+        relative to itself, and untouched at all on the OFF path."""
+        # ARMY-SCOPED ENTRY POINT (`SWEG_AM_SECONDARY_PURSUIT`, ADOPTED
+        # default-on — the flip was lost in a later merge and restored
+        # 2026-07-03 after an agent caught the anchor-config mismatch)
+        # — the Principle-2 recipe proven by simulator.am_advance_discipline:
+        # the universal package screened Astra Militarum +5.17 toward its
+        # real win rate but fed the over-credited factions (Necrons +4.89,
+        # Chaos Daemons +5.80; headline +0.46), so the universal gate stays
+        # held and the built-for faction's lift is banked army-scoped.
+        # Cited `simulator.am_secondary_pursuit`.
+        if os.environ.get("SWEG_SECONDARY_PURSUIT", "0") == "1":
+            return True
+        if army is None or not getattr(army, "units", None):
+            return False
+        return (
+            (army.units[0].profile.faction or "") == "Astra Militarum"
+            and os.environ.get("SWEG_AM_SECONDARY_PURSUIT", "1") != "0"
+        )
+
+    # ------------------------------------------------------------------
+    # PRINCIPLE-2 ARMY-SCOPED ENTRY POINTS FOR THE PINNED CAPSTONE LEVERS
+    # ------------------------------------------------------------------
+    # The project's per-faction artificial-intelligence thesis (Principle 2,
+    # DECISION_LEDGER 2026-07-01 / 2026-07-03): a faithful faction-neutral
+    # piloting lever routinely WASHES or REGRESSES the headline metric even
+    # when it is individually correct, because the simulator's durable side
+    # banks the same symmetric play the lever hands to everyone; scoping the
+    # identical logic to the one faction it was built for banks that faction's
+    # lift without feeding the over-credited poles. The precedents that proved
+    # the recipe are all faction-restricted SECOND entry points on the SAME
+    # code path as a held or retired universal gate: simulator.am_advance_
+    # discipline (the generic SWEG_ADVANCE_DISCIPLINE screened +2.19 harmful,
+    # the Astra-Militarum scope banked +5.75), simulator.ck_ranged_hold
+    # (+11.27), simulator.votann_ranged_hold (+10.37) and simulator.am_
+    # secondary_pursuit (the universal package screened +0.46 net / harmful to
+    # the over-poles, the Astra-Militarum scope banked +5.17).
+    #
+    # The capstone (2026-07-03) proved the three pinned levers below sit in the
+    # SAME faction-neutral-closed situation: SWEG_STAGING, SWEG_PERSISTENT_
+    # NOMINATION and SWEG_ANTITANK_ADVANCE_DISCIPLINE are faithful but wash /
+    # regress generically. `_scoped_lever_on` adds, for each of the three, four
+    # default-off army-scoped gates keyed to the four factions the calibration
+    # loop most needs to move (Astra Militarum, Orks, Adepta Sororitas,
+    # Genestealer Cults) so one gate read answers each (faction, lever) pair —
+    # twelve gates total. The universal gate keeps its exact existing
+    # semantics; every scoped gate is default-off and the OFF path (no gate
+    # set) is byte-identical to the pre-change baseline.
+
+    # (lever token) -> (universal environment gate, scoped-gate name suffix).
+    # The universal gate name and the scoped suffix differ for two of the three
+    # (the universal SWEG_PERSISTENT_NOMINATION scopes as SWEG_<FACTION>_
+    # NOMINATION; the universal SWEG_ANTITANK_ADVANCE_DISCIPLINE scopes as
+    # SWEG_<FACTION>_ANTITANK_HOLD), so the mapping is explicit rather than
+    # derived.
+    _SCOPED_LEVER_ENV: Dict[str, Tuple[str, str]] = {
+        "STAGING": ("SWEG_STAGING", "STAGING"),
+        "NOMINATION": ("SWEG_PERSISTENT_NOMINATION", "NOMINATION"),
+        "ANTITANK_HOLD": ("SWEG_ANTITANK_ADVANCE_DISCIPLINE", "ANTITANK_HOLD"),
+    }
+
+    # (faction-prefix) -> (exact profile.faction string). The four prefixes are
+    # the established faction-prefix convention already used across the scoped
+    # levers (AM = Astra Militarum, per simulator.am_advance_discipline /
+    # am_secondary_pursuit).
+    _SCOPED_LEVER_FACTION: Dict[str, str] = {
+        "AM": "Astra Militarum",
+        "ORKS": "Orks",
+        "SOROR": "Adepta Sororitas",
+        "GSC": "Genestealer Cults",
+    }
+
+    def _scoped_lever_on(self, lever: str, army) -> bool:
+        """Principle-2 army-scoped entry point for a pinned capstone piloting
+        lever (`lever` is one of the keys of `_SCOPED_LEVER_ENV`). Returns True
+        when EITHER the faction-neutral universal gate for `lever` is explicitly
+        "1" (its existing semantics, unchanged), OR the acting `army`'s faction
+        has its per-faction scoped gate for `lever` explicitly "1". Twelve
+        scoped gates total (four factions x three levers), every one default-off
+        and read `== "1"`; when none is set this returns exactly the boolean the
+        bare universal-gate read returned before, so the OFF path is
+        byte-identical.
+
+        The scope is read from the acting `army`
+        (`army.units[0].profile.faction`, the same faction read
+        simulator.am_secondary_pursuit uses), so the gate is ASYMMETRIC by
+        construction: it activates only on the scoped army's own activation. For
+        the nomination lever this asymmetry is the whole point — the scoped army
+        points its anti-tank at an enemy brick without its OWN hulls becoming
+        everyone's standing nominee, because the nominee channels
+        (`_focusfire_target_uid` / `_persistent_nom_uid`) are per-army state set
+        only during that army's own turn, never shared across armies.
+
+        Fails loud (KeyError naming the bad token) if `lever` is not a
+        registered scoped lever — no silent default (CLAUDE.md rule 13)."""
+        universal_env, suffix = self._SCOPED_LEVER_ENV[lever]
+        if os.environ.get(universal_env, "0") == "1":
+            return True
+        if army is None or not getattr(army, "units", None):
+            return False
+        faction = army.units[0].profile.faction or ""
+        for prefix, scoped_faction in self._SCOPED_LEVER_FACTION.items():
+            if faction == scoped_faction:
+                # ADOPTED default-on 2026-07-03: the three Genestealer Cults
+                # scoped gates — the extraction wave's one keeper (combined
+                # GSC-scoped N=80 vs sc46a: Genestealer Cults +3.38 DECISIVE,
+                # 43.7 -> 47.1, landing on its real 46.7; headline wash).
+                # The GSC game (Cult Ambush setup, patient Ridgerunner
+                # anti-tank) is the one under-pole whose shape fits the
+                # shelf. All other scoped gates stay default-off (Astra
+                # Militarum 3x REJECTED decisive, Orks REJECTED, Adepta
+                # Sororitas wash — see the ledger). `=0` kill-switches.
+                _gate = f"SWEG_{prefix}_{suffix}"
+                # ADOPTED scoped gates (default-on, `=0` kill-switches):
+                # the three Genestealer Cults gates (extraction wave,
+                # +3.38 onto its real number) and SWEG_AM_STAGING
+                # (corrected-frame re-screen 2026-07-03: Astra Militarum
+                # +1.66 alone / +1.23 combined with the fire-support
+                # hold, gated 3.82 -> 3.70 — the offset-era −4.37
+                # "rejection" was the frame-integrity phantom).
+                _adopted = {
+                    "SWEG_GSC_STAGING", "SWEG_GSC_NOMINATION",
+                    "SWEG_GSC_ANTITANK_HOLD", "SWEG_AM_STAGING",
+                }
+                if _gate in _adopted:
+                    return os.environ.get(_gate, "1") != "0"
+                return os.environ.get(_gate, "0") == "1"
+        return False
+
     def _unit_zone(self, u, own_is_army_a: bool) -> str:
         """Classify a unit's position into one of the three Recover Assets areas:
         "own_dz" (the scoring army's own deployment zone), "nml" (No Man's Land),
@@ -2038,17 +2301,41 @@ class Battle:
 
         The unit is chosen by the rules-authentic `_unit_can_perform_action`
         contract (the even-handed, EMERGENT spare-unit test) — no faction or
-        model-count branch. Cited `simulator.secondary_establish_locus`."""
+        model-count branch. Cited `simulator.secondary_establish_locus`.
+
+        SWEG_SECONDARY_PURSUIT positional filter: without it, ANY spare unit
+        passing `_unit_can_perform_action` is flagged, including one nowhere
+        near either scoring position — the action then locks it out of
+        shooting/charging for nothing, since `_score_establish_locus` only
+        pays when the performing unit is in the opponent's deployment zone or
+        within 6" of the battlefield centre. Assignment runs AFTER the
+        Movement phase (see the call site in `_run_round_vanilla_turns`), so a
+        unit's position here is exactly where it will stay for the rest of
+        the turn — the filter below re-uses `_score_establish_locus`'s own
+        test at assignment time so only a unit that is ALREADY standing in a
+        scoring position (whether it walked there on its own or was routed
+        there by the SWEG_SECONDARY_PURSUIT card-pursuit movement layer, part
+        (b) of the same package) is ever committed to the action."""
         if not self._action_economy_enabled():
             return
         if "establish_locus" not in (getattr(active, "chosen_secondaries", ()) or ()):
             return
+        own_is_a = active is self.a
+        _positional_filter = self._secondary_pursuit_enabled(active)
+        cx = self.map.width / 2.0
+        cy = self.map.height / 2.0
         for u in active.alive_units:
             if u.action_this_round is not None:
                 continue
-            if self._unit_can_perform_action(u, other):
-                u.action_this_round = "establish_locus"
-                break  # CAP = 1 ("One unit from your army")
+            if not self._unit_can_perform_action(u, other):
+                continue
+            if _positional_filter and not self._unit_in_enemy_dz(u, own_is_a):
+                dx = u.position[0] - cx
+                dy = u.position[1] - cy
+                if dx * dx + dy * dy > 6.0 * 6.0:
+                    continue  # not yet in a position the card would pay for
+            u.action_this_round = "establish_locus"
+            break  # CAP = 1 ("One unit from your army")
 
     def _score_establish_locus(self, army, opponent, own_is_army_a: bool,
                                chosen_override=None) -> int:
@@ -2417,7 +2704,7 @@ class Battle:
     # (env-gated SWEG_TAC_PURSUE; sub-gate of SWEG_TAC_DECK)
     # ------------------------------------------------------------------
 
-    def _tac_pursue_enabled(self) -> bool:
+    def _tac_pursue_enabled(self, army=None) -> bool:
         """Sub-gate for the AI card-pursuit layer (wave 121-122). DEFAULT-OFF:
         returns True only when SWEG_TAC_DECK is ON AND SWEG_TAC_PURSUE is
         EXPLICITLY "1".
@@ -2434,10 +2721,17 @@ class Battle:
         one-Unit-per-model REPRESENTATION gap (fragile distributed bodies cannot
         reach/hold targets), the same root as the Imperial Knights primary
         over-hold — that is M4, not the pursuit AI. AI heuristic only — no 10e
-        rule citation required."""
+        rule citation required.
+
+        SWEG_SECONDARY_PURSUIT composition: the tactical-secondary-pursuit
+        package gate IMPLIES this sub-gate, so the whole pursuit layer runs
+        whenever the package is on (part (b) of that gate's docstring) —
+        SWEG_TAC_PURSUE keeps its own narrower semantics, and its own
+        wave-122 held-off default, unchanged when the package gate is off."""
         if not self._tac_deck_enabled():
             return False
-        return __import__("os").environ.get("SWEG_TAC_PURSUE", "0") == "1"
+        return (__import__("os").environ.get("SWEG_TAC_PURSUE", "0") == "1"
+                or self._secondary_pursuit_enabled(army))
 
     def _assign_card_pursuit(self, active, other) -> None:
         """Wave 121 — AI card-pursuit pre-movement hook.  Sets `pursue_target`
@@ -2445,13 +2739,19 @@ class Battle:
         pick_move_intent routes them toward the geographic goal of their held
         Tactical card this activation.
 
-        Only two movement-pursuable cards are handled:
+        Movement-pursuable cards handled:
           * 'behind_enemy_lines' — sends spare chaff into the opponent's
             deployment zone (the strip at the far edge of the board).
+          * 'engage_on_all_fronts' (SWEG_SECONDARY_PURSUIT part (b)) — sends
+            one spare chaff unit toward the nearest table quarter the army
+            does not already occupy.
           * 'cleanse' — sends spare chaff toward the nearest objective that is
             OUTSIDE the active army's own deployment zone, so the existing
             _assign_cleanse_actions (which runs AFTER movement) can then flag
             the unit once it has arrived.
+          * the five BOARD take-and-hold cards (defend_stronghold,
+            secure_no_mans_land, extend_battle_lines, storm_hostile_objective,
+            area_denial) via `_board_pursuit_goals` below.
 
         Selection is strictly even-handed by CAPABILITY:
           * _is_chaff_unit gate (cheap non-CHARACTER unit, any faction).
@@ -2467,7 +2767,7 @@ class Battle:
         pick_move_intent reads pursue_target during each unit's activation.
         pursuit is cleared at the top of each army's turn (per-turn).
         """
-        if not self._tac_pursue_enabled():
+        if not self._tac_pursue_enabled(active):
             return
         if getattr(active, "secondary_track", None) != "TACTICAL":
             return
@@ -2503,6 +2803,45 @@ class Battle:
                     continue
                 u.pursue_target = bel_target
                 n += 1
+
+        # SWEG_SECONDARY_PURSUIT part (b) — Engage on All Fronts is a
+        # positional card `_assign_card_pursuit` never routed toward (only
+        # `_assign_card_dedication`, gated separately behind SWEG_SECONDARY,
+        # handled it, alongside unrelated Action-cost changes this package
+        # does not want to pull in). Spread a spare chaff unit toward a board
+        # quarter the army does not already occupy. Quarter encoding mirrors
+        # `secondaries.score_position_delta` and `_assign_card_dedication`'s
+        # identical branch: (qx, qy) with qx=0 for x<cx else 1, qy=0 for
+        # y<cy else 1. Cited `simulator.secondary_card_pursuit_ai`.
+        if "engage_on_all_fronts" in hand:
+            cx = self.map.width / 2.0
+            cy = self.map.height / 2.0
+            occupied = set()
+            for u in active.alive_units:
+                ux, uy = u.position
+                occupied.add((0 if ux < cx else 1, 0 if uy < cy else 1))
+            quarter_centre = {
+                (0, 0): (cx * 0.5, cy * 0.5),
+                (1, 0): (cx + cx * 0.5, cy * 0.5),
+                (0, 1): (cx * 0.5, cy + cy * 0.5),
+                (1, 1): (cx + cx * 0.5, cy + cy * 0.5),
+            }
+            empty_quarters = [q for q in quarter_centre if q not in occupied]
+            if empty_quarters:
+                # Deterministic pick: the lowest-keyed empty quarter.
+                engage_target = quarter_centre[sorted(empty_quarters)[0]]
+                n = 0
+                for u in active.alive_units:
+                    if n >= PURSUIT_CAP:
+                        break
+                    if u.action_this_round is not None:
+                        continue
+                    if u.pursue_target is not None:
+                        continue
+                    if not _is_chaff_unit(u):
+                        continue
+                    u.pursue_target = engage_target
+                    n += 1
 
         if "cleanse" in hand:
             # Target: the nearest forward objective (outside the active army's
@@ -3165,6 +3504,31 @@ class Battle:
         data/rule_citations.d/core_secondary_hand_cap.json#simulator.secondary_two_card_hand_cap."""
         return __import__("os").environ.get("SWEG_SECONDARY_HANDCAP", "0") == "1"
 
+    def _tac_voluntary_discard_enabled(self, army=None) -> bool:
+        """CA-2025-26 Tactical Missions voluntary discard, the second half of
+        the end-of-turn card-management rule that `_score_tactical_hand`
+        previously only implemented half of (the achieved-card discard).
+        DEFAULT-OFF: `SWEG_TAC_VOLUNTARY_DISCARD` must be exactly "1"; unset /
+        anything else reproduces the OFF path byte-for-byte (no discard
+        decision, no command-point grant, no change to which cards are
+        drawn or when). See `_score_tactical_hand` for the implementation
+        and data/rule_citations.d/secondaries_pariah_nexus.json#simulator.tactical_voluntary_discard
+        for the verbatim rule text.
+
+        SWEG_SECONDARY_PURSUIT composition: the tactical-secondary-pursuit
+        package gate IMPLIES this gate, so the voluntary discard mechanic runs
+        whenever the package is on — but `_score_tactical_hand` only runs the
+        ORIGINAL round-end implementation (unconditional command-point grant,
+        `age >= 1` heuristic) when the package gate is off; when the package
+        gate is on, that block is skipped in favour of the refined, own-turn
+        implementation in `_apply_tactical_voluntary_discard_own_turn` (see
+        that method and `_tac_discard_card_cannot_pay` for the replacement).
+        SWEG_TAC_VOLUNTARY_DISCARD's own environment variable and its
+        original semantics are unchanged when the package gate is off."""
+        return (__import__("os").environ.get(
+                    "SWEG_TAC_VOLUNTARY_DISCARD", "0") == "1"
+                or self._secondary_pursuit_enabled(army))
+
     def _init_tactical_deck(self, army: Army) -> None:
         """Seed a TACTICAL army's 2-card hand + remaining deck deterministically.
 
@@ -3185,6 +3549,7 @@ class Battle:
         army.secondary_track = getattr(army, "secondary_track", None)
         army.tactical_hand = []
         army.tactical_deck = []
+        army.tactical_hand_age = {}
         if not self._tac_deck_enabled():
             return
         if army.secondary_track != "TACTICAL":
@@ -3206,6 +3571,9 @@ class Battle:
         # Draw the opening hand of two (or fewer if the pool is tiny).
         army.tactical_hand = deck[:2]
         army.tactical_deck = deck[2:]
+        # Voluntary-discard hold-age bookkeeping (see `Army.tactical_hand_age`
+        # docstring comment) — every freshly-drawn card starts at age 0.
+        army.tactical_hand_age = {card: 0 for card in army.tactical_hand}
 
     def _score_one_card(self, card_key: str, scoring_army: Army,
                         other_army: Army, own_is_army_a: bool,
@@ -3309,9 +3677,24 @@ class Battle:
         """M2: score a TACTICAL army's <=2 held cards this round, then run the
         achieve→discard→redraw step (a card that scored 1+ VP is discarded and
         replaced from the deck, refilling the hand to two if the deck has cards).
-        Returns the round's total VP from the hand. Scores ONLY the hand."""
+        Returns the round's total VP from the hand. Scores ONLY the hand.
+
+        Wave (voluntary discard, env-gated SWEG_TAC_VOLUNTARY_DISCARD): the
+        achieved-card discard above is only the FIRST half of the verbatim
+        CA-2025-26 end-of-turn rule. The second half lets a player also
+        discard one or more of their still-active (unscored) Secondary
+        Mission cards, gaining 1 command point for doing so on their own
+        turn. See data/rule_citations.d/secondaries_pariah_nexus.json#
+        simulator.tactical_voluntary_discard for the verbatim text. While the
+        gate is off this method is byte-identical to the pre-existing
+        achieve→discard→redraw behaviour."""
         total = 0
         achieved: list = []
+        # Snapshot the hold-age each held card entered this round with —
+        # the voluntary-discard eligibility check below must use "how long
+        # was this card ALREADY held before this round", not an age this
+        # round's own bookkeeping is about to bump.
+        entering_ages = dict(getattr(army, "tactical_hand_age", {}))
         for card in list(army.tactical_hand):
             vp = self._score_one_card(card, army, other_army,
                                       own_is_army_a, round_num)
@@ -3321,9 +3704,184 @@ class Battle:
         # Discard achieved cards and redraw to refill the hand to two.
         for card in achieved:
             army.tactical_hand.remove(card)
+            army.tactical_hand_age.pop(card, None)
+        # Voluntary discard: an ARTIFICIAL-INTELLIGENCE piloting heuristic
+        # decides WHICH card (if any) to discard — the RULE itself (discard +
+        # 1 command point) is verbatim CA-2025-26; the choice of card is not
+        # specified by the rule and is approximated here. A card is only a
+        # candidate once it has survived at least one full previous round
+        # un-achieved (entering_ages captures exactly that: cards drawn THIS
+        # round, whether the opening deal or this round's own redraw below,
+        # are never candidates in the round they are drawn). Every remaining
+        # hand card at this point scored zero this round by construction —
+        # anything that scored 1+ VP was already removed as "achieved" above.
+        # At most ONE voluntary discard per turn (a conservative reading of
+        # the rule's "one or more" — real players rarely dump both cards at
+        # once; see the citation for the full approximation note).
+        #
+        # SWEG_SECONDARY_PURSUIT part (c): this block is the ORIGINAL
+        # implementation (unconditional command-point grant, `age >= 1`
+        # heuristic) and keeps running byte-for-byte when only the base
+        # SWEG_TAC_VOLUNTARY_DISCARD gate is set. When the package gate is
+        # ALSO on, this block is skipped IN FAVOUR of
+        # `_apply_tactical_voluntary_discard_own_turn` (called from
+        # `_run_round_vanilla_turns`, once per army at the true end of that
+        # army's own turn, before this round-end method even runs) — running
+        # this block too would double-process. That replacement only exists
+        # on the vanilla per-player-turn path this package was built against
+        # (mirrors the identical `cmd_score` fallback at the top of
+        # `_run_round`): under alternating activations there is no clean
+        # per-player turn boundary to plumb, so this block keeps running
+        # there even with the package gate on, exactly like the base gate
+        # alone — a package that is inert on that path is strictly better
+        # than one that silently drops the mechanic.
+        _pursuit_own_turn_active = (
+            self._secondary_pursuit_enabled(army)
+            and not self.rules.alternating_activations
+        )
+        if (self._tac_voluntary_discard_enabled(army)
+                and not _pursuit_own_turn_active):
+            eligible = [c for c in army.tactical_hand
+                       if entering_ages.get(c, 0) >= 1]
+            if eligible:
+                # Deterministic pick — no dice may enter this decision (RNG
+                # discipline: only `_init_tactical_deck`'s private stream may
+                # draw cards). Longest-held card first; ties broken by card
+                # key so the choice is reproducible under PYTHONHASHSEED=0.
+                eligible.sort(key=lambda c: (-entering_ages.get(c, 0), c))
+                discard_card = eligible[0]
+                army.tactical_hand.remove(discard_card)
+                army.tactical_hand_age.pop(discard_card, None)
+                # "If you do, and it is your turn, you gain 1CP." The
+                # simulator's round model collapses both players' turns into
+                # one interleaved round rather than modelling alternating
+                # per-player turns (see the ENTER-SCORE comment above
+                # `_run_round`), so each army's own hand-management here already
+                # stands in for the end of THAT army's own turn — the same
+                # approximation the pre-existing achieved-card discard makes
+                # turn-agnostically. The command point is therefore granted
+                # unconditionally to the discarding army.
+                army.command_points = min(CP_CAP, army.command_points + 1)
+        # Cards still held after both discard steps have survived this round
+        # un-achieved; age them by one full round for next round's check.
+        for card in army.tactical_hand:
+            army.tactical_hand_age[card] = army.tactical_hand_age.get(card, 0) + 1
         while len(army.tactical_hand) < 2 and army.tactical_deck:
-            army.tactical_hand.append(army.tactical_deck.pop(0))
+            new_card = army.tactical_deck.pop(0)
+            army.tactical_hand.append(new_card)
+            army.tactical_hand_age[new_card] = 0
         return total
+
+    def _tac_discard_card_cannot_pay(self, card_key: str, army: Army,
+                                     other_army: Army, own_is_army_a: bool,
+                                     round_num: int) -> bool:
+        """SWEG_SECONDARY_PURSUIT part (c) — voluntary-discard eligibility
+        test. True when `card_key`, currently held by `army`, cannot pay in
+        this game state: either a genuine structural impossibility (the
+        card's qualifying target/marker/actor no longer exists in this
+        matchup, so it can NEVER score again this battle) where one is
+        cheaply computable, or — for the cards without a cheap structural
+        test — a persistent zero read (held un-achieved for at least one
+        full previous round, per `Army.tactical_hand_age`, AND still scoring
+        zero right now via `_score_one_card`, which is read-only and so safe
+        to call for this probe without double-counting any victory points).
+
+        Replaces the base SWEG_TAC_VOLUNTARY_DISCARD gate's `age >= 1`-only
+        trigger, which discarded a card the instant it survived one round
+        even when it was about to pay — this is strictly NARROWER (a card
+        must ALSO fail the structural or zero-read test), so it is a less
+        aggressive heuristic, per the tactical-secondary-pursuit diagnostic's
+        finding that the real bottleneck is card ACHIEVABILITY, not merely
+        hand turnover speed."""
+        from .secondaries import _is_monster_or_vehicle, _is_horde_unit, _is_character
+        other_alive = other_army.alive_units
+        if card_key == "bring_it_down":
+            if not any(_is_monster_or_vehicle(u) for u in other_alive):
+                return True  # no MONSTER/VEHICLE left to kill — impossible
+        elif card_key == "cull_the_horde":
+            if not any(_is_horde_unit(u) for u in other_alive):
+                return True  # no 13+model unit left to kill — impossible
+        elif card_key == "assassination":
+            if not any(_is_character(u) for u in other_alive):
+                return True  # no CHARACTER left to kill — impossible
+        elif card_key == "a_tempting_target":
+            if self._tempting_target_obj_idx(own_is_army_a) is None:
+                return True  # no No Man's Land marker on this map — impossible
+        elif card_key in ("cleanse", "sabotage", "establish_locus", "recover_assets"):
+            if not any((getattr(u.profile, "oc", 0) or 0) > 0
+                       for u in army.alive_units):
+                return True  # no Objective-Control-capable body left — impossible
+        # Fallback for cards without a cheap structural test (no_prisoners,
+        # engage_on_all_fronts, behind_enemy_lines, and the remaining board
+        # cards secure_no_mans_land / defend_stronghold / extend_battle_lines
+        # / storm_hostile_objective / area_denial): persistent zero expected
+        # value — held un-achieved for a full previous round AND still
+        # reading zero right now.
+        if army.tactical_hand_age.get(card_key, 0) < 1:
+            return False
+        return self._score_one_card(card_key, army, other_army,
+                                    own_is_army_a, round_num) <= 0
+
+    def _apply_tactical_voluntary_discard_own_turn(self, active: Army,
+                                                    other: Army) -> None:
+        """SWEG_SECONDARY_PURSUIT part (c) — the your-turn-only voluntary
+        discard. Called once per battle round from `_run_round_vanilla_turns`,
+        at the genuine end of `active`'s own turn (immediately after its
+        Fight phase resolves, before the loop moves on to the other army),
+        using the real active/other turn context that function already
+        tracks. `active` really is the army whose turn is ending at this
+        call site, so "if it is your turn, you gain 1CP" is honestly true
+        here — unlike the base SWEG_TAC_VOLUNTARY_DISCARD gate's round-end
+        call (`_score_tactical_hand`, run once for BOTH armies together after
+        the round has fully closed), which could not tell either army's turn
+        from the other's and so granted the command point unconditionally.
+        `other`'s own voluntary discard is handled symmetrically, later, when
+        it is `other`'s turn to be `active` in the loop's second iteration —
+        so each army still gets exactly one voluntary-discard opportunity per
+        round, precisely as the base gate already modelled, just correctly
+        timed and correctly scoped to the discarding army alone.
+
+        No-op unless the package gate is on (`_secondary_pursuit_enabled`) —
+        while it is off, `_score_tactical_hand`'s original round-end block
+        keeps running the base gate's own semantics unchanged (see
+        `_tac_voluntary_discard_enabled`'s composition note).
+
+        Uses `_tac_discard_card_cannot_pay` (achievability, not mere age) to
+        pick the candidate; at most one voluntary discard per turn, matching
+        the base gate's conservative reading of the rule's "one or more".
+        The removed card leaves both `tactical_hand` and `tactical_hand_age`
+        immediately, so the round-end achieved-card-discard/redraw step in
+        `_score_tactical_hand` (unchanged, still gate-independent) sees a
+        hand already missing it and simply redraws a replacement as it would
+        for any other departed card — no double-scoring, no lost victory
+        points, and no new draw on the global `random` stream (the discard
+        choice is a pure, deterministic function of already-known board and
+        hand state)."""
+        if not self._secondary_pursuit_enabled(active):
+            return
+        if not self._tac_deck_enabled():
+            return
+        if getattr(active, "secondary_track", None) != "TACTICAL":
+            return
+        hand = getattr(active, "tactical_hand", None)
+        if not hand:
+            return
+        own_is_a = active is self.a
+        round_num = self._current_round
+        candidates = [
+            c for c in hand
+            if self._tac_discard_card_cannot_pay(c, active, other, own_is_a,
+                                                 round_num)
+        ]
+        if not candidates:
+            return
+        # Deterministic pick among hopeless candidates — longest-held first
+        # (mirrors the base gate's tie-break), then card key.
+        candidates.sort(key=lambda c: (-active.tactical_hand_age.get(c, 0), c))
+        discard_card = candidates[0]
+        active.tactical_hand.remove(discard_card)
+        active.tactical_hand_age.pop(discard_card, None)
+        active.command_points = min(CP_CAP, active.command_points + 1)
 
     def _score_secondaries_deck(self, round_num: int) -> None:
         """M2 deck-aware per-round secondary scoring (SWEG_TAC_DECK ON). Each army
@@ -3603,6 +4161,10 @@ class Battle:
             # Duty and Honour! (AM Order) per-round flag. Mirrors the codex
             # 'until the start of your next Command phase' Order duration.
             u.transient_plus_one_oc = False
+            # Grizzled Company (AM detachment, SWEG_AM_GRIZZLED) — "affected
+            # by an Order" stamp for the Ruthless Discipline Hit-1 re-roll.
+            # Same round-scope convention as the other AM Order flags above.
+            u.transient_affected_by_order = False
             u.transient_halve_damage = False
             u.transient_undying_legions_pulse = 0
             # ST-1 proper-keyword transient flags.
@@ -10821,7 +11383,29 @@ class Battle:
             # entering-round (once/round) experiment did not test. Rounds 2-5
             # only (no round-1 primary). No-op unless the gate is set, so the OFF
             # path is byte-identical. Cited as `simulator.primary_vp_command_phase`.
-            if self._cmd_score and self._current_round >= 2:
+            # SWEG_R5_SECOND_LAST (default-off while screening) — the round-5
+            # going-second exception. Chapter Approved 2025-26 scores Primary
+            # at the "End of the Command phase (or the end of your turn if it
+            # is the fifth battle round and you are going second)". The
+            # per-Command-phase path below scores the second player at their
+            # round-5 TURN START, denying them the last-turn objective grab
+            # the real rule rewards. When the gate is ON, the second player's
+            # round-5 primary score is DEFERRED to after their turn resolves
+            # (end of this function); everyone else scores as before. First
+            # built at wave 253 (worktree-only, rejected on the stale 4.86
+            # frame as a load-bearing compensating error); rebuilt under the
+            # 2026-07-01 fidelity-first ruling. OFF path byte-identical.
+            # Cited `simulator.primary_vp_round5_second_player`.
+            # ADOPTED default-on 2026-07-02 (fidelity-first ruling): N=40 vs
+            # sc35a gated 2.37 -> 2.82 alone; part of the going-first
+            # signature fix (69% -> 50.0%). `=0` kill-switch.
+            _r5_defer = (
+                os.environ.get("SWEG_R5_SECOND_LAST", "1") != "0"
+                and self._current_round >= MAX_ROUNDS
+                and active is second
+            )
+            if (self._cmd_score and self._current_round >= 2
+                    and not _r5_defer):
                 self._score_objectives(only_for=active.name)
             # Clear the effective_buffs cache once per phase — positions don't
             # change mid-phase, so all units in a phase safely share cached results.
@@ -10843,6 +11427,25 @@ class Battle:
             _phase_our_oc: Dict[int, int] = {
                 id(obj): _oc_on_objective(active.alive_units, obj) for obj in _objectives
             }
+            # SWEG_STAGING (default-off): precompute the enemy threat envelope
+            # once per move phase (enemy units don't move during our phase, the
+            # `_phase_their_oc` convention) and pass it down to _do_move so the
+            # commit heuristic can stage closers at the envelope edge. None when
+            # the gate is off → _do_move's staging block is skipped entirely
+            # (byte-identical off).
+            #
+            # PRINCIPLE-2 ARMY-SCOPED ENTRY POINT (`_scoped_lever_on`): the
+            # precompute (and hence the whole staging behaviour, since the
+            # _do_move block is guarded solely by `_phase_staging is not None`)
+            # fires when the universal SWEG_STAGING is "1" OR the ACTIVE army's
+            # faction has its scoped gate on (SWEG_AM_STAGING / SWEG_ORKS_STAGING
+            # / SWEG_SOROR_STAGING / SWEG_GSC_STAGING, all default-off). Because
+            # only the active army precomputes an envelope during its own move
+            # phase, the scope is asymmetric: a non-scoped opponent's move phase
+            # takes _phase_staging = None and stages nothing.
+            _phase_staging = None
+            if self._scoped_lever_on("STAGING", active):
+                _phase_staging = self._precompute_staging_envelope(other, active)
             # Wave 121: reset any pursuit targets from the previous turn. The
             # field is per-turn (not per-round) so that each army's turn gets a
             # fresh assignment. When the pursuit gate is off this is a no-op
@@ -10917,7 +11520,8 @@ class Battle:
                             army_name=active.name,
                         ))
                 self._do_move(unit, active, other, _phase_their_oc=_phase_their_oc,
-                              _phase_our_oc=_phase_our_oc)
+                              _phase_our_oc=_phase_our_oc,
+                              _phase_staging=_phase_staging)
                 # OC-cache incremental maintenance (byte-identical to the per-call
                 # rescan): this unit may have entered/left objectives' control
                 # radii, so adjust _phase_our_oc by ±its OC on each affected marker.
@@ -11123,6 +11727,25 @@ class Battle:
             # `simulator.relentless_carnage`. Wahapedia source:
             # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster
             self._apply_relentless_carnage(active, other)
+            # SWEG_SECONDARY_PURSUIT part (c) — the your-turn-only voluntary
+            # discard. `active`'s entire turn (Movement through Fight) has
+            # now resolved, so this is the genuine end of ITS OWN turn — the
+            # correct, honestly-plumbed moment for "if it is your turn, you
+            # gain 1CP" to apply to `active` specifically. No-op unless the
+            # package gate is on. See `_apply_tactical_voluntary_discard_
+            # own_turn` for the full contract.
+            self._apply_tactical_voluntary_discard_own_turn(active, other)
+        # SWEG_R5_SECOND_LAST deferred score (see the gate comment at the top
+        # of the turns loop): the second player's round-5 primary is scored
+        # HERE, after their whole turn has resolved — the Chapter Approved
+        # 2025-26 "end of your turn if it is the fifth battle round and you
+        # are going second" timing. No-op unless the gate is on and the
+        # per-Command-phase scoring path is active.
+        if (os.environ.get("SWEG_R5_SECOND_LAST", "1") != "0"
+                and self._cmd_score
+                and self._current_round >= MAX_ROUNDS
+                and self._current_round >= 2):
+            self._score_objectives(only_for=second.name)
 
     def _apply_relentless_carnage(self, active: Army, other: Army) -> None:
         """End-of-Fight-phase Bloodthirster mortal-wound payload.
@@ -11484,8 +12107,235 @@ class Battle:
                     m.moved_this_round = True
                     self._emit(UnitMoved(unit_uid=m.uid, from_pos=old_pos, to_pos=new_pos))
 
+    def _precompute_staging_envelope(self, defender_army: Army, active_army: Army):
+        """Precompute the enemy threat envelope for SWEG_STAGING, once per move
+        phase (enemy units do not move during our phase, so this is stable for
+        the whole phase — the same `_phase_their_oc` convention). Returns
+        `(threats, commit_ready)` or None when no enemy projects a significant
+        envelope.
+
+          threats      — list of (ex, ey, radius, is_melee, out) for every enemy
+                         whose expected damage per activation clears the
+                         significance floor. `radius` = enemy Move + max(weapon
+                         range, charge reach), CAPPED at _STAGING_MAX_RADIUS so a
+                         board-wide gun does not blanket the map. `is_melee` marks
+                         a threat delivered primarily by charge (a melee
+                         platform), which is the only kind that gets a positional
+                         cap in _staging_capped_target.
+          commit_ready — parallel list of bools; True when a friendly mass is
+                         already poised inside this envelope at phase start
+                         (friendly expected output within the envelope >=
+                         _STAGING_COMMIT_FRACTION of the local enemy output). A
+                         True entry RELEASES the commit for units binding on that
+                         envelope — the "commit together" clause. Computed from
+                         the phase-start snapshot only (no per-activation lookahead
+                         loop), matching the deterministic-precompute constraint.
+
+        Pure geometry + cached expected-DPA; no RNG draws.
+        """
+        from .roles import expected_ranged_dpa, expected_melee_dpa
+        e_alive = defender_army.alive_units
+        threats = []
+        for e in e_alive:
+            p = e.profile
+            out = expected_ranged_dpa(p) + expected_melee_dpa(p)
+            if out < _STAGING_THREAT_FLOOR:
+                continue
+            rng = float(getattr(p, "range_inches", 0.0) or 0.0)
+            melee_capable = expected_melee_dpa(p) > 0.0
+            charge_reach = (_STAGING_ENGAGEMENT_RANGE + _STAGING_AVG_CHARGE) if melee_capable else 0.0
+            reach = rng if rng >= charge_reach else charge_reach
+            radius = effective_move(e) + reach
+            if radius > _STAGING_MAX_RADIUS:
+                radius = _STAGING_MAX_RADIUS
+            is_melee = melee_capable and charge_reach >= rng
+            ex, ey = e.position
+            threats.append((ex, ey, radius, is_melee, out))
+        if not threats:
+            return None
+        f_out = [
+            (u.position[0], u.position[1],
+             expected_ranged_dpa(u.profile) + expected_melee_dpa(u.profile))
+            for u in active_army.alive_units
+        ]
+        e_out = [
+            (e.position[0], e.position[1],
+             expected_ranged_dpa(e.profile) + expected_melee_dpa(e.profile))
+            for e in e_alive
+        ]
+        commit_ready = []
+        for (ex, ey, radius, is_melee, out) in threats:
+            enemy_local = 0.0
+            for (ox, oy, oo) in e_out:
+                if _distance((ex, ey), (ox, oy)) <= radius:
+                    enemy_local += oo
+            friendly_poised = 0.0
+            for (fx, fy, fo) in f_out:
+                if _distance((ex, ey), (fx, fy)) <= radius:
+                    friendly_poised += fo
+            commit_ready.append(friendly_poised >= _STAGING_COMMIT_FRACTION * enemy_local)
+        return (threats, commit_ready)
+
+    def _staging_can_act_this_turn(self, attacker, intent, target_pos,
+                                   normal_move, defender_army) -> bool:
+        """True when `attacker` can accomplish its commit THIS turn — the
+        mission-play override (2a) of the staging heuristic. Objective claimers
+        that reach the marker this turn, melee units that can complete a charge
+        this turn, and shooters whose target is in range after moving all commit
+        freely; only a commit that is WASTED this turn is eligible to stage
+        (the fall-back-only-when-wasted precedent)."""
+        apos = attacker.position
+        if intent in ("CAPTURE", "STEAL"):
+            # target_pos is the snapped destination near the objective marker;
+            # reaching it (even by Advancing) claims/contests the objective — a
+            # mission-critical move that MUST override staging.
+            return _distance(apos, target_pos) <= normal_move + _STAGING_MAX_ADVANCE + 0.5
+        e_alive = defender_army.alive_units
+        if not e_alive:
+            return True
+        nearest = min(_distance(apos, e.position) for e in e_alive)
+        from .roles import expected_ranged_dpa, expected_melee_dpa
+        p = attacker.profile
+        if expected_melee_dpa(p) >= expected_ranged_dpa(p):
+            # A melee closer acts only if it can Normal-move then charge home
+            # this turn (Advancing forfeits the charge, so the reach is the
+            # Normal move plus a charge, not an Advance).
+            return nearest <= normal_move + _STAGING_ENGAGEMENT_RANGE + _STAGING_MAX_CHARGE
+        # A ranged closer acts if a target is within its own weapon range after
+        # a Normal move.
+        own_range = float(getattr(p, "range_inches", 0.0) or 0.0)
+        return nearest <= normal_move + own_range
+
+    def _staging_capped_target(self, apos, target_pos, normal_move, threats):
+        """Cap the forward move so the unit stops at the edge of the nearest
+        MELEE-delivery envelope it is currently OUTSIDE of (do not walk into a
+        charge bubble while staging). Shooting envelopes are NOT capped — a unit
+        cannot stage outside a gun it out-ranges, so it still Normal-moves
+        forward (board presence preserved, per constraint 3). A unit already
+        inside every melee bubble is not capped either (that would freeze it)."""
+        ax, ay = apos
+        dgoal = _distance(apos, target_pos)
+        if dgoal < 1e-6:
+            return apos
+        dx = (target_pos[0] - ax) / dgoal
+        dy = (target_pos[1] - ay) / dgoal
+        allowed = normal_move
+        for (ex, ey, radius, is_melee, out) in threats:
+            if not is_melee:
+                continue
+            fx = ax - ex
+            fy = ay - ey
+            c = fx * fx + fy * fy - radius * radius
+            if c <= 0.0:
+                continue                 # already inside this bubble — no cap
+            b = 2.0 * (fx * dx + fy * dy)
+            disc = b * b - 4.0 * c
+            if disc <= 0.0:
+                continue                 # ray misses the bubble
+            t_hit = (-b - disc ** 0.5) / 2.0
+            if 0.0 <= t_hit < allowed:
+                allowed = t_hit
+        if allowed <= 0.0:
+            return apos
+        return (ax + allowed * dx, ay + allowed * dy)
+
+    def _staging_decision(self, attacker, target_pos, intent, normal_move,
+                          defender_army, staging_ctx):
+        """The SWEG_STAGING commit heuristic. Returns (new_target_pos,
+        suppress_advance) when `attacker` should STAGE at the enemy threat edge
+        instead of committing, or None when it should commit freely.
+
+        A unit stages when its would-be sprint destination ends EXPOSED (inside
+        a significant enemy threat envelope) AND it cannot act effectively this
+        turn, UNLESS (a) it claims/contests an objective this turn [handled by
+        _staging_can_act_this_turn], (b) it is cheap chaff/screen (screens are
+        SUPPOSED to be exposed) — EXCEPT for Astra Militarum when
+        SWEG_AM_CHAFF_STAGING=1 widens this same mechanism onto its own chaff
+        (see below), or (c) a friendly mass is committing into the same
+        envelope this turn (commit_ready). Staging suppresses the Advance
+        sprint (which for a melee unit also forfeits its charge) and, for melee
+        threats, caps the Normal move at the bubble edge; the unit still
+        Normal-moves toward its goal, so board presence is never surrendered —
+        only the reckless piecemeal over-commit is delayed."""
+        if intent not in ("ENGAGE", "CAPTURE", "STEAL"):
+            return None
+        threats, commit_ready = staging_ctx
+        # Override (b): cheap chaff / screens are meant to be exposed. SCOPE
+        # WIDENING (SWEG_AM_CHAFF_STAGING, default-off, Astra Militarum only):
+        # the Emperor's Children crater diagnostic (docs/_EC_CRATER_FINDINGS.md)
+        # found this exact exemption is Astra Militarum's failure mode — its
+        # cheap light infantry (Kasrkin, Tempestus Scions, Cadian Shock Troops)
+        # commit forward unconditionally and die piecemeal in the round-3/4
+        # kill zone before acting, while the adopted gunline-hold family
+        # (simulator.am_advance_discipline / am_fire_support_hold) correctly
+        # holds the army's tanks and artillery back. This is scope-widening of
+        # the SAME already-adopted staging mechanism (SWEG_AM_STAGING, cited
+        # simulator.staging_discipline), not a new mechanism: when the chaff
+        # gate is on for an Astra Militarum attacker, the unit does NOT get
+        # the screen exemption and falls through to the identical EXPOSED /
+        # can-act-this-turn / commit-ready test every other unit gets — so a
+        # staged chaff body still Normal-moves (constraint 1), still commits
+        # freely to claim a reachable objective this turn via
+        # _staging_can_act_this_turn's CAPTURE/STEAL branch (constraint 2),
+        # and still releases with the rest of a committing friendly mass via
+        # commit_ready (constraint 3). Off (default) or any non-Astra-
+        # Militarum attacker reproduces the pre-existing exemption exactly.
+        # Cited `simulator.am_chaff_staging`.
+        from .strategy import _is_chaff_unit
+        if _is_chaff_unit(attacker):
+            _am_chaff_staging = (
+                (attacker.profile.faction or "") == "Astra Militarum"
+                and os.environ.get("SWEG_AM_CHAFF_STAGING", "0") == "1"
+            )
+            if not _am_chaff_staging:
+                return None
+        apos = attacker.position
+        ax, ay = apos
+        dist_to_goal = _distance(apos, target_pos)
+        if dist_to_goal < 0.5:
+            return None
+        # Would-be sprint destination: a full Normal move plus a full Advance
+        # toward the goal — the position the default logic would deliver into.
+        reach_sprint = normal_move + _STAGING_MAX_ADVANCE
+        if dist_to_goal <= reach_sprint:
+            adv_dest = target_pos
+        else:
+            t = reach_sprint / dist_to_goal
+            adv_dest = (ax + t * (target_pos[0] - ax), ay + t * (target_pos[1] - ay))
+        # EXPOSED test: does the sprint destination enter a significant envelope?
+        binding_idx = -1
+        binding_pen = -1.0
+        for i, (ex, ey, radius, is_melee, out) in enumerate(threats):
+            pen = radius - _distance(adv_dest, (ex, ey))
+            if pen >= 0.0 and pen > binding_pen:
+                binding_pen = pen
+                binding_idx = i
+        if binding_idx < 0:
+            return None                  # not exposed — commit freely
+        # Override (a): the unit can accomplish its commit this turn.
+        if self._staging_can_act_this_turn(
+                attacker, intent, target_pos, normal_move, defender_army):
+            return None
+        # Override (c): a friendly mass is committing into this envelope.
+        if commit_ready[binding_idx]:
+            return None
+        capped_target = self._staging_capped_target(
+            apos, target_pos, normal_move, threats)
+        if os.environ.get("SWEG_STAGING_INSTR"):
+            log = getattr(self, "_staging_log", None)
+            if log is None:
+                log = self._staging_log = []
+            _held = _distance(apos, capped_target) < 0.5
+            log.append((
+                self._current_round, attacker.profile.faction,
+                attacker.profile.name, intent,
+                round(dist_to_goal, 1), "HOLD" if _held else "EDGE",
+            ))
+        return (capped_target, True)
+
     def _do_move(self, attacker, attacker_army: Army, defender_army: Army,
-                 _phase_their_oc=None, _phase_our_oc=None) -> None:
+                 _phase_their_oc=None, _phase_our_oc=None,
+                 _phase_staging=None) -> None:
         # Embarked passengers do not act on their own activation — the
         # transport carries them. The simulator emits UnitActivated for the
         # transport, not the passenger. Cited as `simulator.embark`.
@@ -11539,6 +12389,25 @@ class Battle:
         # squad fans out under collision instead of stacking on the centre. No-op
         # (byte-identical) unless SWEG_MOVEPLAN+SWEG_COLLISION and a multi-model squad.
         target_pos = self._make_way_target(attacker, intent, target_pos)
+
+        # SWEG_STAGING (threat-range-aware commit discipline, AI piloting
+        # heuristic; default-off, byte-identical off). The closing-side
+        # counterpart of the ranged-hold family below: a unit whose ENGAGE /
+        # CAPTURE / STEAL commit would deliver it EXPOSED into a significant
+        # enemy threat envelope, while it cannot itself act (charge / claim the
+        # objective / bring a gun to bear) this turn and no friendly mass is
+        # committing with it, STAGES at the envelope edge instead of trickling
+        # into the kill zone. `_phase_staging` is None whenever the gate is off
+        # (the precompute is gated in the move loop), so this whole block is
+        # skipped and the OFF path is byte-identical. Cited
+        # `simulator.staging_discipline`.
+        _stage_suppress = False
+        if _phase_staging is not None and intent in ("ENGAGE", "CAPTURE", "STEAL"):
+            _stage = self._staging_decision(
+                attacker, target_pos, intent, effective_move(attacker),
+                defender_army, _phase_staging)
+            if _stage is not None:
+                target_pos, _stage_suppress = _stage
 
         # Fall Back (10e core). Units already locked in melee that the
         # strategy layer wants to disengage move up to M" toward the picked
@@ -11647,7 +12516,11 @@ class Battle:
         # (self-cancelling, net -4/200, shrank with N). Off path byte-identical.
         # Grounds in the core-rules fact that Advancing forfeits non-Assault
         # shooting; cited as `simulator.am_advance_discipline`.
-        _suppress_advance = False
+        # `_stage_suppress` (SWEG_STAGING, above) folds into the same
+        # advance-suppression as the ranged-hold family: a staged closer never
+        # Advance-sprints into the kill zone (for a melee unit the Advance would
+        # also forfeit its charge). False whenever the gate is off.
+        _suppress_advance = _stage_suppress
         _ad_generic = os.environ.get("SWEG_ADVANCE_DISCIPLINE", "0") == "1"
         _ad_am = (os.environ.get("SWEG_AM_ADVANCE_DISCIPLINE", "1") != "0"
                   and (attacker.profile.faction or "") == "Astra Militarum")
@@ -11682,7 +12555,59 @@ class Battle:
         # the over-reward's fault). Cited simulator.votann_ranged_hold.
         _ad_votann = (os.environ.get("SWEG_VOTANN_RANGED_HOLD", "1") != "0"
                       and (attacker.profile.faction or "") == "Leagues of Votann")
-        if ((_ad_generic or _ad_am or _ad_ck or _ad_votann)
+        # THOUSAND-SONS-SCOPED entry point (SWEG_TSONS_RANGED_HOLD — ADOPTED
+        # default-on 2026-07-03, `=0` kill-switch; N=80 Thousand-Sons-scoped
+        # screen vs sc48a: Thousand Sons +2.40 toward real 54.6 (48.2 -> 50.6),
+        # gated 3.70 -> 3.67, collateral flat everywhere — the fourth scoped
+        # ranged-hold adoption): the SAME gunline-hold logic, restricted
+        # to Thousand Sons. Derived from watched pilot-observation (2026-07-03,
+        # docs/PILOT_FINDINGS.md): across three piloted games (vs Imperial
+        # Knights seed 0, Orks seed 1, Necrons seed 2) the Thousand Sons
+        # shooting core — Rubric Marines (ranged damage per activation 4.0,
+        # range 24"), the Mutalith Vortex Beast (6.34 / 36") and the psyker
+        # characters Ahriman / Exalted Sorcerer / Infernal Master (6.66-7.0 /
+        # 18") — Advanced its whole line forward round 1 and repeatedly after,
+        # forfeiting its Shooting phase and marching INTO the enemy. Against the
+        # Orks melee horde (seed 1) this fed a 20-48 blow-out: the gunline
+        # Advanced into contact and was ground up in melee where its 24" guns
+        # and All-Is-Dust saves are wasted, rather than holding back and
+        # thinning the horde first. The shared rDPA >= 2.0 & range >= 18"
+        # filter below catches exactly that shooting core and leaves the melee
+        # chaff (Tzaangors, Chaos Spawn — range 0) free to Advance to
+        # objectives. Faithful piloting, not a rules claim (Advancing forfeits
+        # non-[ASSAULT] shooting); the direct analog of _ad_am / _ad_ck /
+        # _ad_votann. Scoped to Thousand Sons per the Principle-2 recipe (the
+        # generic SWEG_ADVANCE_DISCIPLINE screened metric-harmful; the durable
+        # over-poles bank a faction-neutral hold too). Off path (gate unset)
+        # byte-identical. Cited simulator.tsons_ranged_hold.
+        _ad_tsons = (os.environ.get("SWEG_TSONS_RANGED_HOLD", "1") != "0"
+                     and (attacker.profile.faction or "") == "Thousand Sons")
+        # ADEPTA-SORORITAS-SCOPED entry point (SWEG_SOROR_RANGED_HOLD —
+        # ADOPTED default-on 2026-07-03, `=0` kill-switch; N=80 Sororitas-scoped
+        # screen vs sc49a: Adepta Sororitas +5.98 DECISIVE toward real 50.4
+        # (46.2 -> 52.1), gated 3.67 -> 3.59, collateral small and mostly
+        # over-poles deflating toward real; the sixth entry point on the
+        # shared ranged-hold block): the SAME gunline-hold logic, restricted to
+        # Adepta Sororitas. Derived from watched pilot-observation (2026-07-03,
+        # docs/PILOT_FINDINGS.md): in the diagnostic Sororitas-loses
+        # game (versus Necrons seed 11, a mid-range attrition opponent) all THREE
+        # Castigators (Battle Cannon fire platforms, ranged damage per activation
+        # 12.0, range 48 inches) Advanced round 1 and fired NOTHING; one was
+        # caught and destroyed round 2 having never shot. The same
+        # Castigator-Advances-round-1 mis-pilot recurred versus Imperial Knights
+        # (seed 7). The shared rDPA >= 2.0 & range >= 18 inch filter below catches
+        # exactly the faction's dedicated fire platforms (Castigator, Exorcist,
+        # Immolator, Morvenn Vahl, Paragon Warsuits) and leaves the aggressive
+        # infantry / melee core (Battle Sisters rDPA 0.67, Repentia, Seraphim,
+        # Zephyrim, the [ASSAULT] Penitent Engines) free to Advance onto
+        # objectives. Faithful piloting, not a rules claim (Advancing forfeits
+        # non-[ASSAULT] shooting); the direct analog of _ad_am / _ad_ck /
+        # _ad_votann / _ad_tsons. Off path (gate unset) byte-identical. Cited
+        # simulator.soror_ranged_hold.
+        _ad_soror = (os.environ.get("SWEG_SOROR_RANGED_HOLD", "1") != "0"
+                     and (attacker.profile.faction or "") == "Adepta Sororitas")
+        if ((_ad_generic or _ad_am or _ad_ck or _ad_votann or _ad_tsons
+                or _ad_soror)
                 and intent in ("CAPTURE", "STEAL")
                 # Units that can shoot AFTER Advancing (ASSAULT weapons, or a
                 # transient ASSAULT grant) lose nothing by it — never suppress them
@@ -11697,7 +12622,33 @@ class Battle:
             # back. Targets the heavy shooters that throw away the most by Advancing.
             _rdpa = (attacker.profile.attacks * attacker.profile.hit_probability
                      * (attacker.profile.weapon_damage_per_shot or 0.0))
-            if _rdpa >= 2.0 and (attacker.profile.range_inches or 0.0) >= 18.0:
+            # SWEG_AM_FIRE_SUPPORT_HOLD — ADOPTED default-on 2026-07-03.
+            # The initial −5.63 "rejection" was the frame-integrity phantom
+            # (the lost secondary-pursuit default; see the ledger). On the
+            # corrected frame: Astra Militarum +0.64 alone, +1.23 combined
+            # with SWEG_AM_STAGING (gated 3.82 -> 3.70). The watched-replay
+            # rationale (pilot-observation lever A) stands: Cadian
+            # Heavy Weapons Squads (ranged damage per activation 1.59, range
+            # 48 inches) sit in the 2.0-floor DEAD ZONE of the adopted
+            # Astra Militarum advance-discipline, so the army's dedicated
+            # 48-inch fire-support teams Advanced 6 of 7 activations and
+            # never shot (Genestealer Cults seed-0 replay; 7 of 11 vs Chaos
+            # Knights). A real Guard player never Advances a lascannon team.
+            # The extension admits medium-output LONG-RANGE fire support
+            # (>= 1.4 damage per activation AND >= 36 inch range), scoped to
+            # Astra Militarum; Cadian Shock Troops (0.50 / 24") and Command
+            # Squads stay advance-chaff. The downstream can-actually-damage
+            # check applies unchanged. Cited under
+            # `simulator.am_advance_discipline`.
+            _am_fire_support = (
+                os.environ.get("SWEG_AM_FIRE_SUPPORT_HOLD", "1") != "0"
+                and (attacker.profile.faction or "") == "Astra Militarum"
+                and _rdpa >= 1.4
+                and (attacker.profile.range_inches or 0.0) >= 36.0
+            )
+            if (_rdpa >= 2.0
+                    and (attacker.profile.range_inches or 0.0) >= 18.0
+                ) or _am_fire_support:
                 # Only hold for a target this unit can actually DAMAGE (expected
                 # ranged damage >= 0.5 after wound + save math) within range of a
                 # Normal move. An anti-infantry gun facing only Knights it cannot
@@ -11724,6 +12675,62 @@ class Battle:
                         if _exp >= 0.5:
                             _suppress_advance = True
                             break
+        # ANTI-TANK-SCOPED entry point (SWEG_ANTITANK_ADVANCE_DISCIPLINE,
+        # default-off, `=1` opt-in): the narrow, faithful cousin of the retired
+        # generic SWEG_ADVANCE_DISCIPLINE (screened metric-harmful, +2.19,
+        # because it held every shooter regardless of what it was shooting at).
+        # The capstone activation-allocation decomposition (waterfall
+        # instrument, N=12+12 paired, see docs/DECISION_LEDGER.md's "THE FINAL
+        # DECOMPOSITION" entry) found that of the field's SUPPRESSED
+        # anti-Knight output (one of four loss buckets alongside dead-before-
+        # delivering, out-of-range, and pointed-elsewhere), 31 percent is the
+        # artificial intelligence ADVANCING an anti-tank unit that had a live
+        # shot on a durable in-range target this round, forfeiting its entire
+        # Shooting phase for nothing (Necrons alone contribute 51 percent of
+        # that share; units that had already Fallen Back contribute 13
+        # percent). Unlike the retired generic gate, and unlike the per-
+        # faction gunline-hold levers above (_ad_am / _ad_ck / _ad_votann,
+        # which hold any qualifying gunline heading for an objective whenever
+        # ANY enemy sits within reach of a Normal move), this lever fires ONLY
+        # when the unit has a genuine shot RIGHT NOW, at its CURRENT position,
+        # against a genuinely durable "brick" target — Toughness 10 or higher,
+        # or 15 or more starting Wounds — that its weapon can meaningfully
+        # damage (at least 1.0 expected unsaved wounds this phase, computed by
+        # the same `_ranged_expected_wounds` collective-crack math the focus-
+        # fire layer uses). The narrowness lives in the TARGET, not the army,
+        # so the lever is faction-neutral by construction: it never holds a
+        # unit back to protect an objective push or to wait for a target that
+        # might arrive, only to keep a shot that already exists. By this point
+        # in the function `intent` can only be ENGAGE, CAPTURE, STEAL or
+        # REPOSITION (HOLD and FALL_BACK both return earlier), so no
+        # additional intent restriction is applied. Cited as
+        # `simulator.antitank_advance_discipline`.
+        #
+        # PRINCIPLE-2 ARMY-SCOPED ENTRY POINT (`_scoped_lever_on`): fires when
+        # the universal SWEG_ANTITANK_ADVANCE_DISCIPLINE is "1" OR the acting
+        # unit's army has its scoped gate on (SWEG_AM_ANTITANK_HOLD /
+        # SWEG_ORKS_ANTITANK_HOLD / SWEG_SOROR_ANTITANK_HOLD /
+        # SWEG_GSC_ANTITANK_HOLD, all default-off). `attacker_army` is the acting
+        # army in _do_move, so the scope is asymmetric: only the scoped army
+        # holds its anti-tank shot; a non-scoped opponent Advances as before.
+        _ad_antitank = self._scoped_lever_on("ANTITANK_HOLD", attacker_army)
+        if (_ad_antitank
+                and not _suppress_advance
+                # Same non-[ASSAULT] exclusion as the family above: a unit
+                # that can still shoot after Advancing loses nothing by it.
+                and not attacker.profile.assault
+                and not getattr(attacker, "transient_assault_this_round", False)):
+            _atk_range = attacker.profile.range_inches or 0.0
+            if _atk_range > 0.0:
+                for _e in defender_army.alive_units:
+                    if _distance(attacker.position, _e.position) > _atk_range:
+                        continue
+                    _tp = _e.profile
+                    if (_tp.toughness or 0) < 10 and (_tp.health or 0) < 15:
+                        continue
+                    if self._ranged_expected_wounds(attacker.profile, _e) >= 1.0:
+                        _suppress_advance = True
+                        break
         # Per-squad Advance roll (wave 77, env-gated SWEG_SQUADADV). Real 10e: a
         # unit makes ONE Advance roll (one D6) applied to every model; SwegHammer
         # rolled per model. Same per-unit correctness pattern as the charge roll.
@@ -11921,6 +12928,189 @@ class Battle:
             return 3.0
         return 1.0
 
+    # Target-priority range for the expected-unsaved-damage bonus below. The
+    # floor is a strong DEPRIORITISATION (not zero — the bonus is a divisor in
+    # the picker's `min()` key, and a zero divisor would raise ZeroDivisionError
+    # and any value close to zero would send the score toward infinity instead
+    # of merely making the candidate unattractive) for a candidate this
+    # attacker's weapon cannot meaningfully wound at all. The cap matches the
+    # top of the range the loop has already adopted for a "definitely commit
+    # here" class bias (Astartes Oath of Moment is 2.0x; the Votann / Chaos
+    # Knights class biases the loop adopted run 1.4x-2.2x).
+    _TARGET_ECONOMICS_FLOOR: float = 0.35
+    _TARGET_ECONOMICS_CAP: float = 2.0
+
+    def _target_economics_bonus(self, attacker, target) -> float:
+        """`simulator.target_economics` — expected-unsaved-damage ranged
+        target-priority bonus (env-gated SWEG_TARGET_ECONOMICS, default OFF).
+
+        THE GAP (counterplay diagnostic, 2026-07-02 ledger): the ranged
+        target picker below composes contest-presence and a chain of class
+        biases (screen, transport, synapse, Astartes Oath of Moment, the
+        adopted Votann / Chaos Knights class biases) but had NO expected-
+        unsaved-damage term at all and no victory-points-per-kill term — the
+        same missing-wound-roll defect class the weapon-choice basket fix
+        closed one layer down ("the scorer had no wound roll at all").
+        Measured behaviour: roughly 35 consecutive zero-damage shooting
+        activations dumped into Toughness-12/2+ Knight hulls while 2-victory-
+        point War Dogs the same small arms COULD kill sat on markers
+        untouched; 72.8 percent of shots into Knights dealt zero damage.
+
+        This reuses `_ranged_expected_wounds` (shots * hit fraction *
+        Strength-vs-Toughness wound fraction, raised to any matching Anti-X
+        floor, * the fraction of wounds that get through the target's armour
+        save or invulnerable save, * damage per shot) — the exact wound-roll-
+        and-save math the 10e core rules define, already built and proven for
+        the wave-101 collective focus-fire gate (`simulator.focus_fire`).
+        Turning that raw expected-damage number into a KILL FRACTION of the
+        candidate's own current health (rather than using the absolute
+        damage figure) keeps the term comparable across every weapon/target
+        pairing on the board: a shot that would one-round a 6-wound War Dog
+        and a shot that chips a twentieth off a 26-wound Dominus both read on
+        the same [0, 1] scale, and either shape of weapon can out-score the
+        other depending on which target it can actually hurt.
+
+        A candidate this attacker's weapon literally cannot wound at all
+        (`_ranged_expected_wounds` returns 0.0 — e.g. a lasgun's Strength 3
+        against a Knight's Toughness 12 and 2+ save) floors the bonus at
+        `_TARGET_ECONOMICS_FLOOR`, strongly deprioritising it without ever
+        producing a zero or infinite score. A candidate this attacker's
+        weapon can outright remove this activation (kill fraction saturates
+        at 1.0) caps the bonus at `_TARGET_ECONOMICS_CAP`. Real target-
+        priority doctrine (the diagnostic's citation, also the source
+        `simulator.focus_fire` draws on): commit small arms into the target
+        they can actually kill (the War Dog) rather than dumping fire into a
+        hull the weapon cannot wound at all (the Knight).
+
+        Kill-efficiency nudge (Chapter Approved 2025-26 Bring It Down Fixed
+        secondary: 2 victory points for a destroyed MONSTER/VEHICLE at ANY
+        wound count, so a low-Wounds War Dog banks the same base 2 victory
+        points as a 26-wound Dominus) drops OUT of this formula naturally,
+        exactly as the briefing asks for rather than being forced in as a
+        second term: a War Dog the shooter can actually finish off this
+        activation already saturates kill fraction at 1.0 and receives the
+        maximum bonus, while a Dominus this shooter can only chip a sliver
+        off scores much lower even though the raw expected damage number
+        might be similar — no separate victory-point-weighted term is
+        needed because "can I secure the kill" and "is the kill worth
+        pursuing" collapse to the same signal once damage is measured as a
+        fraction of the target's own health.
+
+        Multiplicative, composed with the existing screen / synapse / oath /
+        transport / Votann / Chaos-Knights-dread-cascade / Drukhari-flyer /
+        kite / threat-priority chain in the `min()` key below. Deterministic
+        — reads only pre-computed profile stats and current health, draws no
+        random number. Env-gated SWEG_TARGET_ECONOMICS, default OFF: unset
+        returns 1.0 for every candidate, reproducing the pre-existing
+        denominator byte-for-byte."""
+        if __import__("os").environ.get("SWEG_TARGET_ECONOMICS") != "1":
+            return 1.0
+        ew = self._ranged_expected_wounds(attacker.profile, target)
+        hp = max(1.0, target.current_health)
+        kill_frac = min(1.0, max(0.0, ew) / hp)
+        return self._TARGET_ECONOMICS_FLOOR + kill_frac * (
+            self._TARGET_ECONOMICS_CAP - self._TARGET_ECONOMICS_FLOOR
+        )
+
+    # Focus-fire completion range for the "finish the wounded" bonus below.
+    # 1.0 (no bonus) at full health, rising to this cap as the candidate
+    # approaches zero health. Chosen to comfortably outscore the existing
+    # class-bias ceiling (Astartes Oath of Moment / Votann / Chaos Knights
+    # class biases all run 1.4x-2.2x) so a genuinely half-dead-or-worse
+    # candidate decisively outscores a fresh target of the same class, while
+    # staying low enough that it never swamps the target-economics
+    # can't-hurt-it floor this term always composes with (see below).
+    _FOCUS_FIRE_CAP: float = 3.0
+
+    def _focus_fire_bonus(self, attacker, target) -> float:
+        """`simulator.focus_fire_completion` — cross-activation FINISH-THE-
+        WOUNDED completion term (env-gated SWEG_FOCUS_FIRE, default OFF).
+
+        THE FINDING (2026-07-02 substrate-accounting diagnostic): the army's
+        anti-Knight fire BUDGET across a game is sufficient — every archetype
+        can kill a Knight Despoiler in roughly one round of concentrated
+        fire, the whole 164-wound Chaos Knights list in 5.5-9.3 rounds of
+        fire — but 86-95 percent of shooting activations aimed at a Knight
+        deal zero damage, and almost none of the output that IS dealt lands
+        on the same TITANIC platform two activations running: the fire
+        SCATTERS across the board instead of finishing what it started. Real
+        players do the opposite — pick ONE Knight and kill it before moving
+        on to the next (the researched anti-Knight playbook in
+        docs/PILOT_FINDINGS.md already recorded this as "absolute focus-fire
+        on one Knight", sourced from the Goonhammer / Tabletop Battles
+        Knights faction-focus guides; see
+        data/rule_citations.d/focus_fire_completion.json for the exact
+        sources and an honest note on what could and could not be
+        re-verified this session). `_target_economics_bonus` above fixed the
+        PER-ACTIVATION half of this (never dump fire into a hull this weapon
+        cannot wound) but has no CROSS-ACTIVATION memory at all — nothing
+        makes a LATER activation prefer a target an EARLIER activation this
+        same game already hurt over an equally-woundable fresh one.
+
+        NOT the same lever as the already-rejected `SWEG_SHOOT_HOLDERS`
+        (DECISION_LEDGER, 2026-06-27): that heuristic required the candidate
+        to be standing on an objective marker AND excluded anti-armour
+        weapons, hunting for the most-wounded objective camper specifically,
+        and it regressed the metric by inflating durable over-poles further.
+        This term has neither restriction — it rewards ANY already-wounded,
+        currently-woundable candidate continuously by how hurt it already is,
+        with no objective-marker gate and no weapon-class exclusion — so it
+        is a materially different, narrower-purpose axis (cross-activation
+        completion, not objective-camper triage) and is not assumed to
+        inherit that rejection; it is screened fresh on its own probe.
+
+        This term supplies that memory the cheapest way the Battle already
+        has it: `target.current_health` versus `target.profile.health`. 10e
+        has no in-battle healing, so a candidate below its starting health
+        carries lasting, monotonic proof that friendly fire already landed on
+        it — whether that damage came from this same army earlier this round
+        or survived over from a prior round, either way it is a target worth
+        finishing, so no separate round-scoped snapshot needs to be built
+        beyond the health the Unit already tracks.
+
+        `damage_taken_frac = 1 - current_health / starting_health`, scaled
+        onto `[1.0, _FOCUS_FIRE_CAP]` — 1.0x (no bonus) for an untouched
+        candidate, rising toward the cap as it nears death. GATED, not
+        unconditional: the bonus only applies when THIS attacker's weapon can
+        meaningfully wound the candidate at all (`_ranged_expected_wounds >
+        0`, the exact same screen `_target_economics_bonus` uses), so
+        SWEG_FOCUS_FIRE always composes with the target-economics
+        can't-hurt-it floor even when SWEG_TARGET_ECONOMICS itself is left
+        unset — a half-dead Knight a lasgun cannot scratch never gets an
+        artificial score bump. When both gates are on, the two multiply
+        together (already-wounded AND currently-killable outscores either
+        alone).
+
+        CLASS-shaped, not single-designated-target: every candidate meeting
+        the already-wounded-and-woundable test gets the same formula, with no
+        per-unit or per-faction pin. The batch lesson from the per-faction
+        target-selection levers (DECISION_LEDGER: Votann's on-objective bias
+        and Chaos Knights' below-half bias both helped because they reward a
+        CLASS of target, while the rejected T'au single-Spotted-target bias
+        over-concentrated and dragged the metric via closed-matrix
+        collateral) is deliberately preserved here: this is "any wounded,
+        finishable target", never "the one unit the army designated".
+
+        Deterministic: reads only current-vs-starting health and the
+        pre-computed expected-wounds math, draws no random number. Composed
+        multiplicatively into the same `min()` target-priority chain as every
+        other bonus in both picker branches (the squad split-fire planner
+        `_plan_squad_fire` and the per-model fallback picker in `_do_shoot`).
+        Env-gated SWEG_FOCUS_FIRE, default OFF: unset returns 1.0 for every
+        candidate, reproducing the pre-existing denominator byte-for-byte."""
+        if __import__("os").environ.get("SWEG_FOCUS_FIRE") != "1":
+            return 1.0
+        starting_hp = target.profile.health or 0.0
+        if starting_hp <= 0.0:
+            return 1.0
+        damage_taken_frac = 1.0 - (target.current_health / starting_hp)
+        if damage_taken_frac <= 0.0:
+            return 1.0
+        if self._ranged_expected_wounds(attacker.profile, target) <= 0.0:
+            return 1.0
+        damage_taken_frac = min(1.0, damage_taken_frac)
+        return 1.0 + damage_taken_frac * (self._FOCUS_FIRE_CAP - 1.0)
+
     def _nominate_focus_target(self, army, opponent) -> None:
         """Wave 79 — army-level focus fire (env-gated SWEG_FOCUS). Once per turn,
         nominate the single most valuable durable enemy threat the army can hurt,
@@ -12103,8 +13293,37 @@ class Battle:
         like a competent player (concentrate to crack a brick this turn, SPREAD off an
         uncrackable one via the crack-fraction gate below). Metric-neutral; kept on the
         AI-realism criterion. `SWEG_FOCUSFIRE=0` reverts (also useful for fast dev evals
-        — the per-phase collective-wound nomination is ~2x the eval cost)."""
+        — the per-phase collective-wound nomination is ~2x the eval cost).
+
+        PERSISTENT reshape (env-gated `SWEG_PERSISTENT_NOMINATION`, default off):
+        the one-phase collective-crack test below demands the army crack ~0.85 of
+        the brick's wounds IN A SINGLE Shooting phase — a bar a durable brick (a
+        26-wound Knight) almost never clears, so the nomination rarely fires and
+        fire falls through to the lowest-health picker (the capstone's activation-
+        allocation finding, DECISION_LEDGER 2026-07-03). When the persistent gate
+        is set, `_nominate_persistent_target` replaces the one-phase test with a
+        multi-round commitment: nominate a brick the army can crack within a
+        handful of rounds and hold that nomination across rounds until it dies.
+        The branch is taken BEFORE the SWEG_FOCUSFIRE check, so an unset persistent
+        gate flows through to the unchanged wave-101 path byte-for-byte. Cited as
+        `simulator.persistent_nomination`.
+
+        PRINCIPLE-2 ARMY-SCOPED ENTRY POINT (`_scoped_lever_on`): the persistent
+        branch is taken when the universal SWEG_PERSISTENT_NOMINATION is "1" OR
+        the acting `army`'s faction has its scoped gate on (SWEG_AM_NOMINATION /
+        SWEG_ORKS_NOMINATION / SWEG_SOROR_NOMINATION / SWEG_GSC_NOMINATION, all
+        default-off). This method is called once per army per Shooting phase with
+        `army` = the acting army, so the scope is ASYMMETRIC by construction: the
+        scoped army holds a standing nominee on its OWN per-army channels
+        (`_persistent_nom_uid` / `_focusfire_target_uid`), while a non-scoped
+        opponent flows to the unchanged wave-101 path and never acquires a
+        persistent commitment — the scoped army's own hulls being shot at by the
+        enemy never become anyone's standing nominee (the nominee channels are
+        per-army state, never shared across armies)."""
         army._focusfire_target_uid = None
+        if self._scoped_lever_on("NOMINATION", army):
+            self._nominate_persistent_target(army, opponent)
+            return
         if __import__("os").environ.get("SWEG_FOCUSFIRE", "1") == "0":
             return
         bricks = [u for u in opponent.alive_units if self._is_durable_threat(u)]
@@ -12143,6 +13362,114 @@ class Battle:
                 best_threat = threat
                 best = brick
         army._focusfire_target_uid = best.uid if best is not None else None
+
+    # A brick the army can bring down within this many rounds of sustained,
+    # concentrated anti-brick fire is worth committing to. This is the multi-
+    # round replacement for the wave-101 one-phase `_FOCUSFIRE_CRACK_FRAC`
+    # bar: real anti-Knight doctrine focuses one chassis to death ACROSS rounds
+    # rather than demanding it fall in a single Shooting phase (the cited focus-
+    # one-Knight playbook; DECISION_LEDGER capstone waterfall grounding). Three
+    # rounds is deliberately permissive relative to the unreachable one-phase
+    # bar (which needs ~0.85 * 26 wounds in one phase) — the whole finding is
+    # that the one-phase gate never fires — but still requires genuine anti-tank
+    # presence: a 26-wound brick needs ~8.7 summed expected wounds per round to
+    # qualify, so an army with only small arms (each contributing 0 vs the
+    # brick) never nominates and never wastes fire.
+    _PERSISTENT_CRACK_ROUNDS: float = 3.0
+
+    def _nominate_persistent_target(self, army, opponent) -> None:
+        """`simulator.persistent_nomination` — the cross-round reshape of the
+        wave-101 collective focus-fire nomination (env-gated
+        `SWEG_PERSISTENT_NOMINATION`, default off; the OFF path never calls this).
+
+        AI PILOTING HEURISTIC, not a 10e rule. The capstone activation-allocation
+        decomposition (DECISION_LEDGER 2026-07-03) isolated the anti-Knight gap to
+        pointing, not conversion: the one-phase collective-crack gate in
+        `_nominate_focusfire_target` demands the field crack ~0.85 * 26 ≈ 22
+        expected wounds in ONE Shooting phase, a bar the field almost never clears,
+        so the nomination never fires and anti-tank falls through to the lowest-
+        health min-picker (which prefers killable War Dogs over the 26-wound
+        chassis). Real players instead commit their anti-tank to ONE Knight ACROSS
+        rounds until it dies ("focus one chassis to death per turn", the cited
+        anti-Knight playbook). This method supplies that persistence.
+
+        Semantics:
+        1. RE-AFFIRM. If the army already holds a standing nominee
+           (`army._persistent_nom_uid`) that is still alive, still a durable brick,
+           and still woundable by at least one alive friendly shooter, keep it:
+           re-publish it on `_focusfire_target_uid` (the channel both shooting
+           pickers already consume) and return. The commitment persists across
+           rounds — the nominee is NOT reset at Shooting-phase start the way
+           `_focusfire_target_uid` is.
+        2. RE-NOMINATE. Otherwise (no nominee, or the nominee died or the army can
+           no longer hurt it), pick the most dangerous brick the army can crack
+           within `_PERSISTENT_CRACK_ROUNDS` rounds of sustained anti-brick fire
+           (summed one-round expected wounds from every unit that can wound it,
+           the same `_ranged_expected_wounds` measure the wave-101 gate uses),
+           and publish it on both the persistent state and `_focusfire_target_uid`.
+
+        The pickers then route anti-tank-capable fire onto the nominee: the squad
+        split-fire planner (`_plan_squad_fire`, default-on) concentrates only
+        `_is_antiarmour_weapon` models on it while the rest keep their normal
+        economy, so the commitment is CLASS-shaped, never army-wide (the batch
+        lesson — over-concentrating small arms drags the metric). The contest-pool
+        filter in `_do_shoot` (`pool = contesting or candidates`), which would
+        otherwise drop an off-objective nominee, re-admits it under this same gate.
+
+        Deterministic: reads only pre-computed profile stats, current health, and
+        uids; draws no random number."""
+        # 1. Re-affirm a live, still-woundable standing commitment.
+        prev_uid = getattr(army, "_persistent_nom_uid", None)
+        if prev_uid is not None:
+            nominee = next(
+                (u for u in opponent.alive_units if u.uid == prev_uid), None
+            )
+            if (
+                nominee is not None
+                and self._is_durable_threat(nominee)
+                and any(
+                    self._ranged_expected_wounds(s.profile, nominee) > 0.0
+                    for s in army.alive_units
+                )
+            ):
+                army._focusfire_target_uid = prev_uid
+                return
+            # Dead, no longer a brick, or the army can no longer hurt it — drop
+            # the stale commitment and re-nominate the next brick below.
+            army._persistent_nom_uid = None
+        # 2. Fresh nomination against the multi-round crack bar.
+        bricks = [u for u in opponent.alive_units if self._is_durable_threat(u)]
+        if not bricks:
+            return
+        shooters = [u for u in army.alive_units]
+        if not shooters:
+            return
+        best = None
+        best_threat = -1.0
+        for brick in bricks:
+            collective = 0.0
+            contributors = 0
+            for s in shooters:
+                ew = self._ranged_expected_wounds(s.profile, brick)
+                if ew > 0.0:
+                    collective += ew
+                    contributors += 1
+            # Need at least one unit that can actually wound the brick, and the
+            # army's sustained anti-brick output must bring it down inside
+            # _PERSISTENT_CRACK_ROUNDS rounds (vs the wave-101 one-phase bar).
+            if contributors < 1:
+                continue
+            if collective * self._PERSISTENT_CRACK_ROUNDS < max(
+                1.0, brick.current_health
+            ):
+                continue
+            threat = self._brick_threat_value(brick)
+            if threat > best_threat:
+                best_threat = threat
+                best = brick
+        if best is not None:
+            army._persistent_nom_uid = best.uid
+            army._focusfire_target_uid = best.uid
 
     def _plan_squad_fire(self, first_model, attacker_army: Army,
                          defender_army: Army) -> None:
@@ -12226,6 +13553,8 @@ class Battle:
                         * _transport_target_bonus(e)
                         * _drukhari_fragile_flyer_bonus(e)
                         * _kite_target_bonus(e, attacker_army)
+                        * self._target_economics_bonus(model, e)
+                        * self._focus_fire_bonus(model, e)
                     )
                     key = remaining / bonus
                     if best is None or key < best_key:
@@ -12532,6 +13861,39 @@ class Battle:
 
         contesting = [u for u in candidates if _contests_our_obj(u)]
         pool = contesting or candidates
+        # SWEG_PERSISTENT_NOMINATION contest-pool interaction fix (default off,
+        # byte-identical when unset). `pool = contesting or candidates` narrows the
+        # target pool to enemies contesting one of OUR objectives whenever any such
+        # enemy exists — which DROPS an off-objective brick from the pool entirely.
+        # A durable Knight standing OFF our objectives is exactly the persistent
+        # nominee the army committed its anti-tank to, so that filter silently
+        # un-points the commitment: the squad-plan validation (`_cand in pool`
+        # below) and the focus-fire consumption (`_ff_uid` lookup in `pool`) both
+        # fail to find the nominee and fire falls through to the min-picker (the
+        # capstone's "contest-pool filter dropping off-objective Knights" leak).
+        # Re-admit the nominee to the pool when THIS attacker can actually reach it
+        # (it is present in `candidates`, so already range- and line-of-sight-legal
+        # for this model). Only mutates `pool` under the gate, and only by adding a
+        # candidate this model could legally target anyway, so the OFF path and
+        # every non-nominee pick are unchanged.
+        #
+        # PRINCIPLE-2 ARMY-SCOPED ENTRY POINT (`_scoped_lever_on`): re-admits the
+        # nominee when the universal SWEG_PERSISTENT_NOMINATION is "1" OR the
+        # SHOOTING army (`attacker_army`) has its scoped SWEG_<FACTION>_NOMINATION
+        # gate on — the SAME scope under which the standing nominee was set in
+        # _nominate_persistent_target, so the re-admission is asymmetric with it:
+        # a non-scoped opponent's `_focusfire_target_uid` (set by the unchanged
+        # default-on wave-101 path) is left to the ordinary pool filter exactly
+        # as before, byte-identical.
+        if (
+            self._scoped_lever_on("NOMINATION", attacker_army)
+            and pool is not candidates
+        ):
+            _nom_uid = getattr(attacker_army, "_focusfire_target_uid", None)
+            if _nom_uid is not None:
+                _nom = next((u for u in candidates if u.uid == _nom_uid), None)
+                if _nom is not None and _nom not in pool:
+                    pool = pool + [_nom]
         # S6 (#166) — anti-swarm shooting priority: bias toward OC-bearing
         # chaff before high-DPA bricks. Real tournament play clears the
         # screen first so the opposing army can't flip primary while we
@@ -12658,6 +14020,8 @@ class Battle:
                     * _drukhari_fragile_flyer_bonus(u)
                     * _kite_target_bonus(u, attacker_army)
                     * self._threat_priority_bonus(attacker, u)
+                    * self._target_economics_bonus(attacker, u)
+                    * self._focus_fire_bonus(attacker, u)
                 ),
             )
 

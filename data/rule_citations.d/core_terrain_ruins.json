@@ -28,6 +28,15 @@
     "scope": "army-wide"
   },
 
+  "terrain.competitive_density": {
+    "source": "https://web.archive.org/web/20250804222340/https://www.glasshammergaming.co.uk/GHG-TERRAIN-PARIAH-NEXUS.pdf",
+    "rule_name": "Pariah Nexus competitive dense terrain layout (Games Workshop Pariah Nexus Tournament Companion, per the Glass Hammer Gaming measured terrain layouts)",
+    "quoted_text": "The Pariah Nexus tournament terrain layouts are drawn on a 44 by 60 inch board and each use a FEW LARGE line-of-sight-blocking ruins (large L-shaped and block ruins of roughly six-to-ten-inch footprints, about eight ruins plus two to three Woods per board) arranged as a central ruin mass with flanking ruins near each deployment zone, so that there is no clean firing lane from one deployment zone to the other. Glass Hammer Gaming publishes the measured per-deployment layouts (Crucible of Battle, Hammer and Anvil, Tipping Point, Search and Destroy, Dawn of War, Sweeping Engagement) with board-edge measurements.",
+    "trigger": "a stock evaluation map is built with the environment gate SWEG_TERRAIN_DENSE set to 1",
+    "effect": "The five-map Pariah Nexus evaluation rotation (Crucible of Battle, Take and Hold via the Dawn of War layout, Hammer and Anvil, Tipping Point, Search and Destroy) plus the 2000-point Sweeping Engagement replace the Wave-97 homebrew field of eleven small five-to-six-inch ruins with the sourced published layouts: about eight large RUIN rectangles of six-to-ten-inch footprints plus two to three Woods (OBSCURING), placed with 180-degree rotational symmetry about the board centre so the layout is even-handed (Army A deploys along the bottom edge and Army B along the top, so the rotation maps one deployment zone onto the other) and there is no clean deployment-zone-to-deployment-zone sightline. This denies the static Chaos / Imperial Knights gunline its table-wide firing lanes and forces armies to stage behind terrain and reposition, closing the ranged-hold over-credit. Because the Glass Hammer Gaming diagrams are isometric-tinged top-downs, the exact per-piece coordinates are APPROXIMATED from the sourced piece counts, footprint sizes and per-deployment placement pattern, not transcribed pixel-for-pixel. Terrain is faction-neutral and is not tuned to any faction; the mission's deployment zones and objective markers are untouched and no piece is IMPASSABLE, so no objective can fall inside impassable terrain. Built by code.maps._dense_competitive_terrain; the gate-unset path is byte-identical to the Wave-97 default. See also terrain.competitive_pariah_nexus_layout (the default Wave-97 approximation) and terrain.ruin_infantry_los (the line-of-sight rule the ruins use).",
+    "scope": "army-wide"
+  },
+
   "terrain.objective_home_markers": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/",
     "rule_name": "Pariah Nexus deployment-map objective placement (home objectives in deployment zones)",

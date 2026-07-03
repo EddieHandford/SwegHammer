@@ -89,6 +89,14 @@ Eligibility:
 Cited per CLAUDE.md §10 as `simulator.voice_of_command_orders` in
 `data/rule_citations.d/astra_militarum.json`. Each Order's verbatim
 codex text is cited under `Order.<name>`.
+
+The Grizzled Company detachment (env-gated SWEG_AM_GRIZZLED, default OFF —
+see `code/detachments.py::GRIZZLED_COMPANY`) widens this economy with its
+"Ruthless Discipline" rule: +1 to every Officer's per-round Order cap, and
+a re-roll of Hit rolls of 1 for any attack made by a unit affected by an
+Order. Both legs are wired in this module — see the `_grizzled_extra_order`
+resolution in `dispatch_orders` and the `transient_affected_by_order` stamp
+in `_apply_order`.
 """
 
 from __future__ import annotations
@@ -482,8 +490,29 @@ def _apply_order(target: "Unit", order: str) -> None:
         # SWEG_AM_DUTY_AND_HONOUR); the Leadership half is not read by any
         # scoring path so it is not modelled. Cited `Order.Duty and Honour!`.
         target.transient_plus_one_oc = True
-    # Unknown Order — silent no-op so a stale order string in the AI
-    # picker doesn't crash the dispatcher.
+    else:
+        # Unknown Order — silent no-op so a stale order string in the AI
+        # picker doesn't crash the dispatcher. Not a real Order, so it does
+        # not stamp transient_affected_by_order below either.
+        return
+
+    # Grizzled Company — Ruthless Discipline (Astra Militarum detachment
+    # rule, SWEG_AM_GRIZZLED). Wahapedia verbatim (raw HTML fetch of
+    # https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+    # #Ruthless-Discipline, Faction Pack v1.6): "While an ASTRA MILITARUM
+    # unit from your army is affected by an Order, each time a model in
+    # that unit makes an attack, re-roll a Hit roll of 1." Stamp every unit
+    # that receives a real Order this round so `Unit.attack` can test "is
+    # this unit affected by an Order" directly, instead of re-deriving it
+    # from the five separate per-Order transient flags above. Harmless on
+    # every other detachment: nothing else reads this flag, and the reroll
+    # it gates in `Unit.attack` only fires when the army's resolved
+    # detachment carries `grizzled_ruthless_discipline` (True only for
+    # GRIZZLED_COMPANY, itself only reachable when SWEG_AM_GRIZZLED=1 — see
+    # code/detachments.py). Cleared each round by
+    # `Battle._clear_transient_stratagem_flags`. Cited as
+    # `simulator.grizzled_ruthless_discipline`.
+    target.transient_affected_by_order = True
 
 
 # ---------------------------------------------------------------------------
@@ -673,6 +702,25 @@ def dispatch_orders(
 
     squadron_allowed = bool(getattr(army, "orders_eligible_squadron_this_round", False))
 
+    # Grizzled Company — Ruthless Discipline, leg 1 (SWEG_AM_GRIZZLED): "Add
+    # 1 to the number of Orders each ASTRA MILITARUM OFFICER model from your
+    # army can issue, as stated on their datasheet." Resolved once per
+    # Command phase rather than per officer. When the army's detachment does
+    # not carry `grizzled_ruthless_discipline` (every detachment except
+    # GRIZZLED_COMPANY, which is itself only reachable when
+    # SWEG_AM_GRIZZLED=1 — see code/detachments.py), this stays False and
+    # every officer's Order cap is the OFFICER_ORDER_COUNTS value unchanged,
+    # byte-identical to the pre-Grizzled-Company path. Cited as
+    # `GRIZZLED_COMPANY.grizzled_ruthless_discipline` and
+    # `simulator.grizzled_ruthless_discipline`.
+    try:
+        _det_for_orders = army.resolve_detachment()
+    except Exception:
+        _det_for_orders = None
+    _grizzled_extra_order = bool(
+        getattr(_det_for_orders, "grizzled_ruthless_discipline", False)
+    )
+
     # Each codex OFFICER datasheet issues its capped Orders per round
     # regardless of how many model-instances share that profile name in the
     # army (Command Squads are multi-model datasheets — Cadian/Catachan
@@ -832,6 +880,8 @@ def dispatch_orders(
         # fail loud per CLAUDE.md §13 (the import-time validation above
         # ensures this never fires in normal usage, but guards renames).
         orders_this_officer = OFFICER_ORDER_COUNTS[officer_name]
+        if _grizzled_extra_order:
+            orders_this_officer += 1
         officer_types = _officer_target_types(officer_name)
 
         for _ in range(orders_this_officer):

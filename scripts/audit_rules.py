@@ -134,6 +134,26 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # `BRINGERS_OF_FLAME.army_wide_assault` in
     # data/rule_citations.d/detachments.json.
     ("army_wide_assault", False),
+    # Astra Militarum Grizzled Company — Ruthless Discipline (Grotmas
+    # December 2025 detachment). Two clauses on one flag: +1 to every
+    # Officer's per-round Order cap (code/orders.py dispatch_orders) and a
+    # re-roll of Hit rolls of 1 on both ranged and melee attacks made by a
+    # unit affected by an Order (code/orders.py _apply_order stamps
+    # transient_affected_by_order; code/units.py Unit.attack reads it).
+    # Gated SWEG_AM_GRIZZLED (default OFF). Cited as
+    # `GRIZZLED_COMPANY.grizzled_ruthless_discipline` and
+    # `simulator.grizzled_ruthless_discipline` in
+    # data/rule_citations.d/astra_militarum.json.
+    ("grizzled_ruthless_discipline", False),
+    # Leagues of Votann Hearthband detachment rule — Methodical Annihilation
+    # (melee-only, exact half of the wound-reroll clause; the ranged half
+    # and the Armour Penetration bullet are honestly not modelled — see the
+    # field-level comment on Detachment.hearthband_methodical_annihilation
+    # in code/detachments.py). Gated SWEG_VOTANN_HEARTHBAND (default OFF).
+    # Cited as `HEARTHBAND.hearthband_methodical_annihilation` and
+    # `simulator.hearthband_methodical_annihilation` in
+    # data/rule_citations.d/votann.json.
+    ("hearthband_methodical_annihilation", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
@@ -252,6 +272,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.secondary_establish_locus",
     "simulator.secondary_recover_assets",
     "secondaries.a_tempting_target",
+    # Tactical-secondary-pursuit package (gated SWEG_SECONDARY_PURSUIT):
+    # the AI card-pursuit movement layer's citation, grounding the
+    # heuristic in the Tactical Missions Secondary Mission card mechanic
+    # it pursues. simulator.secondary_establish_locus (above) and
+    # simulator.tactical_voluntary_discard (below) already cover the
+    # positional-filter and voluntary-discard parts of the same package.
+    "simulator.secondary_card_pursuit_ai",
     "simulator.judgement_tokens",
     # Orks faction army rules (10e). mob_rule auto-passes Battle-shock for
     # Ork units when the army has 10+ Ork models on the battlefield;
@@ -579,6 +606,29 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # one model and drops the Hekhtur slot. Cited in
     # data/rule_citations.d/imperial_knights.json.
     "simulator.ik_canis_single",
+    # SWEG_R5_SECOND_LAST. Chapter Approved 2025-26 round-5 going-second
+    # primary-scoring timing (score at end of turn, not Command phase).
+    # Battle._run_round_vanilla_turns. Cited in
+    # data/rule_citations.d/core_primary_vp_cap.json.
+    "simulator.primary_vp_round5_second_player",
+    # SWEG_OC_PER_MARKER. Level of Control computed per marker (removes the
+    # wave-67 one-marker-per-squad clamp). Battle._score_objectives
+    # _assign_army_oc. Cited in data/rule_citations.d/core_win_condition.json.
+    "simulator.oc_per_marker",
+    # SWEG_FILL_TEMPLATE_POOL. Template-first random fill (evaluation-frame
+    # list-realism mechanism from the 2026-07-01 archetype audit; owner-
+    # authorized fidelity-first). code/archetypes.py _random_fill. Cited in
+    # data/rule_citations.d/core_win_condition.json.
+    "simulator.fill_template_pool",
+    # SWEG_AM_SECONDARY_PURSUIT. The secondary card-pursuit package army-scoped
+    # to Astra Militarum (Principle-2 recipe). Battle._secondary_pursuit_enabled.
+    # Cited in data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.am_secondary_pursuit",
+    # SWEG_INVULN_SPLIT_FIX. A generic single-value invuln_save override no
+    # longer clobbers a real BSData per-attack ranged/melee split (the Chaos
+    # Knights phantom melee 5++). code/bsdata/loader.py. Cited in
+    # data/rule_citations.d/chaos_knights.json.
+    "simulator.invuln_split_fix",
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
     # hard cap, but real-player CP economy averages ~1 stratagem per
@@ -781,6 +831,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # out). Even-handed track split from unit count; OFF byte-identical.
     # See data/rule_citations.d/secondaries_pariah_nexus.json.
     "simulator.tactical_secondary_deck",
+    # Voluntary discard — the second half of the CA-2025-26 Tactical
+    # Missions end-of-turn rule (env-gated SWEG_TAC_VOLUNTARY_DISCARD,
+    # default off). The pre-existing achieved-card discard above only
+    # implemented the FIRST half of the sentence; this wires up "you can
+    # discard one or more of your active Secondary Mission cards, and if
+    # it is your turn, gain 1 command point". See
+    # data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.tactical_voluntary_discard",
     # Wave 133-135 — secondary dedication PLANNER (env-gated SWEG_SECONDARY),
     # a movement/positioning bias only. The wave-133 scoring gate on the
     # POSITION cards (Engage on All Fronts / Behind Enemy Lines) was REVERTED
@@ -895,6 +953,17 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # and pistol exclusivity still enforced by the existing picker. See
     # data/rule_citations.d/core_per_model_loadouts.json.
     "simulator.per_model_loadouts",
+    # OVERRIDE-PRECEDENCE (env-gated SWEG_OVERRIDE_MELEE_PRECEDENCE, default
+    # OFF). Companion fix to simulator.per_model_loadouts: the per-model
+    # rebuild in code/army.py _add_squad_per_model unconditionally overwrites
+    # extra_melee_profiles / extra_ranged_profiles from the mapper's
+    # model_loadouts data, silently discarding a hand correction in
+    # data/overrides.json that explicitly set one of those two fields. When
+    # on, the rebuild leaves a field alone whenever UnitProfile.override_
+    # field_names marks it as hand-overridden, so the correction survives
+    # onto the per-model Unit the army actually fires with. See
+    # data/rule_citations.d/core_per_model_loadouts.json.
+    "simulator.override_melee_precedence",
     # PER-MODEL-LOADOUTS (Stage 4, env-gated SWEG_ROLLDMG). Roll a weapon's real
     # random Damage characteristic (D6, D3+3, 2D6, ...) per shot instead of using
     # its expected-value mean. Tests whether mean-overkill on big single-shot guns
@@ -958,6 +1027,81 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Advancing and forfeiting their Shooting phase. Overshoots via the durability
     # over-reward but improves the metric via collateral. Cited in votann.json.
     "simulator.votann_ranged_hold",
+    # SWEG_TSONS_RANGED_HOLD (default-OFF screening gate, 2026-07-03). AI piloting
+    # heuristic (same as simulator.am_advance_discipline / ck_ranged_hold /
+    # votann_ranged_hold, Thousand-Sons-scoped): the Thousand Sons shooting core
+    # (Rubric Marines, Scarab Occult Terminators, Mutalith Vortex Beast, the
+    # psyker characters) holds and shoots instead of Advancing into melee and
+    # forfeiting its Shooting phase. Derived from watched pilot-observation (three
+    # piloted games; the Orks 20-48 blow-out was the gunline ground up in melee).
+    # Fifth entry point _ad_tsons on the shared _suppress_advance block in
+    # code/simulator.py _do_move. Cited in data/rule_citations.d/thousand_sons.json.
+    "simulator.tsons_ranged_hold",
+    # SWEG_SOROR_RANGED_HOLD (default-OFF screening gate, 2026-07-03). AI piloting
+    # heuristic (same as simulator.am_advance_discipline / ck_ranged_hold /
+    # votann_ranged_hold / tsons_ranged_hold, Adepta-Sororitas-scoped): the
+    # faction's dedicated fire platforms (Castigator, Exorcist, Immolator, Morvenn
+    # Vahl, Paragon Warsuits) hold and shoot instead of Advancing and forfeiting
+    # their Shooting phase, while the aggressive infantry / melee core stays free
+    # to Advance onto objectives. Derived from watched pilot-observation (all three
+    # Castigators Advanced round 1 firing nothing versus Necrons seed 11; one died
+    # round 2 having never shot). Sixth entry point _ad_soror on the shared
+    # _suppress_advance block in code/simulator.py _do_move. Cited in
+    # data/rule_citations.d/adepta_sororitas.json.
+    "simulator.soror_ranged_hold",
+    # SWEG_STAGING (default-off, byte-identical off). The faction-neutral
+    # closing-side counterpart of the ranged-hold family: a unit whose commit
+    # would deliver it EXPOSED into a significant enemy threat envelope while it
+    # cannot act (charge / claim an objective / bring a gun to bear) this turn,
+    # and which is not part of a friendly mass committing together, STAGES at the
+    # envelope edge (Advance sprint suppressed, forward move capped at melee
+    # bubbles) instead of trickling into the kill zone. Battle._staging_decision
+    # / _precompute_staging_envelope / _staging_can_act_this_turn /
+    # _staging_capped_target in code/simulator.py _do_move. Grounds in the
+    # universal competitive staging doctrine plus the symmetry with the adopted
+    # ranged-hold family. Cited in data/rule_citations.d/core_staging.json.
+    # PRINCIPLE-2 army-scoped entry points (2026-07-03, Battle._scoped_lever_on):
+    # four default-off scoped gates on the SAME code path — SWEG_AM_STAGING /
+    # SWEG_ORKS_STAGING / SWEG_SOROR_STAGING / SWEG_GSC_STAGING — bank the
+    # built-for faction's lift where the faction-neutral gate washes (the
+    # am_advance_discipline recipe). Documented in the same citation; no new key.
+    "simulator.staging_discipline",
+    # SWEG_AM_CHAFF_STAGING (default-off, byte-identical off). Scope-widening
+    # of the SAME staging mechanism above onto Astra Militarum's own cheap
+    # chaff (Kasrkin, Tempestus Scions, Cadian Shock Troops): the Emperor's
+    # Children crater diagnostic (docs/_EC_CRATER_FINDINGS.md, 160/160
+    # winner-reproduction verified) found the existing chaff exemption in
+    # Battle._staging_decision — override (b), "screens are supposed to be
+    # exposed" — is Astra Militarum's own failure mode, since its light
+    # infantry commits forward unconditionally and dies piecemeal before
+    # acting while the army's tanks correctly hold via am_advance_discipline.
+    # When on for an Astra Militarum attacker, the chaff exemption is skipped
+    # and the unit falls through to the identical EXPOSED / can-act-this-turn
+    # / commit-ready test every other unit already gets under SWEG_AM_STAGING
+    # — no new mechanism, same Battle._staging_decision /
+    # _precompute_staging_envelope / _staging_can_act_this_turn /
+    # _staging_capped_target machinery. Cited in
+    # data/rule_citations.d/core_staging.json.
+    "simulator.am_chaff_staging",
+    # SWEG_ANTITANK_ADVANCE_DISCIPLINE (default-off, byte-identical off). The
+    # narrow, faction-neutral cousin of the retired generic advance-discipline
+    # gate and of the per-faction gunline-hold family above (am_advance_
+    # discipline / ck_ranged_hold / votann_ranged_hold): a unit does not
+    # Advance when it has a live shot, from its current position, on a
+    # durable "brick" target (Toughness 10+ or 15+ starting Wounds) that its
+    # weapon can meaningfully hurt right now, and Advancing would forfeit
+    # that shot. Built from the capstone activation-allocation decomposition
+    # (docs/DECISION_LEDGER.md's "THE FINAL DECOMPOSITION" entry): 31 percent
+    # of the field's SUPPRESSED anti-Knight output is exactly this mis-pilot.
+    # Second entry point `_ad_antitank` on the shared _suppress_advance block
+    # in code/simulator.py _do_move. Cited in
+    # data/rule_citations.d/antitank_advance_discipline.json.
+    # PRINCIPLE-2 army-scoped entry points (2026-07-03, Battle._scoped_lever_on):
+    # four default-off scoped gates on the SAME _do_move code path —
+    # SWEG_AM_ANTITANK_HOLD / SWEG_ORKS_ANTITANK_HOLD / SWEG_SOROR_ANTITANK_HOLD
+    # / SWEG_GSC_ANTITANK_HOLD — bank the built-for faction's lift where the
+    # faction-neutral gate washes. Documented in the same citation; no new key.
+    "simulator.antitank_advance_discipline",
     "unit.necrodermis",
     # Wave 181 — CA-2025-26 Tactical-track flat kill card VP values.
     # When a TACTICAL-track army (SWEG_TAC_DECK path) draws one of these three
@@ -975,6 +1119,69 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # out all five rounds on a one-sided tabling, so the VP totals are complete at
     # decision time. Cited in data/rule_citations.d/core_win_condition.json.
     "simulator.win_on_vp_not_tabling",
+    # Astra Militarum Grizzled Company — Ruthless Discipline (env-gated
+    # SWEG_AM_GRIZZLED, default OFF). Simulator-side gate for the two
+    # clauses of the detachment rule: code/orders.py dispatch_orders adds 1
+    # to every Officer's per-round Order cap, and code/units.py Unit.attack
+    # re-rolls Hit rolls of 1 for both ranged and melee attacks made by a
+    # unit stamped `transient_affected_by_order` this round. Detachment-flag
+    # citation: GRIZZLED_COMPANY.grizzled_ruthless_discipline. Cited in
+    # data/rule_citations.d/astra_militarum.json.
+    "simulator.grizzled_ruthless_discipline",
+    # Leagues of Votann Hearthband — Methodical Annihilation (env-gated
+    # SWEG_VOTANN_HEARTHBAND, default OFF). Simulator-side gate in
+    # code/units.py Unit.attack: mode == "melee" AND attacker faction ==
+    # "Leagues of Votann" AND the army's resolved detachment carries
+    # `hearthband_methodical_annihilation`, re-rolling a Wound roll of 1.
+    # Detachment-flag citation: HEARTHBAND.hearthband_methodical_annihilation.
+    # Cited in data/rule_citations.d/votann.json.
+    "simulator.hearthband_methodical_annihilation",
+    # THE GAP counterplay diagnostic (2026-07-02 ledger) — target economics
+    # (env-gated SWEG_TARGET_ECONOMICS, default OFF). AI ranged target-
+    # priority heuristic in Battle._do_shoot's shooting picker: multiplies
+    # the existing screen / synapse / transport / oath / class-bias chain by
+    # an expected-unsaved-damage kill-fraction bonus (reusing
+    # simulator._ranged_expected_wounds) so a shooter that cannot meaningfully
+    # wound a candidate (e.g. a lasgun into a Toughness-12 2+ save Knight) is
+    # strongly deprioritised in favour of a candidate it can actually kill
+    # (a low-Wounds War Dog). Cited in data/rule_citations.d/target_economics.json.
+    "simulator.target_economics",
+    # Substrate-accounting diagnostic (2026-07-02 ledger) — focus-fire
+    # completion (env-gated SWEG_FOCUS_FIRE, default OFF). AI ranged target-
+    # priority heuristic in both shooting pickers (Battle._plan_squad_fire
+    # and Battle._do_shoot's per-model fallback): a candidate already below
+    # its starting health (10e has no in-battle healing, so this is durable
+    # cross-activation proof friendly fire already landed) scores a bonus
+    # that scales with how much it has already lost, gated on the same
+    # can-this-attacker-actually-wound-it screen simulator.target_economics
+    # uses. Supplies the cross-activation "finish the wounded target"
+    # completion simulator.target_economics does not: that term fixes
+    # per-activation target choice, this one makes successive activations
+    # converge on the same already-hurt target instead of scattering onto
+    # fresh ones. Cited in data/rule_citations.d/focus_fire_completion.json.
+    "simulator.focus_fire_completion",
+    # Capstone activation-allocation finding (2026-07-03 ledger) — persistent
+    # nomination (env-gated SWEG_PERSISTENT_NOMINATION, default OFF). AI piloting
+    # heuristic in Battle._nominate_persistent_target: reshapes the wave-101
+    # one-phase collective focus-fire crack (which demands ~22 expected wounds in
+    # ONE Shooting phase and so almost never fires against a durable brick) into a
+    # CROSS-ROUND commitment — nominate the most dangerous enemy brick the army can
+    # crack within a handful of rounds of sustained anti-brick fire, PERSIST that
+    # nomination across rounds until the brick dies or the army can no longer wound
+    # it, then re-nominate the next brick. The pickers route anti-tank-capable fire
+    # onto the standing nominee (class-shaped via the anti-armour-only squad-plan
+    # concentration; the contest-pool filter in _do_shoot re-admits an off-objective
+    # nominee under the same gate). Grounds in the cited focus-one-Knight anti-brick
+    # doctrine plus the capstone waterfall. Cited in
+    # data/rule_citations.d/persistent_nomination.json.
+    # PRINCIPLE-2 army-scoped entry points (2026-07-03, Battle._scoped_lever_on):
+    # four default-off scoped gates on the SAME code path — SWEG_AM_NOMINATION /
+    # SWEG_ORKS_NOMINATION / SWEG_SOROR_NOMINATION / SWEG_GSC_NOMINATION — bank
+    # the built-for faction's lift where the faction-neutral gate washes.
+    # Asymmetric by construction: only the scoped army acquires a standing
+    # nominee (per-army _persistent_nom_uid / _focusfire_target_uid channels, set
+    # only on that army's own turn). Documented in the same citation; no new key.
+    "simulator.persistent_nomination",
 )
 
 

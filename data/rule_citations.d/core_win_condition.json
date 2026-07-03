@@ -7,5 +7,21 @@
     "trigger": "end of the battle (after all five battle rounds have been played or a mutual wipe ends the game early); evaluated once in Battle._decide_winner. Gate SWEG_TABLING_VP=1 enables this path: the three survivor-count short-circuits (tabling = auto-win) are skipped and the result is determined solely by the accumulated Victory Points totals (primary + secondary, with the existing caps enforced).",
     "effect": "When SWEG_TABLING_VP=1: a one-sided tabling is no longer an automatic win for the surviving army; instead the player with the higher end-of-game Victory Points total wins, which may be the tabled side if it accumulated more Victory Points before being destroyed. Mutual wipe falls through to the existing VP comparison (equal VP = draw). When SWEG_TABLING_VP unset (default): behaviour is byte-identical to before this gate was added — one-sided tabling returns the survivor's name outright, mutual wipe returns None.",
     "scope": "army-wide"
+  },
+  "simulator.oc_per_marker": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/",
+    "rule_name": "Level of Control is computed per objective marker (10e Core Rules, Objective Markers)",
+    "quoted_text": "At the end of each phase, players determine who controls each objective marker. To do so, each player adds together the Objective Control characteristics of all of their models that are within range of that objective marker: this is that player's Level of Control over that objective marker.",
+    "trigger": "SWEG_OC_PER_MARKER=1 (default-off while screening); the per-squad Objective Control assignment in Battle._score_objectives -> _assign_army_oc",
+    "effect": "Each objective marker is credited with the summed Objective Control of the squad's models within THAT marker's range, per the verbatim per-marker computation above — a model within range of two markers counts toward both. Replaces the wave-67 clamp that credited a squad's summed Objective Control to at most ONE marker per round (majority-count, centroid tie-break), which was justified by Unit Coherency; coherency is a 2-inch-chain placement condition, not a scoring cap, and no rule limits how many markers a unit may contribute Objective Control to. The clamp was a no-op for single-model units and selectively under-credited multi-model armies (forecloses a stretched coherent squad straddling two markers). Found by the 2026-07-01 scoring-fidelity audit (docs/ARCHETYPE_FIDELITY_AUDIT.md). Off path byte-identical (the clamp runs as before).",
+    "scope": "army-wide"
+  },
+  "simulator.fill_template_pool": {
+    "source": "https://warpfriends.wordpress.com/2026/05/06/40k-meta-stats-from-may-5-2026/",
+    "rule_name": "Template-first random fill (evaluation-frame list-realism mechanism, not a 10th-edition rule)",
+    "quoted_text": "Not a 10th-edition rules claim; the source is the real-meta aggregate the calibration targets. The 2026-07-01 archetype audit (docs/ARCHETYPE_FIDELITY_AUDIT.md, with per-faction sourced tournament lists cited in its agent reports) measured that ~55-70% of every archetype build's points are drawn uniformly from the whole faction catalogue by _random_fill, fielding units that appear in essentially no sourced 2026 tournament list and contaminating mono-god Chaos Daemons armies with ~35% off-god points.",
+    "trigger": "SWEG_FILL_TEMPLATE_POOL=1 (default-off while screening); code/archetypes.py _random_fill, when the faction archetype supplies a template",
+    "effect": "EVALUATION-FRAME MECHANISM (list realism), owner-authorized under the 2026-07-01 fidelity-first ruling: the fill draw prefers curated-template units (the units sourced real lists field) whenever any is affordable, falling back to the whole-catalogue pool otherwise. All existing caps (BATTLELINE, MONSTER/TITANIC/EPIC-HERO wrecker, per-name spend, Legends exclusion) apply unchanged. Exactly one rng.choice per pick on both paths. Off path byte-identical (the preference filter is never consulted). The general random-army capability is retained un-gated for Stage-2 whole-catalogue pricing work (code/balancer.py and build_faction_random_army are untouched).",
+    "scope": "army-wide"
   }
 }

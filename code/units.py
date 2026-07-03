@@ -831,6 +831,19 @@ class UnitProfile:
     # reverses it exactly (round-trips to the original list-of-dicts).
     # Empty tuple = no per-model loadout recorded (legacy entries).
     model_loadouts: Tuple[Tuple[Tuple[str, Any], ...], ...] = ()
+    # OVERRIDE-PRECEDENCE (env-gated SWEG_OVERRIDE_MELEE_PRECEDENCE) — names
+    # of the fields data/overrides.json explicitly set for this unit (the
+    # hand-tuning layer only), carried from CatalogEntry.override_field_names.
+    # `code.army._add_squad_per_model` reads this so that, when the gate is
+    # on, a hand-written `extra_melee_profiles` / `extra_ranged_profiles`
+    # override is not silently discarded by the per-model weapon-field
+    # rebuild (which otherwise unconditionally overwrites both fields from
+    # the mapper's `model_loadouts` data — see the field comment on
+    # CatalogEntry.override_field_names in code/bsdata/loader.py for the full
+    # bug writeup). Empty tuple = no field explicitly hand-overridden
+    # (legacy entries and units with no overrides.json entry at all). Cited
+    # as `simulator.override_melee_precedence`.
+    override_field_names: Tuple[str, ...] = ()
     # DAMAGED-BRACKET (task #77) — the 10e "Damaged: 1-X Wounds Remaining"
     # datasheet bracket, extracted per-unit from BSData. `damaged_threshold == 0`
     # means the model has no bracket. While the model is at 1..threshold wounds,
@@ -1065,6 +1078,18 @@ class Unit:
         #       Read by `Battle._effective_oc` behind SWEG_AM_DUTY_AND_HONOUR.
         #       Cited as `Order.Duty and Honour!`.
         "transient_plus_one_oc",
+        # Astra Militarum Grizzled Company — Ruthless Discipline (detachment
+        # rule, gated SWEG_AM_GRIZZLED):
+        #   transient_affected_by_order — set True by `orders._apply_order`
+        #       on any unit that receives a real Order this round (any AM
+        #       detachment, not just Grizzled Company — the flag is cheap
+        #       substrate bookkeeping and inert unless read). Read by
+        #       `Unit.attack` to re-roll Hit rolls of 1 on both ranged and
+        #       melee attacks, gated on the attacker's army detachment
+        #       carrying `grizzled_ruthless_discipline`. Cleared with all
+        #       other transient flags. Cited as
+        #       `simulator.grizzled_ruthless_discipline`.
+        "transient_affected_by_order",
         "transient_plus_one_to_wound_shooting",
         "transient_invuln_4",
         "transient_minus_one_damage_taken",
@@ -1305,6 +1330,11 @@ class Unit:
         # unit's models for the round. Read by Battle._effective_oc behind
         # SWEG_AM_DUTY_AND_HONOUR; cleared per round. Default False = no-op.
         self.transient_plus_one_oc: bool = False
+        # Grizzled Company (AM detachment, SWEG_AM_GRIZZLED): set True by
+        # any Order landing on this unit this round; read by Unit.attack
+        # for the Ruthless Discipline Hit-roll-of-1 re-roll. Cleared per
+        # round. Default False = no-op on every other detachment.
+        self.transient_affected_by_order: bool = False
         # Saim-Hann (Aeldari) per-round stratagem flag.
         self.transient_halve_damage: bool = False
         # Awakened Dynasty (Necrons) Protocol of the Undying Legions: integer
@@ -3613,6 +3643,36 @@ class Unit:
             # (Oath of Moment, Votann tokens) all read it.
             own_army = getattr(self, "army_ref", None)
 
+            # ---- Astra Militarum Grizzled Company — Ruthless Discipline
+            # (detachment rule, gated SWEG_AM_GRIZZLED). Wahapedia verbatim
+            # (raw HTML fetch of https://wahapedia.ru/wh40k10ed/factions/
+            # astra-militarum/#Ruthless-Discipline, Faction Pack v1.6):
+            # "While an ASTRA MILITARUM unit from your army is affected by
+            # an Order, each time a model in that unit makes an attack,
+            # re-roll a Hit roll of 1." No mode restriction in the rule
+            # text, so this applies to both ranged and melee attacks (this
+            # code block runs for both — see the mode-gated blocks above and
+            # below it for the established convention). Gate: attacker is
+            # Astra Militarum, the attacking unit was stamped
+            # `transient_affected_by_order` this round by
+            # `orders._apply_order`, and the army's resolved detachment
+            # carries `grizzled_ruthless_discipline` (True only for
+            # GRIZZLED_COMPANY, itself only reachable when
+            # SWEG_AM_GRIZZLED=1 — see code/detachments.py). Cited as
+            # `GRIZZLED_COMPANY.grizzled_ruthless_discipline` and
+            # `simulator.grizzled_ruthless_discipline`.
+            if (
+                own_army is not None
+                and (p.faction or "") == "Astra Militarum"
+                and getattr(self, "transient_affected_by_order", False)
+            ):
+                try:
+                    _det_gc = own_army.resolve_detachment()
+                except Exception:
+                    _det_gc = None
+                if getattr(_det_gc, "grizzled_ruthless_discipline", False):
+                    att_reroll_hit_ones = True
+
             # ---- Leagues of Votann — Eye of the Ancestors (RETIRED) ----
             # iter25-V1: the launch-day Eye of the Ancestors rule granted
             # escalating re-roll buffs (hit 1s at 1 token, full hit re-rolls +
@@ -3633,6 +3693,40 @@ class Unit:
             # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Prioritised-Efficiency
             # The re-roll branch is intentionally removed — do not re-add
             # without a verbatim Wahapedia citation per CLAUDE.md §10.
+
+            # ---- Leagues of Votann Hearthband detachment — Methodical
+            # Annihilation (gated SWEG_VOTANN_HEARTHBAND, default OFF).
+            # Verbatim (Wahapedia https://wahapedia.ru/wh40k10ed/factions/
+            # leagues-of-votann/#Hearthband, fetched 2026-07-02;
+            # cross-checked word for word against BSData v10.6.0, Leagues of
+            # Votann.cat.gz, rule id 70a5-9f3d-4e2f-8eb3): "Each time a
+            # LEAGUES OF VOTANN model from your army makes an attack with a
+            # weapon that targets the closest eligible target or a target
+            # that is within Engagement Range of that model's unit: Re-roll
+            # a Wound roll of 1. If your unit is a KÂHL, EINHYR HEARTHGUARD
+            # or ÛTHAR THE DESTINED unit, improve the Armour Penetration
+            # characteristic of that attack by 1." Only the melee half of
+            # the wound-reroll clause is modelled, and modelled EXACTLY: a
+            # Fight-phase attack is, by the 10e core-rules definition of the
+            # Fight phase, always made against a target within Engagement
+            # Range of the attacker's unit, so the "...or a target that is
+            # within Engagement Range of that model's unit" branch is
+            # unconditionally satisfied whenever mode == "melee" — no
+            # approximation is required for that half. The ranged branch
+            # ("targets the closest eligible target") and the Armour
+            # Penetration bullet (restricted to KÂHL / EINHYR HEARTHGUARD /
+            # ÛTHAR THE DESTINED units) are honestly NOT modelled — see
+            # `Detachment.hearthband_methodical_annihilation` in
+            # code/detachments.py for the full omission rationale. Cited as
+            # `HEARTHBAND.hearthband_methodical_annihilation` and
+            # `simulator.hearthband_methodical_annihilation`.
+            if mode == "melee" and (p.faction or "") == "Leagues of Votann":
+                try:
+                    _det_hb = own_army.resolve_detachment() if own_army is not None else None
+                except Exception:
+                    _det_hb = None
+                if getattr(_det_hb, "hearthband_methodical_annihilation", False):
+                    att_reroll_wound_ones = True
 
             # ---- Adeptus Astartes Oath of Moment (army rule, 10e). When the
             # attacker is a Marine (any chapter) AND its army has declared
@@ -5742,6 +5836,9 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             # fire each model's real loadout. Empty entry → () (no per-model
             # loadout recorded).
             model_loadouts=_flatten_model_loadouts(entry.model_loadouts),
+            # OVERRIDE-PRECEDENCE — carried verbatim from the CatalogEntry;
+            # see UnitProfile.override_field_names for the full contract.
+            override_field_names=tuple(entry.override_field_names or ()),
             # DAMAGED-BRACKET (task #77) — flat ints, trivially hashable. Carried
             # from the CatalogEntry; nothing reads them for behaviour until the
             # gated application stage (Stage 3, SWEG_DMGBRACKET).
