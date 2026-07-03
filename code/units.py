@@ -1029,7 +1029,11 @@ class Unit:
         #   transient_plus_one_to_wound_shooting — Twist of Fate. Attacker buff:
         #       +1 to wound on ranged attacks made by this unit for the round.
         #   transient_invuln_4 — Glamour of Tzeentch. Defender buff: target gets
-        #       a transient 4++ invulnerable save for the round.
+        #       a transient 4++ invulnerable save for the round. Also reused by
+        #       Imperial Knights' Rotate Ion Shields (Battle._maybe_rotate_ion_
+        #       shields, env-gated SWEG_IK_ROTATE_IONS) — prints "until the end
+        #       of the phase, models in your unit have a 4+ invulnerable save",
+        #       so it shares this slot rather than carrying its own.
         # Plague Company (Death Guard):
         #   transient_minus_one_damage_taken — Disgustingly Resilient. Defender
         #       buff: each per-shot damage reduced by 1 (floor 1) for the round.

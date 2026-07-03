@@ -4301,6 +4301,15 @@ class Battle:
         # the round the stratagem fires.
         army.orders_eligible_squadron_this_round = False
         army.orders_extra_this_round = 0
+        # Rotate Ion Shields (Imperial Knights) once-per-phase usage flag.
+        # The real 10e core restriction is "the same Stratagem cannot be
+        # used more than once in the same phase"; this army is the defender
+        # in exactly one opponent's Shooting phase per round under the
+        # I-go-U-go turn structure (`_run_round_vanilla_turns` runs (first,
+        # second) then (second, first) once each per round), so resetting
+        # here at round start is equivalent to resetting at the start of
+        # that one relevant phase. Cited as `simulator.ik_rotate_ion_shields`.
+        army.rotate_ion_shields_used_this_phase = False
 
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
@@ -14258,6 +14267,12 @@ class Battle:
         # targeted INFANTRY unit a 6++ invuln + Benefit of Cover until end of
         # phase. No-op when the gate is unset, so the OFF path is unchanged.
         self._maybe_go_to_ground(defender_army, shoot_target, attacker)
+        # Rotate Ion Shields (Imperial Knights, env-gated SWEG_IK_ROTATE_IONS):
+        # the defender may spend 1 Command Point, just after this target was
+        # selected, to give the targeted IMPERIAL KNIGHTS unit a 4+
+        # invulnerable save until end of phase. No-op for every other faction
+        # and when the gate is unset. See Battle._maybe_rotate_ion_shields.
+        self._maybe_rotate_ion_shields(defender_army, shoot_target, attacker)
 
         # Terrain-aware cover: target counts as in cover if it stands inside
         # cover terrain, OR if the army-wide cover flag is set. In 10e all
@@ -14654,6 +14669,112 @@ class Battle:
                     m.go_to_ground_active = True
         else:
             shoot_target.go_to_ground_active = True
+
+    # Rotate Ion Shields (Imperial Knights, 1 CP, Wargear Stratagem, env-gated
+    # SWEG_IK_ROTATE_IONS — verified live against wahapedia.ru/wh40k10ed/
+    # factions/imperial-knights/ on 2026-07-03). `_maybe_ion_shield_stratagem`
+    # below is written generically (faction / cp_cost / env_var / used_flag
+    # parameters) so a Chaos Knights companion stratagem printing the same
+    # WHEN/TARGET/EFFECT shape can reuse it without duplicating the mechanism.
+    _ROTATE_IONS_CP_COST = 1
+    # Same reasoning as _GTG_THREAT_FRACTION above: only spend the Command
+    # Point when the incoming fire is a genuinely meaningful share of the
+    # targeted model's current health — a real player holds the Command
+    # Point against a stray shot.
+    _ION_SHIELD_STRAT_THREAT_FRACTION = 0.5
+
+    def _maybe_ion_shield_stratagem(
+        self, defending_army: Army, shoot_target, attacker, *,
+        faction: str, cp_cost: int, env_var: str, used_flag: str,
+    ) -> None:
+        """Shared mechanism for the Knight households' reactive "4+ invuln
+        until end of phase" stratagem pair: Imperial Knights' Rotate Ion
+        Shields and Chaos Knights' Diabolic Bulwark.
+
+        Trigger (both, verbatim): "Your opponent's Shooting phase, just
+        after an enemy unit has selected its targets. TARGET: One
+        <FACTION> unit from your army that was selected as the target of
+        one or more of the attacking unit's attacks. EFFECT: Until the end
+        of the phase, models in your unit have a 4+ invulnerable save."
+        Hooked at the same target-selection point as Go To Ground
+        (`Battle._maybe_go_to_ground`), called immediately after it in
+        `_do_shoot`.
+
+        The 4+ invulnerable save is granted via the existing
+        `transient_invuln_4` slot (the same generic "flat 4+ invuln for the
+        round" flag Glamour of Tzeentch / Daemonic Invulnerability use),
+        only overriding a worse invulnerable save, at the save-resolution
+        branch in `Unit.attack`. The printed "until the end of the phase"
+        duration is collapsed to the round — cleared with the other
+        per-round transient flags in `_clear_transient_stratagem_flags` —
+        the same simplification already accepted for Go To Ground's own
+        6++, because this army is the defender in exactly one Shooting
+        phase per round under the I-go-U-go turn structure.
+
+        Once-per-phase: the real 10e core restriction is "the same
+        Stratagem cannot be used more than once in the same phase."
+        Enforced via `used_flag` on `defending_army`, reset once per round
+        in `_clear_transient_stratagem_flags` (equivalent to a phase-start
+        reset for the reason above).
+
+        Decision heuristic (AI): fire only when the incoming shot(s)
+        genuinely threaten the target, reusing `_ranged_expected_wounds`
+        (the existing expected-incoming-damage helper Go To Ground and
+        Focus Fire already use) rather than a new estimator — threat must
+        reach `_ION_SHIELD_STRAT_THREAT_FRACTION` of the target's current
+        health, same threshold and reasoning as Go To Ground.
+        """
+        if __import__("os").environ.get(env_var, "1") == "0":
+            return
+        if shoot_target is None or not getattr(shoot_target, "is_alive", False):
+            return
+        if getattr(defending_army, used_flag, False):
+            return
+        if (shoot_target.profile.faction or "") != faction:
+            return
+        if defending_army.command_points < cp_cost:
+            return
+        if attacker is None:
+            return
+        # Already carrying an equal-or-better invulnerable save this round
+        # (e.g. the stratagem already fired on this unit earlier, or a
+        # different source granted a stronger save) — don't waste the
+        # Command Point. Mirrors Go To Ground's per-unit "already active"
+        # no-op.
+        if getattr(shoot_target, "transient_invuln_4", False):
+            return
+        threat = self._ranged_expected_wounds(attacker.profile, shoot_target)
+        if threat < self._ION_SHIELD_STRAT_THREAT_FRACTION * shoot_target.current_health:
+            return
+
+        defending_army.command_points -= cp_cost
+        setattr(defending_army, used_flag, True)
+        self._set_transient_squad(shoot_target, "transient_invuln_4")
+
+    def _maybe_rotate_ion_shields(self, defending_army: Army, shoot_target, attacker) -> None:
+        """Rotate Ion Shields (Imperial Knights Household, 1 CP, Wargear
+        Stratagem, env-gated SWEG_IK_ROTATE_IONS, default ON per the
+        Custodes-batch precedent for verified real rules).
+
+        Wahapedia (verified live 2026-07-03):
+        https://wahapedia.ru/wh40k10ed/factions/imperial-knights/
+        "ROTATE ION SHIELDS — 1CP. Wargear Stratagem. WHEN: Your opponent's
+        Shooting phase, just after an enemy unit has selected its targets.
+        TARGET: One IMPERIAL KNIGHTS unit from your army that was selected
+        as the target of one or more of the attacking unit's attacks.
+        EFFECT: Until the end of the phase, models in your unit have a 4+
+        invulnerable save."
+
+        See `_maybe_ion_shield_stratagem` for the shared mechanism this
+        wraps. Cited as `simulator.ik_rotate_ion_shields`.
+        """
+        self._maybe_ion_shield_stratagem(
+            defending_army, shoot_target, attacker,
+            faction="Imperial Knights",
+            cp_cost=self._ROTATE_IONS_CP_COST,
+            env_var="SWEG_IK_ROTATE_IONS",
+            used_flag="rotate_ion_shields_used_this_phase",
+        )
 
     def _fire_overwatch(self, defending_army: Army, enemy_unit) -> None:
         """Fire Overwatch (10e universal core stratagem, env-gated

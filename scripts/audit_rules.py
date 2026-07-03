@@ -1251,6 +1251,17 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # nominee (per-army _persistent_nom_uid / _focusfire_target_uid channels, set
     # only on that army's own turn). Documented in the same citation; no new key.
     "simulator.persistent_nomination",
+    # Rotate Ion Shields (Imperial Knights Household, 1 CP, Wargear
+    # Stratagem, durability fidelity wave audit B fix B2, env-gated
+    # SWEG_IK_ROTATE_IONS, default ON per the Custodes-batch precedent for
+    # verified real rules). Battle._maybe_rotate_ion_shields, hooked at the
+    # target-selection point in Battle._do_shoot right after Go To Ground:
+    # the defender spends 1 Command Point so the targeted IMPERIAL KNIGHTS
+    # unit gets a 4+ invulnerable save until the end of the phase (routed
+    # through the existing transient_invuln_4 slot, once per phase via the
+    # rotate_ion_shields_used_this_phase flag on Army). See
+    # data/rule_citations.d/imperial_knights.json.
+    "simulator.ik_rotate_ion_shields",
 )
 
 
