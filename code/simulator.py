@@ -12530,7 +12530,37 @@ class Battle:
             # back. Targets the heavy shooters that throw away the most by Advancing.
             _rdpa = (attacker.profile.attacks * attacker.profile.hit_probability
                      * (attacker.profile.weapon_damage_per_shot or 0.0))
-            if _rdpa >= 2.0 and (attacker.profile.range_inches or 0.0) >= 18.0:
+            # SWEG_AM_FIRE_SUPPORT_HOLD — REJECTED 2026-07-03, DO NOT ADOPT
+            # (AM-scoped N=80 vs sc47a: Astra Militarum −5.63 DECISIVE, gated
+            # 3.82 → 4.11). The watched misplay was real, but the fix
+            # inverts: the Heavy Weapons Squads' bodies are worth more
+            # advancing at markers than their lascannons are worth firing —
+            # the FIFTH hold-type rejection for Astra Militarum (staging,
+            # nomination, anti-tank hold, officer front-line, this).
+            # Standing law: AM's economy runs bodies-forward; ONLY its
+            # tanks hold (the adopted _ad_am). Kept default-off.
+            # ORIGINAL RATIONALE (pilot-observation lever A): Cadian
+            # Heavy Weapons Squads (ranged damage per activation 1.59, range
+            # 48 inches) sit in the 2.0-floor DEAD ZONE of the adopted
+            # Astra Militarum advance-discipline, so the army's dedicated
+            # 48-inch fire-support teams Advanced 6 of 7 activations and
+            # never shot (Genestealer Cults seed-0 replay; 7 of 11 vs Chaos
+            # Knights). A real Guard player never Advances a lascannon team.
+            # The extension admits medium-output LONG-RANGE fire support
+            # (>= 1.4 damage per activation AND >= 36 inch range), scoped to
+            # Astra Militarum; Cadian Shock Troops (0.50 / 24") and Command
+            # Squads stay advance-chaff. The downstream can-actually-damage
+            # check applies unchanged. Cited under
+            # `simulator.am_advance_discipline`.
+            _am_fire_support = (
+                os.environ.get("SWEG_AM_FIRE_SUPPORT_HOLD", "0") == "1"
+                and (attacker.profile.faction or "") == "Astra Militarum"
+                and _rdpa >= 1.4
+                and (attacker.profile.range_inches or 0.0) >= 36.0
+            )
+            if (_rdpa >= 2.0
+                    and (attacker.profile.range_inches or 0.0) >= 18.0
+                ) or _am_fire_support:
                 # Only hold for a target this unit can actually DAMAGE (expected
                 # ranged damage >= 0.5 after wound + save math) within range of a
                 # Normal move. An anti-infantry gun facing only Knights it cannot
