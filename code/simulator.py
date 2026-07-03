@@ -4301,15 +4301,18 @@ class Battle:
         # the round the stratagem fires.
         army.orders_eligible_squadron_this_round = False
         army.orders_extra_this_round = 0
-        # Rotate Ion Shields (Imperial Knights) once-per-phase usage flag.
-        # The real 10e core restriction is "the same Stratagem cannot be
-        # used more than once in the same phase"; this army is the defender
-        # in exactly one opponent's Shooting phase per round under the
-        # I-go-U-go turn structure (`_run_round_vanilla_turns` runs (first,
-        # second) then (second, first) once each per round), so resetting
-        # here at round start is equivalent to resetting at the start of
-        # that one relevant phase. Cited as `simulator.ik_rotate_ion_shields`.
+        # Rotate Ion Shields (Imperial Knights) / Diabolic Bulwark (Chaos
+        # Knights) once-per-phase usage flags. The real 10e core restriction
+        # is "the same Stratagem cannot be used more than once in the same
+        # phase"; this army is the defender in exactly one opponent's
+        # Shooting phase per round under the I-go-U-go turn structure
+        # (`_run_round_vanilla_turns` runs (first, second) then (second,
+        # first) once each per round), so resetting here at round start is
+        # equivalent to resetting at the start of that one relevant phase.
+        # Cited as `simulator.ik_rotate_ion_shields` / `simulator.ck_diabolic_
+        # bulwark`.
         army.rotate_ion_shields_used_this_phase = False
+        army.diabolic_bulwark_used_this_phase = False
 
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
@@ -14273,6 +14276,10 @@ class Battle:
         # invulnerable save until end of phase. No-op for every other faction
         # and when the gate is unset. See Battle._maybe_rotate_ion_shields.
         self._maybe_rotate_ion_shields(defender_army, shoot_target, attacker)
+        # Diabolic Bulwark (Chaos Knights, env-gated SWEG_CK_DIABOLIC_BULWARK):
+        # the same stratagem shape as Rotate Ion Shields above, restricted to
+        # CHAOS KNIGHTS units. See Battle._maybe_diabolic_bulwark.
+        self._maybe_diabolic_bulwark(defender_army, shoot_target, attacker)
 
         # Terrain-aware cover: target counts as in cover if it stands inside
         # cover terrain, OR if the army-wide cover flag is set. In 10e all
@@ -14671,12 +14678,13 @@ class Battle:
             shoot_target.go_to_ground_active = True
 
     # Rotate Ion Shields (Imperial Knights, 1 CP, Wargear Stratagem, env-gated
-    # SWEG_IK_ROTATE_IONS — verified live against wahapedia.ru/wh40k10ed/
-    # factions/imperial-knights/ on 2026-07-03). `_maybe_ion_shield_stratagem`
-    # below is written generically (faction / cp_cost / env_var / used_flag
-    # parameters) so a Chaos Knights companion stratagem printing the same
-    # WHEN/TARGET/EFFECT shape can reuse it without duplicating the mechanism.
+    # SWEG_IK_ROTATE_IONS) and Diabolic Bulwark (Chaos Knights, 1 CP, Wargear
+    # Stratagem, env-gated SWEG_CK_DIABOLIC_BULWARK) print byte-identical
+    # WHEN/TARGET/EFFECT text (only the faction keyword differs — verified
+    # live against wahapedia.ru/wh40k10ed/factions/imperial-knights/ and
+    # .../chaos-knights/ on 2026-07-03), so both share the mechanism below.
     _ROTATE_IONS_CP_COST = 1
+    _DIABOLIC_BULWARK_CP_COST = 1
     # Same reasoning as _GTG_THREAT_FRACTION above: only spend the Command
     # Point when the incoming fire is a genuinely meaningful share of the
     # targeted model's current health — a real player holds the Command
@@ -14774,6 +14782,32 @@ class Battle:
             cp_cost=self._ROTATE_IONS_CP_COST,
             env_var="SWEG_IK_ROTATE_IONS",
             used_flag="rotate_ion_shields_used_this_phase",
+        )
+
+    def _maybe_diabolic_bulwark(self, defending_army: Army, shoot_target, attacker) -> None:
+        """Diabolic Bulwark (Chaos Knights Infernal Lance detachment, 1 CP,
+        Wargear Stratagem, env-gated SWEG_CK_DIABOLIC_BULWARK, default ON
+        per the Custodes-batch precedent for verified real rules).
+
+        Wahapedia (verified live 2026-07-03):
+        https://wahapedia.ru/wh40k10ed/factions/chaos-knights/
+        "WHEN: Your opponent's Shooting phase, just after an enemy unit has
+        selected its targets. TARGET: One CHAOS KNIGHTS unit from your army
+        that was selected as the target of one or more of the attacking
+        unit's attacks. EFFECT: Until the end of the phase, models in your
+        unit have a 4+ invulnerable save." — byte-identical in shape to
+        Imperial Knights' Rotate Ion Shields (only the faction keyword
+        differs).
+
+        See `_maybe_ion_shield_stratagem` for the shared mechanism this
+        wraps. Cited as `simulator.ck_diabolic_bulwark`.
+        """
+        self._maybe_ion_shield_stratagem(
+            defending_army, shoot_target, attacker,
+            faction="Chaos Knights",
+            cp_cost=self._DIABOLIC_BULWARK_CP_COST,
+            env_var="SWEG_CK_DIABOLIC_BULWARK",
+            used_flag="diabolic_bulwark_used_this_phase",
         )
 
     def _fire_overwatch(self, defending_army: Army, enemy_unit) -> None:

@@ -1259,9 +1259,19 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # the defender spends 1 Command Point so the targeted IMPERIAL KNIGHTS
     # unit gets a 4+ invulnerable save until the end of the phase (routed
     # through the existing transient_invuln_4 slot, once per phase via the
-    # rotate_ion_shields_used_this_phase flag on Army). See
-    # data/rule_citations.d/imperial_knights.json.
+    # rotate_ion_shields_used_this_phase flag on Army). Shares its mechanism
+    # (Battle._maybe_ion_shield_stratagem) with Chaos Knights' Diabolic
+    # Bulwark below. See data/rule_citations.d/imperial_knights.json.
     "simulator.ik_rotate_ion_shields",
+    # Diabolic Bulwark (Chaos Knights Infernal Lance detachment, 1 CP,
+    # Wargear Stratagem, durability fidelity wave audit B fix B2, env-gated
+    # SWEG_CK_DIABOLIC_BULWARK, default ON). Prints byte-identical WHEN/
+    # TARGET/EFFECT text to Imperial Knights' Rotate Ion Shields above
+    # (only the faction keyword differs) and shares its mechanism
+    # (Battle._maybe_ion_shield_stratagem). Battle._maybe_diabolic_bulwark,
+    # hooked at the target-selection point in Battle._do_shoot right after
+    # Rotate Ion Shields. See data/rule_citations.d/chaos_knights.json.
+    "simulator.ck_diabolic_bulwark",
 )
 
 
