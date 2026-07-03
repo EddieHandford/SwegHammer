@@ -3685,6 +3685,174 @@ class Battle:
                     "SWEG_TAC_VOLUNTARY_DISCARD", "0") == "1"
                 or self._secondary_pursuit_enabled(army))
 
+    def _tac_shedding_enabled(self) -> bool:
+        """D1 — Tactical card-shedding (SWEG_TAC_SHEDDING, DEFAULT-ON). Restores
+        the three printed Chapter Approved 2025-26 mechanisms a real Tactical
+        player uses to shed an unscoreable card, which the simulator omitted so
+        its 2-card hand ossified (docs/_SEC_ECONOMY_AUDIT.md §2: 71.7% of held-
+        card-rounds scored zero):
+          (a) the per-card "When Drawn" redraw clause (_when_drawn_clause /
+              _draw_tactical_card),
+          (b) the end-of-turn voluntary discard for 1 command point, made the
+              default under this gate and switched to the achievability heuristic
+              (_score_tactical_hand), and
+          (c) the New Orders core stratagem (_apply_new_orders).
+        `SWEG_TAC_SHEDDING=0` is the byte-identical-off kill-switch: no redraw at
+        draw time, no default voluntary discard, no New Orders — the pre-fix
+        blind 2-card deal and achieve->discard->redraw reproduce exactly. Cited
+        as `simulator.tactical_when_drawn_redraw`, `simulator.new_orders_stratagem`
+        and (voluntary-discard half) `simulator.tactical_voluntary_discard`."""
+        return __import__("os").environ.get("SWEG_TAC_SHEDDING", "1") != "0"
+
+    def _when_drawn_clause(self, card_key: str, army: Army, other: Army,
+                           round_num: int):
+        """D1a — return the printed "When Drawn" clause that applies to `card_key`
+        as it is drawn this turn, or None. Two clause shapes (verbatim texts in
+        data/rule_citations.d/secondaries_pariah_nexus.json#
+        simulator.tactical_when_drawn_redraw):
+
+          "shuffle_back" — the first-battle-round positional clause on Behind
+            Enemy Lines / Defend Stronghold / Storm Hostile Objective / Display of
+            Might: "If it is the first battle round, draw a new Secondary Mission
+            card and shuffle this card back into your Secondary Mission deck."
+
+          "discard" — the no-valid-target clause on Bring It Down ("If there are
+            no enemy MONSTER or VEHICLE units on the battlefield"), Cull the Horde
+            ("If there are no enemy units ... that satisfy the condition below"),
+            Marked for Death ("If there are no units from their army on the
+            battlefield"), and Recover Assets ("if there are fewer than three
+            units from your army on the battlefield"): "you can discard this card
+            and draw a new Secondary Mission card."
+
+        Deterministic and free of the global RNG (a pure read of already-known
+        board state)."""
+        from .secondaries import _is_monster_or_vehicle, _is_horde_unit
+        if round_num <= 1 and card_key in (
+                "behind_enemy_lines", "defend_stronghold",
+                "storm_hostile_objective", "display_of_might"):
+            return "shuffle_back"
+        other_alive = other.alive_units
+        if card_key == "bring_it_down":
+            if not any(_is_monster_or_vehicle(u) for u in other_alive):
+                return "discard"
+        elif card_key == "cull_the_horde":
+            if not any(_is_horde_unit(u) for u in other_alive):
+                return "discard"
+        elif card_key == "marked_for_death":
+            if not any(True for _ in other_alive):
+                return "discard"
+        elif card_key == "recover_assets":
+            if sum(1 for _ in army.alive_units) < 3:
+                return "discard"
+        return None
+
+    def _draw_tactical_card(self, army: Army, other: Army, round_num: int):
+        """Draw one card from `army.tactical_deck`, applying each card's printed
+        "When Drawn" clause (D1a) when SWEG_TAC_SHEDDING is on. A "discard"-clause
+        card is dropped and the next drawn; a "shuffle_back"-clause card is placed
+        at the bottom of the deck and the next drawn. Returns the kept card key,
+        or None if the deck empties.
+
+        BYTE-IDENTICAL OFF: with shedding off this is exactly `deck.pop(0)` (or
+        None on an empty deck), so the opening deal reproduces `deck[:2]` /
+        `deck[2:]` and the refill reproduces the old pop-front loop.
+
+        Determinism: no global RNG. "Shuffle back" is a deterministic bottom-
+        insert (a documented determinism-preserving approximation of the printed
+        'shuffle this card back into your deck'); a per-draw `reshuffled` guard
+        and a hard iteration bound make the loop terminate even if the whole deck
+        were first-battle-round positional cards."""
+        deck = army.tactical_deck
+        if not self._tac_shedding_enabled():
+            return deck.pop(0) if deck else None
+        reshuffled: set = set()
+        guard = 0
+        while deck:
+            guard += 1
+            if guard > 64:   # the deck is tiny; a legitimate draw never spins
+                break
+            card = deck.pop(0)
+            clause = self._when_drawn_clause(card, army, other, round_num)
+            if clause == "discard":
+                continue
+            if clause == "shuffle_back" and card not in reshuffled:
+                reshuffled.add(card)
+                deck.append(card)
+                continue
+            return card
+        return None
+
+    def _tac_card_structurally_dead(self, card_key: str, army: Army,
+                                    other_army: Army, own_is_a: bool) -> bool:
+        """True when `card_key`, held by `army`, can NEVER score again this battle
+        (its qualifying target / marker / actor no longer exists) — the structural
+        half of `_tac_discard_card_cannot_pay`, WITHOUT the persistent-zero-read
+        fallback. `_apply_new_orders` uses this so New Orders only ever spends a
+        command point on a provably-dead card, which is correct play regardless of
+        the tight command-point economy."""
+        from .secondaries import (_is_monster_or_vehicle, _is_horde_unit,
+                                  _is_character)
+        other_alive = other_army.alive_units
+        if card_key == "bring_it_down":
+            return not any(_is_monster_or_vehicle(u) for u in other_alive)
+        if card_key == "cull_the_horde":
+            return not any(_is_horde_unit(u) for u in other_alive)
+        if card_key == "assassination":
+            return not any(_is_character(u) for u in other_alive)
+        if card_key == "a_tempting_target":
+            return self._tempting_target_obj_idx(own_is_a) is None
+        if card_key in ("cleanse", "sabotage", "establish_locus",
+                        "recover_assets"):
+            return not any((getattr(u.profile, "oc", 0) or 0) > 0
+                           for u in army.alive_units)
+        return False
+
+    def _apply_new_orders(self, army: Army, other: Army, own_is_a: bool,
+                          round_num: int) -> None:
+        """D1c — New Orders core stratagem (Chapter Approved 2025-26). Verbatim:
+        "1CP. Core Stratagem – Strategic Ploy. WHEN: End of your Command phase.
+        TARGET: One of your active Secondary Mission cards. EFFECT: Discard it and
+        draw one new Secondary Mission card." Cited
+        `simulator.new_orders_stratagem`.
+
+        Called once per army at the Command phase (from `_run_round`, after the
+        command-phase command-point award). Spend heuristic consistent with the
+        (deliberately un-doubled — D4 is out of scope) command-point economy: fire
+        at most ONCE per Command phase, only when the army holds a STRUCTURALLY
+        DEAD card (`_tac_card_structurally_dead`) and has a command point to spend.
+        Swapping a card that can never score again is unambiguously correct even
+        under a scarce budget, so this never starves a defensive stratagem of a
+        point it would otherwise have used. Deterministic and global-RNG-free.
+        No-op / byte-identical when shedding is off, the deck gate is off, or the
+        army is on the Fixed track."""
+        if not self._tac_shedding_enabled():
+            return
+        if not self._tac_deck_enabled():
+            return
+        if getattr(army, "secondary_track", None) != "TACTICAL":
+            return
+        hand = getattr(army, "tactical_hand", None)
+        deck = getattr(army, "tactical_deck", None)
+        if not hand or not deck:
+            return
+        NEW_ORDERS_CP = 1   # printed cost
+        if army.command_points < NEW_ORDERS_CP:
+            return
+        dead = [c for c in hand
+                if self._tac_card_structurally_dead(c, army, other, own_is_a)]
+        if not dead:
+            return
+        # Deterministic pick: longest-held provably-dead card first, ties by key.
+        dead.sort(key=lambda c: (-army.tactical_hand_age.get(c, 0), c))
+        discard_card = dead[0]
+        army.tactical_hand.remove(discard_card)
+        army.tactical_hand_age.pop(discard_card, None)
+        army.command_points -= NEW_ORDERS_CP
+        new_card = self._draw_tactical_card(army, other, round_num)
+        if new_card is not None:
+            army.tactical_hand.append(new_card)
+            army.tactical_hand_age[new_card] = 0
+
     def _init_tactical_deck(self, army: Army) -> None:
         """Seed a TACTICAL army's 2-card hand + remaining deck deterministically.
 
@@ -3724,12 +3892,23 @@ class Battle:
         deck_rng = random.Random(name_crc ^ matchup_crc)
         deck = list(TACTICAL_DECK_POOL)
         deck_rng.shuffle(deck)
-        # Draw the opening hand of two (or fewer if the pool is tiny).
-        army.tactical_hand = deck[:2]
-        army.tactical_deck = deck[2:]
-        # Voluntary-discard hold-age bookkeeping (see `Army.tactical_hand_age`
-        # docstring comment) — every freshly-drawn card starts at age 0.
-        army.tactical_hand_age = {card: 0 for card in army.tactical_hand}
+        army.tactical_deck = deck
+        # Draw the opening hand of two through the shared draw helper, so each
+        # card's printed "When Drawn" clause fires at the opening deal (D1a,
+        # SWEG_TAC_SHEDDING). With shedding OFF the helper is a plain deck.pop(0),
+        # so the hand is deck[:2] and the remaining deck is deck[2:] exactly as
+        # before — byte-identical.
+        army.tactical_hand = []
+        army.tactical_hand_age = {}
+        other = self.b if army is self.a else self.a
+        for _ in range(2):
+            card = self._draw_tactical_card(army, other, 1)
+            if card is None:
+                break
+            army.tactical_hand.append(card)
+            # Voluntary-discard hold-age bookkeeping (see `Army.tactical_hand_age`
+            # docstring comment) — every freshly-drawn card starts at age 0.
+            army.tactical_hand_age[card] = 0
 
     def _score_one_card(self, card_key: str, scoring_army: Army,
                         other_army: Army, own_is_army_a: bool,
@@ -3895,10 +4074,22 @@ class Battle:
             self._secondary_pursuit_enabled(army)
             and not self.rules.alternating_activations
         )
-        if (self._tac_voluntary_discard_enabled(army)
+        # D1b: fold the voluntary discard into production default-on under
+        # SWEG_TAC_SHEDDING (the base SWEG_TAC_VOLUNTARY_DISCARD env var still
+        # forces it on independently). When shedding is on, the eligibility test
+        # is the achievability read (`_tac_discard_card_cannot_pay`) rather than
+        # the base gate's age-only trigger — docs/_SEC_ECONOMY_AUDIT.md §7 item
+        # 1b: the real bottleneck is card ACHIEVABILITY, not raw hand turnover.
+        _shedding = self._tac_shedding_enabled()
+        if ((self._tac_voluntary_discard_enabled(army) or _shedding)
                 and not _pursuit_own_turn_active):
-            eligible = [c for c in army.tactical_hand
-                       if entering_ages.get(c, 0) >= 1]
+            if _shedding:
+                eligible = [c for c in army.tactical_hand
+                            if self._tac_discard_card_cannot_pay(
+                                c, army, other_army, own_is_army_a, round_num)]
+            else:
+                eligible = [c for c in army.tactical_hand
+                            if entering_ages.get(c, 0) >= 1]
             if eligible:
                 # Deterministic pick — no dice may enter this decision (RNG
                 # discipline: only `_init_tactical_deck`'s private stream may
@@ -3923,7 +4114,11 @@ class Battle:
         for card in army.tactical_hand:
             army.tactical_hand_age[card] = army.tactical_hand_age.get(card, 0) + 1
         while len(army.tactical_hand) < 2 and army.tactical_deck:
-            new_card = army.tactical_deck.pop(0)
+            # D1a: apply each drawn card's "When Drawn" clause on the refill too
+            # (shedding on). Byte-identical pop-front when shedding is off.
+            new_card = self._draw_tactical_card(army, other_army, round_num)
+            if new_card is None:
+                break
             army.tactical_hand.append(new_card)
             army.tactical_hand_age[new_card] = 0
         return total
@@ -10925,6 +11120,13 @@ class Battle:
         # `stratagems.award_command_phase_cp` for the full rule text.
         award_command_phase_cp(self.a)
         award_command_phase_cp(self.b)
+        # ---- New Orders core stratagem (Chapter Approved 2025-26, D1c,
+        # SWEG_TAC_SHEDDING). "End of your Command phase": a Tactical army may
+        # spend 1 command point to discard one active Secondary Mission card and
+        # draw a new one. Fired here for a provably-dead held card only. No-op /
+        # byte-identical when shedding is off (or on the Fixed track).
+        self._apply_new_orders(self.a, self.b, True, round_num)
+        self._apply_new_orders(self.b, self.a, False, round_num)
         # ---- Warlord-gated CP discount (Roboute Guilliman, Lord of
         # Contagion). After the per-round drip, look up the army's Warlord
         # and apply any additional per-round CP mechanic:

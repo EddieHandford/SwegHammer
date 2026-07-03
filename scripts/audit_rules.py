@@ -1201,6 +1201,17 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # (previously unreachable) actually runs. `=0` restores the pre-fix pool
     # byte-identically. See data/rule_citations.d/secondaries_pariah_nexus.json.
     "simulator.tactical_deck_big_game",
+    # Secondary-economy audit fix wave (docs/_SEC_ECONOMY_AUDIT.md), D1 —
+    # Tactical card-shedding (env-gated SWEG_TAC_SHEDDING, default ON). Restores
+    # the three printed shedding mechanisms the simulator omitted so its 2-card
+    # Tactical hand ossified: (a) the per-card "When Drawn" redraw clause at draw
+    # time, (b) the end-of-turn voluntary discard folded to default-on with the
+    # achievability heuristic (cited under simulator.tactical_voluntary_discard),
+    # and (c) the New Orders core stratagem. `=0` restores the blind deal /
+    # achieve-only discard byte-identically. See
+    # data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.tactical_when_drawn_redraw",
+    "simulator.new_orders_stratagem",
     # Wave 249 — 10e core end-of-battle win condition (env-gated SWEG_TABLING_VP,
     # default OFF). When ON, the three survivor-count short-circuits in
     # Battle._decide_winner are skipped; every game (including one-sided tablings)
