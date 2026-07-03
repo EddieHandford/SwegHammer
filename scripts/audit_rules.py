@@ -615,6 +615,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # one model and drops the Hekhtur slot. Cited in
     # data/rule_citations.d/imperial_knights.json.
     "simulator.ik_canis_single",
+    # SWEG_IK_INVULN_RANGED_ONLY_BATCH2. Durability fidelity wave, audit B,
+    # divergence 1: five Imperial Knight chassis (Knight Destrier, Acastus
+    # Knight Asterius, Acastus Knight Porphyrion, Cerastus Knight Castigator,
+    # Knight Defender) share the identical shared BSData Ion Shield infoLink
+    # shape already corrected for twelve sibling chassis via the
+    # invuln_ranged_only override key, but never received the correction, so
+    # they kept a phantom melee invulnerable save. code/bsdata/loader.py.
+    # Cited in data/rule_citations.d/imperial_knights.json.
+    "simulator.ik_invuln_ranged_only_batch2",
     # SWEG_R5_SECOND_LAST. Chapter Approved 2025-26 round-5 going-second
     # primary-scoring timing (score at end of turn, not Command phase).
     # Battle._run_round_vanilla_turns. Cited in

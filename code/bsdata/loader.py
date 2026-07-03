@@ -105,6 +105,34 @@ _DEEP_STRIKE_TRIAGE_CLEAR_KEYS: frozenset = frozenset({
     "aeldari_drukhari_tantalus_legends",
 })
 
+# ---------------------------------------------------------------------------
+# SWEG_IK_INVULN_RANGED_ONLY_BATCH2 (default-on, `=0` byte-identical
+# kill-switch) — durability fidelity wave, audit B, divergence 1
+# (docs/_DURA_AUDIT_B_DEFENSES.md). Five Imperial Knight chassis share the
+# identical shared BSData Ion Shield infoLink shape already corrected via the
+# `invuln_ranged_only` override key (data/overrides.json) for twelve sibling
+# chassis (Armiger Helverin/Moirax/Warglaive, Canis Rex, Knight Castellan/
+# Crusader/Errant/Gallant/Paladin/Preceptor/Valiant/Warden) but were never
+# given the same correction, so they currently carry their full invulnerable
+# save into melee combat — a phantom melee invulnerable save the printed rule
+# denies them (Ion Shields protect against ranged fire only). Verified
+# directly against `data/bsdata/cache/Imperium - Imperial Knights -
+# Library.cat.gz`: Knight Destrier, Acastus Knight Asterius, Acastus Knight
+# Porphyrion and Cerastus Knight Castigator all reuse the shared 5+ profile
+# (id `8552-862d-6a49-4879`, "This model has a 5+ invulnerable save against
+# ranged attacks."); Knight Defender uses the shared 4+ variant (id
+# `5a7a-57fa-9801-4e25`, same wording at 4+). Set `SWEG_IK_INVULN_RANGED_ONLY_
+# BATCH2=0` to restore the raw (mapper-Shape-1-blind-spot) unconditional
+# invulnerable save byte-identically. Cited
+# `simulator.ik_invuln_ranged_only_batch2`.
+_IK_INVULN_RANGED_ONLY_BATCH2_KEYS: frozenset = frozenset({
+    "imperial_knights_library_knight_destrier",
+    "imperial_knights_library_acastus_knight_asterius",
+    "imperial_knights_library_acastus_knight_porphyrion",
+    "imperial_knights_library_cerastus_knight_castigator",
+    "imperial_knights_library_knight_defender",
+})
+
 
 @dataclass
 class CatalogEntry:
@@ -792,7 +820,12 @@ def _apply_override(
                 and os.environ.get("SWEG_NECRON_LYCHGUARD_INVULN", "1") != "0")
             else override.get("invuln_save", base.invuln_save)
         ),
-        "invuln_ranged_only": override.get("invuln_ranged_only", base.invuln_ranged_only),
+        "invuln_ranged_only": (
+            True
+            if (base.key in _IK_INVULN_RANGED_ONLY_BATCH2_KEYS
+                and os.environ.get("SWEG_IK_INVULN_RANGED_ONLY_BATCH2", "1") != "0")
+            else override.get("invuln_ranged_only", base.invuln_ranged_only)
+        ),
         # Task #92: an override may set the per-attack invuln directly; else fall
         # back to any override of the single value, else the base per-attack value.
         # Lychguard invuln fabrication (SWEG_NECRON_LYCHGUARD_INVULN, see above) must
