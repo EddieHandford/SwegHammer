@@ -154,6 +154,14 @@ FX_ALL_FACTIONS: frozenset = frozenset(FACTIONS[10:])
 #     data for the original 5 non-approx factions; set equal to warp_friends
 #     for all others until independent source data is obtained (zero stdev
 #     signals "single confirmed source", not "multi-source agreement")
+# ⚠ SUPERSEDED — NOT THE LIVE TARGET. This is a frozen May-2026 hand snapshot,
+# kept only for the cross-source-variance methodology note above. It has ZERO
+# consumers: the real per-faction win-rate target the gated mean absolute error
+# is computed against is loaded at runtime from `data/warpfriends_rolling.json`
+# by `_load_tournament_target()` (see line ~96), NOT from this dict. Do NOT read
+# per-faction "real" numbers from here — several are stale (e.g. Emperor's
+# Children reads 47.9 here but the live rolling target is 53.3). Reconciled and
+# banner added 2026-07-03 after this table misled a batch of agent briefings.
 TOURNAMENT_SOURCES: Dict[str, Dict[str, float]] = {
     "Adeptus Astartes":   {"warp_friends_may_2026": 47.6, "goonhammer_q2_2026": 47.6,
                            "stat_check_may_2026":   47.6, "meta_monday_may_2026": 47.6},
