@@ -68,6 +68,12 @@ if TYPE_CHECKING:
 #   engage_on_all_fronts — board-spread victory points
 #   behind_enemy_lines   — opponent deployment zone victory points
 #   no_prisoners         — generic unit-kill credit (Tactical only in tournament)
+# Durability fidelity wave, audit C divergence 2 (2026-07-03): the printed
+# CA-2025-26 Secondary Mission deck carries BOTH a Fixed box and a Tactical
+# box on the same physical card for most cards, including bring_it_down and
+# assassination — they are NOT Fixed-exclusive. See TACTICAL_DECK_POOL below
+# and `simulator.tactical_deck_big_game` (env-gated SWEG_TACDECK_BIG_GAME,
+# default ON) for the reachability fix that adds them to the drawable deck.
 # Source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
 # Cited as `simulator.secondary_selection`.
 FIXED_SECONDARY_KEYS: Tuple[str, ...] = (
@@ -128,15 +134,25 @@ ALL_SECONDARY_KEYS: Tuple[str, ...] = (
 # TWO HELD cards per round — not the whole pile.
 #
 # The deck pool below is the Tactical / action / take-and-hold set the simulator
-# already scores (the 3 Fixed KILL cards — bring_it_down, cull_the_horde,
-# assassination — are the FIXED track's pool and are NOT in this deck; No
-# Prisoners IS in this deck because it is a Tactical-only card in CA-2025-26
-# tournament play). Each card here is routed to its existing scorer by
+# already scores. Two of the three Fixed KILL cards (bring_it_down and
+# assassination) are ALSO drawable from this deck — see the
+# `_BIG_GAME_DECK_CARDS` block further down and `simulator.tactical_deck_big_game`
+# for the reachability fix and its printed-deck verification (durability
+# fidelity wave, audit C divergence 2, 2026-07-03). Cull the Horde is left
+# out of scope for that fix (a separate, un-audited reachability gap of the
+# same shape — its Tactical text is already cited at
+# `simulator.secondary_cull_the_horde_tactical` but likewise unreachable — is
+# noted there for a future ticket, not fixed here). No Prisoners IS in this
+# deck because it is a Tactical-only card in CA-2025-26 tournament play (it
+# is never a valid Fixed pick, so there is no Fixed-track overlap to reason
+# about). Each card here is routed to its existing scorer by
 # `Battle._score_one_card`. This is the union of:
 #   * No Prisoners (generic unit-kill credit, Tactical only in tournament),
 #   * the two position Tactical cards (Engage on All Fronts, Behind Enemy Lines),
-#   * the two action cards (Cleanse, Sabotage), and
-#   * the five Tier-A take-and-hold board cards.
+#   * the two action cards (Cleanse, Sabotage),
+#   * the five Tier-A take-and-hold board cards, and
+#   * (gated) Bring It Down / Assassination, the two Tactical-capable Fixed
+#     kill cards.
 # Source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
 # (deck mechanic) + the per-card sources already cited in
 # data/rule_citations.d/secondaries_pariah_nexus.json. Cited as
@@ -172,10 +188,43 @@ _ACTION_ECONOMY_DECK_CARDS: Tuple[str, ...] = (
     "recover_assets",
     "a_tempting_target",
 )
+# Durability fidelity wave, audit C divergence 2 (2026-07-03, env-gated
+# SWEG_TACDECK_BIG_GAME, DEFAULT-ON) — Bring It Down and Assassination are
+# Tactical-capable Fixed kill cards in the real CA-2025-26 Secondary Mission
+# deck, not Fixed-exclusive. Verified against Wahapedia
+# (https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ and
+# https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/): the printed
+# deck prints a Tactical scoring box on both cards ("One or more enemy
+# MONSTER or VEHICLE units were destroyed this turn. TACTICAL 4VP" / "One or
+# more enemy CHARACTER models were destroyed this turn. TACTICAL 5VP"),
+# corroborating the verbatim text a prior session already captured (wave 181)
+# in the `simulator.secondary_bring_it_down_tactical` /
+# `..._assassination_tactical` citations — text that has been fully wired
+# into `Battle._score_one_card`'s `is_tactical` branch since wave 181
+# (`code/simulator.py:3616-3633`) but was unreachable because no TACTICAL-track
+# army could ever draw either card. This gate makes the deck include them so
+# that already-implemented, already-cited scoring path actually runs.
+# Cited as `simulator.tactical_deck_big_game`.
+_BIG_GAME_DECK_CARDS: Tuple[str, ...] = (
+    "bring_it_down",
+    "assassination",
+)
+
+
+def _big_game_tactical_enabled() -> bool:
+    """Bring It Down / Assassination Tactical-deck reachability gate. DEFAULT
+    ON; `SWEG_TACDECK_BIG_GAME=0` is the byte-identical-off kill-switch that
+    restores the pre-fix deck (`_TACTICAL_DECK_BASE_POOL` plus whatever the
+    independent `SWEG_ACTION_ECONOMY` gate adds) exactly, with no perturbed
+    shuffle order and no extra random consumption when both cards are
+    absent — see `_BIG_GAME_DECK_CARDS` above for the rule verification."""
+    return os.environ.get("SWEG_TACDECK_BIG_GAME", "1") != "0"
+
+
 TACTICAL_DECK_POOL: Tuple[str, ...] = (
-    _TACTICAL_DECK_BASE_POOL + _ACTION_ECONOMY_DECK_CARDS
-    if _action_economy_enabled()
-    else _TACTICAL_DECK_BASE_POOL
+    _TACTICAL_DECK_BASE_POOL
+    + (_ACTION_ECONOMY_DECK_CARDS if _action_economy_enabled() else ())
+    + (_BIG_GAME_DECK_CARDS if _big_game_tactical_enabled() else ())
 )
 
 

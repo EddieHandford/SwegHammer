@@ -1148,6 +1148,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.secondary_assassination_tactical",
     "simulator.secondary_bring_it_down_tactical",
     "simulator.secondary_cull_the_horde_tactical",
+    # Durability fidelity wave, audit C divergence 2 (2026-07-03, env-gated
+    # SWEG_TACDECK_BIG_GAME, default ON) — Bring It Down and Assassination
+    # are Tactical-capable Fixed kill cards in the printed CA-2025-26
+    # Secondary Mission deck, not Fixed-exclusive; adds them to
+    # secondaries.TACTICAL_DECK_POOL so the wave-181 Tactical scoring above
+    # (previously unreachable) actually runs. `=0` restores the pre-fix pool
+    # byte-identically. See data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.tactical_deck_big_game",
     # Wave 249 — 10e core end-of-battle win condition (env-gated SWEG_TABLING_VP,
     # default OFF). When ON, the three survivor-count short-circuits in
     # Battle._decide_winner are skipped; every game (including one-sided tablings)
