@@ -2157,6 +2157,92 @@ class Battle:
             and os.environ.get("SWEG_AM_SECONDARY_PURSUIT", "0") == "1"
         )
 
+    # ------------------------------------------------------------------
+    # PRINCIPLE-2 ARMY-SCOPED ENTRY POINTS FOR THE PINNED CAPSTONE LEVERS
+    # ------------------------------------------------------------------
+    # The project's per-faction artificial-intelligence thesis (Principle 2,
+    # DECISION_LEDGER 2026-07-01 / 2026-07-03): a faithful faction-neutral
+    # piloting lever routinely WASHES or REGRESSES the headline metric even
+    # when it is individually correct, because the simulator's durable side
+    # banks the same symmetric play the lever hands to everyone; scoping the
+    # identical logic to the one faction it was built for banks that faction's
+    # lift without feeding the over-credited poles. The precedents that proved
+    # the recipe are all faction-restricted SECOND entry points on the SAME
+    # code path as a held or retired universal gate: simulator.am_advance_
+    # discipline (the generic SWEG_ADVANCE_DISCIPLINE screened +2.19 harmful,
+    # the Astra-Militarum scope banked +5.75), simulator.ck_ranged_hold
+    # (+11.27), simulator.votann_ranged_hold (+10.37) and simulator.am_
+    # secondary_pursuit (the universal package screened +0.46 net / harmful to
+    # the over-poles, the Astra-Militarum scope banked +5.17).
+    #
+    # The capstone (2026-07-03) proved the three pinned levers below sit in the
+    # SAME faction-neutral-closed situation: SWEG_STAGING, SWEG_PERSISTENT_
+    # NOMINATION and SWEG_ANTITANK_ADVANCE_DISCIPLINE are faithful but wash /
+    # regress generically. `_scoped_lever_on` adds, for each of the three, four
+    # default-off army-scoped gates keyed to the four factions the calibration
+    # loop most needs to move (Astra Militarum, Orks, Adepta Sororitas,
+    # Genestealer Cults) so one gate read answers each (faction, lever) pair —
+    # twelve gates total. The universal gate keeps its exact existing
+    # semantics; every scoped gate is default-off and the OFF path (no gate
+    # set) is byte-identical to the pre-change baseline.
+
+    # (lever token) -> (universal environment gate, scoped-gate name suffix).
+    # The universal gate name and the scoped suffix differ for two of the three
+    # (the universal SWEG_PERSISTENT_NOMINATION scopes as SWEG_<FACTION>_
+    # NOMINATION; the universal SWEG_ANTITANK_ADVANCE_DISCIPLINE scopes as
+    # SWEG_<FACTION>_ANTITANK_HOLD), so the mapping is explicit rather than
+    # derived.
+    _SCOPED_LEVER_ENV: Dict[str, Tuple[str, str]] = {
+        "STAGING": ("SWEG_STAGING", "STAGING"),
+        "NOMINATION": ("SWEG_PERSISTENT_NOMINATION", "NOMINATION"),
+        "ANTITANK_HOLD": ("SWEG_ANTITANK_ADVANCE_DISCIPLINE", "ANTITANK_HOLD"),
+    }
+
+    # (faction-prefix) -> (exact profile.faction string). The four prefixes are
+    # the established faction-prefix convention already used across the scoped
+    # levers (AM = Astra Militarum, per simulator.am_advance_discipline /
+    # am_secondary_pursuit).
+    _SCOPED_LEVER_FACTION: Dict[str, str] = {
+        "AM": "Astra Militarum",
+        "ORKS": "Orks",
+        "SOROR": "Adepta Sororitas",
+        "GSC": "Genestealer Cults",
+    }
+
+    def _scoped_lever_on(self, lever: str, army) -> bool:
+        """Principle-2 army-scoped entry point for a pinned capstone piloting
+        lever (`lever` is one of the keys of `_SCOPED_LEVER_ENV`). Returns True
+        when EITHER the faction-neutral universal gate for `lever` is explicitly
+        "1" (its existing semantics, unchanged), OR the acting `army`'s faction
+        has its per-faction scoped gate for `lever` explicitly "1". Twelve
+        scoped gates total (four factions x three levers), every one default-off
+        and read `== "1"`; when none is set this returns exactly the boolean the
+        bare universal-gate read returned before, so the OFF path is
+        byte-identical.
+
+        The scope is read from the acting `army`
+        (`army.units[0].profile.faction`, the same faction read
+        simulator.am_secondary_pursuit uses), so the gate is ASYMMETRIC by
+        construction: it activates only on the scoped army's own activation. For
+        the nomination lever this asymmetry is the whole point — the scoped army
+        points its anti-tank at an enemy brick without its OWN hulls becoming
+        everyone's standing nominee, because the nominee channels
+        (`_focusfire_target_uid` / `_persistent_nom_uid`) are per-army state set
+        only during that army's own turn, never shared across armies.
+
+        Fails loud (KeyError naming the bad token) if `lever` is not a
+        registered scoped lever — no silent default (CLAUDE.md rule 13)."""
+        universal_env, suffix = self._SCOPED_LEVER_ENV[lever]
+        if os.environ.get(universal_env, "0") == "1":
+            return True
+        if army is None or not getattr(army, "units", None):
+            return False
+        faction = army.units[0].profile.faction or ""
+        for prefix, scoped_faction in self._SCOPED_LEVER_FACTION.items():
+            if faction == scoped_faction:
+                return os.environ.get(f"SWEG_{prefix}_{suffix}", "0") == "1"
+        return False
+
     def _unit_zone(self, u, own_is_army_a: bool) -> str:
         """Classify a unit's position into one of the three Recover Assets areas:
         "own_dz" (the scoring army's own deployment zone), "nml" (No Man's Land),
@@ -11322,8 +11408,18 @@ class Battle:
             # commit heuristic can stage closers at the envelope edge. None when
             # the gate is off → _do_move's staging block is skipped entirely
             # (byte-identical off).
+            #
+            # PRINCIPLE-2 ARMY-SCOPED ENTRY POINT (`_scoped_lever_on`): the
+            # precompute (and hence the whole staging behaviour, since the
+            # _do_move block is guarded solely by `_phase_staging is not None`)
+            # fires when the universal SWEG_STAGING is "1" OR the ACTIVE army's
+            # faction has its scoped gate on (SWEG_AM_STAGING / SWEG_ORKS_STAGING
+            # / SWEG_SOROR_STAGING / SWEG_GSC_STAGING, all default-off). Because
+            # only the active army precomputes an envelope during its own move
+            # phase, the scope is asymmetric: a non-scoped opponent's move phase
+            # takes _phase_staging = None and stages nothing.
             _phase_staging = None
-            if os.environ.get("SWEG_STAGING", "0") == "1":
+            if self._scoped_lever_on("STAGING", active):
                 _phase_staging = self._precompute_staging_envelope(other, active)
             # Wave 121: reset any pursuit targets from the previous turn. The
             # field is per-turn (not per-round) so that each army's turn gets a
@@ -12479,7 +12575,15 @@ class Battle:
         # REPOSITION (HOLD and FALL_BACK both return earlier), so no
         # additional intent restriction is applied. Cited as
         # `simulator.antitank_advance_discipline`.
-        _ad_antitank = os.environ.get("SWEG_ANTITANK_ADVANCE_DISCIPLINE", "0") == "1"
+        #
+        # PRINCIPLE-2 ARMY-SCOPED ENTRY POINT (`_scoped_lever_on`): fires when
+        # the universal SWEG_ANTITANK_ADVANCE_DISCIPLINE is "1" OR the acting
+        # unit's army has its scoped gate on (SWEG_AM_ANTITANK_HOLD /
+        # SWEG_ORKS_ANTITANK_HOLD / SWEG_SOROR_ANTITANK_HOLD /
+        # SWEG_GSC_ANTITANK_HOLD, all default-off). `attacker_army` is the acting
+        # army in _do_move, so the scope is asymmetric: only the scoped army
+        # holds its anti-tank shot; a non-scoped opponent Advances as before.
+        _ad_antitank = self._scoped_lever_on("ANTITANK_HOLD", attacker_army)
         if (_ad_antitank
                 and not _suppress_advance
                 # Same non-[ASSAULT] exclusion as the family above: a unit
@@ -13072,9 +13176,22 @@ class Battle:
         handful of rounds and hold that nomination across rounds until it dies.
         The branch is taken BEFORE the SWEG_FOCUSFIRE check, so an unset persistent
         gate flows through to the unchanged wave-101 path byte-for-byte. Cited as
-        `simulator.persistent_nomination`."""
+        `simulator.persistent_nomination`.
+
+        PRINCIPLE-2 ARMY-SCOPED ENTRY POINT (`_scoped_lever_on`): the persistent
+        branch is taken when the universal SWEG_PERSISTENT_NOMINATION is "1" OR
+        the acting `army`'s faction has its scoped gate on (SWEG_AM_NOMINATION /
+        SWEG_ORKS_NOMINATION / SWEG_SOROR_NOMINATION / SWEG_GSC_NOMINATION, all
+        default-off). This method is called once per army per Shooting phase with
+        `army` = the acting army, so the scope is ASYMMETRIC by construction: the
+        scoped army holds a standing nominee on its OWN per-army channels
+        (`_persistent_nom_uid` / `_focusfire_target_uid`), while a non-scoped
+        opponent flows to the unchanged wave-101 path and never acquires a
+        persistent commitment — the scoped army's own hulls being shot at by the
+        enemy never become anyone's standing nominee (the nominee channels are
+        per-army state, never shared across armies)."""
         army._focusfire_target_uid = None
-        if __import__("os").environ.get("SWEG_PERSISTENT_NOMINATION") == "1":
+        if self._scoped_lever_on("NOMINATION", army):
             self._nominate_persistent_target(army, opponent)
             return
         if __import__("os").environ.get("SWEG_FOCUSFIRE", "1") == "0":
@@ -13629,8 +13746,17 @@ class Battle:
         # for this model). Only mutates `pool` under the gate, and only by adding a
         # candidate this model could legally target anyway, so the OFF path and
         # every non-nominee pick are unchanged.
+        #
+        # PRINCIPLE-2 ARMY-SCOPED ENTRY POINT (`_scoped_lever_on`): re-admits the
+        # nominee when the universal SWEG_PERSISTENT_NOMINATION is "1" OR the
+        # SHOOTING army (`attacker_army`) has its scoped SWEG_<FACTION>_NOMINATION
+        # gate on — the SAME scope under which the standing nominee was set in
+        # _nominate_persistent_target, so the re-admission is asymmetric with it:
+        # a non-scoped opponent's `_focusfire_target_uid` (set by the unchanged
+        # default-on wave-101 path) is left to the ordinary pool filter exactly
+        # as before, byte-identical.
         if (
-            __import__("os").environ.get("SWEG_PERSISTENT_NOMINATION") == "1"
+            self._scoped_lever_on("NOMINATION", attacker_army)
             and pool is not candidates
         ):
             _nom_uid = getattr(attacker_army, "_focusfire_target_uid", None)

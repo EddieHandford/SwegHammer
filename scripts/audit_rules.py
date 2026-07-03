@@ -1038,6 +1038,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # _staging_capped_target in code/simulator.py _do_move. Grounds in the
     # universal competitive staging doctrine plus the symmetry with the adopted
     # ranged-hold family. Cited in data/rule_citations.d/core_staging.json.
+    # PRINCIPLE-2 army-scoped entry points (2026-07-03, Battle._scoped_lever_on):
+    # four default-off scoped gates on the SAME code path — SWEG_AM_STAGING /
+    # SWEG_ORKS_STAGING / SWEG_SOROR_STAGING / SWEG_GSC_STAGING — bank the
+    # built-for faction's lift where the faction-neutral gate washes (the
+    # am_advance_discipline recipe). Documented in the same citation; no new key.
     "simulator.staging_discipline",
     # SWEG_ANTITANK_ADVANCE_DISCIPLINE (default-off, byte-identical off). The
     # narrow, faction-neutral cousin of the retired generic advance-discipline
@@ -1052,6 +1057,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Second entry point `_ad_antitank` on the shared _suppress_advance block
     # in code/simulator.py _do_move. Cited in
     # data/rule_citations.d/antitank_advance_discipline.json.
+    # PRINCIPLE-2 army-scoped entry points (2026-07-03, Battle._scoped_lever_on):
+    # four default-off scoped gates on the SAME _do_move code path —
+    # SWEG_AM_ANTITANK_HOLD / SWEG_ORKS_ANTITANK_HOLD / SWEG_SOROR_ANTITANK_HOLD
+    # / SWEG_GSC_ANTITANK_HOLD — bank the built-for faction's lift where the
+    # faction-neutral gate washes. Documented in the same citation; no new key.
     "simulator.antitank_advance_discipline",
     "unit.necrodermis",
     # Wave 181 — CA-2025-26 Tactical-track flat kill card VP values.
@@ -1125,6 +1135,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # nominee under the same gate). Grounds in the cited focus-one-Knight anti-brick
     # doctrine plus the capstone waterfall. Cited in
     # data/rule_citations.d/persistent_nomination.json.
+    # PRINCIPLE-2 army-scoped entry points (2026-07-03, Battle._scoped_lever_on):
+    # four default-off scoped gates on the SAME code path — SWEG_AM_NOMINATION /
+    # SWEG_ORKS_NOMINATION / SWEG_SOROR_NOMINATION / SWEG_GSC_NOMINATION — bank
+    # the built-for faction's lift where the faction-neutral gate washes.
+    # Asymmetric by construction: only the scoped army acquires a standing
+    # nominee (per-army _persistent_nom_uid / _focusfire_target_uid channels, set
+    # only on that army's own turn). Documented in the same citation; no new key.
     "simulator.persistent_nomination",
 )
 
