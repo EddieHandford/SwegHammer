@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import random
 from dataclasses import dataclass
@@ -190,6 +191,19 @@ def _er_gap_units(a, b) -> float:
     a centre-based `<= 1.0` gate can never see). Cited as
     `simulator.engagement_range_base_edge`."""
     return _er_gap(a.position, a.profile, b.position, b.profile)
+
+
+def _angular_gap(a: float, b: float) -> float:
+    """Absolute smallest angle (radians, in [0, pi]) between two bearings.
+
+    Used by the multi-unit melee CAGING wrap placement (SWEG_MELEE_CAGING) to
+    land each coordinated charger on the side of a durable brick farthest from
+    the chargers already on it, and by the fall-back-block's opposing-sides
+    test in code/strategy.py."""
+    d = (a - b) % (2.0 * math.pi)
+    if d > math.pi:
+        d = 2.0 * math.pi - d
+    return d
 
 
 # ---------------------------------------------------------------------------
@@ -10537,6 +10551,12 @@ class Battle:
         self._squad_advance_roll = {}  # wave 77: per-squad advance roll, fresh each round
         self._battleshocked_this_round = set()
         self._charging_this_round = set()
+        # Multi-unit melee CAGING (gate SWEG_MELEE_CAGING): per-brick list of the
+        # bearings already occupied by cage chargers this round, so each later
+        # coordinated charger lands on the OPPOSING side (the wrap). Fresh each
+        # round; only written when the gate fires, so it is an unused empty dict
+        # on the byte-identical off path.
+        self._cage_bearings: Dict[int, List[float]] = {}
         # Fire Overwatch: new round, each army may use the overwatch stratagem
         # again (once per round per army). Cited as `simulator.fire_overwatch`.
         self._overwatched_this_round = set()
@@ -14594,6 +14614,137 @@ class Battle:
             )
             self._maybe_apply_deadly_demise(target)
 
+    # -----------------------------------------------------------------------
+    # Multi-unit melee CAGING (gate SWEG_MELEE_CAGING) — charge coordination
+    # -----------------------------------------------------------------------
+    # The faithful counter to the durability wall the sim otherwise cannot
+    # express. Real players who can neither out-shoot nor crack a durable gun
+    # platform (a Knight, a Toughness-10+/15-Wound+ brick) WRAP it with two or
+    # more cheap melee units so it cannot Fall Back and freely re-target next
+    # turn, trading bodies for the platform's UPTIME (the durables' win channel,
+    # per the ranged-hold kill-switch counterfactual: Chaos Knights 87.5 -> 65.0
+    # when uptime is removed). This half forms the wrap: when a durable brick is
+    # within charge reach of TWO OR MORE friendly melee-capable units in the same
+    # Charge phase, coordinate their charges onto it (rather than the default
+    # scatter to crackable chaff), landing each charger on the side opposite the
+    # chargers already on it so the fall-back exits are covered. The fall-back
+    # block itself lives in code/strategy.py pick_move_intent (a caged brick
+    # returns HOLD instead of FALL_BACK). A caged VEHICLE/MONSTER still shoots the
+    # cage at the Big Guns Never Tire -1 (already modelled in _do_shoot) — caging
+    # does not silence the platform, it forces it to fight the cage instead of
+    # re-targeting freely and blocks the fall-back-reposition. Faction-neutral,
+    # default-off, byte-identical off. Cited simulator.melee_caging.
+    @staticmethod
+    def _melee_caging_enabled() -> bool:
+        """SWEG_MELEE_CAGING gate. DEFAULT-OFF: the whole caging path is a no-op
+        and byte-identical unless the variable is exactly "1"."""
+        return os.environ.get("SWEG_MELEE_CAGING", "0") == "1"
+
+    @staticmethod
+    def _is_caging_brick(profile) -> bool:
+        """Durable platform worth caging — the SAME 'brick' definition the
+        antitank-advance-discipline block uses (Toughness >= 10 OR 15+ starting
+        Wounds), reused verbatim so the counterplay targets exactly the durable
+        platforms the durability wall rewards."""
+        if profile is None:
+            return False
+        return (getattr(profile, "toughness", 0) or 0) >= 10 or (
+            getattr(profile, "health", 0) or 0) >= 15
+
+    def _cage_charge_target(self, attacker, attacker_army, defender_army):
+        """CAGING charge coordination (gate SWEG_MELEE_CAGING). If a durable
+        enemy brick is within THIS charger's declaration range (base-edge, 1"..12")
+        AND within charge reach of at least TWO melee-capable friendly units
+        (including the attacker), return `(brick, dist)` to redirect this charger
+        onto it — where `dist` is the 2D6 requirement computed the same way
+        pick_charge_target does. Otherwise None.
+
+        Only ever consulted when the attacker already WANTS to charge (the
+        `_wants_to_charge` gate ran earlier in `_do_charge`) and pick_charge_target
+        already returned a live target, so redirecting the target never pulls a
+        non-charging unit off an objective it could claim — it only changes WHICH
+        enemy an already-committed charger goes into (the nomination lever's
+        -5.37 rejection precedent: never divert a marker-claimer). 'Melee-capable'
+        reuses `_wants_to_charge` (melee output dominates ranged), the sim's own
+        would-this-unit-charge predicate. Ties between eligible bricks break to
+        the nearest (most reachable). Deterministic, no RNG."""
+        base_edge = os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1"
+        best = None
+        best_gap = None
+        for brick in defender_army.alive_units:
+            if getattr(brick, "embarked_in", None) is not None:
+                continue
+            if not self._is_caging_brick(brick.profile):
+                continue
+            gap = _er_gap_units(attacker, brick)
+            if gap <= 1.0 or gap > 12.0:
+                continue   # not in this charger's declaration range (base-edge)
+            n = 0
+            for u in attacker_army.alive_units:
+                if getattr(u, "embarked_in", None) is not None:
+                    continue
+                if not self._wants_to_charge(u):
+                    continue
+                g = _er_gap_units(u, brick)
+                if 1.0 < g <= 12.0:
+                    n += 1
+                    if n >= 2:
+                        break
+            if n < 2:
+                continue
+            if best_gap is None or gap < best_gap:
+                best_gap = gap
+                best = brick
+        if best is None:
+            return None
+        dist = max(0.0, best_gap - 1.0) if base_edge else best_gap
+        return best, dist
+
+    def _cage_charge_end(self, attacker, target, occupied):
+        """CAGING wrap placement (gate SWEG_MELEE_CAGING; base-edge geometry).
+        Return `(end_position, bearing)` for a charger whose 2D6 already succeeded
+        against a cage brick, placing its base edge within 1" of the brick's base
+        edge on the side FARTHEST from the bearings already taken by cage chargers
+        on this brick (`occupied`, radians). The first cage charger (empty
+        `occupied`) defers to the standard base-edge placement (its natural
+        approach); each later charger opens the widest angular gap it can find a
+        collision-legal spot in — so two chargers land ~180 deg apart (opposing
+        sides, the wrap) and further ones fill the remaining arcs.
+
+        Pure deterministic geometry: fixed 10-degree candidate ring, no RNG, so
+        the gate-on arm draws no extra random numbers. A successful charge is
+        never cancelled by a placement failure (10e has no such clause): if no
+        legal wrap spot exists, fall back to the standard base-edge placement."""
+        tx, ty = target.position
+        if not occupied:
+            pos = self._charge_baseedge_end(attacker, target)
+            return pos, math.atan2(pos[1] - ty, pos[0] - tx)
+        a_rad = _bc_model_radius_in(attacker.profile)
+        t_rad = _bc_model_radius_in(target.profile)
+        center_dist = 1.0 + a_rad + t_rad
+        kw = self._collision_kwargs(attacker, allow_engagement=True)
+        # Candidate bearings every 10 degrees, ordered by DESCENDING minimum
+        # angular distance from every occupied bearing (widest gap first), with a
+        # deterministic tie-break on the bearing value itself.
+        cands = []
+        for deg in range(0, 360, 10):
+            ang = math.radians(float(deg))
+            sep = min(_angular_gap(ang, o) for o in occupied)
+            cands.append((-sep, ang))
+        cands.sort()
+        for _neg_sep, ang in cands:
+            cx = tx + math.cos(ang) * center_dist
+            cy = ty + math.sin(ang) * center_dist
+            cand = (cx, cy)
+            if self.map.is_blocked(cand):
+                continue
+            if not kw or _collision_pos_legal(
+                    cand, kw["mover_radius"], kw["occupants"], kw["mover_fly"]):
+                return cand, ang
+        # No legal wrap spot anywhere: never cancel the charge — standard placement.
+        pos = self._charge_baseedge_end(attacker, target)
+        return pos, math.atan2(pos[1] - ty, pos[0] - tx)
+
     def _charge_baseedge_end(self, attacker, target):
         """Base-edge charge-end placement (env-gate SWEG_CHARGE_BASEEDGE, wave 240
         lever 1). Return the end POSITION for a charger whose 2D6 has already
@@ -14741,6 +14892,23 @@ class Battle:
         target, dist = pick_charge_target(attacker, defender_army)
         if target is None:
             return
+
+        # Multi-unit melee CAGING (gate SWEG_MELEE_CAGING, default-off): this
+        # charger already WANTS to charge and pick_charge_target already gave it a
+        # live target. If a durable enemy brick is within its reach AND within
+        # reach of >= 2 melee-capable friendlies, redirect it onto the brick so
+        # the field COORDINATES its charges into a wrap instead of trickling one
+        # unit per round onto it (and scattering the rest to crackable chaff). The
+        # wrap placement below (`_cage_charge_end`) then lands it opposite the
+        # chargers already on the brick. Off path byte-identical (gate is the
+        # first short-circuit); redirecting an already-committed charger never
+        # pulls a marker-claimer off its objective (see `_cage_charge_target`).
+        _is_cage_charge = False
+        if self._melee_caging_enabled():
+            _cage = self._cage_charge_target(attacker, attacker_army, defender_army)
+            if _cage is not None:
+                target, dist = _cage
+                _is_cage_charge = True
 
         # CHARGE-DISCIPLINE (piloting heuristic, gated SWEG_CHARGE_DISCIPLINE,
         # default-off): a unit should not declare a charge into a target it
@@ -14901,7 +15069,21 @@ class Battle:
         # must be emitted as a UnitMoved so the replay viewer never sees a
         # silent position change — applied inside BOTH placement branches.
         _charge_old_pos = attacker.position
-        if os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1":
+        if _is_cage_charge and os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1":
+            # CAGING wrap placement (SWEG_MELEE_CAGING): land opposite the cage
+            # chargers already on this brick so the fall-back exits are covered.
+            _occupied = self._cage_bearings.setdefault(target.uid, [])
+            new_pos, _cage_bearing = self._cage_charge_end(
+                attacker, target, _occupied)
+            if not self.map.is_blocked(new_pos):
+                attacker.position = new_pos
+                _occupied.append(_cage_bearing)
+                self._emit(UnitMoved(
+                    unit_uid=attacker.uid,
+                    from_pos=_charge_old_pos,
+                    to_pos=new_pos,
+                ))
+        elif os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1":
             new_pos = self._charge_baseedge_end(attacker, target)
             if not self.map.is_blocked(new_pos):
                 attacker.position = new_pos

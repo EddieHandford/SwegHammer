@@ -1102,6 +1102,25 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # / SWEG_GSC_ANTITANK_HOLD — bank the built-for faction's lift where the
     # faction-neutral gate washes. Documented in the same citation; no new key.
     "simulator.antitank_advance_discipline",
+    # SWEG_MELEE_CAGING (default-off, faction-neutral, byte-identical off). The
+    # coordinated multi-unit melee caging counterplay — the faithful counter to
+    # the durability wall the single-point-per-model geometry cannot otherwise
+    # express. Two coupled pieces behind one gate: (1) charge coordination + wrap
+    # placement (Battle._do_charge / _cage_charge_target / _cage_charge_end,
+    # code/simulator.py) redirects two or more already-committed melee chargers
+    # onto one durable brick (Toughness 10+ or 15+ starting Wounds — the same
+    # brick definition simulator.antitank_advance_discipline uses) and lands each
+    # on the side opposite the chargers already on it (the wrap); (2) the
+    # fall-back block (pick_move_intent, code/strategy.py) makes a caged brick
+    # return HOLD instead of FALL_BACK, so it stays engaged and shoots only the
+    # cage at the Big Guns Never Tire -1 rather than repositioning to re-target
+    # freely. The fall-back-block half is grounded in the verbatim 10e Fall Back
+    # surround rule; the charge-coordination half is an artificial-intelligence
+    # piloting heuristic (the simulator.staging_discipline class). The
+    # opposing-sides / >= 120-degree cage test is the documented geometric
+    # approximation the point geometry supports. Cited in
+    # data/rule_citations.d/melee_caging.json.
+    "simulator.melee_caging",
     "unit.necrodermis",
     # Wave 181 — CA-2025-26 Tactical-track flat kill card VP values.
     # When a TACTICAL-track army (SWEG_TAC_DECK path) draws one of these three

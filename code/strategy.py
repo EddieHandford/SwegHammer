@@ -2218,6 +2218,82 @@ def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, fl
 
 
 # ---------------------------------------------------------------------------
+# Multi-unit melee CAGING — fall-back block (SWEG_MELEE_CAGING)
+# ---------------------------------------------------------------------------
+# The faithful counter to the durability wall the simulator cannot otherwise
+# express. Real players who can neither out-shoot nor crack a durable gun
+# platform (a Knight, a Toughness-10+/15-Wound+ brick) WRAP it with two or more
+# cheap units so it cannot Fall Back and re-target next turn, trading bodies for
+# the platform's UPTIME. 10e core, Fall Back (Wahapedia, verbatim in
+# data/rule_citations.d/melee_caging.json under simulator.melee_caging):
+#   "each model in that unit can make a Fall Back move ... provided it does not
+#    end that move within Engagement Range of any enemy models - if this is not
+#    possible, that unit cannot Fall Back."
+# A fully-wrapped unit therefore cannot Fall Back at all. SwegHammer represents
+# each model as a single point, so it cannot express a literal closed ring of
+# models around a base; the closest faithful proxy the point geometry supports
+# is OPPOSING-SIDES engagement — the durable unit is caged when it is within
+# Engagement Range of two or more enemy units whose bearings from it differ by
+# at least _CAGE_MIN_ARC (120 degrees). We do NOT claim a geometric proof of
+# no-escape (a point can in principle slip between two points); we model the
+# tactical OUTCOME the wrap produces: the platform loses its free
+# Fall-Back-and-reposition and is held to shoot only the cage at the Big Guns
+# Never Tire -1 (already modelled in Battle._do_shoot, which restricts an
+# in-engagement VEHICLE/MONSTER to targets it is itself engaged with). A single
+# cage member never blocks Fall Back (the unit simply retreats the other way),
+# preserving the rule that an un-surrounded unit may always Fall Back. The
+# charge-coordination half that forms the wrap lives in Battle._do_charge /
+# _cage_charge_target / _cage_charge_end. Faction-neutral, default-off,
+# byte-identical off (the gate is the first short-circuit). Cited
+# simulator.melee_caging.
+_CAGE_MIN_ARC = math.radians(120.0)
+
+
+def _melee_caging_enabled() -> bool:
+    return os.environ.get("SWEG_MELEE_CAGING", "0") == "1"
+
+
+def _is_caging_brick(profile) -> bool:
+    """Durable platform worth caging — the SAME 'brick' definition the
+    antitank-advance-discipline block uses (Toughness >= 10 OR 15+ starting
+    Wounds), reused so the counterplay's fall-back block bites exactly the
+    durable platforms the durability wall rewards."""
+    if profile is None:
+        return False
+    return (getattr(profile, "toughness", 0) or 0) >= 10 or (
+        getattr(profile, "health", 0) or 0) >= 15
+
+
+def _cage_angular_gap(a: float, b: float) -> float:
+    """Absolute smallest angle (radians, in [0, pi]) between two bearings."""
+    d = (a - b) % (2.0 * math.pi)
+    if d > math.pi:
+        d = 2.0 * math.pi - d
+    return d
+
+
+def _unit_is_caged(unit, enemies) -> bool:
+    """True when `unit` is wrapped on opposing sides: within Engagement Range of
+    two or more enemies whose bearings from `unit` differ by >= _CAGE_MIN_ARC.
+    The point-geometry proxy for the 10e "cannot end outside Engagement Range of
+    all enemies, so cannot Fall Back" surround rule (see the block header)."""
+    ux, uy = unit.position
+    bearings = []
+    for e in enemies:
+        if _er_gap(unit.position, unit.profile,
+                   e.position, e.profile) <= _ENGAGEMENT_RANGE:
+            bearings.append(math.atan2(e.position[1] - uy, e.position[0] - ux))
+    n = len(bearings)
+    if n < 2:
+        return False
+    for i in range(n):
+        for j in range(i + 1, n):
+            if _cage_angular_gap(bearings[i], bearings[j]) >= _CAGE_MIN_ARC:
+                return True
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Displacement substrate Stage 1 — Fall-Back-only-when-wasted AI (SWEG_DISPLACE_FALLBACK)
 # ---------------------------------------------------------------------------
 # Avenue-2 displacement plan, Stage 1 (docs/DISPLACEMENT_SUBSTRATE_PLAN.md §5).
@@ -3348,6 +3424,25 @@ def pick_move_intent(
             for e in enemies
         )
         if in_engagement and enemies:
+            # Multi-unit melee CAGING (gate SWEG_MELEE_CAGING, default-off): a
+            # durable platform (Toughness >= 10 or 15+ Wounds) wrapped by enemies
+            # on OPPOSING SIDES cannot Fall Back. 10e core, Fall Back: a Falling
+            # Back unit must end outside Engagement Range of ALL enemies, and "if
+            # this is not possible, that unit cannot Fall Back." The single-point-
+            # per-model geometry cannot express a literal closed ring, so the
+            # faithful proxy is opposing-sides engagement (>= 2 enemies whose
+            # bearings differ by >= 120 deg; see the helper block header). A caged
+            # unit HOLDS — it stays engaged, and as a VEHICLE/MONSTER shoots only
+            # the cage at the Big Guns Never Tire -1 (Battle._do_shoot), instead of
+            # Falling Back to reposition and re-target freely next turn. Returning
+            # HOLD (not falling through) is required: a unit in Engagement Range
+            # may only Fall Back or Remain Stationary, never Normal-move away. Off
+            # path byte-identical (the gate is the first short-circuit). Cited
+            # simulator.melee_caging.
+            if (_melee_caging_enabled()
+                    and _is_caging_brick(unit.profile)
+                    and _unit_is_caged(unit, enemies)):
+                return unit.position, _HOLD_INTENT
             # Displacement Stage 1 (SWEG_DISPLACE_FALLBACK): narrow the legacy
             # eager Fall Back to fire ONLY when the unit is genuinely WASTED —
             # all three conditions must hold (no control consequence, staying
