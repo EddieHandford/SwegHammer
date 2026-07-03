@@ -1212,6 +1212,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # data/rule_citations.d/secondaries_pariah_nexus.json.
     "simulator.tactical_when_drawn_redraw",
     "simulator.new_orders_stratagem",
+    # Secondary-economy audit fix wave, D2 — action assignment gated on the HELD
+    # hand (env-gated SWEG_ACTIONS_HAND_GATED, default ON). A Tactical army's
+    # chosen_secondaries is the whole drawable pool, so the Cleanse / Sabotage
+    # assignment step forgo shooting to perform actions for cards the army does
+    # not hold and can never score; this gates assignment on tactical_hand. `=0`
+    # restores the legacy chosen_secondaries membership byte-for-byte. See
+    # data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.actions_hand_gated",
     # Wave 249 — 10e core end-of-battle win condition (env-gated SWEG_TABLING_VP,
     # default OFF). When ON, the three survivor-count short-circuits in
     # Battle._decide_winner are skipped; every game (including one-sided tablings)

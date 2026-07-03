@@ -2013,6 +2013,30 @@ class Battle:
                 total += self._effective_oc(u)
         return total
 
+    def _actions_hand_gated_enabled(self) -> bool:
+        """D2 — action assignment gated on the HELD hand (SWEG_ACTIONS_HAND_GATED,
+        DEFAULT-ON). `=0` restores the legacy chosen-pool membership test
+        byte-for-byte. See `_action_card_available` and
+        docs/_SEC_ECONOMY_AUDIT.md D2."""
+        return __import__("os").environ.get("SWEG_ACTIONS_HAND_GATED", "1") != "0"
+
+    def _action_card_available(self, army, card: str) -> bool:
+        """D2 — may a unit be pulled out of shooting/charging to perform `card`'s
+        Action this turn? Only if the army can actually SCORE that card, i.e. it
+        holds it. For a TACTICAL-track army the scoreable set is the two-card held
+        hand (`tactical_hand`), NOT the whole ~12-card pool that
+        `chosen_secondaries` returns for a Tactical army — the audit found the
+        assignment step gating on the pool committed units to actions for cards
+        the army does not hold and can never score (958 Cleanse assignments
+        realised only 172 victory points; docs/_SEC_ECONOMY_AUDIT.md D2). For a
+        FIXED army `chosen_secondaries` IS its two-card hand, so the test is
+        unchanged. Env-gated SWEG_ACTIONS_HAND_GATED (default ON); with it off the
+        legacy `card in chosen_secondaries` membership runs byte-for-byte."""
+        if (self._actions_hand_gated_enabled()
+                and getattr(army, "secondary_track", None) == "TACTICAL"):
+            return card in (getattr(army, "tactical_hand", ()) or ())
+        return card in (getattr(army, "chosen_secondaries", ()) or ())
+
     def _assign_cleanse_actions(self, active, other) -> None:
         """Pariah Nexus Cleanse (wave 74; Action-cost contract rebuilt wave 135).
         After the Movement phase, flag up to two SURPLUS units that sit on an
@@ -2034,7 +2058,8 @@ class Battle:
         `simulator.secondary_action_cost` (the ON-path Action contract)."""
         if not self._cleanse_enabled():
             return
-        if "cleanse" not in (getattr(active, "chosen_secondaries", ()) or ()):
+        # D2: gate on the HELD hand for a Tactical army, not the whole pool.
+        if not self._action_card_available(active, "cleanse"):
             return
         from .strategy import _is_chaff_unit
         use_action_cost = self._secondary_dedication_enabled()
@@ -2145,7 +2170,8 @@ class Battle:
         `simulator.secondary_action_cost`."""
         if not self._sabotage_enabled():
             return
-        if "sabotage" not in (getattr(active, "chosen_secondaries", ()) or ()):
+        # D2: gate on the HELD hand for a Tactical army, not the whole pool.
+        if not self._action_card_available(active, "sabotage"):
             return
         from .strategy import _is_chaff_unit
         use_action_cost = self._secondary_dedication_enabled()
