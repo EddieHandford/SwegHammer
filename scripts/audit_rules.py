@@ -1054,6 +1054,23 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # built-for faction's lift where the faction-neutral gate washes (the
     # am_advance_discipline recipe). Documented in the same citation; no new key.
     "simulator.staging_discipline",
+    # SWEG_AM_CHAFF_STAGING (default-off, byte-identical off). Scope-widening
+    # of the SAME staging mechanism above onto Astra Militarum's own cheap
+    # chaff (Kasrkin, Tempestus Scions, Cadian Shock Troops): the Emperor's
+    # Children crater diagnostic (docs/_EC_CRATER_FINDINGS.md, 160/160
+    # winner-reproduction verified) found the existing chaff exemption in
+    # Battle._staging_decision — override (b), "screens are supposed to be
+    # exposed" — is Astra Militarum's own failure mode, since its light
+    # infantry commits forward unconditionally and dies piecemeal before
+    # acting while the army's tanks correctly hold via am_advance_discipline.
+    # When on for an Astra Militarum attacker, the chaff exemption is skipped
+    # and the unit falls through to the identical EXPOSED / can-act-this-turn
+    # / commit-ready test every other unit already gets under SWEG_AM_STAGING
+    # — no new mechanism, same Battle._staging_decision /
+    # _precompute_staging_envelope / _staging_can_act_this_turn /
+    # _staging_capped_target machinery. Cited in
+    # data/rule_citations.d/core_staging.json.
+    "simulator.am_chaff_staging",
     # SWEG_ANTITANK_ADVANCE_DISCIPLINE (default-off, byte-identical off). The
     # narrow, faction-neutral cousin of the retired generic advance-discipline
     # gate and of the per-faction gunline-hold family above (am_advance_

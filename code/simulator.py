@@ -12249,8 +12249,10 @@ class Battle:
         a significant enemy threat envelope) AND it cannot act effectively this
         turn, UNLESS (a) it claims/contests an objective this turn [handled by
         _staging_can_act_this_turn], (b) it is cheap chaff/screen (screens are
-        SUPPOSED to be exposed), or (c) a friendly mass is committing into the
-        same envelope this turn (commit_ready). Staging suppresses the Advance
+        SUPPOSED to be exposed) — EXCEPT for Astra Militarum when
+        SWEG_AM_CHAFF_STAGING=1 widens this same mechanism onto its own chaff
+        (see below), or (c) a friendly mass is committing into the same
+        envelope this turn (commit_ready). Staging suppresses the Advance
         sprint (which for a melee unit also forfeits its charge) and, for melee
         threats, caps the Normal move at the bubble edge; the unit still
         Normal-moves toward its goal, so board presence is never surrendered —
@@ -12258,10 +12260,35 @@ class Battle:
         if intent not in ("ENGAGE", "CAPTURE", "STEAL"):
             return None
         threats, commit_ready = staging_ctx
-        # Override (b): cheap chaff / screens are meant to be exposed.
+        # Override (b): cheap chaff / screens are meant to be exposed. SCOPE
+        # WIDENING (SWEG_AM_CHAFF_STAGING, default-off, Astra Militarum only):
+        # the Emperor's Children crater diagnostic (docs/_EC_CRATER_FINDINGS.md)
+        # found this exact exemption is Astra Militarum's failure mode — its
+        # cheap light infantry (Kasrkin, Tempestus Scions, Cadian Shock Troops)
+        # commit forward unconditionally and die piecemeal in the round-3/4
+        # kill zone before acting, while the adopted gunline-hold family
+        # (simulator.am_advance_discipline / am_fire_support_hold) correctly
+        # holds the army's tanks and artillery back. This is scope-widening of
+        # the SAME already-adopted staging mechanism (SWEG_AM_STAGING, cited
+        # simulator.staging_discipline), not a new mechanism: when the chaff
+        # gate is on for an Astra Militarum attacker, the unit does NOT get
+        # the screen exemption and falls through to the identical EXPOSED /
+        # can-act-this-turn / commit-ready test every other unit gets — so a
+        # staged chaff body still Normal-moves (constraint 1), still commits
+        # freely to claim a reachable objective this turn via
+        # _staging_can_act_this_turn's CAPTURE/STEAL branch (constraint 2),
+        # and still releases with the rest of a committing friendly mass via
+        # commit_ready (constraint 3). Off (default) or any non-Astra-
+        # Militarum attacker reproduces the pre-existing exemption exactly.
+        # Cited `simulator.am_chaff_staging`.
         from .strategy import _is_chaff_unit
         if _is_chaff_unit(attacker):
-            return None
+            _am_chaff_staging = (
+                (attacker.profile.faction or "") == "Astra Militarum"
+                and os.environ.get("SWEG_AM_CHAFF_STAGING", "0") == "1"
+            )
+            if not _am_chaff_staging:
+                return None
         apos = attacker.position
         ax, ay = apos
         dist_to_goal = _distance(apos, target_pos)
