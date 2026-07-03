@@ -624,6 +624,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # they kept a phantom melee invulnerable save. code/bsdata/loader.py.
     # Cited in data/rule_citations.d/imperial_knights.json.
     "simulator.ik_invuln_ranged_only_batch2",
+    # SWEG_IK_ACHERON_INVULN. Durability fidelity wave, audit B, divergence 2:
+    # the Imperial Cerastus Knight Acheron's Ion Shield ability is authored in
+    # BSData under a profile named after the unit itself rather than
+    # "Invulnerable Save", so the mapper's Shape 3 name-prefix filter never
+    # matches it and the unit carried no invulnerable save at all.
+    # code/bsdata/loader.py. Cited in data/rule_citations.d/imperial_knights.json.
+    "simulator.ik_acheron_invuln",
     # SWEG_R5_SECOND_LAST. Chapter Approved 2025-26 round-5 going-second
     # primary-scoring timing (score at end of turn, not Command phase).
     # Battle._run_round_vanilla_turns. Cited in
