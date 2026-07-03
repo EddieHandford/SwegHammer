@@ -2251,10 +2251,21 @@ class Battle:
                 # shelf. All other scoped gates stay default-off (Astra
                 # Militarum 3x REJECTED decisive, Orks REJECTED, Adepta
                 # Sororitas wash — see the ledger). `=0` kill-switches.
-                _default = "1" if prefix == "GSC" else "0"
-                return os.environ.get(
-                    f"SWEG_{prefix}_{suffix}", _default) != "0" if _default == "1" else os.environ.get(
-                    f"SWEG_{prefix}_{suffix}", "0") == "1"
+                _gate = f"SWEG_{prefix}_{suffix}"
+                # ADOPTED scoped gates (default-on, `=0` kill-switches):
+                # the three Genestealer Cults gates (extraction wave,
+                # +3.38 onto its real number) and SWEG_AM_STAGING
+                # (corrected-frame re-screen 2026-07-03: Astra Militarum
+                # +1.66 alone / +1.23 combined with the fire-support
+                # hold, gated 3.82 -> 3.70 — the offset-era −4.37
+                # "rejection" was the frame-integrity phantom).
+                _adopted = {
+                    "SWEG_GSC_STAGING", "SWEG_GSC_NOMINATION",
+                    "SWEG_GSC_ANTITANK_HOLD", "SWEG_AM_STAGING",
+                }
+                if _gate in _adopted:
+                    return os.environ.get(_gate, "1") != "0"
+                return os.environ.get(_gate, "0") == "1"
         return False
 
     def _unit_zone(self, u, own_is_army_a: bool) -> str:
@@ -12532,16 +12543,12 @@ class Battle:
             # back. Targets the heavy shooters that throw away the most by Advancing.
             _rdpa = (attacker.profile.attacks * attacker.profile.hit_probability
                      * (attacker.profile.weapon_damage_per_shot or 0.0))
-            # SWEG_AM_FIRE_SUPPORT_HOLD — REJECTED 2026-07-03, DO NOT ADOPT
-            # (AM-scoped N=80 vs sc47a: Astra Militarum −5.63 DECISIVE, gated
-            # 3.82 → 4.11). The watched misplay was real, but the fix
-            # inverts: the Heavy Weapons Squads' bodies are worth more
-            # advancing at markers than their lascannons are worth firing —
-            # the FIFTH hold-type rejection for Astra Militarum (staging,
-            # nomination, anti-tank hold, officer front-line, this).
-            # Standing law: AM's economy runs bodies-forward; ONLY its
-            # tanks hold (the adopted _ad_am). Kept default-off.
-            # ORIGINAL RATIONALE (pilot-observation lever A): Cadian
+            # SWEG_AM_FIRE_SUPPORT_HOLD — ADOPTED default-on 2026-07-03.
+            # The initial −5.63 "rejection" was the frame-integrity phantom
+            # (the lost secondary-pursuit default; see the ledger). On the
+            # corrected frame: Astra Militarum +0.64 alone, +1.23 combined
+            # with SWEG_AM_STAGING (gated 3.82 -> 3.70). The watched-replay
+            # rationale (pilot-observation lever A) stands: Cadian
             # Heavy Weapons Squads (ranged damage per activation 1.59, range
             # 48 inches) sit in the 2.0-floor DEAD ZONE of the adopted
             # Astra Militarum advance-discipline, so the army's dedicated
@@ -12555,7 +12562,7 @@ class Battle:
             # check applies unchanged. Cited under
             # `simulator.am_advance_discipline`.
             _am_fire_support = (
-                os.environ.get("SWEG_AM_FIRE_SUPPORT_HOLD", "0") == "1"
+                os.environ.get("SWEG_AM_FIRE_SUPPORT_HOLD", "1") != "0"
                 and (attacker.profile.faction or "") == "Astra Militarum"
                 and _rdpa >= 1.4
                 and (attacker.profile.range_inches or 0.0) >= 36.0
