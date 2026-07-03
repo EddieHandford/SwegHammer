@@ -1049,6 +1049,23 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # _suppress_advance block in code/simulator.py _do_move. Cited in
     # data/rule_citations.d/adepta_sororitas.json.
     "simulator.soror_ranged_hold",
+    # SWEG_TYRANIDS_RANGED_HOLD (default-OFF screening gate, 2026-07-03). AI
+    # piloting heuristic (same as simulator.am_advance_discipline /
+    # ck_ranged_hold / votann_ranged_hold / tsons_ranged_hold /
+    # soror_ranged_hold, Tyranids-scoped): the faction's dedicated fire
+    # platforms (Tyrannofex, Exocrine, Hive Guard, Hive Tyrant, Zoanthropes and
+    # the other MONSTERS) hold and shoot instead of Advancing and forfeiting
+    # their Shooting phase, while the swarm — Termagants, Hormagaunts, Ripper
+    # Swarms, Gargoyles, Genestealers, the Trygon and every melee Prime/Lictor —
+    # stays free to Advance onto objectives (roster-filter audit:
+    # scripts/diag_tyranids_filter.py holds 20 MONSTER/fire-platform units, 0
+    # swarm units). Derived from watched pilot-observation (Exocrine and
+    # Tyrannofex Advanced their opening rounds firing nothing across Imperial
+    # Knights / Orks / Necrons games; the Exocrine died versus Necrons having
+    # never shot). Seventh entry point _ad_tyranids on the shared
+    # _suppress_advance block in code/simulator.py _do_move. Cited in
+    # data/rule_citations.d/tyranids.json.
+    "simulator.tyranids_ranged_hold",
     # SWEG_STAGING (default-off, byte-identical off). The faction-neutral
     # closing-side counterpart of the ranged-hold family: a unit whose commit
     # would deliver it EXPOSED into a significant enemy threat envelope while it

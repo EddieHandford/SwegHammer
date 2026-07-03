@@ -827,3 +827,139 @@ Advancing. Cited `simulator.soror_ranged_hold`, registered in
   showed at N=80 ("broad opponent collateral deflating the over-poles toward
   real"). Recommendation: promising, precedent-backed, correct-direction, lands on
   real — advance to the N=80 adoption screen (the deciding measurement).
+
+# Tyranids ranged-hold — watched-replay lever (2026-07-03)
+
+Owner directive: derive an army-scoped artificial-intelligence lever for Tyranids
+FROM WATCHED PILOTED GAMES (sim win rate 44.1 versus real 47.4, the last un-mined
+under-pole). Method: the pilot-comparison harness `scripts/diag_pilot_am_vs_ik.py`
+run for three games across opponent classes, reading the per-round board renders
+alongside the per-round move log. The seventh candidate in the ranged-hold family;
+the caution up front was that Tyranids are a HYBRID army — hold the fire platforms
+only if they are seen forfeiting real shots, and never touch the swarm's forward
+pressure (the Orks WAAAGH-delay and melee-caging rejections proved that delaying or
+diverting a melee horde poisons its under-pole).
+
+## Games watched
+
+| Seed | Opponent | Map | Result (A = Tyranids) |
+|---|---|---|---|
+| 0 | Imperial Knights (durable gunline) | Crucible of Battle | A LOSS 56-60 (close, tabled late) |
+| 1 | Orks (melee mirror) | Take and Hold | A LOSS 29-56 (blow-out — gunline ground up) |
+| 2 | Necrons (mid-range attrition) | Hammer and Anvil | A LOSS 42-64 (behind all game) |
+
+## The observed misplay — the fire platforms Advance their opening rounds and forfeit their guns
+
+The clean, recurring mis-pilot is the Exocrine (Bio-Plasmic Cannon, ranged damage
+per activation 12.0, range 36 inches) and the Tyrannofex (Rupture Cannon, 12.7 /
+48 inches) marching forward on Advance moves and forfeiting their Shooting phase.
+Named, concrete instances:
+
+- **Orks seed 1 (the blow-out, 29-56):** the Exocrine ADVANCED rounds 1 and 2
+  (move-log lines 95, 289) and fired nothing; the Tyrannofex ADVANCED rounds 1-2
+  (lines 27, 74). Both marched INTO the Ork melee horde. When they finally held and
+  shot round 3 they were devastating — Exocrine killed 15 Boyz (line 491), Tyrannofex
+  dealt 21 damage (line 480) and another 12 (line 522). A real Tyranids player holds
+  the two big guns back and thins the horde before it reaches the gaunt line; the sim
+  fed them into contact where 36-48 inch guns are wasted.
+- **Necrons seed 2 (the Castigator-class misplay):** the Exocrine ADVANCED rounds
+  1-4 (lines 29, 201, 370, 494) and DIED round 4 having fired NOTHING (line 494) —
+  a fire platform delivered zero shooting all game before dying, exactly the Sororitas
+  Castigator misplay. The Tyrannofex, when it finally held round 4, killed Lychguard
+  for 16 damage (line 493).
+- **Imperial Knights seed 0:** the Tyrannofex ADVANCED rounds 1-4 (lines 27, 68,
+  165, 206, 306, 342, 441) and, the one round it held (round 4, line 519), killed an
+  Armiger Warglaive for 12 damage.
+
+The Advance-forfeits-shooting is the same class of mis-pilot the adopted
+`am_advance_discipline` / `ck_ranged_hold` / `votann_ranged_hold` /
+`tsons_ranged_hold` / `soror_ranged_hold` faction-scoped levers correct for their
+armies. This is the sixth confirmation, now on a hybrid army — and the swarm
+(Termagants, Hormagaunts, Ripper Swarms, Genestealers, the Trygon) kept its forward
+pressure intact in every game (the filter never touches it, below).
+
+## Roster eligibility (why the filter is clean — the hybrid-army check)
+
+The shared rDPA >= 2.0 & range >= 18 inch filter, enumerated across the FULL
+Tyranids catalogue by `scripts/diag_tyranids_filter.py`, holds exactly 20 units —
+every one a MONSTER or dedicated fire platform — and holds NO swarm unit:
+
+| Held (rDPA / range) | Free to Advance (rDPA / range) |
+|---|---|
+| Tyrannofex (12.7 / 48"), Exocrine (12.0 / 36"), Hive Guard (2.0 / 36"), Hive Tyrant (6.66 / 36"), Zoanthropes (2.67 / 24"), Neurotyrant (14.0 / 18"), Maleceptor (12.0 / 18"), Norn Emissary (11.7 / 24"), Tervigon (5.3 / 24"), Carnifexes (4.0 / 36"), Sporocyst / Tyrannocyte / Barbgaunts / the Harridan-Hierophant-Hierodule bio-titans | Termagants (1.10 / 18" — below the 2.0 floor), Hormagaunts (1.5 / 1"), Ripper Swarms (1.33 / 6"), Gargoyles ([ASSAULT], 0.5), Genestealers (3.33 / 1"), Trygon (4.0 / 12"), Tyranid Prime / Broodlord / Lictor / Deathleaper / Raveners / Von Ryan's Leapers (melee, range 1"), Screamer-killer ([ASSAULT]) |
+
+Because the filter holds no swarm unit, the hybrid-army caution is satisfied WITHOUT
+narrowing the shared filter: the forward pressure of the horde is untouched, and only
+the monsters and fire platforms are held — and only when they would Advance toward an
+objective (CAPTURE/STEAL) with a live damaging shot. A Genestealer or Trygon
+declaring a charge is unaffected; a Hive Tyrant already walk-and-shoots in the
+observed games, so its behaviour barely changes. This is why the Orks WAAAGH-delay /
+melee-caging failure mode does not apply here: nothing delays or diverts the horde.
+
+## What is NOT the gap (checked, so no lever is forced there)
+
+- **Synapse Imperative and Shadow in the Warp ARE modelled**
+  (`simulator.synapse_imperative`, `simulator.shadow_in_the_warp` via
+  `_apply_shadow_in_the_warp_forced_tests`, both default-on since wave 232), and the
+  Subterranean Assault detachment's army-wide reroll-hit-1s is registered. The residual
+  is not a missing-rule gap; it is the fire-platform piloting gap above.
+- **The swarm losses are largely faithful, not a lever target:** in every game the
+  gaunt broods traded into the enemy and were ground down — that is body-count
+  arithmetic (part of Tyranids' shape), not a mis-pilot. Forcing a hold on the swarm
+  would poison the under-pole (the Orks precedent), so it is deliberately left free.
+
+## The lever built — `SWEG_TYRANIDS_RANGED_HOLD` (default-OFF)
+
+A seventh Tyranids-scoped entry point (`_ad_tyranids`) on the shared
+`_suppress_advance` block in `code/simulator.py` `_do_move`, identical in logic to
+`_ad_am` / `_ad_ck` / `_ad_votann` / `_ad_tsons` / `_ad_soror`: a moving Tyranids unit
+seeking an objective (CAPTURE/STEAL), carrying no [ASSAULT] weapon, with ranged damage
+per activation >= 2.0 and range >= 18 inches, that has a damageable target within a
+Normal move's reach, HOLDS and Normal-moves (keeping its shot) rather than Advancing.
+Cited `simulator.tyranids_ranged_hold`, registered in `scripts/audit_rules.py`. Off
+path (gate unset) byte-identical.
+
+## Screen (N=20 Tyranids-scoped, paired vs the standing anchor `sc50a`)
+
+- **Byte-identical-off:** gate unset, **0 flips across all 22 factions** (840
+  matched games, `data/_tyranids_off_check.json` vs the anchor), gated mean absolute
+  error delta +0.00 — the OFF path does not leak; the anchor is a valid OFF arm.
+- **`SWEG_TYRANIDS_RANGED_HOLD=1` (the load-bearing row):** Tyranids
+  **51.5 -> 75.8, paired delta +24.27, CI 5.70, DECISIVE UP, 163 matched games
+  flipped (the most active gate in the family).** Correct direction — it closes the
+  −3.3 under-pole (real 47.4) — but it **massively OVERSHOOTS**, landing Tyranids at
+  ~76 versus real 47.4. The per-opponent rows (Aeldari −55, Adeptus Mechanicus −60,
+  Chaos Space Marines −55, etc.) are the asymmetric-scoped-eval artefact, NOT readable
+  collateral: each opponent appears in only ~20 games with CI 20-30 and 5-13 flips,
+  and the gate changes only Tyranids' own moves, so an opponent row moves only because
+  Tyranids trades better against it. The `gated MAE ON 18.12 (+6.60)` is likewise
+  unreliable at this scoping (it is computed from those noisy opponent-vs-Tyranids-only
+  records), exactly as the Sororitas screen discounted.
+
+## Disposition — the acute durability-over-reward overshoot; HELD default-off
+
+This is a genuine, faithful, observation-grounded member of the ranged-hold family
+(the seventh; the fire-platform Advance-forfeit misplay was seen directly, the swarm
+is untouched, off is byte-identical). But its overshoot is **the largest in the
+family by a wide margin** — the CK (+11.27, overshoot ~+5.6 over real) and Votann
+(+10.37, ~+5.3 over) fidelity-first adoptions banked their frame MAE (−0.07 / −0.08)
+because the faction's OWN absolute error stayed roughly flat (crossing from ~equal-under
+to ~equal-over) and the improvement came from opponent over-poles deflating toward
+real. Tyranids is different in kind: it fields MANY durable monsters (Exocrine,
+Tyrannofex ×1-2, Hive Tyrant, Carnifexes, Zoanthropes) that ALL qualify for the hold,
+so holding them alive-and-shooting banks the survivor over-reward hard, and the
+faction's own error would balloon from 3.3-under to ~21-over rather than staying flat.
+For the full-frame N=80 MAE to improve, the opponent collateral would have to deflate
+21 over-poles by ~0.8 points each on average — a far larger ask than CK/Votann met.
+The magnitude therefore predicts the full-frame metric REGRESSES.
+
+**Recommendation: commit BUILT default-off; do NOT flip the default as-is.** This is a
+fidelity-first-versus-metric decision for the owner (the same disposition class as the
+pinned generic `SWEG_ADVANCE_DISCIPLINE`): the piloting is faithful and the overshoot
+is the sim's structural durability-over-reward's fault, but unlike the earlier
+fidelity-first adoptions the metric almost certainly does not improve here. My lean is
+HOLD default-off — the durability-in-contest correction should land before this
+faithful lever can be banked without a large frame regression. If the owner wants to
+pursue it, the N=80 Tyranids-scoped adoption screen is the deciding measurement (it was
+not run here per the ≤N=20 scoped-probe instruction), but the +24 magnitude at N=20
+sets a strong prior for a regression.

@@ -12626,8 +12626,45 @@ class Battle:
         # simulator.soror_ranged_hold.
         _ad_soror = (os.environ.get("SWEG_SOROR_RANGED_HOLD", "1") != "0"
                      and (attacker.profile.faction or "") == "Adepta Sororitas")
+        # TYRANIDS-SCOPED entry point (SWEG_TYRANIDS_RANGED_HOLD — default-OFF
+        # screening gate; "1" opt-in, unset/"0" is the byte-identical off path):
+        # the SAME gunline-hold logic, restricted to Tyranids. Derived from
+        # watched pilot-observation (2026-07-03, docs/PILOT_FINDINGS.md): across
+        # three piloted games (versus Imperial Knights seed 0, Orks seed 1,
+        # Necrons seed 2) the Tyranids dedicated fire platforms Advanced their
+        # opening rounds forfeiting the Shooting phase, then dealt heavy damage
+        # only once they finally held. The Exocrine (Bio-Plasmic Cannon, ranged
+        # damage per activation 12.0, range 36 inches) and the Tyrannofex
+        # (Rupture Cannon, 12.7 / 48 inches) each Advanced rounds 1-2 versus the
+        # Orks and marched INTO the melee horde, feeding a 29-48 blow-out; when
+        # held instead they killed 15 Boyz (Exocrine) and dealt 21 and 12 damage
+        # (Tyrannofex) the following round. Versus Necrons the Exocrine Advanced
+        # rounds 1-4 and died round 4 having fired NOTHING (the Sororitas
+        # Castigator misplay recurring); versus Imperial Knights the Tyrannofex
+        # forfeited its shooting rounds 1-4 and, when finally held, killed an
+        # Armiger Warglaive for 12 damage. Checked and ruled out first: Synapse
+        # Imperative and Shadow in the Warp ARE modelled
+        # (_apply_shadow_in_the_warp_forced_tests) — the deficit is the mis-pilot,
+        # not a missing rule. ROSTER-FILTER AUDIT (scripts/diag_tyranids_filter):
+        # the shared rDPA >= 2.0 & range >= 18 inch filter below holds exactly
+        # 20 Tyranids units, EVERY one a MONSTER or dedicated fire platform
+        # (Tyrannofex, Exocrine, Hive Guard, Hive Tyrant, Zoanthropes,
+        # Neurotyrant, Maleceptor, Norn Emissary, Tervigon, Carnifexes, the
+        # bio-titans) and holds NO swarm unit — Termagants (rDPA 1.10, below the
+        # 2.0 floor), Hormagaunts (range 1 inch), Ripper Swarms, Gargoyles,
+        # Genestealers, the Trygon (range 12 inches) and every melee Prime /
+        # Lictor / Ravener stay FREE to Advance onto objectives. The swarm's
+        # forward pressure is untouched, so the shared filter needs no narrowing
+        # (the Orks WAAAGH-delay / melee-caging rejections do not apply: nothing
+        # here delays or diverts the horde). Faithful piloting, not a rules claim
+        # (Advancing forfeits non-[ASSAULT] shooting); the direct analog of
+        # _ad_am / _ad_ck / _ad_votann / _ad_tsons / _ad_soror and the seventh
+        # entry point on the shared advance-suppression block. Off path (gate
+        # unset) byte-identical. Cited simulator.tyranids_ranged_hold.
+        _ad_tyranids = (os.environ.get("SWEG_TYRANIDS_RANGED_HOLD", "0") == "1"
+                        and (attacker.profile.faction or "") == "Tyranids")
         if ((_ad_generic or _ad_am or _ad_ck or _ad_votann or _ad_tsons
-                or _ad_soror)
+                or _ad_soror or _ad_tyranids)
                 and intent in ("CAPTURE", "STEAL")
                 # Units that can shoot AFTER Advancing (ASSAULT weapons, or a
                 # transient ASSAULT grant) lose nothing by it — never suppress them
