@@ -17,6 +17,7 @@ import unittest
 from unittest import mock
 
 from code.army import Army
+from code.bsdata.mapper import _parse_demise_value
 from code.events import DeadlyDemiseExploded, EventLog
 from code.simulator import Battle
 from code.units import UNIT_CATALOG, UnitProfile
@@ -80,6 +81,77 @@ class DeadlyDemiseMapperTests(unittest.TestCase):
                     f"{k} should not have deadly_demise; got {p.deadly_demise}",
                 )
                 break
+
+    def test_dd_acastus_knights_parse_2d6_correctly(self):
+        """Regression for durability-fidelity audit C divergence 3: the four
+        Acastus Knight chassis carry a printed 'Deadly Demise 2D6' and must
+        record the expected value of a two-D6 roll (7), not the silent
+        wrong default of 1 that the unhandled '2D6' string used to collapse
+        to."""
+        keys = [
+            "imperial_knights_library_acastus_knight_asterius",
+            "imperial_knights_library_acastus_knight_porphyrion",
+            "chaos_knights_library_chaos_acastus_knight_asterius",
+            "chaos_knights_library_chaos_acastus_knight_porphyrion",
+        ]
+        for k in keys:
+            self.assertIn(k, UNIT_CATALOG, f"{k} missing from catalog")
+            p = UNIT_CATALOG[k]
+            self.assertEqual(
+                p.deadly_demise, 7,
+                f"{k} expected deadly_demise == 7 (E[2D6]), got {p.deadly_demise}",
+            )
+
+
+class ParseDemiseValueTests(unittest.TestCase):
+    """Direct tests of `_parse_demise_value`'s string-to-expected-value
+    mapping, covering every dice-notation form seen in the BSData 10e
+    catalogue and the fail-loud behaviour on unrecognised strings."""
+
+    def test_known_forms(self):
+        cases = {
+            "1": 1,
+            "3": 3,
+            "D3": 2,
+            "D6": 3,
+            "2D6": 7,
+            "3D6": 10,
+            "D3+3": 5,
+            "D6+2": 5,
+            "D6+3": 6,
+            "D6+6": 9,
+            "2D6+6": 13,
+            # Case- and whitespace-insensitive.
+            "d6": 3,
+            " 2d6 ": 7,
+        }
+        for s, expected in cases.items():
+            self.assertEqual(
+                _parse_demise_value(s), expected,
+                f"_parse_demise_value({s!r}) expected {expected}",
+            )
+
+    def test_parenthetical_qualifier_stripped(self):
+        """A model-identifying parenthetical qualifier (BSData's Necrons
+        'Szarekh' entry) does not change the underlying dice expression."""
+        self.assertEqual(_parse_demise_value("D6+3 (Szarekh model only)"), 6)
+
+    def test_empty_string_returns_zero(self):
+        """An empty value attribute is not itself an error — the caller
+        (`extract_deadly_demise`) decides whether that means 'no suffix on
+        this modifier, keep scanning' versus 'ability absent'."""
+        self.assertEqual(_parse_demise_value(""), 0)
+        self.assertEqual(_parse_demise_value(None), 0)
+
+    def test_unrecognised_string_fails_loud(self):
+        """CLAUDE.md rule 13: an unrecognised, non-empty value string must
+        raise, naming the unit and the string, rather than silently
+        defaulting."""
+        with self.assertRaises(ValueError) as ctx:
+            _parse_demise_value("4D6", unit_name="Some Made-Up Titan")
+        message = str(ctx.exception)
+        self.assertIn("4D6", message)
+        self.assertIn("Some Made-Up Titan", message)
 
 
 class DeadlyDemiseSimulatorTests(unittest.TestCase):
