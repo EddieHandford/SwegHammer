@@ -2240,7 +2240,19 @@ class Battle:
         faction = army.units[0].profile.faction or ""
         for prefix, scoped_faction in self._SCOPED_LEVER_FACTION.items():
             if faction == scoped_faction:
-                return os.environ.get(f"SWEG_{prefix}_{suffix}", "0") == "1"
+                # ADOPTED default-on 2026-07-03: the three Genestealer Cults
+                # scoped gates — the extraction wave's one keeper (combined
+                # GSC-scoped N=80 vs sc46a: Genestealer Cults +3.38 DECISIVE,
+                # 43.7 -> 47.1, landing on its real 46.7; headline wash).
+                # The GSC game (Cult Ambush setup, patient Ridgerunner
+                # anti-tank) is the one under-pole whose shape fits the
+                # shelf. All other scoped gates stay default-off (Astra
+                # Militarum 3x REJECTED decisive, Orks REJECTED, Adepta
+                # Sororitas wash — see the ledger). `=0` kill-switches.
+                _default = "1" if prefix == "GSC" else "0"
+                return os.environ.get(
+                    f"SWEG_{prefix}_{suffix}", _default) != "0" if _default == "1" else os.environ.get(
+                    f"SWEG_{prefix}_{suffix}", "0") == "1"
         return False
 
     def _unit_zone(self, u, own_is_army_a: bool) -> str:
