@@ -1158,6 +1158,15 @@ class Unit:
         # cleared per round with the other transient stratagem flags. Cited as
         # `simulator.go_to_ground`.
         "go_to_ground_active",
+        # Smokescreen (10e core Wargear Stratagem, 1CP, env-gated
+        # SWEG_SMOKESCREEN). Defender buff: a targeted [SMOKE] unit gains the
+        # Benefit of Cover AND the Stealth ability until the end of the
+        # opponent's Shooting phase. Set by Battle._maybe_smokescreen, read at
+        # the cover application (+1 save) and the Stealth hit-modifier branch
+        # (-1 to hit, composed with profile.stealth via OR), cleared per round
+        # with the other transient stratagem flags. Cited as
+        # `simulator.smokescreen`.
+        "smokescreen_active",
         # Skysplinter Assault (Drukhari detachment) — Rain of Cruelty. Set
         # True on a DRUKHARI unit when it disembarks from a TRANSPORT this
         # turn while the army's detachment is Skysplinter Assault. Persists
@@ -1393,6 +1402,10 @@ class Unit:
         # Go To Ground (10e core stratagem). 6++ invuln + Benefit of Cover on a
         # targeted INFANTRY unit until end of the opponent's Shooting phase.
         self.go_to_ground_active: bool = False
+        # Smokescreen (10e core Wargear Stratagem). Benefit of Cover + Stealth
+        # on a targeted [SMOKE] unit until end of the opponent's Shooting
+        # phase. See simulator._maybe_smokescreen.
+        self.smokescreen_active: bool = False
         # Skysplinter Assault (Drukhari detachment) Rain of Cruelty:
         # disembark-turn LANCE on melee weapons + IGNORES COVER on ranged
         # weapons. Set in `simulator._disembark` when the disembarking
@@ -3352,7 +3365,15 @@ class Unit:
 
             # ---- Stealth keyword: shooters take -1 to hit against the target.
             # Melee is unaffected (Stealth is a ranged defence).
-            if mode != "melee" and target.profile.stealth:
+            # Smokescreen (10e core Wargear Stratagem, env-gated
+            # SWEG_SMOKESCREEN): grants the targeted [SMOKE] unit the Stealth
+            # ability until end of the opponent's Shooting phase, composed via
+            # OR with the datasheet's own (permanent) Stealth. Cited as
+            # `simulator.smokescreen`.
+            if mode != "melee" and (
+                target.profile.stealth
+                or getattr(target, "smokescreen_active", False)
+            ):
                 hit_mod_delta -= 1
 
             # ---- DAEMONS-DIAG-9: Daemon Prince "Prince of Darkness" aura —

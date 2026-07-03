@@ -1272,6 +1272,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # hooked at the target-selection point in Battle._do_shoot right after
     # Rotate Ion Shields. See data/rule_citations.d/chaos_knights.json.
     "simulator.ck_diabolic_bulwark",
+    # Durability fidelity wave, audit B fix 1 (2026-07-03). The 10e universal
+    # core "Smokescreen" Wargear Stratagem (1 command point, opponent's
+    # Shooting phase, just after target selection): a targeted [SMOKE] unit
+    # gains the Benefit of Cover and the Stealth ability until end of phase.
+    # Env-gated SWEG_SMOKESCREEN (default on). Reuses the Go To Ground
+    # command-point/cover/hit-modifier machinery. See
+    # data/rule_citations.d/core_smokescreen.json.
+    "simulator.smokescreen",
 )
 
 

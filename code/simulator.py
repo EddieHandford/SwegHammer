@@ -6,7 +6,7 @@ import math
 import os
 import random
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from .army import Army
 from .detachments import effective_move
@@ -4229,6 +4229,10 @@ class Battle:
             # (the 6++/cover buff is only read while the unit is shot, which
             # happens in the opponent's one Shooting phase per round).
             u.go_to_ground_active = False
+            # Smokescreen also lasts "until the end of the phase"; cleared
+            # with the other per-round transient flags for the same reason
+            # go_to_ground_active is (see comment above).
+            u.smokescreen_active = False
             u.transient_fnp_5 = False
             u.transient_plus_one_to_hit_shooting = False
             # First Rank, Fire! Second Rank, Fire! (AM Order) per-round flag.
@@ -14280,6 +14284,12 @@ class Battle:
         # the same stratagem shape as Rotate Ion Shields above, restricted to
         # CHAOS KNIGHTS units. See Battle._maybe_diabolic_bulwark.
         self._maybe_diabolic_bulwark(defender_army, shoot_target, attacker)
+        # Smokescreen (10e core Wargear Stratagem, env-gated SWEG_SMOKESCREEN):
+        # the defender may spend 1 Command Point, just after this target was
+        # selected, to give the targeted [SMOKE] unit the Benefit of Cover +
+        # Stealth until end of phase. No-op when the gate is unset, so the OFF
+        # path is unchanged.
+        self._maybe_smokescreen(defender_army, shoot_target, attacker)
 
         # Terrain-aware cover: target counts as in cover if it stands inside
         # cover terrain, OR if the army-wide cover flag is set. In 10e all
@@ -14305,6 +14315,12 @@ class Battle:
         # Go To Ground grants the Benefit of Cover (+1 save) on every attack while
         # the buff is active, independent of terrain.
         if getattr(shoot_target, "go_to_ground_active", False):
+            shoot_target.in_cover = True
+        # Smokescreen (10e core Wargear Stratagem) grants the Benefit of Cover
+        # the same way, independent of terrain; the accompanying Stealth grant
+        # is applied at the Stealth hit-modifier branch in Unit.attack. Cited
+        # as `simulator.smokescreen`.
+        if getattr(shoot_target, "smokescreen_active", False):
             shoot_target.in_cover = True
 
         # Distance and line-of-sight for the to-hit math use math_target (the
@@ -14809,6 +14825,314 @@ class Battle:
             env_var="SWEG_CK_DIABOLIC_BULWARK",
             used_flag="diabolic_bulwark_used_this_phase",
         )
+    # Smokescreen (10e core Wargear Stratagem, env-gated SWEG_SMOKESCREEN).
+    _SMOKESCREEN_CP_COST = 1
+    # Same AI-heuristic shape as Go To Ground (_GTG_THREAT_FRACTION /
+    # _GTG_MIN_MODELS / _GTG_MIN_SOLO_HEALTH above): these are not rules
+    # eligibility gates (the printed stratagem has none beyond the [SMOKE]
+    # keyword and the command point cost) — they decide whether a real player
+    # would judge the incoming fire worth a command point, so the AI doesn't
+    # burn its whole budget smoking every single stray shot.
+    _SMOKESCREEN_THREAT_FRACTION = 0.5
+    _SMOKESCREEN_MIN_MODELS = 3
+    _SMOKESCREEN_MIN_SOLO_HEALTH = 4.0
+
+    # Faction-neutral [SMOKE] keyword carriers (10e core rules; see the
+    # `simulator.smokescreen` citation in
+    # data/rule_citations.d/core_smokescreen.json). Enumerated directly from
+    # BSData v10.6.0 (`data/bsdata/cache/*.cat.gz`): every unit (type="unit"
+    # selectionEntry) across all 46 cached catalogue files carrying a direct
+    # categoryLink name="Smoke" on its own entry — e.g. the Myphitic
+    # Blight-hauler (`Chaos - Death Guard.cat.gz`, categoryLink id
+    # 6df-937-16bc-8c1a) — matched against the live `code.units.UNIT_CATALOG`
+    # by (profile.faction, profile.name). 192 catalogue entries across every
+    # Imperium/Chaos faction plus a handful of Aeldari/Drukhari/Genestealer
+    # Cults/Tyranids/Votann/T'au datasheets; not Death-Guard-specific.
+    #
+    # Hardcoded here rather than exposed on `UnitProfile.unit_keywords`
+    # (which would be the natural home, alongside TRANSPORT/REGIMENT/
+    # SQUADRON in `code/bsdata/mapper.py`'s `_TRACKED_UNIT_KEYWORDS`) because
+    # this worktree's committed `data/bsdata/parsed.json` is already stale
+    # relative to the current mapper: a full `python -m code.bsdata.mapper`
+    # regeneration reorders/changes thousands of unrelated weapon-profile
+    # lines even with `PYTHONHASHSEED=0` pinned (verified before this change
+    # landed), which would silently perturb hundreds of other units' stats
+    # and break the byte-identical-off eval reproducibility this fix's own
+    # validation (and every other lever's) depends on. Re-derive this set
+    # with: temporarily add "SMOKE" to `_TRACKED_UNIT_KEYWORDS`, run
+    # `python -m code.bsdata.mapper`, read the resulting
+    # `code.units.UNIT_CATALOG` for `"SMOKE" in profile.unit_keywords`, then
+    # revert `data/bsdata/parsed.json` and `code/bsdata/mapper.py` — exactly
+    # as this set was produced.
+    _SMOKE_UNITS: FrozenSet[Tuple[str, str]] = frozenset({
+        ('Adepta Sororitas', 'Castigator'),
+        ('Adepta Sororitas', 'Exorcist'),
+        ('Adepta Sororitas', 'Immolator'),
+        ('Adepta Sororitas', 'Repressor [Legends]'),
+        ('Adepta Sororitas', 'Sororitas Rhino'),
+        ('Adeptus Astartes', 'Carab Culln the Risen [Legends]'),
+        ('Adeptus Astartes', 'Deimos Predator [Legends]'),
+        ('Adeptus Astartes', 'Dreadnought'),
+        ('Adeptus Astartes', 'Gladiator Lancer'),
+        ('Adeptus Astartes', 'Gladiator Reaper'),
+        ('Adeptus Astartes', 'Gladiator Valiant'),
+        ('Adeptus Astartes', 'Hunter [Legends]'),
+        ('Adeptus Astartes', 'Incursor Squad'),
+        ('Adeptus Astartes', 'Infiltrator Squad'),
+        ('Adeptus Astartes', 'Ironclad Dreadnought [Legends]'),
+        ('Adeptus Astartes', 'Land Raider'),
+        ('Adeptus Astartes', 'Land Raider Crusader'),
+        ('Adeptus Astartes', 'Land Raider Excelsior [Legends]'),
+        ('Adeptus Astartes', 'Land Raider Helios [Legends]'),
+        ('Adeptus Astartes', 'Land Raider Prometheus [Legends]'),
+        ('Adeptus Astartes', 'Land Raider Redeemer'),
+        ('Adeptus Astartes', 'Lieutenant in Reiver Armour'),
+        ('Adeptus Astartes', 'Predator Annihilator'),
+        ('Adeptus Astartes', 'Predator Destructor'),
+        ('Adeptus Astartes', 'Razorback'),
+        ('Adeptus Astartes', 'Reiver Squad'),
+        ('Adeptus Astartes', 'Relic Razorback [Legends]'),
+        ('Adeptus Astartes', 'Repulsor'),
+        ('Adeptus Astartes', 'Repulsor Executioner'),
+        ('Adeptus Astartes', 'Rhino'),
+        ('Adeptus Astartes', 'Rhino Primaris [Legends]'),
+        ('Adeptus Astartes', 'Scout Bike Squad [Legends]'),
+        ('Adeptus Astartes', 'Scout Sniper Squad [Legends]'),
+        ('Adeptus Astartes', 'Scout Squad'),
+        ('Adeptus Astartes', 'Sicaran Arcus [Legends]'),
+        ('Adeptus Astartes', 'Sicaran Omega [Legends]'),
+        ('Adeptus Astartes', 'Stalker [Legends]'),
+        ('Adeptus Astartes', 'Stormhawk Interceptor'),
+        ('Adeptus Astartes', 'Suppressor Squad'),
+        ('Adeptus Astartes', 'Terminus Ultra [Legends]'),
+        ('Adeptus Astartes', 'Venerable Dreadnought [Legends]'),
+        ('Adeptus Astartes', 'Vindicator'),
+        ('Adeptus Astartes', 'Vindicator Laser Destroyer [Legends]'),
+        ('Adeptus Astartes', 'Whirlwind'),
+        ('Adeptus Custodes', 'Anathema Psykana Rhino'),
+        ('Adeptus Custodes', 'Venerable Land Raider'),
+        ('Adeptus Mechanicus', 'Ironstrider Ballistarii'),
+        ('Adeptus Mechanicus', 'Onager Dunecrawler'),
+        ('Adeptus Mechanicus', 'Skorpius Disintegrator'),
+        ('Adeptus Mechanicus', 'Skorpius Dunerider'),
+        ('Adeptus Mechanicus', 'Sydonian Dragoons with radium jezzails'),
+        ('Adeptus Mechanicus', 'Sydonian Dragoons with taser lances'),
+        ('Aeldari', 'Skyweavers'),
+        ('Aeldari', 'Starweaver'),
+        ('Agents of the Imperium', 'Corvus Blackstar'),
+        ('Agents of the Imperium', 'Imperial Navy Breachers'),
+        ('Agents of the Imperium', 'Imperial Rhino'),
+        ('Agents of the Imperium', 'Inquisitorial Chimera'),
+        ('Agents of the Imperium', 'Sisters of Battle Immolator'),
+        ('Agents of the Imperium', 'Spectrus Kill Team [Legends]'),
+        ('Agents of the Imperium', 'Vindicare Assassin'),
+        ('Astra Militarum', 'Armageddon-pattern Medusa [Legends]'),
+        ('Astra Militarum', 'Atlas Recovery Vehicle [Legends]'),
+        ('Astra Militarum', 'Baneblade'),
+        ('Astra Militarum', 'Banehammer'),
+        ('Astra Militarum', 'Banesword'),
+        ('Astra Militarum', 'Basilisk'),
+        ('Astra Militarum', 'Cadian Recon Squad'),
+        ('Astra Militarum', 'Carnodon [Legends]'),
+        ('Astra Militarum', 'Centaur Light Carrier [Legends]'),
+        ('Astra Militarum', 'Centaur RSV'),
+        ('Astra Militarum', 'Chimera'),
+        ('Astra Militarum', 'Colossus [Legends]'),
+        ('Astra Militarum', 'Crassus [Legends]'),
+        ('Astra Militarum', 'Deathstrike'),
+        ('Astra Militarum', 'Dominus Armoured Siege Bombard [Legends]'),
+        ('Astra Militarum', 'Doomhammer'),
+        ('Astra Militarum', 'Elysian Drop Sentinel [Legends]'),
+        ('Astra Militarum', 'Gorgon Heavy Transport [Legends]'),
+        ('Astra Militarum', 'Griffon Mortar Carrier [Legends]'),
+        ('Astra Militarum', 'Hellhammer'),
+        ('Astra Militarum', 'Hellhound'),
+        ('Astra Militarum', 'Hydra'),
+        ('Astra Militarum', 'Krieg Combat Engineers'),
+        ('Astra Militarum', 'Leman Russ Battle Tank'),
+        ('Astra Militarum', 'Leman Russ Commander'),
+        ('Astra Militarum', 'Leman Russ Demolisher'),
+        ('Astra Militarum', 'Leman Russ Eradicator'),
+        ('Astra Militarum', 'Leman Russ Executioner'),
+        ('Astra Militarum', 'Leman Russ Exterminator'),
+        ('Astra Militarum', 'Leman Russ Punisher'),
+        ('Astra Militarum', 'Leman Russ Vanquisher'),
+        ('Astra Militarum', 'Macharius Omega [Legends]'),
+        ('Astra Militarum', 'Macharius Vanquisher [Legends]'),
+        ('Astra Militarum', 'Macharius Vulcan [Legends]'),
+        ('Astra Militarum', 'Macharius [Legends]'),
+        ('Astra Militarum', 'Malcador Annihilator [Legends]'),
+        ('Astra Militarum', 'Malcador Defender [Legends]'),
+        ('Astra Militarum', 'Malcador Infernus [Legends]'),
+        ('Astra Militarum', 'Malcador [Legends]'),
+        ('Astra Militarum', 'Manticore'),
+        ('Astra Militarum', 'Minotaur [Legends]'),
+        ('Astra Militarum', 'Praetor [Legends]'),
+        ('Astra Militarum', 'Rogal Dorn Battle Tank'),
+        ('Astra Militarum', 'Rogal Dorn Commander'),
+        ('Astra Militarum', 'Salamander Command Vehicle [Legends]'),
+        ('Astra Militarum', 'Salamander Scout Vehicle [Legends]'),
+        ('Astra Militarum', 'Scout Sentinels'),
+        ('Astra Militarum', 'Sentinel Powerlifter [Legends]'),
+        ('Astra Militarum', 'Shadowsword'),
+        ('Astra Militarum', 'Storm Chimera [Legends]'),
+        ('Astra Militarum', 'Stormblade [Legends]'),
+        ('Astra Militarum', 'Stormlord'),
+        ('Astra Militarum', 'Stormsword'),
+        ('Astra Militarum', 'Stygies Destroyer Tank Hunter [Legends]'),
+        ('Astra Militarum', 'Tempestus Aquilons'),
+        ('Astra Militarum', 'Trojan Support Vehicle [Legends]'),
+        ('Astra Militarum', 'Valdor [Legends]'),
+        ('Astra Militarum', 'Wyvern'),
+        ('Black Templars', 'Gladiator Lancer'),
+        ('Black Templars', 'Gladiator Reaper'),
+        ('Black Templars', 'Gladiator Valiant'),
+        ('Black Templars', 'Land Raider Crusader'),
+        ('Black Templars', 'Repulsor'),
+        ('Black Templars', 'Repulsor Executioner'),
+        ('Blood Angels', 'Baal Predator'),
+        ('Blood Angels', 'Death Company Dreadnought with Magna-Grapple [Legends]'),
+        ('Blood Angels', 'Furioso Dreadnought [Legends]'),
+        ('Blood Angels', 'Librarian Dreadnought [Legends]'),
+        ('Chaos Space Marines', 'Cerberus [Legends]'),
+        ('Chaos Space Marines', 'Chaos Deimos Predator [Legends]'),
+        ('Chaos Space Marines', 'Chaos Land Raider'),
+        ('Chaos Space Marines', 'Chaos Predator Annihilator'),
+        ('Chaos Space Marines', 'Chaos Predator Destructor'),
+        ('Chaos Space Marines', 'Chaos Rhino'),
+        ('Chaos Space Marines', 'Chaos Vindicator'),
+        ('Chaos Space Marines', 'Deredeo Dreadnought [Legends]'),
+        ('Chaos Space Marines', 'Falchion [Legends]'),
+        ('Chaos Space Marines', 'Fellblade [Legends]'),
+        ('Chaos Space Marines', 'Kratos [Legends]'),
+        ('Chaos Space Marines', 'Land Raider Achilles [Legends]'),
+        ('Chaos Space Marines', 'Land Raider Proteus [Legends]'),
+        ('Chaos Space Marines', 'Leviathan Dreadnought [Legends]'),
+        ('Chaos Space Marines', 'Mastodon [Legends]'),
+        ('Chaos Space Marines', 'Sicaran Battle Tank [Legends]'),
+        ('Chaos Space Marines', 'Sicaran Punisher [Legends]'),
+        ('Chaos Space Marines', 'Sicaran Venator [Legends]'),
+        ('Chaos Space Marines', 'Spartan [Legends]'),
+        ('Chaos Space Marines', 'Typhon [Legends]'),
+        ('Chaos Space Marines', 'Whirlwind Scorpius [Legends]'),
+        ('Death Guard', 'Chaos Land Raider'),
+        ('Death Guard', 'Chaos Predator Annihilator'),
+        ('Death Guard', 'Chaos Predator Destructor'),
+        ('Death Guard', 'Chaos Rhino'),
+        ('Death Guard', 'Myphitic Blight-hauler'),
+        ('Deathwatch', 'Corvus Blackstar'),
+        ('Deathwatch', 'Spectrus Kill Team'),
+        ('Drukhari', 'Hand of the Archon'),
+        ('Drukhari', 'Kabalite Warriors'),
+        ("Emperor's Children", 'Chaos Land Raider'),
+        ("Emperor's Children", 'Chaos Rhino'),
+        ('Genestealer Cults', 'Achilles Ridgerunners'),
+        ('Grey Knights', 'Grey Knights Dreadnought [Legends]'),
+        ('Grey Knights', 'Grey Knights Relic Razorback [Legends]'),
+        ('Grey Knights', 'Land Raider'),
+        ('Grey Knights', 'Land Raider Banisher'),
+        ('Grey Knights', 'Land Raider Crusader'),
+        ('Grey Knights', 'Land Raider Redeemer'),
+        ('Grey Knights', 'Razorback'),
+        ('Grey Knights', 'Rhino'),
+        ('Grey Knights', 'Stormhawk Interceptor'),
+        ('Grey Knights', 'Venerable Dreadnought'),
+        ('Leagues of Votann', 'Kapricus Carrier'),
+        ('Orks', 'Boss Snikrot'),
+        ('Orks', 'Kommandos'),
+        ('Orks', 'Wazdakka Gutsmek'),
+        ('Space Wolves', 'Bjorn the Fell-Handed'),
+        ('Space Wolves', 'Hounds of Morkai [Legends]'),
+        ('Space Wolves', 'Venerable Dreadnought'),
+        ('Space Wolves', 'Wolf Scouts'),
+        ('Space Wolves', 'Wolf Scouts [Legends]'),
+        ("T'au Empire", 'Ghostkeel Battlesuit'),
+        ('Thousand Sons', 'Chaos Land Raider'),
+        ('Thousand Sons', 'Chaos Predator Annihilator'),
+        ('Thousand Sons', 'Chaos Predator Destructor'),
+        ('Thousand Sons', 'Chaos Rhino'),
+        ('Thousand Sons', 'Chaos Vindicator'),
+        ('Tyranids', 'Psychophage'),
+        ('World Eaters', 'Chaos Land Raider'),
+        ('World Eaters', 'Chaos Predator Annihilator'),
+        ('World Eaters', 'Chaos Predator Destructor'),
+        ('World Eaters', 'Chaos Rhino'),
+    })
+
+    def _maybe_smokescreen(self, defending_army: Army, shoot_target, attacker) -> None:
+        """Smokescreen (10e core Wargear Stratagem, env-gated SWEG_SMOKESCREEN).
+
+        Printed rule (Wahapedia, https://wahapedia.ru/wh40k10ed/the-rules/core-rules/,
+        https://wahapedia.ru/wh40k10ed/Stratagems.csv): "Smokescreen — 1CP, Core
+        - Wargear Stratagem. WHEN: Your opponent's Shooting phase, just after
+        an enemy unit has selected its targets. TARGET: One SMOKE unit from
+        your army that was selected as the target of one or more of the
+        attacking unit's attacks. EFFECT: Until the end of the phase, all
+        models in that unit have the Benefit of Cover and the Stealth
+        ability."
+
+        Trigger: the opponent's Shooting phase, just after an enemy unit has
+        selected `shoot_target` as the target of one or more attacks.
+        `defending_army` may spend 1 Command Point so that, until the end of
+        the phase, all models in the targeted [SMOKE] unit have the Benefit
+        of Cover and the Stealth ability. Cited as `simulator.smokescreen`.
+
+        Structurally identical to `_maybe_go_to_ground` (the only real-rule
+        differences are the eligibility keyword and the granted effect), so
+        this reuses the same command-point/once-per-phase machinery and the
+        same worth-protecting AI-heuristic shape.
+
+        Gate unset (or "0") -> no-op: no Command Point spent, no flag set, no
+        random draws, so the OFF path is byte-identical to the baseline.
+        """
+        if __import__("os").environ.get("SWEG_SMOKESCREEN", "1") == "0":
+            return
+        if shoot_target is None or not getattr(shoot_target, "is_alive", False):
+            return
+        # Already smoked this phase (the buff persists), or not a [SMOKE]
+        # carrier, or not worth a Command Point -> nothing to do.
+        if getattr(shoot_target, "smokescreen_active", False):
+            return
+        if (shoot_target.profile.faction, shoot_target.profile.name) not in self._SMOKE_UNITS:
+            return
+        if defending_army.command_points < self._SMOKESCREEN_CP_COST:
+            return
+        # Worth-protecting gate, representation-correct: a multi-model squad
+        # must still field _SMOKESCREEN_MIN_MODELS alive models; a
+        # single-model unit must have real wounds. Do not spend a Command
+        # Point on a near-dead remnant.
+        squad_id = getattr(shoot_target, "squad_id", -1)
+        if squad_id >= 0:
+            alive_models = sum(
+                1 for m in defending_army.units
+                if getattr(m, "squad_id", -1) == squad_id and m.is_alive
+            )
+            if alive_models < self._SMOKESCREEN_MIN_MODELS:
+                return
+        elif shoot_target.current_health < self._SMOKESCREEN_MIN_SOLO_HEALTH:
+            return
+
+        # Only react to genuinely threatening fire (a real player holds the
+        # Command Point against a stray shot).
+        if attacker is None:
+            return
+        threat = self._ranged_expected_wounds(attacker.profile, shoot_target)
+        if threat < self._SMOKESCREEN_THREAT_FRACTION * shoot_target.current_health:
+            return
+
+        # Pay 1 Command Point and set the buff on the whole targeted unit
+        # (every model sharing its squad id). The flag grants the Stealth -1
+        # to hit at the Stealth branch in Unit.attack and the Benefit of
+        # Cover at the cover application in _do_shoot; it clears with the
+        # other per-round transient flags.
+        defending_army.command_points -= self._SMOKESCREEN_CP_COST
+        squad_id = getattr(shoot_target, "squad_id", -1)
+        if squad_id >= 0:
+            for m in defending_army.units:
+                if getattr(m, "squad_id", -1) == squad_id and m.is_alive:
+                    m.smokescreen_active = True
+        else:
+            shoot_target.smokescreen_active = True
 
     def _fire_overwatch(self, defending_army: Army, enemy_unit) -> None:
         """Fire Overwatch (10e universal core stratagem, env-gated
