@@ -437,6 +437,15 @@ class Army:
         # the army is not Auric Champions, so Unit.attack adds nothing and the off
         # path is byte-identical. Cited as `AURIC_CHAMPIONS.assemblage_of_might`.
         self._assemblage_target_uid: Optional[str] = None
+        # SWEG_PERSISTENT_NOMINATION (default off) — the cross-round anti-brick
+        # focus commitment. Unlike _focusfire_target_uid (reset to None every
+        # Shooting phase in Battle._nominate_focusfire_target), this one PERSISTS
+        # across rounds: once the army commits its anti-tank to one durable enemy
+        # brick it keeps pointing at that same brick until the brick dies or the
+        # army can no longer wound it, then re-nominates the next brick. None
+        # means "no standing commitment"; the gate-off path never sets it, so the
+        # off path is byte-identical. Cited as `simulator.persistent_nomination`.
+        self._persistent_nom_uid: Optional[str] = None
         # Adeptus Mechanicus — Belisarius Cawl's "Invocation of Machine
         # Vengeance" Canticle (10e). At the start of each Command phase, while
         # a Belisarius Cawl model is alive, the AdMech player designates one

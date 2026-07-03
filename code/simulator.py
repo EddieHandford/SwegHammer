@@ -13059,8 +13059,24 @@ class Battle:
         like a competent player (concentrate to crack a brick this turn, SPREAD off an
         uncrackable one via the crack-fraction gate below). Metric-neutral; kept on the
         AI-realism criterion. `SWEG_FOCUSFIRE=0` reverts (also useful for fast dev evals
-        — the per-phase collective-wound nomination is ~2x the eval cost)."""
+        — the per-phase collective-wound nomination is ~2x the eval cost).
+
+        PERSISTENT reshape (env-gated `SWEG_PERSISTENT_NOMINATION`, default off):
+        the one-phase collective-crack test below demands the army crack ~0.85 of
+        the brick's wounds IN A SINGLE Shooting phase — a bar a durable brick (a
+        26-wound Knight) almost never clears, so the nomination rarely fires and
+        fire falls through to the lowest-health picker (the capstone's activation-
+        allocation finding, DECISION_LEDGER 2026-07-03). When the persistent gate
+        is set, `_nominate_persistent_target` replaces the one-phase test with a
+        multi-round commitment: nominate a brick the army can crack within a
+        handful of rounds and hold that nomination across rounds until it dies.
+        The branch is taken BEFORE the SWEG_FOCUSFIRE check, so an unset persistent
+        gate flows through to the unchanged wave-101 path byte-for-byte. Cited as
+        `simulator.persistent_nomination`."""
         army._focusfire_target_uid = None
+        if __import__("os").environ.get("SWEG_PERSISTENT_NOMINATION") == "1":
+            self._nominate_persistent_target(army, opponent)
+            return
         if __import__("os").environ.get("SWEG_FOCUSFIRE", "1") == "0":
             return
         bricks = [u for u in opponent.alive_units if self._is_durable_threat(u)]
@@ -13099,6 +13115,114 @@ class Battle:
                 best_threat = threat
                 best = brick
         army._focusfire_target_uid = best.uid if best is not None else None
+
+    # A brick the army can bring down within this many rounds of sustained,
+    # concentrated anti-brick fire is worth committing to. This is the multi-
+    # round replacement for the wave-101 one-phase `_FOCUSFIRE_CRACK_FRAC`
+    # bar: real anti-Knight doctrine focuses one chassis to death ACROSS rounds
+    # rather than demanding it fall in a single Shooting phase (the cited focus-
+    # one-Knight playbook; DECISION_LEDGER capstone waterfall grounding). Three
+    # rounds is deliberately permissive relative to the unreachable one-phase
+    # bar (which needs ~0.85 * 26 wounds in one phase) — the whole finding is
+    # that the one-phase gate never fires — but still requires genuine anti-tank
+    # presence: a 26-wound brick needs ~8.7 summed expected wounds per round to
+    # qualify, so an army with only small arms (each contributing 0 vs the
+    # brick) never nominates and never wastes fire.
+    _PERSISTENT_CRACK_ROUNDS: float = 3.0
+
+    def _nominate_persistent_target(self, army, opponent) -> None:
+        """`simulator.persistent_nomination` — the cross-round reshape of the
+        wave-101 collective focus-fire nomination (env-gated
+        `SWEG_PERSISTENT_NOMINATION`, default off; the OFF path never calls this).
+
+        AI PILOTING HEURISTIC, not a 10e rule. The capstone activation-allocation
+        decomposition (DECISION_LEDGER 2026-07-03) isolated the anti-Knight gap to
+        pointing, not conversion: the one-phase collective-crack gate in
+        `_nominate_focusfire_target` demands the field crack ~0.85 * 26 ≈ 22
+        expected wounds in ONE Shooting phase, a bar the field almost never clears,
+        so the nomination never fires and anti-tank falls through to the lowest-
+        health min-picker (which prefers killable War Dogs over the 26-wound
+        chassis). Real players instead commit their anti-tank to ONE Knight ACROSS
+        rounds until it dies ("focus one chassis to death per turn", the cited
+        anti-Knight playbook). This method supplies that persistence.
+
+        Semantics:
+        1. RE-AFFIRM. If the army already holds a standing nominee
+           (`army._persistent_nom_uid`) that is still alive, still a durable brick,
+           and still woundable by at least one alive friendly shooter, keep it:
+           re-publish it on `_focusfire_target_uid` (the channel both shooting
+           pickers already consume) and return. The commitment persists across
+           rounds — the nominee is NOT reset at Shooting-phase start the way
+           `_focusfire_target_uid` is.
+        2. RE-NOMINATE. Otherwise (no nominee, or the nominee died or the army can
+           no longer hurt it), pick the most dangerous brick the army can crack
+           within `_PERSISTENT_CRACK_ROUNDS` rounds of sustained anti-brick fire
+           (summed one-round expected wounds from every unit that can wound it,
+           the same `_ranged_expected_wounds` measure the wave-101 gate uses),
+           and publish it on both the persistent state and `_focusfire_target_uid`.
+
+        The pickers then route anti-tank-capable fire onto the nominee: the squad
+        split-fire planner (`_plan_squad_fire`, default-on) concentrates only
+        `_is_antiarmour_weapon` models on it while the rest keep their normal
+        economy, so the commitment is CLASS-shaped, never army-wide (the batch
+        lesson — over-concentrating small arms drags the metric). The contest-pool
+        filter in `_do_shoot` (`pool = contesting or candidates`), which would
+        otherwise drop an off-objective nominee, re-admits it under this same gate.
+
+        Deterministic: reads only pre-computed profile stats, current health, and
+        uids; draws no random number."""
+        # 1. Re-affirm a live, still-woundable standing commitment.
+        prev_uid = getattr(army, "_persistent_nom_uid", None)
+        if prev_uid is not None:
+            nominee = next(
+                (u for u in opponent.alive_units if u.uid == prev_uid), None
+            )
+            if (
+                nominee is not None
+                and self._is_durable_threat(nominee)
+                and any(
+                    self._ranged_expected_wounds(s.profile, nominee) > 0.0
+                    for s in army.alive_units
+                )
+            ):
+                army._focusfire_target_uid = prev_uid
+                return
+            # Dead, no longer a brick, or the army can no longer hurt it — drop
+            # the stale commitment and re-nominate the next brick below.
+            army._persistent_nom_uid = None
+        # 2. Fresh nomination against the multi-round crack bar.
+        bricks = [u for u in opponent.alive_units if self._is_durable_threat(u)]
+        if not bricks:
+            return
+        shooters = [u for u in army.alive_units]
+        if not shooters:
+            return
+        best = None
+        best_threat = -1.0
+        for brick in bricks:
+            collective = 0.0
+            contributors = 0
+            for s in shooters:
+                ew = self._ranged_expected_wounds(s.profile, brick)
+                if ew > 0.0:
+                    collective += ew
+                    contributors += 1
+            # Need at least one unit that can actually wound the brick, and the
+            # army's sustained anti-brick output must bring it down inside
+            # _PERSISTENT_CRACK_ROUNDS rounds (vs the wave-101 one-phase bar).
+            if contributors < 1:
+                continue
+            if collective * self._PERSISTENT_CRACK_ROUNDS < max(
+                1.0, brick.current_health
+            ):
+                continue
+            threat = self._brick_threat_value(brick)
+            if threat > best_threat:
+                best_threat = threat
+                best = brick
+        if best is not None:
+            army._persistent_nom_uid = best.uid
+            army._focusfire_target_uid = best.uid
 
     def _plan_squad_fire(self, first_model, attacker_army: Army,
                          defender_army: Army) -> None:
@@ -13490,6 +13614,30 @@ class Battle:
 
         contesting = [u for u in candidates if _contests_our_obj(u)]
         pool = contesting or candidates
+        # SWEG_PERSISTENT_NOMINATION contest-pool interaction fix (default off,
+        # byte-identical when unset). `pool = contesting or candidates` narrows the
+        # target pool to enemies contesting one of OUR objectives whenever any such
+        # enemy exists — which DROPS an off-objective brick from the pool entirely.
+        # A durable Knight standing OFF our objectives is exactly the persistent
+        # nominee the army committed its anti-tank to, so that filter silently
+        # un-points the commitment: the squad-plan validation (`_cand in pool`
+        # below) and the focus-fire consumption (`_ff_uid` lookup in `pool`) both
+        # fail to find the nominee and fire falls through to the min-picker (the
+        # capstone's "contest-pool filter dropping off-objective Knights" leak).
+        # Re-admit the nominee to the pool when THIS attacker can actually reach it
+        # (it is present in `candidates`, so already range- and line-of-sight-legal
+        # for this model). Only mutates `pool` under the gate, and only by adding a
+        # candidate this model could legally target anyway, so the OFF path and
+        # every non-nominee pick are unchanged.
+        if (
+            __import__("os").environ.get("SWEG_PERSISTENT_NOMINATION") == "1"
+            and pool is not candidates
+        ):
+            _nom_uid = getattr(attacker_army, "_focusfire_target_uid", None)
+            if _nom_uid is not None:
+                _nom = next((u for u in candidates if u.uid == _nom_uid), None)
+                if _nom is not None and _nom not in pool:
+                    pool = pool + [_nom]
         # S6 (#166) — anti-swarm shooting priority: bias toward OC-bearing
         # chaff before high-DPA bricks. Real tournament play clears the
         # screen first so the opposing army can't flip primary while we

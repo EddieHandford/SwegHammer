@@ -1111,6 +1111,21 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # converge on the same already-hurt target instead of scattering onto
     # fresh ones. Cited in data/rule_citations.d/focus_fire_completion.json.
     "simulator.focus_fire_completion",
+    # Capstone activation-allocation finding (2026-07-03 ledger) — persistent
+    # nomination (env-gated SWEG_PERSISTENT_NOMINATION, default OFF). AI piloting
+    # heuristic in Battle._nominate_persistent_target: reshapes the wave-101
+    # one-phase collective focus-fire crack (which demands ~22 expected wounds in
+    # ONE Shooting phase and so almost never fires against a durable brick) into a
+    # CROSS-ROUND commitment — nominate the most dangerous enemy brick the army can
+    # crack within a handful of rounds of sustained anti-brick fire, PERSIST that
+    # nomination across rounds until the brick dies or the army can no longer wound
+    # it, then re-nominate the next brick. The pickers route anti-tank-capable fire
+    # onto the standing nominee (class-shaped via the anti-armour-only squad-plan
+    # concentration; the contest-pool filter in _do_shoot re-admits an off-objective
+    # nominee under the same gate). Grounds in the cited focus-one-Knight anti-brick
+    # doctrine plus the capstone waterfall. Cited in
+    # data/rule_citations.d/persistent_nomination.json.
+    "simulator.persistent_nomination",
 )
 
 
