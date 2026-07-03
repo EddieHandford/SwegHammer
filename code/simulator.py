@@ -154,6 +154,7 @@ from .sim.constants import (  # noqa: F401  (re-exported for the public surface)
     OVERSCORE_STATS,
     DELIVERY_STATS,
     SHOOTLOSS_STATS,
+    RECIP_INSTR_STATS,
     BOARDCONTROL_STATS,
     PATHFIND_STAGE0_STATS,
     REACH_STATS,
@@ -13931,6 +13932,47 @@ class Battle:
 
         return min(candidates, key=_score)
 
+    def _record_reciprocal_block(self, attacker, before, after) -> None:
+        """Read-only instrument (SWEG_RECIP_INSTR): tally the reciprocal
+        shooting-into-engagement filter's effect on one shooting activation's
+        legal-target pool into RECIP_INSTR_STATS, keyed by the attacker's
+        faction. `before` is the candidate list immediately before the filter,
+        `after` immediately after. Records fully-lost activations (pool emptied)
+        and focus-fire downgrades (the best expected-wounds target was dropped,
+        forcing a weaker shot). No RNG, no state change — the caller only invokes
+        this when SWEG_RECIP_INSTR is set, so it is byte-identical when unset.
+        """
+        fac = attacker.profile.faction or "?"
+        d = RECIP_INSTR_STATS.setdefault(fac, {
+            "reaching_filter": 0, "had_target": 0, "lost_all": 0,
+            "partial_retarget": 0, "targets_dropped": 0,
+            "downgraded_shot": 0, "downgrade_ew_lost": 0.0,
+        })
+        n_before, n_after = len(before), len(after)
+        d["reaching_filter"] += 1
+        d["targets_dropped"] += (n_before - n_after)
+        if n_before > 0:
+            d["had_target"] += 1
+            if n_after == 0:
+                d["lost_all"] += 1
+            elif n_after < n_before:
+                d["partial_retarget"] += 1
+        # Focus-fire downgrade: was the best expected-wounds target dropped?
+        ap = attacker.profile
+        kept_ids = {id(u) for u in after}
+        best_dropped = max(
+            (self._ranged_expected_wounds(ap, u)
+             for u in before if id(u) not in kept_ids),
+            default=0.0,
+        )
+        best_kept = max(
+            (self._ranged_expected_wounds(ap, u) for u in after),
+            default=0.0,
+        )
+        if best_dropped > best_kept and best_dropped > 0.0:
+            d["downgraded_shot"] += 1
+            d["downgrade_ew_lost"] += (best_dropped - best_kept)
+
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         # Pariah Nexus action lockout (10e core, wave 74): a unit performing an
         # action (e.g. Cleanse) cannot shoot this turn. Cited as
@@ -14177,10 +14219,19 @@ class Battle:
         # `simulator.big_guns_reciprocal`.
         if os.environ.get("SWEG_BGNT_RECIPROCAL", "1") != "0":
             _bgnt_friendly = attacker_army.alive_units
+            _recip_before = candidates
             candidates = [
                 u for u in candidates
                 if _reciprocal_ranged_legal(u, _bgnt_friendly, attacker)
             ]
+            # RECIPROCAL-BLOCK instrument (SWEG_RECIP_INSTR, read-only): record
+            # this activation's footprint from the reciprocal filter — whether it
+            # emptied the pool (lost activation) and whether it dropped the gun's
+            # single best target for a lower-expected-wounds shot (a focus-fire
+            # downgrade). Sizes how much of a faction under-pole the reciprocal
+            # rule can own. No RNG, no state change; byte-identical when unset.
+            if os.environ.get("SWEG_RECIP_INSTR"):
+                self._record_reciprocal_block(attacker, _recip_before, candidates)
             # Blast weapons get NO MONSTER/VEHICLE carve-out and the restriction
             # includes the attacker's own unit: "Blast weapons can never be used
             # to make attacks against a unit that is within Engagement Range of
