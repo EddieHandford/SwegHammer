@@ -507,26 +507,22 @@
       "notes": "10e GSC Acolyte Hybrids have Cult Ambush which keeps objective control after the unit leaves. Sourced from wahapedia.ru Genestealer Cults datasheet."
     },
     "death_guard_plague_marines": {
-      "fnp": 5,
-      "notes": "Death Guard army rule Disgustingly Resilient grants every DEATH GUARD model FNP 5+. The rule is codex-level and is not encoded on individual BSData datasheets, so the mapper cannot see it Ã¢â¬â override here. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Army Rule: Disgustingly Resilient). | Plague Marine boltgun range 24\" confirmed correct (no change). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines"
+      "notes": "DURA-AUDIT-D4 (docs/_DURA_AUDIT_D_DEATHGUARD.md divergence D4, 2026-07-03): removed the fabricated fnp=5. Plague Marines have NO Feel No Pain on their 10e datasheet -- the 'Death Guard army rule Disgustingly Resilient grants every DEATH GUARD model FNP 5+' this entry used to cite does not exist in 10th edition (Disgustingly Resilient is the Virulent Vectorium 2 command point stratagem, -1 Damage, not an army-wide Feel No Pain). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines (no Feel No Pain ability listed). Live behaviour is UNCHANGED by this removal: `code/bsdata/loader.py` SWEG_DG_PLAGUE_FNP_FAITHFUL (default-on) already forced fnp=7 for this key regardless of this override, per the iter-15 fabrication removal recorded in data/rule_citations.d/death_guard.json. This edit only removes the kill-switch hazard of the override still carrying a stale fnp=5 that SWEG_DG_PLAGUE_FNP_FAITHFUL=0 would have silently resurrected. Plague Marine boltgun range 24\" confirmed correct (no change). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines"
     },
     "chaos_space_marines_plague_marines": {
-      "fnp": 5,
-      "notes": "Cross-codex BSData entry for Plague Marines; canonical datasheet lives in the Death Guard codex and carries Disgustingly Resilient (FNP 5+). Pricing and stats are identical to death_guard_plague_marines. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines."
+      "notes": "DURA-AUDIT-D4 (docs/_DURA_AUDIT_D_DEATHGUARD.md divergence D4, 2026-07-03): removed the fabricated fnp=5 (same fabrication as death_guard_plague_marines -- this is the cross-codex BSData listing of the identical Death Guard datasheet, which has no Feel No Pain). Live behaviour is UNCHANGED: `code/bsdata/loader.py` SWEG_DG_PLAGUE_FNP_FAITHFUL (default-on) already forced fnp=7 for this key regardless of this override. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines."
     },
     "death_guard_plaguebearers": {
       "fnp": 5,
       "notes": "iter24-D4: Plaguebearers (Death Guard ally Daemons unit) carry Disgustingly Resilient (Feel No Pain 5+) per their 10e datasheet. BSData does not encode FNP at the unit level so the mapper sees default 7 (none). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Plaguebearers datasheet Ã¢â¬â Disgustingly Resilient ability)."
     },
     "death_guard_blightlord_terminators": {
-      "fnp": 5,
       "invuln_save": 4,
-      "notes": "iter24-D4 + iter20 variant-invuln (merged iter28): Blightlord Terminators carry both Disgustingly Resilient (Feel No Pain 5+) per the Death Guard army rule AND a 4++ from Cataphractii-pattern Terminator armour. BSData v10.6.0 omits both the per-unit FNP and the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Blightlord-Terminators."
+      "notes": "DURA-AUDIT-D4 (docs/_DURA_AUDIT_D_DEATHGUARD.md divergence D4, 2026-07-03): removed the fabricated fnp=5 -- Blightlord Terminators have NO Feel No Pain on their 10e datasheet ('Blistering Fusillade' is an offensive ability, not Feel No Pain); the army-wide Disgustingly Resilient rule this entry used to cite does not exist in 10th edition. Live behaviour is UNCHANGED: `code/bsdata/loader.py` SWEG_DG_PLAGUE_FNP_FAITHFUL (default-on) already forced fnp=7 for this key regardless of this override. The 4++ Cataphractii-pattern Terminator armour invulnerable save (iter20 variant-invuln, merged iter28) IS real and is unchanged by this edit. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Blightlord-Terminators."
     },
     "death_guard_typhus": {
-      "fnp": 5,
       "invuln_save": 4,
-      "notes": "iter24-D4 + iter22 invuln (merged iter28): Typhus carries Disgustingly Resilient (Feel No Pain 5+) per the Death Guard army rule AND a 4++ Cataphractii Terminator armour invulnerable save. BSData v10.6.0 omits both. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Typhus."
+      "notes": "DURA-AUDIT-D4 (docs/_DURA_AUDIT_D_DEATHGUARD.md divergence D4, 2026-07-03): removed the fabricated fnp=5 -- Typhus has NO Feel No Pain on his 10e datasheet ('The Destroyer Hive' is a -1-to-hit melee aura, not Feel No Pain); the army-wide Disgustingly Resilient rule this entry used to cite does not exist in 10th edition. Live behaviour is UNCHANGED: `code/bsdata/loader.py` SWEG_AUDIT2_FNP_FABS (default-on) already forced fnp=7 for this key regardless of this override. The 4++ Cataphractii Terminator armour invulnerable save (iter22, merged iter28) IS real and is unchanged by this edit. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Typhus."
     },
     "aeldari_craftworlds_wraithguard": {
       "invuln_save": 4,

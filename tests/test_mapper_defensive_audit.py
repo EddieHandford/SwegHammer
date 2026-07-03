@@ -82,21 +82,34 @@ _EXPECTED_CUSTODES_INVULN = {
 
 
 class PlagueMarinesFNPTests(unittest.TestCase):
-    """Death Guard Plague Marines have FNP 5+ via Disgustingly Resilient."""
+    """Death Guard Plague Marines have NO Feel No Pain (DURA-AUDIT-D4).
 
-    def test_plague_marines_have_fnp_5(self):
+    docs/_DURA_AUDIT_D_DEATHGUARD.md divergence D4 (2026-07-03): the
+    "Disgustingly Resilient grants every DEATH GUARD model FNP 5+" army
+    rule this class used to assert does not exist in the 10th-edition
+    codex -- Disgustingly Resilient is the Virulent Vectorium 2-command-
+    point stratagem (-1 Damage), not an army-wide Feel No Pain, confirmed
+    against BSData + Wahapedia (no Feel No Pain ability on either
+    datasheet). The fabricated fnp=5 override was removed from
+    data/overrides.json on 2026-07-03; `code/bsdata/loader.py`'s
+    SWEG_DG_PLAGUE_FNP_FAITHFUL gate (default on) already forced the
+    faithful fnp=7 before that cleanup, so the live catalogue value is
+    unchanged.
+    """
+
+    def test_plague_marines_have_no_fnp(self):
         u = UNIT_CATALOG["death_guard_plague_marines"]
         self.assertEqual(
             u.fnp,
-            5,
-            f"Plague Marines should have FNP 5+ via Disgustingly Resilient; "
-            f"got {u.fnp}. Check data/overrides.json.",
+            7,
+            f"Plague Marines have no Feel No Pain per their 10e datasheet; "
+            f"got {u.fnp}. Check data/overrides.json / SWEG_DG_PLAGUE_FNP_FAITHFUL.",
         )
 
-    def test_csm_plague_marines_have_fnp_5(self):
-        """Cross-codex BSData listing also gets the FNP override."""
+    def test_csm_plague_marines_have_no_fnp(self):
+        """Cross-codex BSData listing shares the same faithful no-FNP value."""
         u = UNIT_CATALOG["chaos_space_marines_plague_marines"]
-        self.assertEqual(u.fnp, 5)
+        self.assertEqual(u.fnp, 7)
 
 
 class CustodesInvulnTests(unittest.TestCase):

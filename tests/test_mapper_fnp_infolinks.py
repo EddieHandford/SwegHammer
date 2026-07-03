@@ -17,9 +17,18 @@ Wulfen, Repentia, Death Company.
 
 These tests assert that the parsed.json produced by the mapper
 exposes the correct FNP threshold for a representative sample of
-those previously-dropped units, and that the Plague Marines override
-from #142 still resolves to FNP 5 once the loader has merged
-overrides on top of parsed.json.
+those previously-dropped units.
+
+DURA-AUDIT-D4 (docs/_DURA_AUDIT_D_DEATHGUARD.md divergence D4, 2026-07-03):
+the #142 Plague Marines FNP-5 override this file used to pin as a
+"no-regression" fixed point was itself a fabrication -- there is no
+army-wide Feel No Pain in the 10th-edition Death Guard codex (Disgustingly
+Resilient is the Virulent Vectorium 2-command-point stratagem, not an
+army rule), confirmed by the durability fidelity audit and already
+neutralised live by `code/bsdata/loader.py`'s SWEG_DG_PLAGUE_FNP_FAITHFUL
+gate (default on since the iter-15 fabrication removal, well before this
+2026-07-03 fix). `FnpNoRegressionTest` below now pins the CORRECT
+fixed point (no Feel No Pain) instead.
 """
 
 from __future__ import annotations
@@ -101,23 +110,30 @@ class FnpInfoLinkExtractionTest(unittest.TestCase):
 class FnpNoRegressionTest(unittest.TestCase):
     """Pre-existing fixes must continue to work."""
 
-    def test_plague_marines_resolve_to_fnp_5_via_overrides(self) -> None:
-        # Plague Marines' FNP isn't carried by a unit-direct infoLink in
-        # BSData — #142 patched them via data/overrides.json. After loader
-        # merges parsed.json + overrides, the catalogue must still see 5+.
+    def test_plague_marines_resolve_to_fnp_none_faithfully(self) -> None:
+        # DURA-AUDIT-D4: the #142 override that used to patch Plague Marines
+        # to FNP 5+ via data/overrides.json cited a Death Guard army-wide
+        # Disgustingly Resilient rule that does not exist in 10th edition
+        # (verified against BSData + Wahapedia: Plague Marines carry no
+        # Feel No Pain ability at all). The override's fnp=5 was removed on
+        # 2026-07-03 and `code/bsdata/loader.py`'s SWEG_DG_PLAGUE_FNP_FAITHFUL
+        # gate (default on) already forced the faithful fnp=7 (none) before
+        # that cleanup, so the live catalogue value is unchanged by the
+        # override edit -- this test now pins the CORRECT fixed point.
         from code.units import UNIT_CATALOG
 
         for key in ("death_guard_plague_marines", "chaos_space_marines_plague_marines"):
             self.assertIn(key, UNIT_CATALOG, f"{key} missing from catalogue")
             self.assertEqual(
                 UNIT_CATALOG[key].fnp,
-                5,
-                f"{key}: Plague Marines override (#142) regressed; expected fnp=5",
+                7,
+                f"{key}: Plague Marines have no Feel No Pain per their 10e "
+                f"datasheet (DURA-AUDIT-D4); expected fnp=7 (none)",
             )
 
     def test_no_regression_on_already_fixed_units(self) -> None:
         """Alias for the brief's named test — same assertion."""
-        self.test_plague_marines_resolve_to_fnp_5_via_overrides()
+        self.test_plague_marines_resolve_to_fnp_none_faithfully()
 
 
 if __name__ == "__main__":
