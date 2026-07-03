@@ -14322,6 +14322,17 @@ class Battle:
         # as `simulator.smokescreen`.
         if getattr(shoot_target, "smokescreen_active", False):
             shoot_target.in_cover = True
+        # Knight Defender "Selfless Protector" (10e datasheet ability,
+        # env-gated SWEG_IK_DEFENDER_COVER): bracketed per-attack (not a
+        # per-round transient — the real ability has no duration or Command
+        # Point cost, see the field comment on Unit.ik_defender_cover_active)
+        # exactly like in_cover/in_heavy_cover just above. Restored after the
+        # attack alongside saved_cover/saved_heavy below. Cited as
+        # `simulator.ik_defender_selfless_protector`.
+        saved_ik_defender_cover = shoot_target.ik_defender_cover_active
+        if self._ik_defender_screening_active(defender_army, shoot_target):
+            shoot_target.ik_defender_cover_active = True
+            shoot_target.in_cover = True
 
         # Distance and line-of-sight for the to-hit math use math_target (the
         # in-range model), never the possibly-out-of-range allocation target.
@@ -14363,6 +14374,7 @@ class Battle:
             )
         shoot_target.in_cover = saved_cover
         shoot_target.in_heavy_cover = saved_heavy
+        shoot_target.ik_defender_cover_active = saved_ik_defender_cover
         # Mark One Shot weapons as expended for the rest of the battle.
         if attacker.profile.one_shot:
             self._one_shot_fired.add(attacker.uid)
@@ -15133,6 +15145,51 @@ class Battle:
                     m.smokescreen_active = True
         else:
             shoot_target.smokescreen_active = True
+
+    def _ik_defender_screening_active(self, defending_army: Army, shoot_target) -> bool:
+        """Knight Defender "Selfless Protector" (10e Imperial Knights
+        datasheet ability, env-gated SWEG_IK_DEFENDER_COVER).
+
+        Printed rule (BSData, `Imperium - Imperial Knights - Library.cat.gz`,
+        inline Abilities profile id af51-9630-82a3-172d on the Knight
+        Defender's own selectionEntry, verified verbatim): "Each time a
+        ranged attack is allocated to an Imperial Knights model from your
+        army, if that model is not fully visible to every model in the
+        attacking unit because of this Knight Defender model, that model has
+        the Benefit of Cover and a 4+ invulnerable save against that attack."
+        No radius is printed anywhere in the ability — it is a line-of-sight
+        screening ability (gated on the Knight Defender's silhouette actually
+        blocking the attacker's view), not a fixed-range aura.
+
+        APPROXIMATION, same shape as `_try_stalwart_protector`'s "CLEAN
+        MAPPING (with approximate eligibility)": the sim has no per-third-
+        party line-of-sight-obstruction geometry (only attacker-to-target
+        line of sight is modelled), so the true "screened specifically by
+        the Knight Defender" condition cannot be evaluated. Proxy: any
+        ranged attack against an alive IMPERIAL KNIGHTS model, other than
+        the Knight Defender itself, in an army that also fields an alive
+        Knight Defender, is treated as screened. Even-handed by
+        construction (Imperial Knights keyword + alive-Knight-Defender-
+        presence only, no other faction awareness); over-credits games where
+        the Knight Defender is not actually positioned to block the
+        specific attacker's view. Cited as
+        `simulator.ik_defender_selfless_protector`.
+
+        Gate unset (or "0") -> always False: no flag set, no behaviour
+        change, so the OFF path is byte-identical to the baseline.
+        """
+        if __import__("os").environ.get("SWEG_IK_DEFENDER_COVER", "1") == "0":
+            return False
+        if shoot_target is None or not getattr(shoot_target, "is_alive", False):
+            return False
+        tp = shoot_target.profile
+        if tp.faction != "Imperial Knights" or tp.name == "Knight Defender":
+            return False
+        return any(
+            u.is_alive and u.profile.faction == "Imperial Knights"
+            and u.profile.name == "Knight Defender"
+            for u in defending_army.units
+        )
 
     def _fire_overwatch(self, defending_army: Army, enemy_unit) -> None:
         """Fire Overwatch (10e universal core stratagem, env-gated

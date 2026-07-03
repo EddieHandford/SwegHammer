@@ -971,6 +971,16 @@ class Unit:
     __slots__ = (
         "profile", "_current_health", "in_cover", "in_heavy_cover", "uid", "position",
         "army_ref",
+        # Knight Defender "Selfless Protector" (Imperial Knights datasheet
+        # ability, env-gated SWEG_IK_DEFENDER_COVER). Bracketed around a
+        # single ranged attack resolution exactly like `in_cover` /
+        # `in_heavy_cover` above (set immediately before the attack, restored
+        # immediately after) rather than cleared per-round: the real ability
+        # has no duration or Command Point cost, it simply re-applies "each
+        # time a ranged attack is allocated" to an eligible target. See
+        # Battle._ik_defender_screening_active / Battle._do_shoot. Cited as
+        # `simulator.ik_defender_selfless_protector`.
+        "ik_defender_cover_active",
         # SQUAD-ACTIVATION (Lever 1, P1): stable per-squad id assigned at army-
         # build time. All model-Units of one instantiated codex squad share an
         # id (distinct even for two squads of the same datasheet). -1 = unassigned
@@ -1297,6 +1307,11 @@ class Unit:
         # the in_cover flag. The flag is retained for compatibility with
         # call-sites that still toggle it. Restored to False after shot.
         self.in_heavy_cover: bool = False
+        # Knight Defender "Selfless Protector". Set immediately before, and
+        # restored immediately after, a single ranged attack resolution in
+        # Battle._do_shoot (same bracketing pattern as in_cover/
+        # in_heavy_cover above). See Battle._ik_defender_screening_active.
+        self.ik_defender_cover_active: bool = False
         self.uid: str = ""                              # assigned by Battle at start
         self.position: tuple = (0.0, 0.0)               # (x, y) in inches
         # Back-reference to owning army (set by Army.add_unit). Lets
@@ -3649,6 +3664,16 @@ class Unit:
             # rule. Cited as `simulator.go_to_ground`.
             if getattr(target, "go_to_ground_active", False) and invuln > 6:
                 invuln = 6
+            # Knight Defender "Selfless Protector" (10e datasheet ability,
+            # env-gated SWEG_IK_DEFENDER_COVER) — 4+ invuln on the screened
+            # ranged-attack target, bracketed per-attack (not a per-round
+            # transient) by Battle._do_shoot via ik_defender_cover_active.
+            # The accompanying Benefit of Cover (+1 save) is applied via the
+            # same in_cover flag as Go To Ground / Smokescreen. Same "only
+            # override if better" rule. Cited as
+            # `simulator.ik_defender_selfless_protector`.
+            if getattr(target, "ik_defender_cover_active", False) and invuln > 4:
+                invuln = 4
             effective_save = min(save_after_ap, invuln) if invuln <= 6 else save_after_ap
             save_target = effective_save  # 7 = no save
 

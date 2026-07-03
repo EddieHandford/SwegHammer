@@ -1288,6 +1288,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # simulator.custodes_advanced_firepower. See
     # data/rule_citations.d/death_guard.json.
     "simulator.dg_tank_hunters",
+    # Durability fidelity wave, audit B fix 3 (2026-07-03). Knight Defender
+    # datasheet ability "Selfless Protector": a screened friendly Imperial
+    # Knights model gets the Benefit of Cover and a 4+ invulnerable save
+    # against a ranged attack. Env-gated SWEG_IK_DEFENDER_COVER (default on).
+    # Bracketed per-attack (not per-round) around the existing cover/invuln
+    # plumbing, same shape as Go To Ground / Smokescreen. See
+    # data/rule_citations.d/imperial_knights.json.
+    "simulator.ik_defender_selfless_protector",
 )
 
 
