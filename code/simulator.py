@@ -12449,6 +12449,54 @@ class Battle:
                         if _exp >= 0.5:
                             _suppress_advance = True
                             break
+        # ANTI-TANK-SCOPED entry point (SWEG_ANTITANK_ADVANCE_DISCIPLINE,
+        # default-off, `=1` opt-in): the narrow, faithful cousin of the retired
+        # generic SWEG_ADVANCE_DISCIPLINE (screened metric-harmful, +2.19,
+        # because it held every shooter regardless of what it was shooting at).
+        # The capstone activation-allocation decomposition (waterfall
+        # instrument, N=12+12 paired, see docs/DECISION_LEDGER.md's "THE FINAL
+        # DECOMPOSITION" entry) found that of the field's SUPPRESSED
+        # anti-Knight output (one of four loss buckets alongside dead-before-
+        # delivering, out-of-range, and pointed-elsewhere), 31 percent is the
+        # artificial intelligence ADVANCING an anti-tank unit that had a live
+        # shot on a durable in-range target this round, forfeiting its entire
+        # Shooting phase for nothing (Necrons alone contribute 51 percent of
+        # that share; units that had already Fallen Back contribute 13
+        # percent). Unlike the retired generic gate, and unlike the per-
+        # faction gunline-hold levers above (_ad_am / _ad_ck / _ad_votann,
+        # which hold any qualifying gunline heading for an objective whenever
+        # ANY enemy sits within reach of a Normal move), this lever fires ONLY
+        # when the unit has a genuine shot RIGHT NOW, at its CURRENT position,
+        # against a genuinely durable "brick" target — Toughness 10 or higher,
+        # or 15 or more starting Wounds — that its weapon can meaningfully
+        # damage (at least 1.0 expected unsaved wounds this phase, computed by
+        # the same `_ranged_expected_wounds` collective-crack math the focus-
+        # fire layer uses). The narrowness lives in the TARGET, not the army,
+        # so the lever is faction-neutral by construction: it never holds a
+        # unit back to protect an objective push or to wait for a target that
+        # might arrive, only to keep a shot that already exists. By this point
+        # in the function `intent` can only be ENGAGE, CAPTURE, STEAL or
+        # REPOSITION (HOLD and FALL_BACK both return earlier), so no
+        # additional intent restriction is applied. Cited as
+        # `simulator.antitank_advance_discipline`.
+        _ad_antitank = os.environ.get("SWEG_ANTITANK_ADVANCE_DISCIPLINE", "0") == "1"
+        if (_ad_antitank
+                and not _suppress_advance
+                # Same non-[ASSAULT] exclusion as the family above: a unit
+                # that can still shoot after Advancing loses nothing by it.
+                and not attacker.profile.assault
+                and not getattr(attacker, "transient_assault_this_round", False)):
+            _atk_range = attacker.profile.range_inches or 0.0
+            if _atk_range > 0.0:
+                for _e in defender_army.alive_units:
+                    if _distance(attacker.position, _e.position) > _atk_range:
+                        continue
+                    _tp = _e.profile
+                    if (_tp.toughness or 0) < 10 and (_tp.health or 0) < 15:
+                        continue
+                    if self._ranged_expected_wounds(attacker.profile, _e) >= 1.0:
+                        _suppress_advance = True
+                        break
         # Per-squad Advance roll (wave 77, env-gated SWEG_SQUADADV). Real 10e: a
         # unit makes ONE Advance roll (one D6) applied to every model; SwegHammer
         # rolled per model. Same per-unit correctness pattern as the charge roll.

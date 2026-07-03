@@ -1039,6 +1039,20 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # universal competitive staging doctrine plus the symmetry with the adopted
     # ranged-hold family. Cited in data/rule_citations.d/core_staging.json.
     "simulator.staging_discipline",
+    # SWEG_ANTITANK_ADVANCE_DISCIPLINE (default-off, byte-identical off). The
+    # narrow, faction-neutral cousin of the retired generic advance-discipline
+    # gate and of the per-faction gunline-hold family above (am_advance_
+    # discipline / ck_ranged_hold / votann_ranged_hold): a unit does not
+    # Advance when it has a live shot, from its current position, on a
+    # durable "brick" target (Toughness 10+ or 15+ starting Wounds) that its
+    # weapon can meaningfully hurt right now, and Advancing would forfeit
+    # that shot. Built from the capstone activation-allocation decomposition
+    # (docs/DECISION_LEDGER.md's "THE FINAL DECOMPOSITION" entry): 31 percent
+    # of the field's SUPPRESSED anti-Knight output is exactly this mis-pilot.
+    # Second entry point `_ad_antitank` on the shared _suppress_advance block
+    # in code/simulator.py _do_move. Cited in
+    # data/rule_citations.d/antitank_advance_discipline.json.
+    "simulator.antitank_advance_discipline",
     "unit.necrodermis",
     # Wave 181 — CA-2025-26 Tactical-track flat kill card VP values.
     # When a TACTICAL-track army (SWEG_TAC_DECK path) draws one of these three
