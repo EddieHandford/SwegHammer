@@ -12583,7 +12583,10 @@ class Battle:
         _ad_tsons = (os.environ.get("SWEG_TSONS_RANGED_HOLD", "1") != "0"
                      and (attacker.profile.faction or "") == "Thousand Sons")
         # ADEPTA-SORORITAS-SCOPED entry point (SWEG_SOROR_RANGED_HOLD —
-        # default-OFF screening gate, `=1` opt-in; the sixth entry point on the
+        # ADOPTED default-on 2026-07-03, `=0` kill-switch; N=80 Sororitas-scoped
+        # screen vs sc49a: Adepta Sororitas +5.98 DECISIVE toward real 50.4
+        # (46.2 -> 52.1), gated 3.67 -> 3.59, collateral small and mostly
+        # over-poles deflating toward real; the sixth entry point on the
         # shared ranged-hold block): the SAME gunline-hold logic, restricted to
         # Adepta Sororitas. Derived from watched pilot-observation (2026-07-03,
         # docs/PILOT_FINDINGS.md): in the diagnostic Sororitas-loses
@@ -12601,7 +12604,7 @@ class Battle:
         # non-[ASSAULT] shooting); the direct analog of _ad_am / _ad_ck /
         # _ad_votann / _ad_tsons. Off path (gate unset) byte-identical. Cited
         # simulator.soror_ranged_hold.
-        _ad_soror = (os.environ.get("SWEG_SOROR_RANGED_HOLD", "0") == "1"
+        _ad_soror = (os.environ.get("SWEG_SOROR_RANGED_HOLD", "1") != "0"
                      and (attacker.profile.faction or "") == "Adepta Sororitas")
         if ((_ad_generic or _ad_am or _ad_ck or _ad_votann or _ad_tsons
                 or _ad_soror)
