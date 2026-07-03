@@ -13373,8 +13373,37 @@ class Battle:
         # simulator.astartes_ranged_hold.
         _ad_astartes = (os.environ.get("SWEG_ASTARTES_RANGED_HOLD", "1") != "0"
                         and (attacker.profile.faction or "") == "Adeptus Astartes")
+        # EMPEROR'S-CHILDREN-SCOPED entry point (SWEG_EC_RANGED_HOLD — default-OFF
+        # screening gate, `=1` opt-in; unset/`0` is the byte-identical off path):
+        # the SAME gunline-hold logic, restricted
+        # to Emperor's Children. Derived from watched pilot-observation (2026-07-03,
+        # three piloted games under the SWEG_EC_REALISM archetype: Chaos Knights
+        # seed 0, Orks seed 1, Necrons seed 2). The Noise Marines line (ranged
+        # damage per activation 4.66, range 18 inches) Advanced round 1 and, in
+        # two of the three games, round 2 as well, forfeiting its Shooting phase
+        # both times before ever firing a shot; the same games also show the
+        # Sorcerer (5.34 / 18") and the Tormentors troop choice (2.27 / 24",
+        # already capable of shooting AND still charging on a Normal move) Advance
+        # instead of holding. The shared rDPA >= 2.0 & range >= 18 inch filter
+        # below holds exactly these three plus the Chaos Rhino transport (2.67 /
+        # 48"); it does NOT hold the Defiler despite it being the observed
+        # stand-out misplay (Advanced rounds 1-2 in all three games, then held
+        # and dealt 16-29 damage per activation once it finally fired) — the
+        # Defiler's `range_inches` field reflects the mapper's best-single-EV
+        # weapon pick (Heavy baleflamer, a 12-inch torrent), while its actual
+        # fire-platform output rides on its SECONDARY profile (Hades battle
+        # cannon, 48 inches, rDPA approximately 12.0), which this filter does not
+        # read — a known limitation of the shared primary-profile-only filter,
+        # not fixed here (see the decision ledger's Emperor's Children entry for
+        # the follow-up). Faithful piloting, not a rules claim (Advancing
+        # forfeits non-[ASSAULT] shooting); the direct analog of _ad_am / _ad_ck
+        # / _ad_votann / _ad_tsons / _ad_soror / _ad_tyranids and the eighth
+        # entry point on the shared advance-suppression block. Off path (gate
+        # unset) byte-identical. Cited simulator.ec_ranged_hold.
+        _ad_ec = (os.environ.get("SWEG_EC_RANGED_HOLD", "0") == "1"
+                  and (attacker.profile.faction or "") == "Emperor's Children")
         if ((_ad_generic or _ad_am or _ad_ck or _ad_votann or _ad_tsons
-                or _ad_soror or _ad_tyranids or _ad_astartes)
+                or _ad_soror or _ad_tyranids or _ad_astartes or _ad_ec)
                 and intent in ("CAPTURE", "STEAL")
                 # Units that can shoot AFTER Advancing (ASSAULT weapons, or a
                 # transient ASSAULT grant) lose nothing by it — never suppress them
