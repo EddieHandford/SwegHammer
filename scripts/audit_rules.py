@@ -1111,6 +1111,24 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # _suppress_advance block in code/simulator.py _do_move. Cited in
     # data/rule_citations.d/tyranids.json.
     "simulator.tyranids_ranged_hold",
+    # SWEG_ASTARTES_RANGED_HOLD (default-OFF screening gate, 2026-07-03). AI
+    # piloting heuristic (same as simulator.am_advance_discipline /
+    # ck_ranged_hold / votann_ranged_hold / tsons_ranged_hold /
+    # soror_ranged_hold / tyranids_ranged_hold, Adeptus-Astartes-scoped): the
+    # faction's dedicated fire platforms (Repulsor, Predator, Vindicator,
+    # Gladiator/Ballistus/Redemptor, Land Raiders, Devastator, Eradicator and
+    # the ranged CHARACTERS) hold and shoot instead of Advancing and forfeiting
+    # their Shooting phase, while the core bolter infantry (Intercessors,
+    # Tacticals, Scouts) and every [ASSAULT] unit (Hellblasters, Inceptors,
+    # Terminator Assault, Vanguard, Bladeguard) stay free to Advance onto
+    # objectives (roster-filter audit: scripts/diag_astartes_filter.py holds 73
+    # fire-platform/character units, 0 core-infantry units). Derived from
+    # watched pilot-observation (the Orks seed-1 6-67 blow-out was the gunline
+    # ground up in melee; the Necrons seed-2 Eradicators Advanced round 2 firing
+    # nothing). Eighth entry point _ad_astartes on the shared _suppress_advance
+    # block in code/simulator.py _do_move. Cited in
+    # data/rule_citations.d/marines.json.
+    "simulator.astartes_ranged_hold",
     # SWEG_STAGING (default-off, byte-identical off). The faction-neutral
     # closing-side counterpart of the ranged-hold family: a unit whose commit
     # would deliver it EXPOSED into a significant enemy threat envelope while it

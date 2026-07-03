@@ -963,3 +963,156 @@ faithful lever can be banked without a large frame regression. If the owner want
 pursue it, the N=80 Tyranids-scoped adoption screen is the deciding measurement (it was
 not run here per the ≤N=20 scoped-probe instruction), but the +24 magnitude at N=20
 sets a strong prior for a regression.
+
+# Adeptus Astartes ranged-hold — watched-replay lever (2026-07-03)
+
+Owner directive: derive an army-scoped artificial-intelligence lever for Adeptus
+Astartes FROM WATCHED PILOTED GAMES (sim win rate 42.0 versus real 47.6, a −5.6
+under-pole). The list-fidelity audit had already proven the durable over/under-poles
+are a model-count phenomenon; Adeptus Astartes is a mid-model elite that is NOT
+caught in that survivor economy, so its deficit should be genuine PLAY-QUALITY that
+watched games can localise. The eighth candidate in the ranged-hold family. Method:
+the pilot-comparison harness `scripts/diag_pilot_am_vs_ik.py` run for three games
+across opponent classes, reading the per-round board renders alongside the per-round
+move log.
+
+## Games watched
+
+| Seed | Opponent | Map | Result (A = Adeptus Astartes) |
+|---|---|---|---|
+| 0 | Chaos Knights (durable gunline) | Crucible of Battle | A DRAW 54-54 capped (behind rounds 2-4, tied at the buzzer) |
+| 1 | Orks (melee horde) | Take and Hold | A LOSS 6-67 (blow-out — gunline ground up in melee) |
+| 2 | Necrons (mid-range attrition) | Hammer and Anvil | A win 48-41 |
+
+## The observed misplay — the fire platforms Advance the line forward into the enemy and (round 2+) forfeit their guns
+
+The recurring mis-pilot is the whole Marine gunline Advancing off its deployment
+line every round, marching the fire platforms forward into the enemy rather than
+holding to shoot. Named, concrete instances:
+
+- **Orks seed 1 (the blow-out, 6-67):** in round 1 EVERY Adeptus Astartes unit
+  Advanced (move-log lines 6-49, all tagged ADVANCED), sprinting the gunline toward
+  the 100-model Ork horde. By round 2 the line was in contact and being ground up
+  in melee, where 24-48 inch guns are wasted. The two Repulsors that HELD and shot
+  instead (lines 183-185) killed 16, 19, and 14+7 Boyz/Deffkoptas in single
+  activations — the most productive Marine activations of the game — while the
+  Advancing line around them died. A real Marine player holds the fire platforms
+  back and thins the horde before it arrives. (NOTE: the many Hellblaster Squads are
+  [ASSAULT]-flagged in the sim, so they DID shoot despite Advancing — their loss was
+  purely POSITIONAL, marching into melee, and they are correctly left free by the
+  lever's `not assault` guard.)
+- **Necrons seed 2, round 2 (the Castigator-class forfeit):** the Eradicator Squads
+  (Melta Rifles, ranged damage per activation 2.24, range 18 inches, non-[ASSAULT])
+  ADVANCED in round 2 (move-log lines 141, 150-154) — the Tactical Doctrine round,
+  which lifts ONLY the Fall-Back lockout, NOT the Advance lockout — and forfeited
+  their Shooting phase, no shot logged. When the same Eradicators HELD rounds 3-4
+  they delivered the melta (Ghost Ark 5, Overlord 6X, Necron Warriors 5X, lines
+  275/379/380). A 90-point anti-tank platform gave up its guns to walk three extra
+  inches toward an objective it was already contesting.
+- **Chaos Knights seed 0, round 1:** the whole line Advanced toward objectives 3/4
+  (lines 6-66); the Repulsors and Eradicators (non-[ASSAULT] fire platforms) marched
+  forward rather than holding to shoot the War Dogs that Oath had marked, forfeiting
+  position and (from round 2) shots.
+
+## What is NOT the gap (checked, so no lever is forced there)
+
+- **Oath of Moment IS modelled** (`simulator.oath_of_moment`, `army.oath_target_uid`):
+  each Command phase the AI picks the highest live-threat enemy anchor (with a
+  rotate-off-prior-anchor tiebreak) and every Marine attack against it re-rolls BOTH
+  the Hit and the Wound roll. Verified present and firing. Not a missing rule.
+- **The Gladius Combat Doctrines ARE modelled and firing** (`simulator.combat_doctrines`,
+  `_gladius_active_doctrine`): Devastator R1 (shoot-after-Advance), Tactical R2
+  (shoot AND declare-a-charge after Fall Back), Assault R3+ (charge-after-Advance).
+  Audit C's concern — that the Fall-Back-and-act exception is gated to Adeptus
+  Astartes only and Marines might be needlessly stuck in melee — was checked: the
+  exception FIRES (the shoot lockout at `_do_shoot` and the charge lockout at
+  `_do_charge` both carve out `_gladius_active_doctrine == "Tactical"`), so Marines
+  are NOT needlessly stuck. And the round-1 Devastator doctrine is exactly why the
+  Advance-forfeit costs Marines LESS than other armies in round 1 (they keep the
+  shot); the shooting forfeit only bites from round 2 (Tactical/Assault). The
+  residual is the POSITIONAL mis-pilot (marching into melee) plus the round-2+
+  non-[ASSAULT] Advance-forfeit — both corrected by the ranged-hold.
+- **Hellblasters are [ASSAULT] in the catalogue.** The army's premier gun infantry
+  (many squads per list) can already shoot after Advancing, so it loses nothing by
+  Advancing in-sim and is correctly excluded by the shared `not attacker.profile.assault`
+  guard. This makes the Adeptus Astartes hold NARROWER in practice than the Sororitas
+  / Thousand Sons holds (whose core shooters were non-[ASSAULT]); the leverage here
+  is the vehicles (Repulsor, Predator, Land Raiders, Gladiator/Ballistus/Redemptor),
+  the Eradicator/Devastator/Eliminator squads and the ranged characters.
+
+## Roster eligibility (why the filter is clean)
+
+The shared rDPA >= 2.0 & range >= 18 inch filter, enumerated across the FULL Adeptus
+Astartes catalogue by `scripts/diag_astartes_filter.py`, holds 73 units — every one
+a dedicated fire platform or a ranged CHARACTER — and holds NONE of the core bolter
+or assault infantry:
+
+| Held (rDPA / range) | Free to Advance (rDPA / range) |
+|---|---|
+| Repulsor (3.0 / 48"), Repulsor Executioner (10.0 / 72"), Predator Destructor/Annihilator (8.0/3.0 / 48"), Vindicator (14.0 / 24"), Gladiator Lancer/Reaper/Valiant, Ballistus (6.0 / 48"), Redemptor (8.0 / 36"), Land Raider variants (6.0 / 48"), Whirlwind (8.0 / 72"), Desolation Squad (4.5 / 48"), Devastator Squad (2.5 / 24"), Eradicator Squad (2.24 / 18"), Eliminator (2.33 / 36"), Suppressor (3.0 / 48"), Aggressor Squad (2.0 / 18"), Rhino/Impulsor/Razorback (transports, 2.3-3.0 / 48"), the ranged characters Captain / Lieutenant / Librarian / Techmarine / Chaplain-in-Terminator | Intercessor Squad (1.67 / 24" — below the 2.0 floor), Tactical Squad (1.95 / 24"), Assault Intercessors (0.73 / 18"), Scout Squad (1.45), Sternguard (0.56), plus every [ASSAULT] unit — Hellblaster Squad (2.53, [ASSAULT]), Inceptor Squad ([ASSAULT]), Heavy Intercessors ([ASSAULT]), Terminator Assault Squad (range 1"), Vanguard Veterans, Bladeguard, Land Raider Redeemer (range 12"), Infernus (range 12") |
+
+The filter frees the entire objective-grabbing infantry core (Intercessors,
+Tacticals, Assault Intercessors, Scouts) and every [ASSAULT] unit, so the swarm-of-
+bodies forward pressure onto objectives is untouched and the filter needs no infantry
+narrowing. The debatable holds are the ranged CHARACTERS (the direct analog of the
+Thousand Sons psyker holds and the Sororitas Morvenn Vahl hold — precedented) and the
+TRANSPORTS (Rhino / Impulsor / Razorback); the hold fires only on CAPTURE/STEAL
+intent with a live damaging shot in a Normal move's reach, so a transport with no
+target in reach still Advances to deliver, and the collateral screen is the check on
+whether the transport holds cost anything.
+
+## The lever built — `SWEG_ASTARTES_RANGED_HOLD` (default-OFF)
+
+An eighth Adeptus-Astartes-scoped entry point (`_ad_astartes`) on the shared
+`_suppress_advance` block in `code/simulator.py` `_do_move`, identical in logic to
+`_ad_am` / `_ad_ck` / `_ad_votann` / `_ad_tsons` / `_ad_soror` / `_ad_tyranids`: a
+moving Adeptus Astartes unit seeking an objective (CAPTURE/STEAL), carrying no
+[ASSAULT] weapon, with ranged damage per activation >= 2.0 and range >= 18 inches,
+that has a damageable target within a Normal move's reach, HOLDS and Normal-moves
+(keeping its shot and staying back) rather than Advancing. Cited
+`simulator.astartes_ranged_hold` (data/rule_citations.d/marines.json), registered in
+`scripts/audit_rules.py`. Off path (gate unset) byte-identical.
+
+## Screen (N=20 Adeptus-Astartes-scoped, paired vs the standing anchor `sc52a`)
+
+- **Byte-identical-off:** gate unset, **0 flips across all 22 factions** (840
+  matched games, `data/_astartes_off_check.json` vs the anchor), gated mean absolute
+  error delta +0.00 — the OFF path does not leak; the anchor is a valid OFF arm.
+- **`SWEG_ASTARTES_RANGED_HOLD=1` (the load-bearing row):** Adeptus Astartes
+  **40.9 -> 52.1, paired delta +11.24, CI 5.70, DECISIVE UP, 138 matched games
+  flipped (highly active, not inert).** Correct direction — it closes the −5.6
+  under-pole (real 47.6) — with a MODEST overshoot: the faction lands ~4.5 over
+  real, so its OWN absolute error crosses from 5.6-under to 4.5-over, a slight net
+  improvement (5.6 → 4.5). The per-opponent rows (Drukhari −50, Chaos Space Marines
+  −40, Death Guard −35, etc.) are the asymmetric-scoped-eval artefact, NOT readable
+  collateral at this N: each opponent appears in only ~20 games with CI 13-31 and
+  2-10 flips, and the gate changes only Adeptus Astartes' own moves, so an opponent
+  row moves only because Marines trade better against it. The `gated MAE ON 15.42
+  (+2.07)` is likewise computed from those noisy opponent-vs-Astartes-only records
+  and is unreliable at this scoping — exactly as the Sororitas and Tyranids screens
+  discounted.
+
+## Disposition — the CK / Votann fidelity-first profile; ADVANCE to N=80
+
+This is a genuine, faithful, observation-grounded member of the ranged-hold family
+(the eighth; the fire-platform Advance-forfeit and the march-into-melee were seen
+directly, the core infantry is untouched, off is byte-identical). The signature is
+the CK / Votann fidelity-first profile, NOT the Tyranids massive-overshoot profile:
+a decisive +11.24 lift with only a ~4.5-point overshoot over real (52.1 versus
+47.6), and — unlike Tyranids (which ballooned to +24, ~28 over) — the faction's OWN
+absolute error IMPROVES slightly (5.6-under → 4.5-over) rather than exploding,
+because Adeptus Astartes fields far fewer qualifying durable bricks than Tyranids:
+its premier gun infantry, the Hellblasters, is [ASSAULT]-excluded, so only the
+vehicles, the Eradicator / Devastator squads and the ranged characters are held.
+The overshoot is the sim's structural durability-over-reward amplifying the
+held-alive fire platforms — the same disposition class as the CK (+11.27) and
+Votann (+10.37) fidelity-first adoptions, both of which banked a small frame-mean-
+absolute-error improvement at N=80 via opponent over-poles deflating toward real.
+
+**Recommendation: promising, precedent-backed, correct-direction, own-error-
+improving — ADVANCE to the N=80 Adeptus-Astartes-scoped adoption screen** (the
+deciding measurement; not run here per the ≤N=20 scoped-probe instruction). My lean
+is fidelity-first ADOPT matching the CK / Votann precedent: the piloting is
+faithful, the overshoot is modest and is the sim's durability-over-reward's fault,
+and the faction's own error improves. The N=80 screen confirms whether the
+full-frame metric banks the lift (as CK / Votann did) or washes.

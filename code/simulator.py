@@ -13323,8 +13323,51 @@ class Battle:
         # unset) byte-identical. Cited simulator.tyranids_ranged_hold.
         _ad_tyranids = (os.environ.get("SWEG_TYRANIDS_RANGED_HOLD", "0") == "1"
                         and (attacker.profile.faction or "") == "Tyranids")
+        # ADEPTUS-ASTARTES-SCOPED entry point (SWEG_ASTARTES_RANGED_HOLD —
+        # default-OFF screening gate; "1" opt-in, unset/"0" is the byte-identical
+        # off path): the SAME gunline-hold logic, restricted to Adeptus Astartes.
+        # Derived from watched pilot-observation (2026-07-03, docs/PILOT_FINDINGS.md):
+        # across three piloted games (versus Chaos Knights seed 0, Orks seed 1,
+        # Necrons seed 2) the Marine non-[ASSAULT] fire platforms Advanced their
+        # opening rounds and marched their whole line forward into the enemy. In
+        # the Orks melee-horde game (seed 1) this fed a 6-67 blow-out: the gunline
+        # Advanced into contact round 1 and was ground up in melee, while the two
+        # Repulsors that HELD and shot killed 16 and 19 Boyz per activation. Versus
+        # Necrons (seed 2) the Eradicator Squads (Melta Rifles, ranged damage per
+        # activation 2.24, range 18 inches, non-[ASSAULT]) Advanced round 2 (the
+        # Tactical Doctrine round, which lifts only the Fall-Back lockout, NOT the
+        # Advance lockout) and forfeited their Shooting phase; when held rounds 3-4
+        # they dealt an Overlord 6 and a Ghost Ark 5. IMPORTANT SIM-DATA FINDING
+        # (scripts/diag_astartes_filter.py): the army's premier gun infantry, the
+        # Hellblaster Squad, is flagged [ASSAULT] in the catalogue (plasma
+        # incinerator), so it can already shoot after Advancing and is CORRECTLY
+        # excluded by the shared `not attacker.profile.assault` guard below — it
+        # loses nothing by Advancing, so it is never held. Oath of Moment (army
+        # rule) and the Gladius Combat Doctrines (Devastator R1 shoot-after-Advance,
+        # Tactical R2 act-after-Fall-Back, Assault R3+ charge-after-Advance) are
+        # ALREADY modelled (army.oath_target_uid / simulator.combat_doctrines) and
+        # verified firing in the replays — the deficit is the mis-pilot, not a
+        # missing rule. ROSTER-FILTER AUDIT (scripts/diag_astartes_filter.py): the
+        # shared rDPA >= 2.0 & range >= 18 inch filter holds 73 catalogue units,
+        # every one a dedicated fire platform (Repulsor, Predator, Vindicator,
+        # Gladiator/Ballistus/Redemptor, Land Raiders, Whirlwind, Desolation,
+        # Devastator, Eradicator, Eliminator, Suppressor) or a ranged CHARACTER
+        # (Captain, Lieutenant, Librarian, Techmarine — the direct analog of the
+        # Thousand Sons psyker holds and the Sororitas Morvenn Vahl hold), and
+        # holds NONE of the core bolter or assault infantry: Intercessors (rDPA
+        # 1.67), Tactical Squad (1.95), Assault Intercessors (0.73), Scouts, plus
+        # every [ASSAULT] unit (Hellblasters, Inceptors, Heavy Intercessors,
+        # Terminator Assault, Vanguard, Bladeguard) stay FREE to Advance onto
+        # objectives — so the filter needs no narrowing for infantry. Faithful
+        # piloting, not a rules claim (Advancing forfeits non-[ASSAULT] shooting);
+        # the direct analog of _ad_am / _ad_ck / _ad_votann / _ad_tsons /
+        # _ad_soror / _ad_tyranids and the eighth entry point on the shared
+        # advance-suppression block. Off path (gate unset) byte-identical. Cited
+        # simulator.astartes_ranged_hold.
+        _ad_astartes = (os.environ.get("SWEG_ASTARTES_RANGED_HOLD", "0") == "1"
+                        and (attacker.profile.faction or "") == "Adeptus Astartes")
         if ((_ad_generic or _ad_am or _ad_ck or _ad_votann or _ad_tsons
-                or _ad_soror or _ad_tyranids)
+                or _ad_soror or _ad_tyranids or _ad_astartes)
                 and intent in ("CAPTURE", "STEAL")
                 # Units that can shoot AFTER Advancing (ASSAULT weapons, or a
                 # transient ASSAULT grant) lose nothing by it — never suppress them
