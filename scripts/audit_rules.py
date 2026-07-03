@@ -1232,6 +1232,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.secondary_marked_for_death",
     "simulator.secondary_overwhelming_force",
     "simulator.secondary_display_of_might",
+    # Secondary-economy audit fix wave, D5 — the printed 5-card Fixed pool
+    # (env-gated SWEG_FIXED_POOL_FULL, default ON). Adds No Prisoners and Cleanse
+    # as legal Fixed picks and prevents the degenerate double-Cull the audit
+    # flagged (two distinct picks). Carries an open, verbatim caveat on whether
+    # the target tournament banned No Prisoners as a Fixed pick. `=0` restores the
+    # pre-fix 3-card picker byte-for-byte. See
+    # data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.fixed_pool_full",
     # Wave 249 — 10e core end-of-battle win condition (env-gated SWEG_TABLING_VP,
     # default OFF). When ON, the three survivor-count short-circuits in
     # Battle._decide_winner are skipped; every game (including one-sided tablings)
