@@ -1027,6 +1027,16 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Advancing and forfeiting their Shooting phase. Overshoots via the durability
     # over-reward but improves the metric via collateral. Cited in votann.json.
     "simulator.votann_ranged_hold",
+    # SWEG_TSONS_RANGED_HOLD (default-OFF screening gate, 2026-07-03). AI piloting
+    # heuristic (same as simulator.am_advance_discipline / ck_ranged_hold /
+    # votann_ranged_hold, Thousand-Sons-scoped): the Thousand Sons shooting core
+    # (Rubric Marines, Scarab Occult Terminators, Mutalith Vortex Beast, the
+    # psyker characters) holds and shoots instead of Advancing into melee and
+    # forfeiting its Shooting phase. Derived from watched pilot-observation (three
+    # piloted games; the Orks 20-48 blow-out was the gunline ground up in melee).
+    # Fifth entry point _ad_tsons on the shared _suppress_advance block in
+    # code/simulator.py _do_move. Cited in data/rule_citations.d/thousand_sons.json.
+    "simulator.tsons_ranged_hold",
     # SWEG_STAGING (default-off, byte-identical off). The faction-neutral
     # closing-side counterpart of the ranged-hold family: a unit whose commit
     # would deliver it EXPOSED into a significant enemy threat envelope while it

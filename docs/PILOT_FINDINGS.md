@@ -625,3 +625,90 @@ adopted state.
    regeneration would subsume both default-on loader corrections and also fix any
    other faction the leak touches. Kept as a separate, broader change because it
    moves more than the screened unit set.
+
+---
+
+# Thousand Sons ranged-hold — watched-replay lever (2026-07-03)
+
+Owner directive: derive an army-scoped artificial-intelligence lever for Thousand
+Sons FROM WATCHED PILOTED GAMES (sim win rate 48.2 vs real 54.6, the
+second-largest under-pole once Astra Militarum is covered). Method: the
+pilot-comparison harness `scripts/diag_pilot_am_vs_ik.py` run for three games
+across opponent classes, reading the per-round board renders alongside the
+per-round move log.
+
+## Games watched
+
+| Seed | Opponent | Map | Result (A = Thousand Sons) |
+|---|---|---|---|
+| 0 | Imperial Knights (durable gunline) | Crucible of Battle | A win 55-34 |
+| 1 | Orks (melee pressure) | Take and Hold | **A LOSS 20-48 (blow-out)** |
+| 2 | Necrons (mid-range attrition) | Hammer and Anvil | A LOSS 54-58 (close) |
+
+## The observed misplay — the gunline Advances into melee and forfeits its guns
+
+In every one of the three games the Thousand Sons shooting core Advanced its whole
+line forward in round 1, and repeatedly after, forfeiting its Shooting phase (a
+unit that Advances cannot shoot non-[ASSAULT] weapons). Named, concrete instances:
+
+- **Orks seed 1, round 1:** all 25 Rubric Marines activations ADVANCED (move log
+  lines 7-37); none fired. The line then marched INTO the 100-model Ork horde and
+  was ground up in melee across rounds 2-4 (Ahriman dead by round 3, Tzaangors and
+  Rubrics deleted wholesale). Final 20-48. A real Thousand Sons player holds the
+  Rubrics back and thins the horde with 24" inferno-bolter fire (their All-Is-Dust
+  2+-vs-Damage-1 save makes them far more durable than Boyz in a firefight) before
+  contact — exactly the durability the Advance-into-melee throws away.
+- **Imperial Knights seed 0, round 5:** ~20 Rubric Marines activations ADVANCED
+  (lines 454-473) in the final round with Knights still alive.
+- **Necrons seed 2, round 1:** the whole Rubric line + Ahriman + Sorcerers + both
+  Mutaliths ADVANCED (lines 9-38), pushing into the Necron gunline's fire.
+
+The Advance-into-melee is the same class of mis-pilot the wave-260 Astra Militarum
+comparison found (the generic `SWEG_ADVANCE_DISCIPLINE`), and the same one the
+adopted `am_advance_discipline` / `ck_ranged_hold` / `votann_ranged_hold`
+faction-scoped levers correct for their armies.
+
+## What is NOT the gap (checked, so no lever is forced there)
+
+- **The Cabal of Sorcerers / psychic economy IS modelled.** The default Thousand
+  Sons detachment built by the archetype is Rubricae Phalanx, whose
+  `psychic_mortal_wounds_per_round=0` is a deliberate, documented design choice
+  (the psychic teeth lives on the opt-in Grand Coven). The Cabal Rituals
+  (Doombolt / Temporal Surge / Destiny's Ruin / Twist of Fate), Ahriman, and
+  Magnus are all wired (`data/rule_citations.d/thousand_sons.json`). Psychic
+  absence is not the deficit.
+- **All Is Dust is modelled** (`all_is_dust=True`; +1 armour save vs Damage-1
+  attacks). The durability the Advance throws away is real and represented.
+
+## The lever built — `SWEG_TSONS_RANGED_HOLD` (default-OFF)
+
+A fifth Thousand-Sons-scoped entry point (`_ad_tsons`) on the shared
+`_suppress_advance` block in `code/simulator.py` `_do_move`, identical in logic to
+`_ad_am` / `_ad_ck` / `_ad_votann`: a moving Thousand Sons unit seeking an
+objective (CAPTURE/STEAL), carrying no [ASSAULT] weapon, with ranged damage per
+activation >= 2.0 and range >= 18", that has a damageable target within a Normal
+move's reach, HOLDS and Normal-moves (keeping its shot) rather than Advancing. The
+shared filter selects exactly the shooting core — Rubric Marines (rDPA 4.0 / 24"),
+Scarab Occult Terminators (2.0 / 24"), Mutalith Vortex Beast (6.34 / 36"), Ahriman
+/ Exalted Sorcerer / Infernal Master (6.66-7.0 / 18") — and leaves the melee chaff
+(Tzaangors, Chaos Spawn, range 0) free to Advance to objectives. Cited
+`simulator.tsons_ranged_hold`, registered in `scripts/audit_rules.py`.
+
+Mechanism confirmation (harness, seed 1 vs Orks, gate OFF vs ON — mechanism
+evidence only, NOT rate evidence, the harness seed scheme diverges from the eval
+pair-seed scheme): the gunline held and thinned the horde, and the Orks' final
+capped victory points fell from 48 to 34 (result 20-48 to 24-34).
+
+## Screen (N=20 Thousand-Sons-scoped, paired vs the standing anchor `sc48a`)
+
+- **Byte-identical-off:** gate unset, 0 flips across all 22 factions
+  (`data/_tsons_off_check.json` vs the anchor) — the OFF path does not leak.
+- **`SWEG_TSONS_RANGED_HOLD=1` alone (== combined; single lever):** Thousand Sons
+  49.5 -> 51.5, paired delta **+2.0 toward real 54.6 (correct direction)**, 147 of
+  840 matched games flipped (highly active, not inert). At N=20 the paired CI still
+  spans 0 (not yet decisive) — the same signature the votann / Chaos Knights / Astra
+  Militarum ranged-holds showed before they landed decisively at N=80. The N=80
+  adoption screen (owner-run) is the deciding measurement; per-lever collateral is
+  not reliably readable at N=20-scoped (each opponent appears in only a handful of
+  games). Recommendation: promising, precedent-backed, correct-direction — advance
+  to the N=80 adoption screen.

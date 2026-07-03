@@ -12528,7 +12528,31 @@ class Battle:
         # the over-reward's fault). Cited simulator.votann_ranged_hold.
         _ad_votann = (os.environ.get("SWEG_VOTANN_RANGED_HOLD", "1") != "0"
                       and (attacker.profile.faction or "") == "Leagues of Votann")
-        if ((_ad_generic or _ad_am or _ad_ck or _ad_votann)
+        # THOUSAND-SONS-SCOPED entry point (SWEG_TSONS_RANGED_HOLD, default-OFF
+        # screening gate, `=1` opt-in): the SAME gunline-hold logic, restricted
+        # to Thousand Sons. Derived from watched pilot-observation (2026-07-03,
+        # docs/PILOT_FINDINGS.md): across three piloted games (vs Imperial
+        # Knights seed 0, Orks seed 1, Necrons seed 2) the Thousand Sons
+        # shooting core — Rubric Marines (ranged damage per activation 4.0,
+        # range 24"), the Mutalith Vortex Beast (6.34 / 36") and the psyker
+        # characters Ahriman / Exalted Sorcerer / Infernal Master (6.66-7.0 /
+        # 18") — Advanced its whole line forward round 1 and repeatedly after,
+        # forfeiting its Shooting phase and marching INTO the enemy. Against the
+        # Orks melee horde (seed 1) this fed a 20-48 blow-out: the gunline
+        # Advanced into contact and was ground up in melee where its 24" guns
+        # and All-Is-Dust saves are wasted, rather than holding back and
+        # thinning the horde first. The shared rDPA >= 2.0 & range >= 18"
+        # filter below catches exactly that shooting core and leaves the melee
+        # chaff (Tzaangors, Chaos Spawn — range 0) free to Advance to
+        # objectives. Faithful piloting, not a rules claim (Advancing forfeits
+        # non-[ASSAULT] shooting); the direct analog of _ad_am / _ad_ck /
+        # _ad_votann. Scoped to Thousand Sons per the Principle-2 recipe (the
+        # generic SWEG_ADVANCE_DISCIPLINE screened metric-harmful; the durable
+        # over-poles bank a faction-neutral hold too). Off path (gate unset)
+        # byte-identical. Cited simulator.tsons_ranged_hold.
+        _ad_tsons = (os.environ.get("SWEG_TSONS_RANGED_HOLD", "0") == "1"
+                     and (attacker.profile.faction or "") == "Thousand Sons")
+        if ((_ad_generic or _ad_am or _ad_ck or _ad_votann or _ad_tsons)
                 and intent in ("CAPTURE", "STEAL")
                 # Units that can shoot AFTER Advancing (ASSAULT weapons, or a
                 # transient ASSAULT grant) lose nothing by it — never suppress them
