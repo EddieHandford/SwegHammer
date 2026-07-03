@@ -1220,6 +1220,18 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # restores the legacy chosen_secondaries membership byte-for-byte. See
     # data/rule_citations.d/secondaries_pariah_nexus.json.
     "simulator.actions_hand_gated",
+    # Secondary-economy audit fix wave, D3 — the full printed 19-card Tactical
+    # deck (env-gated SWEG_TACDECK_FULL, default ON). Completes the drawable pool
+    # from 12 to the printed 19 cards: folds in the three action cards
+    # (Establish Locus / Recover Assets / A Tempting Target) previously behind
+    # SWEG_ACTION_ECONOMY, restores the unreachable Cull the Horde Tactical card,
+    # and implements the three absent cards (Marked for Death, Overwhelming Force,
+    # Display of Might). `=0` restores the pre-fix 12-card pool byte-for-byte. See
+    # data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.tactical_deck_full",
+    "simulator.secondary_marked_for_death",
+    "simulator.secondary_overwhelming_force",
+    "simulator.secondary_display_of_might",
     # Wave 249 — 10e core end-of-battle win condition (env-gated SWEG_TABLING_VP,
     # default OFF). When ON, the three survivor-count short-circuits in
     # Battle._decide_winner are skipped; every game (including one-sided tablings)

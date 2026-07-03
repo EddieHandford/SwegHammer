@@ -2267,6 +2267,39 @@ class Battle:
         method below short-circuits here before touching the board or the RNG."""
         return __import__("os").environ.get("SWEG_ACTION_ECONOMY", "0") == "1"
 
+    def _tacdeck_full_enabled(self) -> bool:
+        """D3 — the full printed 19-card Tactical deck (SWEG_TACDECK_FULL,
+        DEFAULT-ON). Mirrors secondaries._tacdeck_full_enabled (same env var), so
+        the Battle-side reads (the new-card scorers, the near-objective capture,
+        the action-card activation) agree with the import-time deck build. `=0`
+        restores the pre-fix 12-card pool byte-identically. See
+        data/rule_citations.d/secondaries_pariah_nexus.json#simulator.tactical_deck_full."""
+        return __import__("os").environ.get("SWEG_TACDECK_FULL", "1") != "0"
+
+    def _action_cards_active(self) -> bool:
+        """Establish Locus / Recover Assets / A Tempting Target are live when
+        EITHER the legacy SWEG_ACTION_ECONOMY gate is on OR the full printed deck
+        (D3, SWEG_TACDECK_FULL, default ON) includes them. With both off the three
+        cards are absent from the pool and every scorer / assigner below
+        short-circuits — byte-identical."""
+        return self._action_economy_enabled() or self._tacdeck_full_enabled()
+
+    def _units_near_objective(self, army) -> frozenset:
+        """The set of id(u) for `army`'s alive units within an objective marker's
+        control range at the call moment. Captured at round start (in _run_round)
+        for the Overwhelming Force card, which scores per enemy unit that started
+        the turn within range of an objective marker and was destroyed this turn.
+        Read-only; no RNG."""
+        ids = set()
+        for u in army.alive_units:
+            for obj in self.map.objectives:
+                dx = u.position[0] - obj.x
+                dy = u.position[1] - obj.y
+                if dx * dx + dy * dy <= obj.control_radius * obj.control_radius:
+                    ids.add(id(u))
+                    break
+        return frozenset(ids)
+
     # ------------------------------------------------------------------
     # SWEG_SECONDARY_PURSUIT — the tactical-secondary-pursuit package.
     #
@@ -2498,9 +2531,10 @@ class Battle:
         scoring position (whether it walked there on its own or was routed
         there by the SWEG_SECONDARY_PURSUIT card-pursuit movement layer, part
         (b) of the same package) is ever committed to the action."""
-        if not self._action_economy_enabled():
+        if not self._action_cards_active():
             return
-        if "establish_locus" not in (getattr(active, "chosen_secondaries", ()) or ()):
+        # D2: gate on the HELD hand for a Tactical army, not the whole pool.
+        if not self._action_card_available(active, "establish_locus"):
             return
         own_is_a = active is self.a
         _positional_filter = self._secondary_pursuit_enabled(active)
@@ -2528,7 +2562,7 @@ class Battle:
         6" of the battlefield centre, else 0. The two tiers are mutually exclusive
         (the higher enemy-deployment-zone tier wins). Cited
         `simulator.secondary_establish_locus`."""
-        if not self._action_economy_enabled():
+        if not self._action_cards_active():
             return 0
         chosen = (chosen_override if chosen_override is not None
                   else (getattr(army, "chosen_secondaries", ()) or ()))
@@ -2566,9 +2600,10 @@ class Battle:
         the discard explicitly — the spare-unit `_unit_can_perform_action` gate
         already prevents a low-unit army from committing the bodies, which is the
         same emergent outcome. Cited `simulator.secondary_recover_assets`."""
-        if not self._action_economy_enabled():
+        if not self._action_cards_active():
             return
-        if "recover_assets" not in (getattr(active, "chosen_secondaries", ()) or ()):
+        # D2: gate on the HELD hand for a Tactical army, not the whole pool.
+        if not self._action_card_available(active, "recover_assets"):
             return
         own_is_a = active is self.a
         claimed_zones: set = set()
@@ -2592,7 +2627,7 @@ class Battle:
         `_action_completes` gate) and are still each in a distinct area. 3 VP if
         two recovered assets this turn, 5 VP if three or more. Cited
         `simulator.secondary_recover_assets`."""
-        if not self._action_economy_enabled():
+        if not self._action_cards_active():
             return 0
         chosen = (chosen_override if chosen_override is not None
                   else (getattr(army, "chosen_secondaries", ()) or ()))
@@ -2659,7 +2694,7 @@ class Battle:
         player's turn (so up to twice per round); the simulator scores secondaries
         once per round (at round end), so this awards the 5 VP once per round it is
         held and controlled. The 40 VP secondary total cap still bounds it."""
-        if not self._action_economy_enabled():
+        if not self._action_cards_active():
             return 0
         chosen = (chosen_override if chosen_override is not None
                   else (getattr(army, "chosen_secondaries", ()) or ()))
@@ -2672,6 +2707,132 @@ class Battle:
         if self._oc_within(army, obj) > self._oc_within(opponent, obj):
             return 5
         return 0
+
+    # ------------------------------------------------------------------
+    # D3 (SWEG_TACDECK_FULL) — the three printed Chapter Approved 2025-26 Tactical
+    # cards the simulator did not implement at all: Marked for Death, Overwhelming
+    # Force, Display of Might. Verbatim card texts cited at
+    # simulator.secondary_marked_for_death / simulator.secondary_overwhelming_force
+    # / simulator.secondary_display_of_might. Each returns 0 when the full-deck
+    # gate is off (byte-identical: the card is never in the pool, never chosen).
+    # ------------------------------------------------------------------
+
+    def _marked_for_death_targets(self, own_is_army_a: bool, other_army):
+        """Resolve (and cache) the Alpha Target set and Gamma Target for a Marked
+        for Death card held by the scoring army. Printed When Drawn: the opponent
+        selects three of THEIR units as your Alpha Targets and you select one of
+        their units as your Gamma Target. Faithful-direction deterministic pick:
+        the opponent picks to MINIMISE the scoring army's chance, i.e. its three
+        highest-Wounds (hardest-to-destroy) units; the scoring army picks its
+        easiest kill (lowest Wounds) from the rest as Gamma. Pure function of the
+        static roster, global-RNG-free, cached per side."""
+        cache = getattr(self, "_marked_for_death_cache", None)
+        if cache is None:
+            cache = {}
+            self._marked_for_death_cache = cache
+        key = "a" if own_is_army_a else "b"
+        if key in cache:
+            return cache[key]
+        # Order by Wounds characteristic, tie-broken by the deterministic per-unit
+        # uid ("A0"/"B3", assigned by Battle._assign_uids) — NOT id(u), which is a
+        # memory address and would make the selection non-reproducible across
+        # processes. The stored target identity stays id(u) so it matches the
+        # round-start snapshot's id-based unit set.
+        ordered = sorted(
+            other_army.units,
+            key=lambda u: (-(getattr(u.profile, "health", 0) or 0),
+                           getattr(u, "uid", "")),
+        )
+        alpha = frozenset(id(u) for u in ordered[:3])
+        gamma = None
+        remaining = [u for u in ordered if id(u) not in alpha]
+        if remaining:
+            gamma = id(min(
+                remaining,
+                key=lambda u: ((getattr(u.profile, "health", 0) or 0),
+                               getattr(u, "uid", "")),
+            ))
+        cache[key] = (alpha, gamma)
+        return cache[key]
+
+    def _score_marked_for_death(self, army, other_army, own_is_army_a: bool,
+                                chosen_override=None) -> int:
+        """Marked for Death (Chapter Approved 2025-26). "One or more of your Alpha
+        Target units were destroyed ... this turn" -> 5 VP; else "your Gamma Target
+        unit was destroyed ... this turn" -> 2 VP. Cited
+        `simulator.secondary_marked_for_death`."""
+        if not self._tacdeck_full_enabled():
+            return 0
+        chosen = (chosen_override if chosen_override is not None
+                  else (getattr(army, "chosen_secondaries", ()) or ()))
+        if "marked_for_death" not in chosen:
+            return 0
+        # The enemy's round-start snapshot: any id in it that is not alive now was
+        # destroyed this round (same machinery as the kill cards).
+        snap = (self._b_round_snapshot if own_is_army_a
+                else self._a_round_snapshot)
+        if snap is None:
+            return 0
+        alpha_ids, gamma_id = self._marked_for_death_targets(own_is_army_a,
+                                                             other_army)
+        alive_now = frozenset(id(u) for u in other_army.units
+                              if u.current_health > 0)
+        started = snap.unit_ids_alive
+
+        def _destroyed(uid):
+            return uid in started and uid not in alive_now
+
+        if any(_destroyed(a) for a in alpha_ids):
+            return 5
+        if gamma_id is not None and _destroyed(gamma_id):
+            return 2
+        return 0
+
+    def _score_overwhelming_force(self, army, other_army, own_is_army_a: bool,
+                                  chosen_override=None) -> int:
+        """Overwhelming Force (Chapter Approved 2025-26). "Each time an enemy unit
+        that started the turn within range of an objective marker is destroyed" ->
+        3 VP, up to 5 VP. Cited `simulator.secondary_overwhelming_force`."""
+        if not self._tacdeck_full_enabled():
+            return 0
+        chosen = (chosen_override if chosen_override is not None
+                  else (getattr(army, "chosen_secondaries", ()) or ()))
+        if "overwhelming_force" not in chosen:
+            return 0
+        snap = (self._b_round_snapshot if own_is_army_a
+                else self._a_round_snapshot)
+        if snap is None:
+            return 0
+        near = (self._b_near_obj_start if own_is_army_a
+                else self._a_near_obj_start)
+        if not near:
+            return 0
+        alive_now = frozenset(id(u) for u in other_army.units
+                              if u.current_health > 0)
+        started = snap.unit_ids_alive
+        kills = sum(1 for uid in near if uid in started and uid not in alive_now)
+        if kills <= 0:
+            return 0
+        return min(kills * 3, 5)   # 3 VP each, "up to 5 VP"
+
+    def _score_display_of_might(self, army, other_army, own_is_army_a: bool,
+                                chosen_override=None) -> int:
+        """Display of Might (Chapter Approved 2025-26). "There are more units from
+        your army than from your opponent's army wholly within No Man's Land" ->
+        4 VP. The "wholly within" test is approximated by the single-point zone
+        classifier (`_unit_zone`), which is side-independent for the No Man's Land
+        strip. Cited `simulator.secondary_display_of_might`."""
+        if not self._tacdeck_full_enabled():
+            return 0
+        chosen = (chosen_override if chosen_override is not None
+                  else (getattr(army, "chosen_secondaries", ()) or ()))
+        if "display_of_might" not in chosen:
+            return 0
+        own_n = sum(1 for u in army.alive_units
+                    if self._unit_zone(u, own_is_army_a) == "nml")
+        opp_n = sum(1 for u in other_army.alive_units
+                    if self._unit_zone(u, own_is_army_a) == "nml")
+        return 4 if own_n > opp_n else 0
 
     def _scorched_burn_enabled(self) -> bool:
         """Scorched Earth Burn/Raze Action — active whenever the Scorched Earth
@@ -4021,6 +4182,20 @@ class Battle:
             return self._score_a_tempting_target(scoring_army, other_army,
                                                  own_is_army_a=own_is_army_a,
                                                  chosen_override=one)
+        # --- D3 full-deck cards (Marked for Death / Overwhelming Force /
+        #     Display of Might) — env-gated SWEG_TACDECK_FULL, return 0 OFF -------
+        if card_key == "marked_for_death":
+            return self._score_marked_for_death(scoring_army, other_army,
+                                                own_is_army_a=own_is_army_a,
+                                                chosen_override=one)
+        if card_key == "overwhelming_force":
+            return self._score_overwhelming_force(scoring_army, other_army,
+                                                  own_is_army_a=own_is_army_a,
+                                                  chosen_override=one)
+        if card_key == "display_of_might":
+            return self._score_display_of_might(scoring_army, other_army,
+                                                own_is_army_a=own_is_army_a,
+                                                chosen_override=one)
         # --- Board take-and-hold cards -----------------------------------------
         from .secondaries import BOARD_SECONDARY_KEYS
         if card_key in BOARD_SECONDARY_KEYS:
@@ -11117,6 +11292,17 @@ class Battle:
         # Wave 83 Tier A: record who controls each objective at round start, so
         # Storm Hostile Objective can score taking one the opponent held.
         self._obj_controller_at_round_start = self._objective_controllers()
+        # D3 (SWEG_TACDECK_FULL) — record which units START the round within range
+        # of an objective marker, for the Overwhelming Force card (it scores per
+        # enemy unit that started the turn on an objective and was destroyed this
+        # turn). Read-only, no RNG; gated so the off path sets empty sets and the
+        # scorer short-circuits. Byte-identical when off.
+        if self._tacdeck_full_enabled():
+            self._a_near_obj_start = self._units_near_objective(self.a)
+            self._b_near_obj_start = self._units_near_objective(self.b)
+        else:
+            self._a_near_obj_start = frozenset()
+            self._b_near_obj_start = frozenset()
 
         # Fix F-NEC-1: snapshot per-profile alive counts AT ROUND START for
         # any army with Reanimation Protocols. End-of-round `_apply_reanimation`

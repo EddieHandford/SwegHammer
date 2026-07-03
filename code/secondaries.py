@@ -106,6 +106,15 @@ TACTICAL_SECONDARY_KEYS: Tuple[str, ...] = (
     "establish_locus",
     "recover_assets",
     "a_tempting_target",
+    # Secondary-economy audit fix wave, D3 (SWEG_TACDECK_FULL): the three printed
+    # Chapter Approved 2025-26 Tactical cards the sim did not implement at all.
+    # Scored in code/simulator.py (Battle._score_marked_for_death /
+    # _score_overwhelming_force / _score_display_of_might); registered here so
+    # ALL_SECONDARY_KEYS stays complete and the per-card `chosen` gate recognises
+    # them. Only ever drawn when SWEG_TACDECK_FULL adds them to TACTICAL_DECK_POOL.
+    "marked_for_death",
+    "overwhelming_force",
+    "display_of_might",
 )
 # Wave 83 Tier A: the objective-holding / board-control secondaries. Scoring +
 # zone classification live in code/simulator.py (Battle._score_board_secondaries,
@@ -221,11 +230,66 @@ def _big_game_tactical_enabled() -> bool:
     return os.environ.get("SWEG_TACDECK_BIG_GAME", "1") != "0"
 
 
-TACTICAL_DECK_POOL: Tuple[str, ...] = (
-    _TACTICAL_DECK_BASE_POOL
-    + (_ACTION_ECONOMY_DECK_CARDS if _action_economy_enabled() else ())
-    + (_BIG_GAME_DECK_CARDS if _big_game_tactical_enabled() else ())
+# Secondary-economy audit fix wave, D3 (env-gated SWEG_TACDECK_FULL, DEFAULT-ON):
+# complete the printed Chapter Approved 2025-26 Secondary Mission deck (19 cards).
+# The pre-fix production pool was 12 cards (base 10 + big-game 2); it lacked seven
+# printed cards (docs/_SEC_ECONOMY_AUDIT.md D3), so its drawable pool was smaller
+# and harder than the real one. These seven complete it:
+#   * establish_locus / recover_assets / a_tempting_target — implemented action
+#     cards previously reachable only under SWEG_ACTION_ECONOMY; their gating
+#     folds into this fix (the shedding fix D1 and hand-gating fix D2 remove the
+#     action-economy over-assignment that caused their prior metric-harm rejection).
+#   * cull_the_horde — its Tactical scorer (CULL_THE_HORDE_TACTICAL_VP, routed in
+#     Battle._score_one_card) already existed but the card was unreachable on the
+#     Tactical track (the wave-181 exclusion the big-game citation flagged as a
+#     separate follow-up); this restores it.
+#   * marked_for_death / overwhelming_force / display_of_might — the three cards
+#     not implemented at all; their scorers are added in code/simulator.py and
+#     cited verbatim (simulator.secondary_marked_for_death /
+#     simulator.secondary_overwhelming_force / simulator.secondary_display_of_might).
+# The full drawable census (SWEG_TACDECK_BIG_GAME + SWEG_TACDECK_FULL both default
+# ON) is exactly the printed 19-card list. Cited `simulator.tactical_deck_full`.
+# Source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
+_TACDECK_FULL_EXTRA_CARDS: Tuple[str, ...] = (
+    "establish_locus",
+    "recover_assets",
+    "a_tempting_target",
+    "cull_the_horde",
+    "marked_for_death",
+    "overwhelming_force",
+    "display_of_might",
 )
+
+
+def _tacdeck_full_enabled() -> bool:
+    """D3 full printed 19-card deck gate. DEFAULT ON; `SWEG_TACDECK_FULL=0`
+    restores the pre-fix pool byte-identically (base + action-economy-if-gated +
+    big-game-if-gated, in exactly the pre-fix order)."""
+    return os.environ.get("SWEG_TACDECK_FULL", "1") != "0"
+
+
+def _build_tactical_deck_pool() -> Tuple[str, ...]:
+    """Assemble the drawable Tactical deck pool at import time. With
+    SWEG_TACDECK_FULL on, the printed 19-card deck (base + big-game + the seven
+    D3 cards, de-duplicated, preserving first-seen order). With it off, the exact
+    pre-fix expression (byte-identical shuffle input)."""
+    if _tacdeck_full_enabled():
+        pool: List[str] = list(_TACTICAL_DECK_BASE_POOL)
+        if _big_game_tactical_enabled():
+            pool += [c for c in _BIG_GAME_DECK_CARDS if c not in pool]
+        for c in _TACDECK_FULL_EXTRA_CARDS:
+            if c not in pool:
+                pool.append(c)
+        return tuple(pool)
+    # Legacy pre-fix pool (byte-identical order).
+    return (
+        _TACTICAL_DECK_BASE_POOL
+        + (_ACTION_ECONOMY_DECK_CARDS if _action_economy_enabled() else ())
+        + (_BIG_GAME_DECK_CARDS if _big_game_tactical_enabled() else ())
+    )
+
+
+TACTICAL_DECK_POOL: Tuple[str, ...] = _build_tactical_deck_pool()
 
 
 # Per-round VP caps (Pariah Nexus rule text, tuned 2026-05-20).
