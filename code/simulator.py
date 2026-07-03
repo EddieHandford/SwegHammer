@@ -12553,7 +12553,7 @@ class Battle:
         # generic SWEG_ADVANCE_DISCIPLINE screened metric-harmful; the durable
         # over-poles bank a faction-neutral hold too). Off path (gate unset)
         # byte-identical. Cited simulator.tsons_ranged_hold.
-        _ad_tsons = (os.environ.get("SWEG_TSONS_RANGED_HOLD", "0") == "1"
+        _ad_tsons = (os.environ.get("SWEG_TSONS_RANGED_HOLD", "1") != "0"
                      and (attacker.profile.faction or "") == "Thousand Sons")
         if ((_ad_generic or _ad_am or _ad_ck or _ad_votann or _ad_tsons)
                 and intent in ("CAPTURE", "STEAL")
