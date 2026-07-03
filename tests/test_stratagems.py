@@ -10,6 +10,7 @@ PRs that own them.
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
 
@@ -124,12 +125,30 @@ class StratagemDataclassTests(unittest.TestCase):
 
 class CpEconomyTests(unittest.TestCase):
 
+    def tearDown(self):
+        os.environ.pop("SWEG_CP_PER_COMMAND_PHASE", None)
+
     def test_army_starts_at_strike_force_cp(self):
         army = Army("Test")
         self.assertEqual(army.command_points, STARTING_CP)
         self.assertEqual(STARTING_CP, 3)   # canonical Strike Force value
 
-    def test_award_command_phase_cp_increments_by_one(self):
+    def test_award_command_phase_cp_increments_by_two_by_default(self):
+        # Secondary-economy audit fix D4 (2026-07-03): the printed 10e core
+        # rule grants BOTH players 1CP at the start of EACH of the two
+        # Command phases per battle round, so `award_command_phase_cp`
+        # (called once per army per round from `Battle._run_round`) grants
+        # CP_PER_COMMAND_PHASE * 2 by default.
+        os.environ.pop("SWEG_CP_PER_COMMAND_PHASE", None)
+        army = Army("Test")
+        starting = army.command_points
+        award_command_phase_cp(army)
+        self.assertEqual(army.command_points, starting + CP_PER_COMMAND_PHASE * 2)
+
+    def test_award_command_phase_cp_killswitch_reverts_to_one(self):
+        # SWEG_CP_PER_COMMAND_PHASE=0 reproduces the pre-fix 1-per-round
+        # rate exactly, for the byte-identical-off validation.
+        os.environ["SWEG_CP_PER_COMMAND_PHASE"] = "0"
         army = Army("Test")
         starting = army.command_points
         award_command_phase_cp(army)
@@ -145,9 +164,10 @@ class CpEconomyTests(unittest.TestCase):
         award_command_phase_cp(army)
         self.assertEqual(army.command_points, CP_CAP)
 
-    def test_battle_drips_one_cp_per_round(self):
+    def test_battle_drips_two_cp_per_round(self):
         # Two tiny armies; run a 5-round battle and confirm CP increments
-        # at each round start (clamped to 6).
+        # at each round start (clamped to 6). At the printed +2/round rate
+        # (fix D4) the cap binds even sooner than the pre-fix +1/round rate.
         random.seed(0)
         a = _build_army("A", [_marine_profile(), _marine_profile()])
         b = _build_army("B", [_marine_profile(), _marine_profile()])
@@ -156,7 +176,7 @@ class CpEconomyTests(unittest.TestCase):
         b.command_points = STARTING_CP
         battle = Battle(a, b)
         battle.run()
-        # After 5 rounds of +1/round on top of STARTING_CP=3, both should be
+        # After 5 rounds of +2/round on top of STARTING_CP=3, both should be
         # at CP_CAP (the cap clamps). We also can't be < STARTING_CP since
         # the AI may spend, but the lower bound is 'spent CP < gained CP'.
         # Use a relaxed assertion that captures the cap behaviour.

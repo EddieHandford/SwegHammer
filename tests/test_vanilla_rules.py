@@ -21,6 +21,7 @@ from code.army_builder import build_faction_random_army
 from code.map import Map, Objective
 from code.maps import DEFAULT_MAP
 from code.simulator import Battle, RulesConfig
+from code.stratagems import CP_CAP
 from code.units import UnitProfile
 
 
@@ -95,9 +96,13 @@ class CPCatchupBonusGateTests(unittest.TestCase):
         battle._run_round(1)
         battle._run_round(2)
         # Under vanilla, A is smaller but receives no catch-up. The only
-        # CP that can flow in is the per-round Command-phase +1 (capped
-        # at 6) — so the increase across 2 rounds is at most +2.
-        self.assertLessEqual(a.command_points - a_initial_cp, 2)
+        # CP that can flow in is the per-round Command-phase drip
+        # (secondary-economy audit fix D4: both players gain 1CP at the
+        # start of EACH of the two Command phases per round, so 2CP/round),
+        # capped at CP_CAP=6 — so the increase across 2 rounds is at most
+        # CP_CAP - a_initial_cp (the drip alone would be +4, but the bank
+        # ceiling clamps it).
+        self.assertLessEqual(a.command_points - a_initial_cp, CP_CAP - a_initial_cp)
 
     def test_sweghammer_does_award_catchup_cp(self) -> None:
         a = _two_unit_army("A", "Sm", [(5.0, 5.0)])
@@ -112,8 +117,10 @@ class CPCatchupBonusGateTests(unittest.TestCase):
         battle._run_round(2)
         # SwegHammer awards catch-up: A is far smaller than B, so the
         # bonus fires in round 2 — total CP gain should EXCEED the
-        # vanilla cap of +2 (vanilla per-round drip alone).
-        self.assertGreater(a.command_points - a_initial_cp, 2)
+        # vanilla ceiling (CP_CAP - a_initial_cp, the corrected 2CP/round
+        # drip clamped at the bank cap) because `_award_cp`'s catch-up
+        # bonus is applied on top and is not itself clamped to CP_CAP.
+        self.assertGreater(a.command_points - a_initial_cp, CP_CAP - a_initial_cp)
 
 
 class ArmyPlanGateTests(unittest.TestCase):

@@ -160,7 +160,10 @@ in real play.
   MONSTER/VEHICLE, at -1; Blast can never target an engaged unit),
   Sticky Objectives, Deep Strike / Scouts / Infiltrators, Battleshock with
   Mob Rule auto-pass, Heroic Intervention + Counter-Offensive stratagems,
-  CP economy (3 start, +1/round capped at 6).
+  CP economy (3 start, +2/round from the two Command phases — both players
+  gain 1 command point at the start of EACH Command phase, capped at 6;
+  secondary-economy audit fix D4, 2026-07-03, corrected from the previous
+  +1/round; env-gated `SWEG_CP_PER_COMMAND_PHASE`, default ON).
 - **New core 10e mechanics shipped this session**: Look Out Sir (CHARACTER
   protection within 3" of bodyguard, 12" range cap), Lone Operative (12"
   targeting restriction on solo characters), Deadly Demise X (vehicle/monster

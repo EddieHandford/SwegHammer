@@ -1316,6 +1316,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # plumbing, same shape as Go To Ground / Smokescreen. See
     # data/rule_citations.d/imperial_knights.json.
     "simulator.ik_defender_selfless_protector",
+    # Secondary-economy audit fix D4 (2026-07-03,
+    # docs/_SEC_ECONOMY_AUDIT.md). The core-rules Command phase grants BOTH
+    # players 1CP at the start of EACH of the two Command phases per battle
+    # round (2CP/round/player), not once per round. Fixed in
+    # `stratagems.award_command_phase_cp`, called from `Battle._run_round`.
+    # Env-gated SWEG_CP_PER_COMMAND_PHASE (default on). See
+    # data/rule_citations.d/core_command_points.json.
+    "simulator.command_phase_cp",
 )
 
 

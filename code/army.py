@@ -153,7 +153,10 @@ class Army:
         # squad_id to each instantiated codex squad via add_squad(). Starts at 0.
         self._next_squad_id: int = 0
         # 10e Strike Force standard: each side starts with 3 CP. Battle then
-        # drips +1/round via stratagems.award_command_phase_cp (capped at 6).
+        # drips +2/round (both players gain 1CP at the start of EACH of the
+        # two Command phases per round) via stratagems.award_command_phase_cp
+        # (capped at 6; gated SWEG_CP_PER_COMMAND_PHASE, default ON, `=0`
+        # restores the pre-fix +1/round rate).
         self.command_points: int = STARTING_CP
         self.in_cover: bool = in_cover
         # Army-wide passive rules. Auto-resolves from the army's primary

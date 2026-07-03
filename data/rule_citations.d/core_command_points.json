@@ -1,0 +1,12 @@
+{
+  "_comment": "Citation for the universal core-rules Command phase command-point generation fix (secondary-economy audit fix D4, 2026-07-03, docs/_SEC_ECONOMY_AUDIT.md). Source: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/ (Command Phase - Command Points section), re-verified this session.",
+
+  "simulator.command_phase_cp": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/",
+    "rule_name": "Command Phase - Command Points",
+    "quoted_text": "At the start of your Command phase, before doing anything else, both players gain 1CP. Outside of the 1CP players gain at the start of the Command phase, each player can only gain a total of 1CP per battle round, regardless of the source (this includes other CP gained at the start of the Command phase).",
+    "trigger": "the start of EACH player's own Command phase (there are two Command phases per battle round, one at the start of each player's turn)",
+    "effect": "both players gain 1CP at the start of each of the two Command phases per battle round, so each player gains 2CP per battle round from this source alone (capped at the universal CP_CAP=6 bank ceiling; the separate 1CP-per-round-from-other-sources cap does not apply to this drip, only to other CP-granting sources such as Stratagems, Warlord traits, or the voluntary-discard 'New Orders' gain). `stratagems.award_command_phase_cp` was previously granting only CP_PER_COMMAND_PHASE=1 per round per army — half the printed rate — called once per army from `Battle._run_round` at the top of every round. Fixed to grant CP_PER_COMMAND_PHASE * 2 per round (the simulator's round loop does not model the two player turns as separate Command-phase events, so the two-per-round rate is represented as a single doubled grant rather than two call sites; the net effect on army.command_points is identical). Gated SWEG_CP_PER_COMMAND_PHASE (default ON; `=0` restores the pre-fix 1-per-round rate for the byte-identical-off validation).",
+    "scope": "army-wide"
+  }
+}

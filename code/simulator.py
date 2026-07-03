@@ -10913,11 +10913,16 @@ class Battle:
                     counts[u.profile.name] = counts.get(u.profile.name, 0) + 1
             self._round_start_alive_counts[army.name] = counts
 
-        # ---- Command phase: each army gains 1 CP (capped at 6). 10e core
-        # rule. Starting CP (3 = Strike Force standard) is set by
-        # Army.__init__; this is the per-round drip on top. The smaller-army
-        # CP bonus is a separate SwegHammer-specific catch-up mechanism
-        # awarded later by _award_cp.
+        # ---- Command phase: each army gains 2 CP per round (capped at 6),
+        # 10e core rule — both players gain 1CP at the start of EACH of the
+        # two Command phases per battle round (fix D4, secondary-economy
+        # audit, 2026-07-03; gated SWEG_CP_PER_COMMAND_PHASE, default ON,
+        # `=0` restores the pre-fix 1-per-round rate). Starting CP (3 =
+        # Strike Force standard) is set by Army.__init__; this is the
+        # per-round drip on top. The smaller-army CP bonus is a separate
+        # SwegHammer-specific catch-up mechanism awarded later by _award_cp.
+        # See data/rule_citations.d/core_command_points.json and
+        # `stratagems.award_command_phase_cp` for the full rule text.
         award_command_phase_cp(self.a)
         award_command_phase_cp(self.b)
         # ---- Warlord-gated CP discount (Roboute Guilliman, Lord of
