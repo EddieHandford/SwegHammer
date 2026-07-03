@@ -5041,15 +5041,19 @@ class Battle:
             INFANTRY unit unconditionally, as before.  Byte-identical to
             pre-gate behaviour.
           - ON: the re-roll flags are only applied when the chosen target is
-            Afflicted — i.e. within 3" of any DEATH GUARD model from the DG
-            army — matching the real codex condition (Nurgle's Gift / Afflicted
-            = enemy unit within 3" of a DG model).  Detection reuses the
-            existing `_is_near_enemy_dg_model(target, radius=3.0)` helper in
+            Afflicted — i.e. within the current Contagion Range of any DEATH
+            GUARD model from the DG army — matching the real codex condition
+            (Nurgle's Gift / Afflicted = enemy unit within Contagion Range of a
+            DG model).  Detection reuses the existing
+            `_is_near_enemy_dg_model(target, radius=...)` helper in
             code/units.py (the same helper that gates Contagions of Nurgle /
-            Fulminating Plague).  The command point is spent either way — do
-            NOT move this spend inside the gate; gating the firing reallocates
-            the saved command point and causes back-fire (Conquering Tyrant
-            lesson, 868f9a4).  Only the transient buff application is gated.
+            Fulminating Plague), with the radius sourced from
+            `_contagion_range_for_round` (DURA-AUDIT-D1: the Contagion Range
+            escalates 3"/6"/9" by round rather than a fixed 3").  The command
+            point is spent either way — do NOT move this spend inside the
+            gate; gating the firing reallocates the saved command point and
+            causes back-fire (Conquering Tyrant lesson, 868f9a4).  Only the
+            transient buff application is gated.
 
         Picks the highest-DPA friendly DG INFANTRY that has not yet shot this
         phase (implicit at round-start dispatch)."""
@@ -5083,8 +5087,15 @@ class Battle:
             os.environ.get("SWEG_CREEPING_AFFLICTED", "1") != "0"
         )
         if _afflicted_gate_on:
-            from .units import _is_near_enemy_dg_model
-            target_is_afflicted = _is_near_enemy_dg_model(target, radius=3.0)
+            from .units import (
+                _is_near_enemy_dg_model,
+                _contagion_round_for,
+                _contagion_range_for_round,
+            )
+            target_is_afflicted = _is_near_enemy_dg_model(
+                target,
+                radius=_contagion_range_for_round(_contagion_round_for(target)),
+            )
         else:
             target_is_afflicted = True  # OFF path: unconditional (legacy)
         if target_is_afflicted:
@@ -10139,8 +10150,14 @@ class Battle:
         )
         # Plaguesurge range extension: the Death Guard player (here sitw_army
         # in the edge-case path) may have spent Plaguesurge this Command phase.
+        # DURA-AUDIT-D1: the base Contagion Range escalates by round (3"/6"/9")
+        # via `_contagion_range_for_round` instead of a fixed 3"; Plaguesurge
+        # still adds +3" on top for the round it is active.
+        from .units import _contagion_range_for_round as _dg_range_for_round
         _sitw_plaguesurge = getattr(sitw_army, "plaguesurge_active", False)
-        sitw_contagion_range = 3.0 + (3.0 if _sitw_plaguesurge else 0.0)
+        sitw_contagion_range = (
+            _dg_range_for_round(round_num) + (3.0 if _sitw_plaguesurge else 0.0)
+        )
         # Shadow of Chaos: Chaos Daemons in the Tyranid army (edge case).
         # SWEG_SHADOW_ROUND2 (default OFF, recovered 2026-06-29 from git b499a57):
         # the midboard Shadow-of-Chaos proxy only activates from round 2 — No Man's
@@ -10252,7 +10269,12 @@ class Battle:
             _plaguesurge_active = getattr(
                 incubi_army, "plaguesurge_active", False
             )
-            contagion_range = 3.0 + (3.0 if _plaguesurge_active else 0.0)
+            # DURA-AUDIT-D1: base Contagion Range escalates by round (3"/6"/9")
+            # instead of a fixed 3"; Plaguesurge still adds +3" on top.
+            from .units import _contagion_range_for_round as _dg_range_for_round
+            contagion_range = (
+                _dg_range_for_round(round_num) + (3.0 if _plaguesurge_active else 0.0)
+            )
             _shadow_round2_on = os.environ.get("SWEG_SHADOW_ROUND2", "0") == "1"
             shadow_of_chaos_active = (
                 any(
@@ -10346,9 +10368,11 @@ class Battle:
             `simulator.shadow_in_the_warp` and
             `simulator.shadow_in_the_warp_forced_test`.
           - Contagions of Nurgle Round 2 Maladictive Pall (Death Guard, 10e):
-            enemy units within 3" of any DG model take -1 Ld. Cited as
-            `simulator.contagions_of_nurgle`. (Radius gated to 3" per the
-            modern Nurgle's Gift / Afflicted rule; older index rule was 6".)
+            enemy units within Contagion Range of any DG model take -1 Ld.
+            Cited as `simulator.contagions_of_nurgle`. (DURA-AUDIT-D1: the
+            Contagion Range escalates 3"/6"/9" by round per the printed
+            schedule, via `_contagion_range_for_round`
+            (SWEG_DG_CONTAGION_ESCALATION gate) — no longer a fixed 3".)
           - Shadow of Chaos (Chaos Daemons, 10e): enemy units within the
             Shadow of Chaos take Battle-shock at -1 AND, if failed,
             suffer D3 mortal wounds. APPROXIMATION: SwegHammer does not
@@ -10401,14 +10425,19 @@ class Battle:
             # "Until the start of your next Command phase, add 3\" to the
             # Contagion Range of models from your army."
             # Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium
-            # Base contagion range for the Maladictive Pall Battle-shock
-            # penalty is 3". Plaguesurge extends it by 3" for the round,
-            # making it 6" whenever the Death Guard player fired it this
-            # Command phase. The flag is reset to False at the start of each
-            # Command phase in `_reset_round_state` so it only applies for
-            # the round in which it was spent.
+            # DURA-AUDIT-D1: the base Contagion Range for the Maladictive Pall
+            # Battle-shock penalty now escalates 3"/6"/9" by round (per the
+            # printed schedule) instead of a fixed 3" — see
+            # `_contagion_range_for_round` (SWEG_DG_CONTAGION_ESCALATION gate).
+            # Plaguesurge still extends it by 3" for the round, on top of
+            # whatever the round's base range is. The flag is reset to False
+            # at the start of each Command phase in `_reset_round_state` so it
+            # only applies for the round in which it was spent.
+            from .units import _contagion_range_for_round as _dg_range_for_round
             _plaguesurge_active = getattr(opponent, "plaguesurge_active", False)
-            contagion_range = 3.0 + (3.0 if _plaguesurge_active else 0.0)
+            contagion_range = (
+                _dg_range_for_round(round_num) + (3.0 if _plaguesurge_active else 0.0)
+            )
             # Shadow of Chaos (Chaos Daemons army rule, 10e). APPROXIMATION:
             # the real Shadow of Chaos covers the Daemons player's deployment
             # zone always plus contested portions of No Man's Land /

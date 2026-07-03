@@ -193,6 +193,36 @@ def _contagion_round_for(unit: "Unit") -> int:
     return int(cur_round) if cur_round > 0 else 0
 
 
+# DURA-AUDIT-D1: Contagion Range escalation. BSData catalog verbatim
+# (cross-checked https://wahapedia.ru/wh40k10ed/factions/death-guard/):
+#   "CONTAGION RANGE
+#    1st Battle Round: Contagion Range = 3"
+#    2nd Battle Round: Contagion Range = 6"
+#    3rd Battle Round Onwards: Contagion Range = 9""
+# Before this fix every caller of `_is_near_enemy_dg_model` passed a fixed
+# radius of 3" regardless of round (docs/_DURA_AUDIT_D_DEATHGUARD.md
+# divergence D1 — simulator strictly weaker than print in rounds 2+). This
+# helper is the single source of truth for the escalating radius; every
+# caller below now derives its radius from the live battle round instead of
+# hard-coding 3.0. Cited as `simulator.contagions_of_nurgle`.
+def _contagion_range_for_round(round_num: int) -> float:
+    """Death Guard Contagion Range (inches) for `round_num`, per the printed
+    escalating schedule. `round_num <= 1` (including the "no battle" 0
+    sentinel `_contagion_round_for` returns) is treated as round 1 (3").
+
+    Env-gated `SWEG_DG_CONTAGION_ESCALATION` (default ON; "0" kill-switch
+    restores the pre-fix fixed 3" radius every round, byte-identical to the
+    code this helper replaced).
+    """
+    if os.environ.get("SWEG_DG_CONTAGION_ESCALATION", "1") == "0":
+        return 3.0
+    if round_num <= 1:
+        return 3.0
+    if round_num == 2:
+        return 6.0
+    return 9.0
+
+
 def _is_near_enemy_dg_model(unit: "Unit", radius: float = 6.0) -> bool:
     """True iff any DEATH GUARD model from the army opposing `unit` is within
     `radius` inches of `unit.position`. The aura is projected by every DG
@@ -3427,19 +3457,24 @@ class Unit:
                 hit_mod_delta -= 1
 
             # ---- Death Guard Contagions of Nurgle — Round 3+ Fulminating Plague:
-            # an enemy unit (the ATTACKER here) within 3" of any DG model takes
-            # -1 to its Hit rolls. We gate on `self` (the attacker) being near a
-            # DG model on the opposing side, and on the attacker NOT being a DG
-            # model itself (the aura debuffs *enemy* units). The ±1 cap below
-            # subsumes the old "skip if already capped" gate — adding -1 here
-            # when the delta is already -1 is harmless because the clamp
-            # collapses the net to -1 anyway. Radius gated to 3" per the modern
-            # Nurgle's Gift / Afflicted rule (Wahapedia). Cited as
-            # `simulator.contagions_of_nurgle`.
+            # an enemy unit (the ATTACKER here) within Contagion Range of any DG
+            # model takes -1 to its Hit rolls. We gate on `self` (the attacker)
+            # being near a DG model on the opposing side, and on the attacker
+            # NOT being a DG model itself (the aura debuffs *enemy* units). The
+            # ±1 cap below subsumes the old "skip if already capped" gate —
+            # adding -1 here when the delta is already -1 is harmless because
+            # the clamp collapses the net to -1 anyway. DURA-AUDIT-D1: the
+            # radius now escalates by round (3"/6"/9") via
+            # `_contagion_range_for_round` instead of a fixed 3" — see that
+            # helper's docstring for the SWEG_DG_CONTAGION_ESCALATION gate.
+            # Cited as `simulator.contagions_of_nurgle`.
+            _dg_round_for_hit = _contagion_round_for(self)
             if (
-                _contagion_round_for(self) >= 3
+                _dg_round_for_hit >= 3
                 and p.faction != "Death Guard"
-                and _is_near_enemy_dg_model(self, radius=3.0)
+                and _is_near_enemy_dg_model(
+                    self, radius=_contagion_range_for_round(_dg_round_for_hit)
+                )
             ):
                 hit_mod_delta -= 1
 
