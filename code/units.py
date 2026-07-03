@@ -2477,6 +2477,42 @@ class Unit:
             # closest to the GUO. host_keys narrows the eligible defenders.
             if tgt_buffs["plus_one_toughness"]:
                 _effective_toughness += 1
+            # ---- DURA-AUDIT-D2: Death Guard Contagions of Nurgle -- Afflicted
+            # -1 Toughness. BSData/Wahapedia verbatim (Nurgle's Gift /
+            # Afflicted): "while an enemy unit is Afflicted, subtract 1 from
+            # the Toughness characteristic of models in that unit." An enemy
+            # unit is Afflicted whenever it is within Contagion Range of one
+            # or more Death Guard units -- always-on, every round, from round
+            # 1 (unlike the chosen-Plague effects, which are gated on which
+            # single Plague the Death Guard player picked; see divergence D3).
+            # This is a CHARACTERISTIC change (like the Great Unclean One +1 T
+            # buff just above), not a wound-roll modifier, so it is folded
+            # into the base Toughness here rather than through the separate
+            # +/-1 modifier-cap system a few lines below -- it benefits
+            # WHICHEVER army is attacking the Afflicted unit, not just Death
+            # Guard's own attacks (an offensive buff for Death Guard, so its
+            # prior absence made the simulator's Death Guard weaker on
+            # offence, never more durable). `target` is the defender here, so
+            # this reuses `_is_near_enemy_dg_model(target, ...)` -- the mirror
+            # of the attacker-side check the hit-roll debuff below performs on
+            # `self`. Death Guard's own units are excluded (the aura never
+            # debuffs the models that project it). No other code path applies
+            # a Toughness debuff for this rule (the legacy launch-index Round
+            # 1 Virulent Rot -1 T branch was removed at iter-4 and has no
+            # live successor), so there is no double-application risk.
+            # Env-gated SWEG_DG_AFFLICTED_TOUGHNESS, default ON; "0" restores
+            # the pre-fix behaviour (no Toughness debuff from Contagions of
+            # Nurgle at all), byte-identical kill switch. Cited as
+            # `simulator.dg_afflicted_toughness`.
+            if (
+                os.environ.get("SWEG_DG_AFFLICTED_TOUGHNESS", "1") != "0"
+                and (target.profile.faction or "") != "Death Guard"
+                and _is_near_enemy_dg_model(
+                    target,
+                    radius=_contagion_range_for_round(_contagion_round_for(target)),
+                )
+            ):
+                _effective_toughness -= 1
             wound_p = wound_probability(strength, _effective_toughness)
             wound_target = _prob_to_target(wound_p)
 

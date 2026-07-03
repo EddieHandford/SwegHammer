@@ -324,16 +324,26 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Virulent Vectorium 2 CP "Disgustingly Resilient" stratagem is cited
     # separately under `Stratagem.Disgustingly Resilient`.
     # Death Guard army rule (10e). Nurgle's Gift / Contagions of Nurgle —
-    # every DG model projects a 3" aura that subjects enemy units within
-    # it to the active Contagion (radius gated to 3" per modern Nurgle's
-    # Gift / Afflicted rule; older index rule was 6"). APPROXIMATION:
-    # SwegHammer retains the older 3-round escalating shape: round 1 -1 T
-    # (via +1 to wound in Unit.attack), round 2 -1 Ld (battleshock in
-    # _run_round), round 3+ -1 to hit on enemy attackers near a DG model
-    # (Unit.attack). Faction-gated on the DG aura source; never debuffs
-    # DG units themselves; the round-3+ -1 to hit doesn't compound with
-    # other -1-to-hit modifiers (10e cap).
+    # every DG model projects an aura that subjects enemy units within
+    # Contagion Range to the active Contagion. DURA-AUDIT-D1: the range now
+    # escalates 3"/6"/9" by battle round (`_contagion_range_for_round`,
+    # SWEG_DG_CONTAGION_ESCALATION gate) instead of a flat 3". Pending the
+    # chosen-Plague fix (D3, see `simulator.dg_chosen_plague`), the effect
+    # mix is still round-staggered: round 2 -1 Ld (battleshock in
+    # _run_battleshock_phase), round 3+ -1 to hit on enemy attackers near a
+    # DG model (Unit.attack). Faction-gated on the DG aura source; never
+    # debuffs DG units themselves; the round-3+ -1 to hit doesn't compound
+    # with other -1-to-hit modifiers (10e cap).
     "simulator.contagions_of_nurgle",
+    # Death Guard army rule (10e). Nurgle's Gift / Afflicted -- the
+    # always-on -1 Toughness half of the rule (DURA-AUDIT-D2): every enemy
+    # unit within the round's Contagion Range of a DG model has its
+    # Toughness characteristic reduced by 1 for the purposes of any attack
+    # against it, every round, from round 1, regardless of which Plague was
+    # chosen. Folded into `_effective_toughness` in Unit.attack before the
+    # faithful S-vs-T wound chart is consulted. SWEG_DG_AFFLICTED_TOUGHNESS
+    # gate, default ON.
+    "simulator.dg_afflicted_toughness",
     # Chaos Daemons army rule (10e). Shadow of Chaos — enemy units within
     # the Shadow of Chaos take Battle-shock at -1 AND, on a failed test,
     # suffer D3 mortal wounds. APPROXIMATION: the canonical zone-based
