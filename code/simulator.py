@@ -12582,7 +12582,29 @@ class Battle:
         # byte-identical. Cited simulator.tsons_ranged_hold.
         _ad_tsons = (os.environ.get("SWEG_TSONS_RANGED_HOLD", "1") != "0"
                      and (attacker.profile.faction or "") == "Thousand Sons")
-        if ((_ad_generic or _ad_am or _ad_ck or _ad_votann or _ad_tsons)
+        # ADEPTA-SORORITAS-SCOPED entry point (SWEG_SOROR_RANGED_HOLD —
+        # default-OFF screening gate, `=1` opt-in; the sixth entry point on the
+        # shared ranged-hold block): the SAME gunline-hold logic, restricted to
+        # Adepta Sororitas. Derived from watched pilot-observation (2026-07-03,
+        # docs/PILOT_FINDINGS.md): in the diagnostic Sororitas-loses
+        # game (versus Necrons seed 11, a mid-range attrition opponent) all THREE
+        # Castigators (Battle Cannon fire platforms, ranged damage per activation
+        # 12.0, range 48 inches) Advanced round 1 and fired NOTHING; one was
+        # caught and destroyed round 2 having never shot. The same
+        # Castigator-Advances-round-1 mis-pilot recurred versus Imperial Knights
+        # (seed 7). The shared rDPA >= 2.0 & range >= 18 inch filter below catches
+        # exactly the faction's dedicated fire platforms (Castigator, Exorcist,
+        # Immolator, Morvenn Vahl, Paragon Warsuits) and leaves the aggressive
+        # infantry / melee core (Battle Sisters rDPA 0.67, Repentia, Seraphim,
+        # Zephyrim, the [ASSAULT] Penitent Engines) free to Advance onto
+        # objectives. Faithful piloting, not a rules claim (Advancing forfeits
+        # non-[ASSAULT] shooting); the direct analog of _ad_am / _ad_ck /
+        # _ad_votann / _ad_tsons. Off path (gate unset) byte-identical. Cited
+        # simulator.soror_ranged_hold.
+        _ad_soror = (os.environ.get("SWEG_SOROR_RANGED_HOLD", "0") == "1"
+                     and (attacker.profile.faction or "") == "Adepta Sororitas")
+        if ((_ad_generic or _ad_am or _ad_ck or _ad_votann or _ad_tsons
+                or _ad_soror)
                 and intent in ("CAPTURE", "STEAL")
                 # Units that can shoot AFTER Advancing (ASSAULT weapons, or a
                 # transient ASSAULT grant) lose nothing by it — never suppress them

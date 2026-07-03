@@ -712,3 +712,118 @@ capped victory points fell from 48 to 34 (result 20-48 to 24-34).
   not reliably readable at N=20-scoped (each opponent appears in only a handful of
   games). Recommendation: promising, precedent-backed, correct-direction — advance
   to the N=80 adoption screen.
+
+---
+
+# Adepta Sororitas ranged-hold — watched-replay lever (2026-07-03)
+
+Owner directive: derive an army-scoped artificial-intelligence lever for Adepta
+Sororitas FROM WATCHED PILOTED GAMES (sim win rate 46.1 versus real 50.4, the last
+un-mined under-pole with piloting headroom). Method: the pilot-comparison harness
+`scripts/diag_pilot_am_vs_ik.py` run for three games across opponent classes,
+reading the per-round board renders alongside the per-round move log. Prior shelf
+evidence: the extraction-wave combined {staging + nomination + antitank-hold}
+bundle screened a WASH (minus 0.21, 548 flips of churn); the three scoped gates
+(`SWEG_SOROR_STAGING` / `SWEG_SOROR_NOMINATION` / `SWEG_SOROR_ANTITANK_HOLD`)
+already exist default-off. Observation was told it may vindicate one of them alone
+or find something different; it found something different.
+
+## Games watched
+
+| Seed | Opponent | Map | Result (A = Adepta Sororitas) |
+|---|---|---|---|
+| 7 | Imperial Knights (durable gunline) | Hammer and Anvil | A LOSS 43-63 (ahead early, tabled late) |
+| 4 | Orks (melee pressure) | Search and Destroy | A win 57-38 |
+| 11 | Necrons (mid-range attrition) | Take and Hold | A LOSS 41-44 (behind all game) |
+
+## The observed misplay — the Battle-Cannon fire platforms Advance round 1 and forfeit their guns
+
+The clean, recurring mis-pilot is the Castigator (a Battle Cannon main battle tank,
+ranged damage per activation 12.0, range 48 inches). Named, concrete instances:
+
+- **Necrons seed 11, round 1 (the diagnostic loss):** all THREE Castigators
+  ADVANCED (move-log lines 23-25) and fired NOTHING; the whole Sororitas army did
+  zero shooting round 1 while the Necron Warriors sat 15 inches off — well inside a
+  36-48 inch Battle Cannon. One Castigator was then caught and destroyed round 2 by
+  the C'tan Shard (line 197) having never fired a shot. A 160-point fire platform
+  delivered zero shooting before dying. Sororitas trailed on victory points every
+  round (5-12, 12-24, 21-29, 41-44).
+- **Imperial Knights seed 7, round 1:** the Castigator ADVANCED (line 24) rather
+  than holding to shoot the Knights.
+- **Contrast — Orks seed 4, round 1:** the Castigator NORMAL-moved and shot
+  (line 22: `move 6in->obj4; shot Boyz(15X)`) — the ranged-hold is a no-op here,
+  confirming the lever only bites when a fire platform would otherwise Advance.
+
+The Advance-forfeits-shooting is the same class of mis-pilot the adopted
+`am_advance_discipline` / `ck_ranged_hold` / `votann_ranged_hold` /
+`tsons_ranged_hold` faction-scoped levers correct for their armies. It is distinct
+from the narrow `SWEG_SOROR_ANTITANK_HOLD` (which fires only on Toughness-10-plus /
+15-wound "brick" targets): the Castigator was forfeiting shooting at Necron Warriors
+CHAFF (Toughness 4-5), which the anti-tank hold ignores — so the broad ranged-hold
+is the right tool, and this is something different from the three pre-existing
+scoped gates rather than a re-screen of them.
+
+## Roster eligibility (why the filter is clean)
+
+The shared rDPA >= 2.0 & range >= 18 inch filter, enumerated across the archetype
+Sororitas roster, holds exactly the dedicated fire platforms and leaves the
+aggressive core free to Advance onto objectives:
+
+| Held (rDPA / range) | Free to Advance (rDPA / range) |
+|---|---|
+| Castigator (12.0 / 48"), Exorcist (14.0 / 36"), Immolator (4.7 / 18"), Morvenn Vahl (5.8 / 36"), Paragon Warsuits (4.7 / 18") | Battle Sisters (0.67 / 24"), Repentia / Seraphim / Zephyrim / Celestians / Sacresants (melee, range 0), Retributor Squad (0.67), Penitent Engines ([ASSAULT], excluded), all foot characters |
+
+The Exorcist already holds in practice (indirect fire), so the behavioural change is
+concentrated on the Castigator (the observed misplay) plus the Immolator / Morvenn
+Vahl / Paragons when they head for an objective with a live shot. The hold applies
+only to CAPTURE/STEAL intent, so a Paragon or Morvenn Vahl declaring a charge
+(ENGAGE) is unaffected — the melee threat is preserved.
+
+## What is NOT the gap (checked, so no lever is forced there)
+
+- **Acts of Faith / Miracle dice IS modelled** (`simulator.acts_of_faith`,
+  per-phase since wave 239; Triumph of Saint Katherine fixes the round-start die to
+  6). The faction's durability tools are modelled: invulnerable saves were repaired
+  faction-wide at wave 236, and Saint Celestine's Miraculous Intervention revival is
+  wired. The residual is not a missing-rule gap; it is the fire-platform piloting
+  gap above.
+- **A second observed misplay (noted, NOT actioned):** in the Necrons game the
+  flying melee squads (Zephyrim, Seraphim) repeatedly charged the Canoptek
+  Doomstalker doing 0 damage (move-log lines 125-135, 226-238) — a target-selection
+  problem. It maps to the nomination / focus-fire family, whose Sororitas variant
+  already washed (and whose Astra Militarum variant rejected minus 11.12). Not forced
+  into a lever — the ranged-hold is the clean, precedent-backed finding.
+
+## The lever built — `SWEG_SOROR_RANGED_HOLD` (default-OFF)
+
+A sixth Adepta-Sororitas-scoped entry point (`_ad_soror`) on the shared
+`_suppress_advance` block in `code/simulator.py` `_do_move`, identical in logic to
+`_ad_am` / `_ad_ck` / `_ad_votann` / `_ad_tsons`: a moving Sororitas unit seeking an
+objective (CAPTURE/STEAL), carrying no [ASSAULT] weapon, with ranged damage per
+activation >= 2.0 and range >= 18 inches, that has a damageable target within a
+Normal move's reach, HOLDS and Normal-moves (keeping its shot) rather than
+Advancing. Cited `simulator.soror_ranged_hold`, registered in
+`scripts/audit_rules.py`. Off path (gate unset) byte-identical.
+
+## Screen (N=20 Adepta-Sororitas-scoped, paired vs the standing anchor `sc49a`)
+
+- **Byte-identical-off:** gate unset, **0 flips across all 22 factions**
+  (`data/_soror_off_check.json` vs the anchor), gated mean absolute error delta
+  +0.00 — the OFF path does not leak; the anchor is a valid OFF arm for this gate.
+- **`SWEG_SOROR_RANGED_HOLD=1` (the load-bearing row):** Adepta Sororitas
+  **48.6 -> 50.5, paired delta +1.89 toward real 50.4** (landing essentially ON its
+  real number), **150 matched games flipped (highly active, not inert)**, paired
+  CI 7.76. At N=20 the Sororitas paired CI still spans 0 (verdict "flat", not yet
+  decisive) — the same signature the votann / Chaos Knights / Thousand Sons
+  ranged-holds all showed before they landed decisively at N=80. The nominal gated
+  mean absolute error 14.43 -> 9.53 and the per-opponent rows (Tyranids -30
+  "decisive", Aeldari -20, Adeptus Mechanicus -20, Chaos Daemons -20, Orks -25)
+  are NOT reliable collateral at this N: each opponent appears in only ~20 games
+  with CI 19-30, and the gate is asymmetric (it changes only Sororitas' own moves,
+  never the opponent's), so an opponent row moves only because Sororitas trades
+  better. Read directionally, the biggest opponent drops are all sim OVER-poles
+  (Tyranids / Aeldari / Adeptus Mechanicus / Chaos Daemons), so the collateral
+  leans toward-real — the same pattern the votann / Chaos Knights ranged-holds
+  showed at N=80 ("broad opponent collateral deflating the over-poles toward
+  real"). Recommendation: promising, precedent-backed, correct-direction, lands on
+  real — advance to the N=80 adoption screen (the deciding measurement).

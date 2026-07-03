@@ -1037,6 +1037,18 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Fifth entry point _ad_tsons on the shared _suppress_advance block in
     # code/simulator.py _do_move. Cited in data/rule_citations.d/thousand_sons.json.
     "simulator.tsons_ranged_hold",
+    # SWEG_SOROR_RANGED_HOLD (default-OFF screening gate, 2026-07-03). AI piloting
+    # heuristic (same as simulator.am_advance_discipline / ck_ranged_hold /
+    # votann_ranged_hold / tsons_ranged_hold, Adepta-Sororitas-scoped): the
+    # faction's dedicated fire platforms (Castigator, Exorcist, Immolator, Morvenn
+    # Vahl, Paragon Warsuits) hold and shoot instead of Advancing and forfeiting
+    # their Shooting phase, while the aggressive infantry / melee core stays free
+    # to Advance onto objectives. Derived from watched pilot-observation (all three
+    # Castigators Advanced round 1 firing nothing versus Necrons seed 11; one died
+    # round 2 having never shot). Sixth entry point _ad_soror on the shared
+    # _suppress_advance block in code/simulator.py _do_move. Cited in
+    # data/rule_citations.d/adepta_sororitas.json.
+    "simulator.soror_ranged_hold",
     # SWEG_STAGING (default-off, byte-identical off). The faction-neutral
     # closing-side counterpart of the ranged-hold family: a unit whose commit
     # would deliver it EXPOSED into a significant enemy threat envelope while it
