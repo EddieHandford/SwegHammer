@@ -141,6 +141,24 @@ _FIXBAYONETS_GUARD: bool = os.environ.get("SWEG_FIXBAYONETS", "0") == "1"
 
 
 # ---------------------------------------------------------------------------
+# Duty and Honour! Order (rank 12)
+# ---------------------------------------------------------------------------
+# The Duty and Honour! Order improves the Leadership and Objective Control of
+# the affected unit's models by 1 (Wahapedia AM Voice of Command). SwegHammer
+# models the OC half (the Leadership half is not read by any scoring path).
+# When SWEG_AM_DUTY_AND_HONOUR=0 (the default) the Order is never picked and
+# never applied: _pick_order_for_target's Duty-and-Honour branch is gated off
+# and _apply_order's branch sets a flag that _effective_oc also reads behind
+# the same gate, so the whole feature is inert and byte-identical to the
+# pre-rank-12 path. When =1 the dispatcher issues Duty and Honour! to a squad
+# that is sitting on / contesting an objective (read via army._battle_ref).
+#
+# Cited as "Order.Duty and Honour!" in
+# data/rule_citations.d/astra_militarum.json.
+_DUTY_AND_HONOUR: bool = os.environ.get("SWEG_AM_DUTY_AND_HONOUR", "0") == "1"
+
+
+# ---------------------------------------------------------------------------
 # Order eligibility helpers
 # ---------------------------------------------------------------------------
 
@@ -427,6 +445,7 @@ ORDER_TAKE_AIM: str = "Take Aim!"
 ORDER_FIX_BAYONETS: str = "Fix Bayonets!"
 ORDER_FRFSRF: str = "First Rank, Fire! Second Rank, Fire!"
 ORDER_TAKE_COVER: str = "Take Cover!"
+ORDER_DUTY_AND_HONOUR: str = "Duty and Honour!"
 
 WIRED_ORDERS: Tuple[str, ...] = (
     ORDER_TAKE_AIM,
@@ -456,6 +475,13 @@ def _apply_order(target: "Unit", order: str) -> None:
         target.transient_frfsrf_active = True
     elif order == ORDER_TAKE_COVER:
         target.transient_plus_one_save = True
+    elif order == ORDER_DUTY_AND_HONOUR:
+        # Duty and Honour! — improve Leadership and Objective Control of
+        # models in this unit by 1. SwegHammer routes the OC half through
+        # transient_plus_one_oc (read by Battle._effective_oc behind
+        # SWEG_AM_DUTY_AND_HONOUR); the Leadership half is not read by any
+        # scoring path so it is not modelled. Cited `Order.Duty and Honour!`.
+        target.transient_plus_one_oc = True
     # Unknown Order — silent no-op so a stale order string in the AI
     # picker doesn't crash the dispatcher.
 
@@ -508,6 +534,7 @@ def _pick_order_for_target(
     target: "Unit",
     hp_frac_lost: Optional[float] = None,
     squad_is_engaged: bool = False,
+    squad_on_objective: bool = False,
 ) -> str:
     """Greedy: pick the Order that maximises expected value for `target`.
 
@@ -537,6 +564,17 @@ def _pick_order_for_target(
     live enemy. On the default (gate OFF) path this parameter is unused
     and the function is byte-identical to the pre-248 code path.
     """
+    # Duty and Honour! (rank 12, gated SWEG_AM_DUTY_AND_HONOUR). The Order's
+    # value is its +1 Objective Control, which only matters when the squad is
+    # actually on / contesting an objective. When the gate is on and the
+    # dispatcher reports the squad on an objective, issue Duty and Honour!
+    # ahead of the offensive Orders (holding the point is the priority for a
+    # body squad standing on it). When the gate is off, _DUTY_AND_HONOUR is
+    # False and this branch is skipped — byte-identical to the pre-rank-12
+    # picker. Cited `Order.Duty and Honour!`.
+    if _DUTY_AND_HONOUR and squad_on_objective:
+        return ORDER_DUTY_AND_HONOUR
+
     if hp_frac_lost is None:
         # Explicit default (CLAUDE.md rule 13): None means "single-model
         # caller" — derive the damage fraction from this one Unit.
@@ -843,10 +881,35 @@ def dispatch_orders(
                         _engaged = True
                         break
 
+            # Duty and Honour! objective check. Gate OFF: skip entirely — zero
+            # extra computation on the default path. Gate ON: a squad is 'on an
+            # objective' when at least one alive member sits within an
+            # objective's control_radius. Objectives are read from the live
+            # Battle via army._battle_ref (set in Battle.__init__); the
+            # dispatcher signature is unchanged so the OFF path is byte-
+            # identical.
+            _on_obj = False
+            if _DUTY_AND_HONOUR:
+                _battle = getattr(army, "_battle_ref", None)
+                _objs = getattr(getattr(_battle, "map", None), "objectives", None) or ()
+                for _m in members:
+                    if not _m.is_alive:
+                        continue
+                    for _o in _objs:
+                        _ddx = _m.position[0] - _o.x
+                        _ddy = _m.position[1] - _o.y
+                        _rr = _o.control_radius * _o.control_radius
+                        if (_ddx * _ddx + _ddy * _ddy) <= _rr:
+                            _on_obj = True
+                            break
+                    if _on_obj:
+                        break
+
             order = _pick_order_for_target(
                 members[0],
                 hp_frac_lost=_squad_hp_frac_lost(key, members),
                 squad_is_engaged=_engaged,
+                squad_on_objective=_on_obj,
             )
 
             # Gate ON: reject a duplicate Order on the Creed-led squad.
@@ -895,6 +958,7 @@ __all__ = [
     "ORDER_FIX_BAYONETS",
     "ORDER_FRFSRF",
     "ORDER_TAKE_COVER",
+    "ORDER_DUTY_AND_HONOUR",
     "WIRED_ORDERS",
     "_officer_target_types",
     "dispatch_orders",

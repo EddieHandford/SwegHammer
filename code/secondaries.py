@@ -20,8 +20,30 @@ Citations:
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple
+
+
+def _action_economy_enabled() -> bool:
+    """Action-economy build gate (Chapter Approved 2025-26 Tactical action cards:
+    Establish Locus, Recover Assets, A Tempting Target). DEFAULT-OFF: the three
+    cards are inert unless `SWEG_ACTION_ECONOMY` is explicitly "1".
+
+    This is the faithful anti-durability mechanism the durability over-reward
+    investigation identified (docs/DURABILITY_OVERREWARD_INVESTIGATION.md): real
+    10th-edition Tactical action cards tax a unit by making it stop and perform
+    an action for victory points instead of shooting or charging — a tax a
+    low-model durable army (Imperial Knights) cannot pay but a unit-rich horde
+    can. The asymmetry is EMERGENT (more units means more spare bodies that can
+    perform actions); it NEVER branches on faction or model count.
+
+    The gate is read at the point the deck pool is built so that, while it is
+    off, the three card keys are ABSENT from `TACTICAL_DECK_POOL` entirely — the
+    deck never draws them, the shuffle order is unchanged, and every downstream
+    scoring / assignment path is unreachable. This is the byte-identical OFF
+    contract."""
+    return os.environ.get("SWEG_ACTION_ECONOMY", "0") == "1"
 
 if TYPE_CHECKING:
     from .army import Army
@@ -67,6 +89,17 @@ TACTICAL_SECONDARY_KEYS: Tuple[str, ...] = (
     # include it in a Tactical army's chosen tuple and so ALL_SECONDARY_KEYS
     # keeps a complete union.
     "no_prisoners",
+    # Action-economy build: the three CA-2025-26 Tactical action cards modelled
+    # behind SWEG_ACTION_ECONOMY. Registering the keys here keeps the per-card
+    # `chosen` gate and ALL_SECONDARY_KEYS union complete; they are inert in
+    # score_position_delta (which only reads engage / behind_enemy_lines) and are
+    # only ever drawn when the gate adds them to TACTICAL_DECK_POOL below.
+    # Establish Locus  — cited simulator.secondary_establish_locus
+    # Recover Assets   — cited simulator.secondary_recover_assets
+    # A Tempting Target — cited secondaries.a_tempting_target
+    "establish_locus",
+    "recover_assets",
+    "a_tempting_target",
 )
 # Wave 83 Tier A: the objective-holding / board-control secondaries. Scoring +
 # zone classification live in code/simulator.py (Battle._score_board_secondaries,
@@ -108,7 +141,7 @@ ALL_SECONDARY_KEYS: Tuple[str, ...] = (
 # (deck mechanic) + the per-card sources already cited in
 # data/rule_citations.d/secondaries_pariah_nexus.json. Cited as
 # `simulator.tactical_secondary_deck`.
-TACTICAL_DECK_POOL: Tuple[str, ...] = (
+_TACTICAL_DECK_BASE_POOL: Tuple[str, ...] = (
     "no_prisoners",
     "engage_on_all_fronts",
     "behind_enemy_lines",
@@ -120,12 +153,30 @@ TACTICAL_DECK_POOL: Tuple[str, ...] = (
     "storm_hostile_objective",
     "area_denial",
 )
-# TODO M2 Stage C: the CA-2025-26 Tactical deck also contains several action
-# cards the simulator does not yet model — Establish Locus, Recover Assets, and
-# A Tempting Target. Adding them requires verbatim card text (not yet captured in
-# the repo — the planned data/reference/wahapedia_ca2025-26.txt does not exist)
-# plus a new scoring check + citation per card. Left as a TODO rather than
-# invented; the deck runs on the nine already-faithful cards above.
+# Action-economy build (Chapter Approved 2025-26): the deck also contains three
+# Tactical action cards the simulator previously stubbed — Establish Locus,
+# Recover Assets, and A Tempting Target. Their verbatim card text is now captured
+# (the rule citations live in data/rule_citations.d/secondaries_pariah_nexus.json
+# under simulator.secondary_establish_locus, simulator.secondary_recover_assets,
+# and secondaries.a_tempting_target), and each has a scoring check + action
+# assignment in code/simulator.py.
+#
+# BYTE-IDENTICAL OFF CONTRACT: the three keys are appended to TACTICAL_DECK_POOL
+# ONLY when SWEG_ACTION_ECONOMY=1. While the gate is off the keys are absent, so
+# the deck shuffle (_init_tactical_deck) and the challenger draw both see the
+# same ten-card pool as before — no extra cards, no perturbed draw order, no
+# extra random consumption. The downstream scorers/assigners are unreachable
+# because the card is never drawn or chosen.
+_ACTION_ECONOMY_DECK_CARDS: Tuple[str, ...] = (
+    "establish_locus",
+    "recover_assets",
+    "a_tempting_target",
+)
+TACTICAL_DECK_POOL: Tuple[str, ...] = (
+    _TACTICAL_DECK_BASE_POOL + _ACTION_ECONOMY_DECK_CARDS
+    if _action_economy_enabled()
+    else _TACTICAL_DECK_BASE_POOL
+)
 
 
 # Per-round VP caps (Pariah Nexus rule text, tuned 2026-05-20).
@@ -961,6 +1012,15 @@ def pick_secondaries(
         # Inert unless SWEG_S2 is set (the simulator gates the scoring + the
         # 40-VP secondary cap that keeps total secondary VP faithful).
         tactical.append("sabotage")
+        # Action-economy build: an army with spare cheap bodies also brings the
+        # three CA-2025-26 Tactical action cards. They are inert unless
+        # SWEG_ACTION_ECONOMY is set (the simulator gates both assignment and
+        # scoring). Appending them only under the same gate keeps the OFF path's
+        # chosen tuple byte-identical (the legacy union scorer never sees them).
+        if _action_economy_enabled():
+            tactical.append("establish_locus")
+            tactical.append("recover_assets")
+            tactical.append("a_tempting_target")
     # Wave 83 Tier A: every army brings the full objective-holding / board-control
     # package. The asymmetry is purely in COMPLETION (a low-model durable army
     # controls few objectives across zones and scores ~0 on the spread cards),

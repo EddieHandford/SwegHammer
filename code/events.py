@@ -291,8 +291,14 @@ class BattleshockFailed:
 @dataclass(frozen=True)
 class RoundEnded:
     round_num: int
-    a_vp_total: int = 0         # running VP totals after this round's scoring
+    a_vp_total: int = 0         # running VP totals after this round's scoring (UNCAPPED)
     b_vp_total: int = 0
+    # The real standing under the Pariah Nexus caps (primary <=50, secondary <=40,
+    # challenger <= lifetime cap) — this is what decides the winner, so it is the
+    # meaningful "who is ahead" figure for displays/audits. The uncapped totals
+    # above can run past a ceiling and overstate a dominator's lead.
+    a_vp_capped: int = 0
+    b_vp_capped: int = 0
 
 
 @dataclass(frozen=True)

@@ -156,6 +156,7 @@ from .sim.constants import (  # noqa: F401  (re-exported for the public surface)
     BOARDCONTROL_STATS,
     PATHFIND_STAGE0_STATS,
     REACH_STATS,
+    STRAND_STATS,
     _PATHFIND_BIG_RADIUS_IN,
 )
 # Pure geometry helpers moved verbatim to code/sim/geometry.py (Stage A of
@@ -416,6 +417,14 @@ class Battle:
         # battle guard. Stores the set of unit UIDs that have already consumed
         # their Unholy Bloodshed grant. Cleared on Battle reset, not per-round.
         self._csm_unholy_bloodshed_used: set = set()
+        # T'au Riptide Nova Charge — once-per-battle [DEVASTATING WOUNDS] tracker
+        # (one use per Riptide model). Cleared on Battle reset, not per-round.
+        self._tau_nova_charge_used: set = set()
+        # Custodes Shield-Captain Master of the Stances — once-per-battle
+        # dual-Ka'tah-stance tracker. Stores the UIDs of every member of a
+        # squad that has consumed the grant (Unit uses __slots__, so the
+        # marker cannot live on the Unit itself). Cleared on Battle reset.
+        self._custodes_mots_used: set = set()
         self.a._battle_ref = self
         self.b._battle_ref = self
         # Current battle round (1..MAX_ROUNDS). Updated at the top of each
@@ -737,10 +746,13 @@ class Battle:
             # deck-on early-return inside `_score_secondaries` does not skip this).
             # No-op / byte-identical when the gate is off.
             self._score_challenger_card(rnd)
+            _a_cap_disp, _b_cap_disp = self._capped_vp_pair()
             self._emit(RoundEnded(
                 round_num=rnd,
                 a_vp_total=self._a_vp,
                 b_vp_total=self._b_vp,
+                a_vp_capped=int(_a_cap_disp),
+                b_vp_capped=int(_b_cap_disp),
             ))
             round_history.append((self.a.unit_count, self.b.unit_count))
             # End early ONLY on a MUTUAL wipe — both sides have nothing left
@@ -802,6 +814,27 @@ class Battle:
     # Win condition (objectives + attrition + points)
     # ------------------------------------------------------------------
 
+    def _capped_vp_pair(self) -> Tuple[float, float]:
+        """The real Pariah Nexus standing as (a_vp, b_vp): primary capped at 50,
+        secondary at 40, challenger at its lifetime cap. The running
+        `_a_vp`/`_b_vp` totals are UNCAPPED — a primary- or secondary-dominator can
+        run past a ceiling — so anything that reasons about who is actually ahead
+        must read this capped view, not the raw totals. Single source of truth for
+        the winner decision (`_decide_winner`), the challenger-gap trailing side
+        (`_decide_challenger_draw`), and the displayed standing. Cited as
+        `simulator.primary_vp_cap_50` / `simulator.secondary_vp_cap_40`."""
+        _cap_primary = __import__("os").environ.get("SWEG_PRIMARY_CAP_50") != "0"
+        a_primary = self._a_vp - self._a_secondary_vp - self._a_challenger_vp
+        b_primary = self._b_vp - self._b_secondary_vp - self._b_challenger_vp
+        if _cap_primary:
+            a_primary = min(a_primary, 50)
+            b_primary = min(b_primary, 50)
+        a_vp = (a_primary + min(self._a_secondary_vp, 40)
+                + min(self._a_challenger_vp, self._CHALLENGER_LIFETIME_CAP))
+        b_vp = (b_primary + min(self._b_secondary_vp, 40)
+                + min(self._b_challenger_vp, self._CHALLENGER_LIFETIME_CAP))
+        return a_vp, b_vp
+
     def _decide_winner(
         self, a_surv: int, b_surv: int,
         a_pts: float, b_pts: float,
@@ -850,24 +883,13 @@ class Battle:
         # the 40-secondary cap here. A real rule: kept ON by default; set
         # SWEG_PRIMARY_CAP_50=0 to disable for the isolation A/B. Cited as
         # `simulator.primary_vp_cap_50`.
-        _cap_primary = __import__("os").environ.get("SWEG_PRIMARY_CAP_50") != "0"
-        # Challenger VP (Chapter Approved 2025-26) is a THIRD scoring track,
-        # separate from primary (50 cap) and secondary (40 cap): the deck's
-        # combined primary + secondary + challenger is capped at 90, with the
-        # challenger lifetime contribution capped at ~12 (already enforced at
-        # award time in `_score_challenger_card`). Peel it out of the running
-        # total so it is subject to NEITHER the primary nor the secondary cap,
-        # then add it back lifetime-capped. When the gate is off both challenger
-        # tallies are 0, so this is arithmetically identical to the prior code.
-        a_primary = self._a_vp - self._a_secondary_vp - self._a_challenger_vp
-        b_primary = self._b_vp - self._b_secondary_vp - self._b_challenger_vp
-        if _cap_primary:
-            a_primary = min(a_primary, 50)
-            b_primary = min(b_primary, 50)
-        a_vp = (a_primary + min(self._a_secondary_vp, 40)
-                + min(self._a_challenger_vp, self._CHALLENGER_LIFETIME_CAP))
-        b_vp = (b_primary + min(self._b_secondary_vp, 40)
-                + min(self._b_challenger_vp, self._CHALLENGER_LIFETIME_CAP))
+        # Decide on the real capped standing — primary <= 50, secondary <= 40,
+        # challenger <= lifetime cap — via the shared _capped_vp_pair helper (the
+        # SWEG_PRIMARY_CAP_50=0 kill-switch is honoured inside it). Challenger VP is
+        # a THIRD track peeled out so it is subject to neither the primary nor the
+        # secondary cap; when SWEG_CHALLENGER_CARDS is off both tallies are 0 and
+        # this is arithmetically identical to the pre-challenger code.
+        a_vp, b_vp = self._capped_vp_pair()
         if a_vp > b_vp:
             return self.a.name
         if b_vp > a_vp:
@@ -1055,8 +1077,21 @@ class Battle:
                 # A squad is sticky / DG if its profile says so (all members of
                 # a squad share a profile, so checking the first crediting
                 # member is sufficient; use any() to be safe for mixed lists).
+                # SWEG_NECRON_NO_STICKY (default-OFF, byte-identical off): remove
+                # the FABRICATED sticky_objective on Necron Warriors. The override
+                # (data/overrides.json) cites "Their Number Is Legion", but in
+                # BSData v10.6.0 that rule is a Reanimation-Protocol re-roll, NOT a
+                # sticky-objective retention — no citation supports sticky on
+                # Warriors, and their OC=2 base stat already models their objective
+                # control. Rule-10/13 fabrication removal (over-credit-vs-Knights
+                # investigation; Necrons are a +9.4 aggregate over-pole). Gate unset
+                # -> sticky applies as before -> byte-identical to the sc17a anchor.
+                _nec_nostick = os.environ.get("SWEG_NECRON_NO_STICKY") == "1"
                 if any(
                     getattr(u.profile, "sticky_objective", False)
+                    and not (_nec_nostick
+                             and (u.profile.faction or "") == "Necrons"
+                             and u.profile.name == "Necron Warriors")
                     for u in members
                 ):
                     sticky_by_obj[best_idx] = True
@@ -1089,6 +1124,33 @@ class Battle:
                 _d["rounds"] += 1
                 _d["total"] += _tot
                 _d["delivered"] += _deliv
+
+        # STRANDING instrument (structural re-model Step 2, gated SWEG_STRAND_INSTR,
+        # read-only): per-faction summed Objective Control within the control radius
+        # (three inches) vs within twice it (six inches) of every marker, at this
+        # scoring snapshot. Quantifies the wave-93 three-to-six-inch stranding ratio
+        # on the current frame. No behaviour change — reads positions only.
+        if __import__("os").environ.get("SWEG_STRAND_INSTR"):
+            for _army in (self.a, self.b):
+                _fac = (_army.units[0].profile.faction if _army.units else "?") or "?"
+                _s = STRAND_STATS.setdefault(_fac, {"oc3": 0.0, "oc6": 0.0, "snaps": 0})
+                _s["snaps"] += 1
+                for _u in _army.alive_units:
+                    if _u.uid in self._battleshocked_this_round:
+                        continue
+                    _oc = self._effective_oc(_u)
+                    if _oc <= 0:
+                        continue
+                    for _obj in self.map.objectives:
+                        _ddx = _u.position[0] - _obj.x
+                        _ddy = _u.position[1] - _obj.y
+                        _d2 = _ddx * _ddx + _ddy * _ddy
+                        _inner = _obj.control_radius
+                        _outer = 2.0 * _obj.control_radius
+                        if _d2 <= _outer * _outer:
+                            _s["oc6"] += _oc
+                            if _d2 <= _inner * _inner:
+                                _s["oc3"] += _oc
 
         # Wave 187 (#71 primary-mission rotation, env-gated SWEG_PRIMARY_MISSION):
         # accumulate the Take-and-Hold per-objective award + the control counts in
@@ -1424,6 +1486,19 @@ class Battle:
         cleanly reads −5. RESOLVED (watchdog Q9): use the cache −5 — BSData
         rule-6 governs; the −4 came from an unreliable web summary."""
         base = getattr(u.profile, "oc", 1) or 1
+        # Duty and Honour! (Astra Militarum Voice of Command Order): while the
+        # unit is affected by this Order, improve each model's Objective
+        # Control by 1 (the codex also improves Leadership; Leadership is not
+        # read by any scoring path so only the OC half is modelled — a
+        # faithful partial mapping). Gated SWEG_AM_DUTY_AND_HONOUR (default
+        # OFF). When the gate is unset this branch is skipped entirely and
+        # _effective_oc is byte-identical to production. Cited as
+        # `Order.Duty and Honour!`.
+        if (
+            __import__("os").environ.get("SWEG_AM_DUTY_AND_HONOUR", "0") == "1"
+            and getattr(u, "transient_plus_one_oc", False)
+        ):
+            base = base + 1
         # 10e Damaged-bracket Objective-Control reduction — data-driven from the
         # real per-datasheet "Damaged: 1-X Wounds Remaining" bracket
         # (UnitProfile.damaged_oc_penalty, BSData-extracted via the link-resolving
@@ -1899,6 +1974,235 @@ class Battle:
                 continue
             best = max(best, 6 if self._unit_in_enemy_dz(u, own_is_army_a) else 3)
         return best
+
+    # ------------------------------------------------------------------
+    # Action-economy build (Chapter Approved 2025-26 Tactical action cards):
+    # Establish Locus, Recover Assets, A Tempting Target. Env-gated
+    # SWEG_ACTION_ECONOMY, DEFAULT-OFF and byte-identical when off (the card keys
+    # are absent from TACTICAL_DECK_POOL so nothing here is ever reached). This is
+    # the faithful anti-durability mechanism the durability over-reward
+    # investigation identified (docs/DURABILITY_OVERREWARD_INVESTIGATION.md): a
+    # real Tactical action card taxes a unit by making it STOP and perform an
+    # action for victory points (locked out of shooting and charging that turn),
+    # a tax a low-model durable army (Imperial Knights) cannot pay but a
+    # unit-rich horde can. The asymmetry is EMERGENT from spare-unit count — there
+    # is NO faction branch and NO model-count branch anywhere below. The unit is
+    # selected by the same rules-authentic Action contract as Cleanse / Sabotage
+    # (`_unit_can_perform_action`: alive, not already acting, Objective Control
+    # > 0, not in Engagement Range, and NOT a productive shooter with a target in
+    # range) so only a genuinely spare body is ever peeled off.
+    # Cited as `simulator.secondary_establish_locus`,
+    # `simulator.secondary_recover_assets`, and `secondaries.a_tempting_target`.
+    # ------------------------------------------------------------------
+
+    def _action_economy_enabled(self) -> bool:
+        """SWEG_ACTION_ECONOMY gate. DEFAULT-OFF: returns True only when the
+        environment variable is explicitly "1". Kept as a method (mirroring
+        `_cleanse_enabled` / `_sabotage_enabled`) so the assignment and scoring
+        methods can early-return before reading any battle state — the OFF path
+        is byte-identical because (a) the card keys are withheld from
+        TACTICAL_DECK_POOL so they are never drawn or chosen and (b) every
+        method below short-circuits here before touching the board or the RNG."""
+        return __import__("os").environ.get("SWEG_ACTION_ECONOMY", "0") == "1"
+
+    def _unit_zone(self, u, own_is_army_a: bool) -> str:
+        """Classify a unit's position into one of the three Recover Assets areas:
+        "own_dz" (the scoring army's own deployment zone), "nml" (No Man's Land),
+        or "enemy_dz" (the opponent's deployment zone). Army A deploys low-y, B
+        high-y. The simulator represents a unit by a single point, so this is the
+        closest faithful proxy for the rule's "wholly within" test (documented
+        deviation — see the build summary)."""
+        dz = self.map.deployment_width
+        h = self.map.height
+        y = u.position[1]
+        if own_is_army_a:
+            if y <= dz:
+                return "own_dz"
+            if y >= h - dz:
+                return "enemy_dz"
+            return "nml"
+        if y >= h - dz:
+            return "own_dz"
+        if y <= dz:
+            return "enemy_dz"
+        return "nml"
+
+    def _assign_establish_locus_actions(self, active, other) -> None:
+        """Establish Locus (action). After the Movement phase, flag ONE surplus
+        unit to perform the Establish Locus action. Per the card the action
+        completes at end of turn if the unit is within the opponent's deployment
+        zone (4 VP) or within 6" of the battlefield centre (2 VP); while
+        performing it the unit cannot shoot or declare a charge (core Actions
+        rule — enforced by the `action_this_round` lockout read in _do_shoot /
+        _do_charge). "UNITS: One unit from your army" → CAP = 1.
+
+        The unit is chosen by the rules-authentic `_unit_can_perform_action`
+        contract (the even-handed, EMERGENT spare-unit test) — no faction or
+        model-count branch. Cited `simulator.secondary_establish_locus`."""
+        if not self._action_economy_enabled():
+            return
+        if "establish_locus" not in (getattr(active, "chosen_secondaries", ()) or ()):
+            return
+        for u in active.alive_units:
+            if u.action_this_round is not None:
+                continue
+            if self._unit_can_perform_action(u, other):
+                u.action_this_round = "establish_locus"
+                break  # CAP = 1 ("One unit from your army")
+
+    def _score_establish_locus(self, army, opponent, own_is_army_a: bool,
+                               chosen_override=None) -> int:
+        """End-of-turn Establish Locus scoring: the performing unit must COMPLETE
+        the action (survive, not be dragged into Engagement Range — the same
+        `_action_completes` gate as Cleanse / Sabotage). If completed, 4 VP if the
+        unit is within the opponent's deployment zone, else 2 VP if it is within
+        6" of the battlefield centre, else 0. The two tiers are mutually exclusive
+        (the higher enemy-deployment-zone tier wins). Cited
+        `simulator.secondary_establish_locus`."""
+        if not self._action_economy_enabled():
+            return 0
+        chosen = (chosen_override if chosen_override is not None
+                  else (getattr(army, "chosen_secondaries", ()) or ()))
+        if "establish_locus" not in chosen:
+            return 0
+        cx = self.map.width / 2.0
+        cy = self.map.height / 2.0
+        best = 0
+        for u in army.alive_units:
+            if u.action_this_round != "establish_locus":
+                continue
+            if not self._action_completes(u, opponent):
+                continue
+            if self._unit_in_enemy_dz(u, own_is_army_a):
+                best = max(best, 4)
+                continue
+            dx = u.position[0] - cx
+            dy = u.position[1] - cy
+            if dx * dx + dy * dy <= 6.0 * 6.0:
+                best = max(best, 2)
+        return best
+
+    def _assign_recover_assets_actions(self, active, other) -> None:
+        """Recover Assets (action). After the Movement phase, flag surplus units —
+        each in a DIFFERENT one of the three areas (own deployment zone, No Man's
+        Land, opponent's deployment zone) — to perform the Recover Assets action.
+        Two units in two distinct areas scores 3 VP; three (one per area) scores
+        5 VP. Each performing unit is locked out of shooting / charging.
+
+        "Two or more units … each wholly within a DIFFERENT one of" the three
+        areas → at most one performer per area (CAP = 3, one per zone). The
+        Tactical When-Drawn discard (fewer than three army units on the
+        battlefield) is the action-economy tax: a low-unit army cannot field two
+        spare bodies across two distinct zones AND keep fighting. We do not model
+        the discard explicitly — the spare-unit `_unit_can_perform_action` gate
+        already prevents a low-unit army from committing the bodies, which is the
+        same emergent outcome. Cited `simulator.secondary_recover_assets`."""
+        if not self._action_economy_enabled():
+            return
+        if "recover_assets" not in (getattr(active, "chosen_secondaries", ()) or ()):
+            return
+        own_is_a = active is self.a
+        claimed_zones: set = set()
+        for u in active.alive_units:
+            if len(claimed_zones) >= 3:
+                break  # all three areas already have a performer
+            if u.action_this_round is not None:
+                continue
+            zone = self._unit_zone(u, own_is_a)
+            if zone in claimed_zones:
+                continue  # the card needs a DIFFERENT area per unit
+            if not self._unit_can_perform_action(u, other):
+                continue
+            u.action_this_round = "recover_assets"
+            claimed_zones.add(zone)
+
+    def _score_recover_assets(self, army, opponent, own_is_army_a: bool,
+                              chosen_override=None) -> int:
+        """End-of-turn Recover Assets scoring: count the performing units that
+        COMPLETED the action (survived, not dragged into Engagement Range — the
+        `_action_completes` gate) and are still each in a distinct area. 3 VP if
+        two recovered assets this turn, 5 VP if three or more. Cited
+        `simulator.secondary_recover_assets`."""
+        if not self._action_economy_enabled():
+            return 0
+        chosen = (chosen_override if chosen_override is not None
+                  else (getattr(army, "chosen_secondaries", ()) or ()))
+        if "recover_assets" not in chosen:
+            return 0
+        completed_zones: set = set()
+        for u in army.alive_units:
+            if u.action_this_round != "recover_assets":
+                continue
+            if not self._action_completes(u, opponent):
+                continue
+            completed_zones.add(self._unit_zone(u, own_is_army_a))
+        n = len(completed_zones)
+        if n >= 3:
+            return 5
+        if n >= 2:
+            return 3
+        return 0
+
+    def _tempting_target_obj_idx(self, own_is_army_a: bool):
+        """Resolve (and cache) the No Man's Land objective the OPPONENT designates
+        as this army's Tempting Target marker "when drawn". The opponent picks the
+        marker as bait, so the faithful-direction deterministic choice is the No
+        Man's Land objective FARTHEST INTO the scoring army's half — the one whose
+        control most exposes the scoring unit to the opponent's guns (the "trap").
+        Returns an objective index, or None if there is no No Man's Land objective.
+
+        Deterministic and global-RNG-free (the choice is a pure function of the
+        fixed objective layout), so it does not perturb the battle's RNG stream.
+        Cached per side on first use to keep both players' markers stable."""
+        cache = getattr(self, "_tempting_target_cache", None)
+        if cache is None:
+            cache = {}
+            self._tempting_target_cache = cache
+        key = "a" if own_is_army_a else "b"
+        if key in cache:
+            return cache[key]
+        dz = self.map.deployment_width
+        h = self.map.height
+        best_idx = None
+        best_metric = None
+        for idx, obj in enumerate(self.map.objectives):
+            if not self._obj_in_nml(obj):
+                continue
+            # "Farthest into the scoring army's half" — for army A (low-y) that is
+            # the lowest-y No Man's Land marker; for army B (high-y) the highest-y.
+            metric = obj.y if own_is_army_a else (h - obj.y)
+            if best_metric is None or metric < best_metric:
+                best_metric = metric
+                best_idx = idx
+        cache[key] = best_idx
+        return best_idx
+
+    def _score_a_tempting_target(self, army, opponent, own_is_army_a: bool,
+                                 chosen_override=None) -> int:
+        """A Tempting Target scoring: 5 VP if the scoring army CONTROLS its
+        designated Tempting Target objective marker. No action is performed — this
+        is a passive end-of-turn control check (control = strictly greater
+        Objective Control than the opponent within the marker's radius, the same
+        test as the board take-and-hold cards). Cited
+        `secondaries.a_tempting_target`.
+
+        Faithful-approximation note: the real card scores at the end of EITHER
+        player's turn (so up to twice per round); the simulator scores secondaries
+        once per round (at round end), so this awards the 5 VP once per round it is
+        held and controlled. The 40 VP secondary total cap still bounds it."""
+        if not self._action_economy_enabled():
+            return 0
+        chosen = (chosen_override if chosen_override is not None
+                  else (getattr(army, "chosen_secondaries", ()) or ()))
+        if "a_tempting_target" not in chosen:
+            return 0
+        idx = self._tempting_target_obj_idx(own_is_army_a)
+        if idx is None:
+            return 0
+        obj = self.map.objectives[idx]
+        if self._oc_within(army, obj) > self._oc_within(opponent, obj):
+            return 5
+        return 0
 
     def _scorched_burn_enabled(self) -> bool:
         """Scorched Earth Burn/Raze Action — active whenever the Scorched Earth
@@ -2751,7 +3055,24 @@ class Battle:
             return
         if round_num < 2:
             return
-        gap = self._a_vp - self._b_vp
+        # The trailing side must be judged on the REAL standing — the capped view
+        # that decides the winner — not the uncapped running totals. A primary- or
+        # secondary-dominator that has run past a cap is not as far ahead as
+        # `_a_vp - _b_vp` claims, so the uncapped gap over-triggers (and can
+        # mis-direct) the trailing-side challenger draw. Capping is the more faithful
+        # reading (real victory points are capped as they are scored), BUT it is a
+        # refinement of an APPROXIMATED mechanic (the challenger-card verbatim text
+        # is not yet fetched) and it SCREENED metric-negative: N=40 full-frame vs
+        # sc22a gated 3.03 -> 3.13 (+0.11), decisively hurting Astra Militarum -1.91
+        # and Adeptus Astartes -1.77 (the uncapped gap was quietly giving trailing
+        # under-poles extra catch-up draws). HELD default-off pending a verbatim
+        # challenger citation and the durability-over-reward context; SWEG_CHALLENGER_
+        # GAP_CAPPED=1 to enable the capped gap. Cited as `simulator.challenger_cards`.
+        if __import__("os").environ.get("SWEG_CHALLENGER_GAP_CAPPED", "0") == "1":
+            _a_cap, _b_cap = self._capped_vp_pair()
+            gap = _a_cap - _b_cap
+        else:
+            gap = self._a_vp - self._b_vp
         if abs(gap) < self._CHALLENGER_GAP:
             return
         trailing_side = "a" if gap < 0 else "b"
@@ -2831,6 +3152,18 @@ class Battle:
         "score every secondary source simultaneously" was unfaithful (both armies cap
         at 40 = a wash). `SWEG_TAC_DECK=0` restores the legacy union-of-sources path."""
         return __import__("os").environ.get("SWEG_TAC_DECK", "1") != "0"
+
+    def _secondary_handcap_enabled(self) -> bool:
+        """Cap the legacy-union secondary fallback at the two highest-scoring
+        cards per round, modelling the Chapter Approved 2025-26 rule that a
+        player has at most TWO active Secondary Mission cards at any time.
+        Recovered 2026-06-29 from git 58acc4b (lost in a re-anchor). Env-gated
+        SWEG_SECONDARY_HANDCAP; unset / anything but "1" -> OFF (byte-identical:
+        the fallback sums all chosen cards as before). Tier-3 component for the
+        secondary-VP over-count (~39 vs real 22.7); load-bearing compensating
+        error, screen only stacked with a fragile-under-pole lift. See
+        data/rule_citations.d/core_secondary_hand_cap.json#simulator.secondary_two_card_hand_cap."""
+        return __import__("os").environ.get("SWEG_SECONDARY_HANDCAP", "0") == "1"
 
     def _init_tactical_deck(self, army: Army) -> None:
         """Seed a TACTICAL army's 2-card hand + remaining deck deterministically.
@@ -2945,6 +3278,20 @@ class Battle:
         if card_key == "sabotage":
             return self._score_sabotage(scoring_army, own_is_army_a=own_is_army_a,
                                         chosen_override=one, opponent=other_army)
+        # --- Action-economy cards (Establish Locus / Recover Assets /
+        #     A Tempting Target) — env-gated SWEG_ACTION_ECONOMY, return 0 OFF ---
+        if card_key == "establish_locus":
+            return self._score_establish_locus(scoring_army, other_army,
+                                               own_is_army_a=own_is_army_a,
+                                               chosen_override=one)
+        if card_key == "recover_assets":
+            return self._score_recover_assets(scoring_army, other_army,
+                                              own_is_army_a=own_is_army_a,
+                                              chosen_override=one)
+        if card_key == "a_tempting_target":
+            return self._score_a_tempting_target(scoring_army, other_army,
+                                                 own_is_army_a=own_is_army_a,
+                                                 chosen_override=one)
         # --- Board take-and-hold cards -----------------------------------------
         from .secondaries import BOARD_SECONDARY_KEYS
         if card_key in BOARD_SECONDARY_KEYS:
@@ -2993,11 +3340,23 @@ class Battle:
                 vp = self._score_tactical_hand(army, other, own_is_a, round_num)
             else:
                 # FIXED (or an unset track defensively treated as FIXED): score
-                # the 2 chosen kill cards every round via the per-card dispatcher.
-                vp = 0
-                for card in (army.chosen_secondaries or ()):
-                    vp += self._score_one_card(card, army, other,
-                                               own_is_a, round_num)
+                # the chosen kill cards every round via the per-card dispatcher.
+                # Every card is scored either way (side-effects unchanged); the
+                # SWEG_SECONDARY_HANDCAP gate only changes how the round total is
+                # summed.
+                per_card = [
+                    self._score_one_card(card, army, other, own_is_a, round_num)
+                    for card in (army.chosen_secondaries or ())
+                ]
+                if self._secondary_handcap_enabled():
+                    # CA-2025-26: at most TWO active Secondary cards. The legacy
+                    # picker leaves secondary_track None and stuffs the full union
+                    # (~11 cards) into chosen_secondaries; uncapped, all scored
+                    # every round (the secondary-VP over-count). Keep only the two
+                    # highest-VP contributors this round -- the real 2-card hand.
+                    vp = sum(sorted(per_card, reverse=True)[:2])
+                else:
+                    vp = sum(per_card)
             if own_is_a:
                 self._a_vp += vp
                 self._a_secondary_vp += vp
@@ -3165,6 +3524,22 @@ class Battle:
         self._b_vp += b_board
         self._b_secondary_vp += b_board
 
+        # Action-economy build — Establish Locus / Recover Assets / A Tempting
+        # Target (env-gated SWEG_ACTION_ECONOMY). Each scorer returns 0 when the
+        # gate is off, so this whole block is a no-op on the OFF path; the keys are
+        # also absent from every army's chosen tuple OFF, so the inner gate is
+        # never even reached. Added to the live total (_a_vp/_b_vp) and the
+        # reporting tracker, exactly like Cleanse / Sabotage / board; the 40-VP
+        # secondary cap in `_decide_winner` bounds the sum.
+        for _scorer in (self._score_establish_locus, self._score_recover_assets,
+                        self._score_a_tempting_target):
+            a_ae = _scorer(self.a, self.b, own_is_army_a=True)
+            self._a_vp += a_ae
+            self._a_secondary_vp += a_ae
+            b_ae = _scorer(self.b, self.a, own_is_army_a=False)
+            self._b_vp += b_ae
+            self._b_secondary_vp += b_ae
+
     # ------------------------------------------------------------------
     # Reanimation Protocols (issue #75)
     # ------------------------------------------------------------------
@@ -3225,6 +3600,9 @@ class Battle:
             u.transient_plus_one_to_hit_shooting = False
             # First Rank, Fire! Second Rank, Fire! (AM Order) per-round flag.
             u.transient_frfsrf_active = False
+            # Duty and Honour! (AM Order) per-round flag. Mirrors the codex
+            # 'until the start of your next Command phase' Order duration.
+            u.transient_plus_one_oc = False
             u.transient_halve_damage = False
             u.transient_undying_legions_pulse = 0
             # ST-1 proper-keyword transient flags.
@@ -3239,6 +3617,13 @@ class Battle:
             # grant; cleared here so it is single-round-scoped.
             u.transient_reroll_all_hits = False
             u.transient_devastating_wounds = False
+            # Drukhari Power From Pain per-datasheet transient flags
+            # (SWEG_DRUKHARI_PFP_PERDATASHEET). Reset every round to match
+            # the codex 'until the end of the phase' scope, collapsed to
+            # round-scoped (same convention as transient_lethal_hits).
+            u.transient_devastating_wounds_vs_infantry = False
+            u.transient_brides_of_death = False
+            u.transient_set_melee_attacks = 0
             u.transient_hazardous = False
             # DRK-SKYSPLINTER-DISEMBARK: Rain of Cruelty disembark-turn
             # keyword grants. Set on disembark by `_disembark` when the
@@ -5623,6 +6008,17 @@ class Battle:
         invuln, acceptable given round-start dispatcher collapses the reactive
         trigger). Direction-correct defensive buff.
         Source: https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion
+        Gate SWEG_DAEMONS_INVULN_FAITHFUL (default-off, wave-260 screen):
+        docs/OVERPOLE_UNIT_AUDIT.md rank 7, rule_citations key
+        "Stratagem.Daemonic Invulnerability". The real stratagem re-rolls ONE
+        failed invulnerable save (reactive, per-save). Gate ON: the 1 command-point
+        spend is PRESERVED (the stratagem IS used in real play; dropping it would
+        free a command point to a stronger stratagem and introduce over-correction),
+        but the over-modelled transient_invuln_4 flat-4+ buff is DROPPED — no
+        faithful re-roll mechanism exists in the invuln path yet (no
+        transient_reroll_invuln_ones flag), so the net effect on gate-ON is:
+        command point spent, zero defensive uplift. Aeldari Fire-and-Fade pattern.
+        Gate OFF: current flat-4+-for-the-round behaviour, byte-identical.
         """
         target = self._most_vulnerable_unit(
             army, keyword="DAEMON", faction="Chaos Daemons",
@@ -5635,6 +6031,12 @@ class Battle:
         if not should_fire_stratagem(army, DAEMONIC_INVULNERABILITY, ctx):
             return
         if not self._fire_stratagem(army, DAEMONIC_INVULNERABILITY):
+            return
+        # SWEG_DAEMONS_INVULN_FAITHFUL gate ON: command-point spend above is
+        # kept (faithful), but the over-modelled flat-4+ invuln buff is dropped.
+        # No transient_reroll_invuln_ones flag exists yet; the effect is zero
+        # defensive uplift on gate-ON. Gate OFF: legacy transient_invuln_4.
+        if __import__("os").environ.get("SWEG_DAEMONS_INVULN_FAITHFUL", "1") != "0":
             return
         self._set_transient_squad(target, "transient_invuln_4")
 
@@ -6727,6 +7129,100 @@ class Battle:
                 "ranged weapons gain [DEVASTATING WOUNDS] and [HAZARDOUS]"
             )
 
+    def _apply_nova_charge(self, attacker) -> None:
+        """T'au Riptide 'Nova Charge' (10e datasheet ability, BSData id
+        8fb6-aff7-75ac-f206): "Once per battle, when this unit is selected to shoot
+        in your Shooting phase, select one ranged weapon equipped by this model.
+        Until the end of the phase, that weapon has the [DEVASTATING WOUNDS]
+        ability." Gated SWEG_TAU_NOVA_CHARGE (default-off during screen). Mirrors
+        the Possessed Unholy Bloodshed once-per-battle pattern. APPROXIMATION: the
+        real rule grants [DEVASTATING WOUNDS] to ONE chosen weapon; we grant the
+        transient to the whole unit for the phase — the same whole-unit
+        approximation as Unholy Bloodshed (simulator.csm_unholy_bloodshed) and
+        Daemonic Ordnance. ADOPTED default-on 2026-07-01 (`=0` is the
+        byte-identical kill-switch); T'au-scoped N=80 vs sc29a: T'au +1.74 (51.2 ->
+        52.9, toward real 54.3), gated 2.37 -> 2.35. Cited `simulator.tau_nova_charge`.
+        Off path (gate '0') is a no-op (the profile flag is only read here).
+        """
+        if os.environ.get("SWEG_TAU_NOVA_CHARGE", "1") == "0":
+            return
+        if not getattr(attacker.profile, "tau_nova_charge", False):
+            return
+        if attacker.uid in self._tau_nova_charge_used:
+            return
+        self._set_transient_squad(attacker, "transient_devastating_wounds")
+        self._tau_nova_charge_used.add(attacker.uid)
+        if self.verbose:
+            print(
+                f"  NOVA CHARGE: {attacker.profile.name} granted "
+                "[DEVASTATING WOUNDS] this phase (once-per-battle)"
+            )
+
+    def _apply_master_of_stances(self, attacker) -> None:
+        """Adeptus Custodes Shield-Captain 'Master of the Stances' (10e
+        datasheet ability, BSData profile id e6a6-1d13-3027-3fce): "Once per
+        battle, when this model's unit is selected to fight, it can use this
+        ability. If it does, until that fight is resolved, both Ka'tah
+        Stances are active for that unit, instead of only one."
+
+        The sim already models the RENDAX stance ([LETHAL HITS]) as the
+        always-on optimal pick (`simulator.custodes_katah_lethal`); electing
+        BOTH stances therefore adds DACATARAI ([SUSTAINED HITS 1]) on top
+        for the led unit's fight. Trigger detection follows the leaders.py
+        "leading" convention (an alive Shield-Captain within its 6.0" aura
+        whose LeaderAbility.host_keys admit the fighting unit — the same
+        proximity + legal-host gate as `is_actually_led`). Grant:
+        `transient_sustained_hits` +1 fanned to the squad, cleared at round
+        start (the standard fight->round transient approximation).
+        AI approximation: the ability is elected at the led unit's FIRST
+        fight of the battle. Once-per-battle is tracked in the battle-level
+        `self._custodes_mots_used` UID set (the Nova Charge pattern; Unit
+        uses __slots__ so the marker cannot live on the Unit itself). Gated
+        SWEG_CUSTODES_MASTER_STANCES (default-on; `=0` is the
+        byte-identical kill-switch — the helper returns before touching any
+        state). Cited `simulator.custodes_master_of_stances`.
+        """
+        if os.environ.get("SWEG_CUSTODES_MASTER_STANCES", "1") == "0":
+            return
+        p = attacker.profile
+        if p.faction != "Adeptus Custodes":
+            return
+        if attacker.uid in self._custodes_mots_used:
+            return
+        from .leaders import (
+            in_range_leaders, lookup_ability, _name_to_catalog_keys,
+        )
+        att_keys = set(_name_to_catalog_keys(p.name))
+        if not att_keys:
+            return
+        led_by_shield_captain = False
+        for ldr in in_range_leaders(attacker):
+            ab = lookup_ability(ldr.profile.name)
+            if (ab is not None and ab.name == "Master of the Stances"
+                    and att_keys & set(ab.host_keys)):
+                led_by_shield_captain = True
+                break
+        if not led_by_shield_captain:
+            return
+        squad_id = getattr(attacker, "squad_id", -1)
+        army_ref = getattr(attacker, "army_ref", None)
+        members = [attacker]
+        if squad_id >= 0 and army_ref is not None:
+            members = [
+                m for m in army_ref.units
+                if getattr(m, "squad_id", -1) == squad_id and m.is_alive
+            ]
+        for m in members:
+            m.transient_sustained_hits = (
+                int(getattr(m, "transient_sustained_hits", 0) or 0) + 1
+            )
+            self._custodes_mots_used.add(m.uid)
+        if self.verbose:
+            print(
+                f"  MASTER OF THE STANCES: {p.name} fights with both "
+                "Ka'tah stances (once-per-battle)"
+            )
+
     def _apply_dark_pacts(self, round_num: int) -> None:
         """Chaos Space Marines Dark Pacts army rule (10e).
 
@@ -6906,6 +7402,17 @@ class Battle:
         _pfp_embarked_filter: bool = (
             os.environ.get("SWEG_DRUKHARI_PFP_EMBARKED", "1") != "0"
         )
+        # SWEG_DRUKHARI_PFP_MULTISPEND (adopted default-on, wave 258, rank-5 audit):
+        # Empower MULTIPLE Drukhari units per round (the codex states no
+        # per-phase cap on Empowers) instead of the single highest-DPA
+        # elect-and-exit. Each Empower costs 1 token; a Cronos within 9 inches
+        # may refund the token (Pain Engine aura). SWEG_DRUKHARI_PFP_MULTISPEND=0
+        # is the byte-identical kill-switch (wave-246 single-spend). Cited as
+        # simulator.power_from_pain.pfp_multispend and
+        # simulator.cronos_pain_engine.
+        _pfp_multispend: bool = (
+            os.environ.get("SWEG_DRUKHARI_PFP_MULTISPEND", "1") != "0"
+        )
         for army in (self.a, self.b):
             if army.pain_token_pool <= 0:
                 continue
@@ -6924,24 +7431,133 @@ class Battle:
                 melee = (p.melee_attacks or 0) * (p.melee_hit_probability or 0) * (p.melee_damage_per_shot or 0.0)
                 return ranged + melee
 
-            # Elect the highest-DPA Drukhari unit this round.
-            elected = max(drukhari_units, key=_dpa)
+            if not _pfp_multispend:
+                # ---- OFF PATH (default, byte-identical to wave 246) ----
+                # Elect the highest-DPA Drukhari unit this round.
+                elected = max(drukhari_units, key=_dpa)
 
-            # Dedup via unit budget: one PfP spend per codex unit per round.
-            _squad_id = getattr(elected, "squad_id", -1)
-            _budget_key = _squad_id if _squad_id >= 0 else elected.profile.name
-            if not army.unit_budget_available("pfp", _budget_key):
+                # Dedup via unit budget: one PfP spend per codex unit per round.
+                _squad_id = getattr(elected, "squad_id", -1)
+                _budget_key = _squad_id if _squad_id >= 0 else elected.profile.name
+                if not army.unit_budget_available("pfp", _budget_key):
+                    continue
+                army.mark_unit_budget("pfp", _budget_key)
+
+                # Spend 1 token and grant the Pain ability to the whole squad.
+                army.pain_token_pool -= 1
+                if os.environ.get("SWEG_DRUKHARI_PFP_PERDATASHEET", "1") != "0":
+                    self._grant_pain_ability(elected)
+                else:
+                    self._set_transient_squad(elected, "transient_lethal_hits")
+                if self.verbose:
+                    print(
+                        f"  POWER FROM PAIN: {elected.profile.name} Empowered "
+                        f"(pool now {army.pain_token_pool})"
+                    )
                 continue
-            army.mark_unit_budget("pfp", _budget_key)
 
-            # Spend 1 token and grant transient_lethal_hits to the whole squad.
-            army.pain_token_pool -= 1
-            self._set_transient_squad(elected, "transient_lethal_hits")
-            if self.verbose:
-                print(
-                    f"  POWER FROM PAIN: {elected.profile.name} Empowered "
-                    f"(Lethal Hits, pool now {army.pain_token_pool})"
+            # ---- ON PATH (SWEG_DRUKHARI_PFP_MULTISPEND=1) ----
+            # Alive Cronos models in THIS army (Pain Engine aura sources).
+            _cronos = [
+                u for u in army.alive_units
+                if u.profile.name == "Cronos"
+                and (u.profile.faction or "") == "Drukhari"
+            ]
+            # Empower in descending DPA order, one token each, respecting
+            # the per-codex-unit-per-round dedup. The candidate list is the
+            # already-filtered drukhari_units (battle-shock + embarked filter
+            # already applied above).
+            for elected in sorted(drukhari_units, key=_dpa, reverse=True):
+                if army.pain_token_pool <= 0:
+                    break
+                _squad_id = getattr(elected, "squad_id", -1)
+                _budget_key = _squad_id if _squad_id >= 0 else elected.profile.name
+                if not army.unit_budget_available("pfp", _budget_key):
+                    continue
+                army.mark_unit_budget("pfp", _budget_key)
+                army.pain_token_pool -= 1
+                if os.environ.get("SWEG_DRUKHARI_PFP_PERDATASHEET", "1") != "0":
+                    self._grant_pain_ability(elected)
+                else:
+                    self._set_transient_squad(elected, "transient_lethal_hits")
+                # Cronos Pain Engine: each Empower of a unit within 9 inches of
+                # an alive Cronos rolls 1 D6 (+1 if the Cronos is not equipped
+                # with a spirit vortex — modelled always-true here, the
+                # catalogue Cronos carries no spirit vortex loadout), on a 5+
+                # refund 1 token. The codex rule applies once per Empower.
+                # Cited as simulator.cronos_pain_engine.
+                _ex, _ey = elected.position
+                _near_cronos = any(
+                    abs(c.position[0] - _ex) ** 2 + abs(c.position[1] - _ey) ** 2 <= 81.0
+                    for c in _cronos
                 )
+                if _near_cronos:
+                    _roll = random.randint(1, 6) + 1  # +1: no spirit vortex
+                    if _roll >= 5:
+                        army.pain_token_pool += 1
+                        if self.verbose:
+                            print(
+                                "  POWER FROM PAIN: Cronos Pain Engine refund "
+                                f"(roll {_roll}>=5, pool now "
+                                f"{army.pain_token_pool})"
+                            )
+                if self.verbose:
+                    print(
+                        f"  POWER FROM PAIN: {elected.profile.name} Empowered "
+                        f"(pool now {army.pain_token_pool})"
+                    )
+
+    def _grant_pain_ability(self, unit: "Unit") -> None:  # type: ignore[name-defined]
+        """Route an Empowered Drukhari unit to its printed Pain ability
+        (SWEG_DRUKHARI_PFP_PERDATASHEET, adopted default-on, wave 258). Falls back
+        to transient_lethal_hits for any datasheet not in the catalogued mapping
+        so no Empower is wasted. SWEG_DRUKHARI_PFP_PERDATASHEET=0 is the
+        byte-identical kill-switch.
+
+        Per-datasheet routing (Wahapedia verbatim, see
+        data/rule_citations.d/drukhari.json key
+        simulator.power_from_pain.per_datasheet):
+          Archon 'Hatred Eternal': full Hit-roll re-roll (transient_reroll_all_hits).
+          Kabalite Warriors 'Sadistic Raiders': re-roll Wound rolls of 1
+            (transient_reroll_wounds_ones).
+          Incubi 'Decapitating Strikes': melee [DEVASTATING WOUNDS] vs INFANTRY
+            (transient_devastating_wounds_vs_infantry).
+          Lelith Hesperax 'Brides of Death': +1 Strength and +1 Armour
+            Penetration on melee attacks (transient_brides_of_death).
+          Wracks 'Experimental Enhancements': SET melee Attacks to 3
+            (transient_set_melee_attacks=3).
+          All others (including Ravager): transient_lethal_hits fallback.
+
+        Ravager 'Agonising Suppression' (-1 to Hit on a target enemy unit after
+        shooting) is not modelled this wave — it requires cross-round target-side
+        plumbing absent from the current transient slot machinery. The fallback
+        ensures the Empower is never wasted.
+        """
+        name = unit.profile.name
+        if name == "Archon":
+            self._set_transient_squad(unit, "transient_reroll_all_hits")
+        elif name == "Kabalite Warriors":
+            self._set_transient_squad(unit, "transient_reroll_wounds_ones")
+        elif name == "Incubi":
+            self._set_transient_squad(unit, "transient_devastating_wounds_vs_infantry")
+        elif name == "Lelith Hesperax":
+            self._set_transient_squad(unit, "transient_brides_of_death")
+        elif name == "Wracks":
+            # SET melee Attacks to 3 — integer flag; _set_transient_squad
+            # hardcodes True so we must iterate the squad manually here.
+            sid = getattr(unit, "squad_id", -1)
+            army_ref = getattr(unit, "army_ref", None)
+            if sid >= 0 and army_ref is not None:
+                for m in army_ref.units:
+                    if getattr(m, "squad_id", -1) == sid and m.is_alive:
+                        m.transient_set_melee_attacks = 3
+            else:
+                unit.transient_set_melee_attacks = 3
+        else:
+            # Ravager 'Agonising Suppression' and all non-catalogued Drukhari
+            # datasheets: fall back to transient_lethal_hits so the Empower
+            # is never wasted and the wave-246 baseline is preserved for them.
+            self._set_transient_squad(unit, "transient_lethal_hits")
 
     # ---- Drukhari Combat Drugs (army rule, 10e). Profile-name allowlist of
     # the four WYCH CULT datasheets currently in the catalogue. BSData's
@@ -7078,12 +7694,24 @@ class Battle:
         # strict proximity). See `VALOURSTRIKE_LANCE.bondsman_enabled` citation.
         buffed_uids: set = set()
 
+        # SWEG_IK_BONDSMAN_SCOPED (default-on) — the TITANIC+CHARACTER keyword gate
+        # wrongly admits Knight Castellan, Knight Valiant, and Canis Rex as Bondsman
+        # givers. BSData ("Imperium - Imperial Knights" cat) confirms none of the
+        # three carries a Bondsman ability (the Dominus-class Castellan/Valiant and
+        # the Freeblade Canis Rex have their own abilities); every OTHER
+        # TITANIC+CHARACTER Imperial Knight — the Questoris and Cerastus variants —
+        # does carry Bondsman, so the fix EXCLUDES exactly those three rather than
+        # restricting to a hand-picked five. =0 restores the over-broad gate.
+        _ik_bondsman_scoped = os.environ.get("SWEG_IK_BONDSMAN_SCOPED", "1") != "0"
+        _ik_no_bondsman = ("Knight Castellan", "Knight Valiant", "Canis Rex")
         for giver in list(army.alive_units):
             giver_kw = set(getattr(giver.profile, "unit_keywords", ()) or ())
             if (
                 getattr(giver.profile, "faction", "") != "Imperial Knights"
                 or "TITANIC" not in giver_kw
                 or "CHARACTER" not in giver_kw
+                or (_ik_bondsman_scoped
+                    and getattr(giver.profile, "name", "") in _ik_no_bondsman)
             ):
                 continue
 
@@ -8861,9 +9489,19 @@ class Battle:
         _sitw_plaguesurge = getattr(sitw_army, "plaguesurge_active", False)
         sitw_contagion_range = 3.0 + (3.0 if _sitw_plaguesurge else 0.0)
         # Shadow of Chaos: Chaos Daemons in the Tyranid army (edge case).
-        shadow_of_chaos_active = any(
-            s.profile.faction == "Chaos Daemons"
-            for s in sitw_army.alive_units
+        # SWEG_SHADOW_ROUND2 (default OFF, recovered 2026-06-29 from git b499a57):
+        # the midboard Shadow-of-Chaos proxy only activates from round 2 — No Man's
+        # Land enters the Shadow only once the Daemons control half-or-more of its
+        # objective markers at the start of the phase, which cannot hold in round 1
+        # before any movement (own deployment zone is always in Shadow but is not
+        # separately modelled in the 18" proxy). OFF = unchanged (byte-identical).
+        _sitw_shadow_r2_on = os.environ.get("SWEG_SHADOW_ROUND2", "0") == "1"
+        shadow_of_chaos_active = (
+            any(
+                s.profile.faction == "Chaos Daemons"
+                for s in sitw_army.alive_units
+            )
+            and (not _sitw_shadow_r2_on or round_num >= 2)
         )
         cx = self.map.width / 2.0
         cy = self.map.height / 2.0
@@ -8892,6 +9530,122 @@ class Battle:
                 cy=cy,
                 harbinger_sources=harbinger_sources,
             )
+
+    def _apply_drukhari_tormentors_forced_tests(self, round_num: int) -> None:
+        """DRUKHARI-TORMENTORS Part 1 (env-gated SWEG_DRUKHARI_TORMENTORS,
+        default OFF). Incubi "Tormentors" (Drukhari, 10e): "At the start of
+        the Fight phase, each enemy unit within Engagement Range of one or
+        more units with this ability must take a Battle-shock test." Called at
+        the start of each player's fight pass in _run_round_vanilla_turns, so
+        it fires once per Fight phase (twice per battle round). Both armies'
+        Incubi trigger in every Fight phase, so the scan is bidirectional.
+
+        The below-half-strength gate is NOT applied — this is a forced test,
+        exactly like _apply_shadow_in_the_warp_forced_tests. The shared helper
+        _battleshock_test_squad is reused so the roll, modifier composition and
+        Battle-shock consequences are identical to the normal Command-phase
+        step; the failed unit's persistent `battleshocked_until_round` marker
+        is what the +1-to-Hit half in Unit.attack reads. A local `tested` set
+        dedupes so no enemy squad rolls more than once per Fight phase even if
+        it is within Engagement Range of several Incubi models. This method is
+        only ever called inside the SWEG_DRUKHARI_TORMENTORS gate, so the OFF
+        path is byte-identical (never called; no forced tests, no RNG).
+        Cited as `simulator.drukhari_tormentors`.
+        """
+        # (incubi_army, enemy_army) both ways — every Incubi unit on the board
+        # triggers at the start of the Fight phase.
+        for incubi_army, enemy_army in ((self.a, self.b), (self.b, self.a)):
+            incubi_units = [
+                u for u in incubi_army.alive_units
+                if (u.profile.name or "") == "Incubi"
+                and (u.profile.faction or "") == "Drukhari"
+            ]
+            if not incubi_units:
+                continue
+            # Battle-shock context for the enemy army taking the test — the
+            # Incubi army is the "opponent" providing penalties. Mirrors the
+            # (army=enemy_army, opponent=incubi_army) iteration of
+            # _run_battleshock_phase. Drukhari is not Tyranids / Death Guard /
+            # Chaos Daemons / Chaos Knights, so the shadow / contagion /
+            # shadow-of-chaos / harbinger source lists are empty in practice;
+            # they are still computed generally so the test target is scored
+            # exactly as the Command-phase step would score it.
+            opponent_det = incubi_army.resolve_detachment()
+            own_det = enemy_army.resolve_detachment()
+            ld_penalty = opponent_det.enemy_ld_penalty if opponent_det else 0
+            ld_bonus = own_det.ld_bonus if own_det else 0
+            own_synapse = [
+                s for s in enemy_army.alive_units
+                if "SYNAPSE" in (s.profile.unit_keywords or ())
+            ]
+            if (
+                incubi_army.shadow_in_the_warp_used_round is not None
+                and incubi_army.shadow_in_the_warp_used_round == round_num
+            ):
+                shadow_sources = [
+                    s for s in incubi_army.alive_units
+                    if "SYNAPSE" in (s.profile.unit_keywords or ())
+                    and s.profile.faction == "Tyranids"
+                ]
+            else:
+                shadow_sources = []
+            contagion_sources = (
+                [
+                    s for s in incubi_army.alive_units
+                    if s.profile.faction == "Death Guard"
+                ]
+                if round_num == 2 else []
+            )
+            _plaguesurge_active = getattr(
+                incubi_army, "plaguesurge_active", False
+            )
+            contagion_range = 3.0 + (3.0 if _plaguesurge_active else 0.0)
+            _shadow_round2_on = os.environ.get("SWEG_SHADOW_ROUND2", "0") == "1"
+            shadow_of_chaos_active = (
+                any(
+                    s.profile.faction == "Chaos Daemons"
+                    for s in incubi_army.alive_units
+                )
+                and (not _shadow_round2_on or round_num >= 2)
+            )
+            cx = self.map.width / 2.0
+            cy = self.map.height / 2.0
+            harbinger_sources = [
+                s for s in incubi_army.alive_units
+                if (s.profile.faction or "") == "Chaos Knights"
+            ]
+
+            # Force a test on each enemy squad with any model within Engagement
+            # Range (<= 1.0", the same _er_gap_units convention the Fight phase
+            # uses) of any Incubi model. squads() already yields each squad
+            # once (alive members only); the `tested` set is a belt-and-braces
+            # dedupe per the ability's "one or more units" wording.
+            tested = set()
+            for squad_key, members in enemy_army.squads().items():
+                if squad_key in tested:
+                    continue
+                if not any(
+                    _er_gap_units(m, inc) <= 1.0
+                    for m in members
+                    for inc in incubi_units
+                ):
+                    continue
+                tested.add(squad_key)
+                self._battleshock_test_squad(
+                    enemy_army,
+                    members,
+                    round_num,
+                    ld_penalty=ld_penalty,
+                    ld_bonus=ld_bonus,
+                    own_synapse=own_synapse,
+                    shadow_sources=shadow_sources,
+                    contagion_sources=contagion_sources,
+                    contagion_range=contagion_range,
+                    shadow_of_chaos_active=shadow_of_chaos_active,
+                    cx=cx,
+                    cy=cy,
+                    harbinger_sources=harbinger_sources,
+                )
 
     def _run_battleshock_phase(self, round_num: int) -> None:
         """10e Battle-shock step (every Command phase, from Round 1
@@ -9013,9 +9767,19 @@ class Battle:
             # the cost of missing the deployment-zone passive coverage; the
             # 18" radius is chosen as a half-board approximation of the
             # canonical zone-based shape.
-            shadow_of_chaos_active = any(
-                s.profile.faction == "Chaos Daemons"
-                for s in opponent.alive_units
+            # SWEG_SHADOW_ROUND2 (default OFF, recovered 2026-06-29 from git
+            # b499a57): the midboard Shadow proxy only activates from round 2 (the
+            # No Man's Land objective-control condition cannot hold in round 1).
+            # This is the load-bearing, FACTION-WIDE leg — it governs how much an
+            # opponent fighting Chaos Daemons is battle-shocked (and thus loses
+            # Objective Control) from round 1. OFF = unchanged (byte-identical).
+            _shadow_round2_on = os.environ.get("SWEG_SHADOW_ROUND2", "0") == "1"
+            shadow_of_chaos_active = (
+                any(
+                    s.profile.faction == "Chaos Daemons"
+                    for s in opponent.alive_units
+                )
+                and (not _shadow_round2_on or round_num >= 2)
             )
             # cx / cy are passed to _battleshock_test_squad regardless of
             # whether shadow_of_chaos_active is True; assign unconditionally
@@ -9542,6 +10306,33 @@ class Battle:
             army.machine_vengeance_target_uid = None
             if any(u.profile.faction == "Adeptus Mechanicus" for u in army.units):
                 self._pick_machine_vengeance_target(army, opponent, round_num)
+        # ---- Adeptus Custodes Auric Champions — Assemblage of Might (10e
+        # detachment rule, env-gated SWEG_CUSTODES_ASSEMBLAGE_OF_MIGHT, default
+        # OFF). Parallel to Oath of Moment / Machine Vengeance above. BSData
+        # verbatim (AURIC_CHAMPIONS rule id 9eb2-2cdd-3df7-a94e): "At the start of
+        # your Command phase, select one unit from your opponent's army. Until the
+        # start of your next Command phase, each time a model in an ADEPTUS
+        # CUSTODES Character unit from your army makes an attack that targets that
+        # enemy unit, add 1 to the Wound roll." Designate the highest-threat enemy
+        # and store its uid; Unit.attack reads army._assemblage_target_uid for the
+        # +1-to-Wound on Custodes CHARACTER attacks. Only set for an army whose
+        # detachment carries assemblage_of_might (AURIC_CHAMPIONS); the off /
+        # non-Auric path leaves the uid None and is byte-identical. Cited as
+        # `AURIC_CHAMPIONS.assemblage_of_might`. ADOPTED default-on 2026-07-01
+        # (`=0` is the byte-identical kill-switch): Custodes-scoped N=80 vs sc26a
+        # was near-inert (14/3360 flips, Custodes -0.19 noise, gated 2.45 -> 2.46),
+        # adopted fidelity-first — it correctly models a real detachment rule that
+        # had been a deliberate no-op since sim-calibration-6 (the schema could not
+        # proxy the CHARACTER-only single-designated-target mechanic without
+        # fabrication until this bespoke flag).
+        if __import__("os").environ.get("SWEG_CUSTODES_ASSEMBLAGE_OF_MIGHT", "1") != "0":
+            for army, opponent in ((self.a, self.b), (self.b, self.a)):
+                army._assemblage_target_uid = None
+                _det_aom = army.resolve_detachment()
+                if getattr(_det_aom, "assemblage_of_might", False):
+                    _aom_t = self._highest_threat_enemy(opponent)
+                    if _aom_t is not None:
+                        army._assemblage_target_uid = _aom_t.uid
         # ---- World Eaters Blood Tithe spend (10e army rule). The codex
         # allows spending at the start of any phase; we elect once per round
         # at the start of the Command phase, priority-greedy on the WE
@@ -9560,12 +10351,58 @@ class Battle:
         # is a per-target side-band that doesn't ride the existing buff plumbing,
         # and the auto-pass is a rare per-battle event whose impact on MAE
         # would be negligible. Cited as `simulator.blood_tithe`.
+        #
+        # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 1, gated
+        # SWEG_WE_BLOOD_TITHE_SCOPED, adopted default-on wave 260, =0 kill-switch). The
+        # cited rule (`simulator.blood_tithe`, clause 4) grants [LETHAL HITS] to
+        # ONE WORLD EATERS unit for ONE phase, not army-wide for the round. When
+        # the gate is ON, the BT>=4 spend additionally RECORDS which unit
+        # receives the buff (the highest-melee-DPA WE unit — the marquee Fight-
+        # phase attacker, mirroring the Dark Pacts elect template) and which
+        # phase ("melee", the Fight phase WE units actually use the grant in);
+        # Unit.attack then restricts the [LETHAL HITS] grant to that unit in
+        # that phase. Gate OFF records nothing and leaves the army-wide-for-the-
+        # round behaviour byte-identical.
+        _bt_scoped = os.environ.get("SWEG_WE_BLOOD_TITHE_SCOPED", "1") != "0"
+        # SWEG_WE_BLOOD_TITHE_DETACHMENT (default-on) — Blood Tithe is the KHORNE
+        # DAEMONKIN detachment rule, not an army-wide World Eaters rule (BSData
+        # "Chaos - World Eaters" cat: the Blood Tithe rule sits under the Khorne
+        # Daemonkin selection; the Berzerker Warband detachment carries Relentless
+        # Rage + Idols of Khorne instead). Every sim World Eaters archetype uses
+        # Berzerker Warband, so awarding Blood Tithe [Lethal Hits] to them is a
+        # fabricated buff on the number-one over-pole. The gate restricts the spend
+        # to Khorne Daemonkin armies (none in the current archetype set → the buff
+        # is removed). =0 restores the prior detachment-blind spend.
+        _bt_detach_gate = os.environ.get("SWEG_WE_BLOOD_TITHE_DETACHMENT", "1") != "0"
         for army in (self.a, self.b):
             if not any(u.profile.faction == "World Eaters" for u in army.units):
+                continue
+            if _bt_detach_gate and (getattr(army.detachment, "name", "") or "") != "Khorne Daemonkin":
                 continue
             if army.blood_tithe >= 4:
                 army.blood_tithe -= 4
                 army.blood_tithe_lethal_hits_round = round_num
+                if _bt_scoped:
+                    # Record the single recipient + phase for the scoped read
+                    # in Unit.attack. Pick the highest melee-DPA WORLD EATERS
+                    # unit (the marquee Fight-phase attacker the codex spend
+                    # would name); the read site lapses the buff next round via
+                    # the existing round-stamp gate, so a stale uid is inert.
+                    def _melee_dpa(u: "Unit") -> float:
+                        p = u.profile
+                        return (
+                            (p.melee_attacks or 0)
+                            * (p.melee_hit_probability or 0.0)
+                            * (p.melee_damage_per_shot or 0.0)
+                        )
+                    we_units = [
+                        u for u in army.alive_units
+                        if (u.profile.faction or "") == "World Eaters"
+                    ]
+                    if we_units:
+                        recipient = max(we_units, key=_melee_dpa)
+                        army.blood_tithe_lethal_hits_uid = recipient.uid
+                        army.blood_tithe_lethal_hits_phase = "melee"
             elif army.blood_tithe >= 3:
                 army.blood_tithe -= 3
                 army.command_points = min(6, army.command_points + 1)
@@ -10118,6 +10955,16 @@ class Battle:
             self._assign_sabotage_actions(active, other)
             self._assign_burn_actions(active, other)
             self._assign_terraform_actions(active, other)
+            # Action-economy build (env-gated SWEG_ACTION_ECONOMY, byte-identical
+            # OFF): a surplus unit may instead Establish Locus (push to the
+            # midboard / enemy DZ) or Recover Assets (commit spare bodies across
+            # distinct zones). Both lock the unit out of shooting / charging via
+            # the same action_this_round flag. Run AFTER the other action
+            # assignments so a unit already cleansing / sabotaging / terraforming
+            # is not re-tagged. (A Tempting Target performs no action — it is a
+            # passive end-of-turn control check, scored only.)
+            self._assign_establish_locus_actions(active, other)
+            self._assign_recover_assets_actions(active, other)
             # Wave 79: army-level focus fire — nominate the single most valuable
             # durable enemy threat the army can hurt, so its anti-armour
             # concentrates to REMOVE it (how a real list deletes a Knight),
@@ -10177,6 +11024,18 @@ class Battle:
                     for _u in self._reserves.get(_army.name, []):
                         if _u.profile.faction == "Adepta Sororitas":
                             _u.aof_used_this_phase = False
+            # DRUKHARI-TORMENTORS Part 1 (env-gated SWEG_DRUKHARI_TORMENTORS,
+            # default OFF). Incubi "Tormentors": at the start of the Fight
+            # phase, each enemy unit within Engagement Range of one or more
+            # Incubi units must take a Battle-shock test. This block runs once
+            # per player's fight pass (i.e. once per Fight phase), matching the
+            # two Fight phases a 10e battle round contains; the helper scans
+            # both armies' Incubi so every Incubi on the board triggers in
+            # every Fight phase. Byte-identical when OFF — the helper is never
+            # called, so no tests are forced and no RNG is consumed. Cited as
+            # `simulator.drukhari_tormentors`.
+            if os.environ.get("SWEG_DRUKHARI_TORMENTORS", "1") != "0":
+                self._apply_drukhari_tormentors_forced_tests(self._current_round)
             # Fight phase — active player's units fight. Real 10e Fight phase
             # interleaves both players' chargers + locked units; this
             # approximates by giving the active player their full fight pass,
@@ -10213,6 +11072,29 @@ class Battle:
             def _fight_priority(u):
                 charging = u.uid in self._charging_this_round
                 ff_keyword = bool(getattr(u.profile, "fights_first", False))
+                # EC-DAEMONETTE-FF (env-gated SWEG_EC_DAEMONETTE_FF, default OFF).
+                # Recovered 2026-06-29 from git c6b40b9 (lost in a re-anchor, not
+                # rejected). BSData v10.6.0 Chaos - Emperor's Children.cat.gz: the
+                # Daemonettes selectionEntry (id 06f6-b870-4e43-4ed9) carries a
+                # modifier `set hidden=true` that fires UNLESS the roster contains
+                # the Carnival of Excess detachment (childId 3c9e-2156-254e-66e8),
+                # so the Fights First infoLink (id fc22-54df-e539-41d9) is only
+                # active in a Carnival of Excess roster. The mapper's
+                # extract_fights_first() scans all infoLinks unconditionally and
+                # raises fights_first=True in every game; SwegHammer runs no
+                # Emperor's Children detachment, so Carnival of Excess never
+                # applies, yet the Daemonettes always fight at priority 0 —
+                # inflating the Emperor's Children over-pole. When ON, suppress
+                # the Fights First priority for Emperor's Children Daemonettes
+                # only (charging still grants priority 0 independently). Cited as
+                # `simulator.ec_daemonette_fights_first`.
+                if (
+                    ff_keyword
+                    and os.environ.get("SWEG_EC_DAEMONETTE_FF", "0") == "1"
+                    and getattr(u.profile, "faction", "") == "Emperor's Children"
+                    and getattr(u.profile, "name", "") == "Daemonettes"
+                ):
+                    ff_keyword = False
                 if charging or ff_keyword:
                     return 0
                 if u.uid in self._battleshocked_this_round:
@@ -10441,7 +11323,7 @@ class Battle:
         the Knight stops). Deterministic (uid order); no RNG; O(friendlies) per call."""
         import math
         if not (__import__("os").environ.get("SWEG_MOVEPLAN")
-                and __import__("os").environ.get("SWEG_COLLISION")):
+                and __import__("os").environ.get("SWEG_COLLISION", "1") != "0"):
             return
         kw = mover.profile.unit_keywords or ()
         if not ("TITANIC" in kw or "VEHICLE" in kw or "MONSTER" in kw):
@@ -10520,7 +11402,7 @@ class Battle:
         if intent in ("HOLD", "ENGAGE", "REPOSITION", "FALL_BACK"):
             return target_pos
         if not (__import__("os").environ.get("SWEG_MOVEPLAN")
-                and __import__("os").environ.get("SWEG_COLLISION")):
+                and __import__("os").environ.get("SWEG_COLLISION", "1") != "0"):
             return target_pos
         sid = getattr(mover, "squad_id", -1)
         if sid < 0 or not self.map.objectives:
@@ -10557,7 +11439,7 @@ class Battle:
         both SWEG_MOVEPLAN and SWEG_COLLISION are set."""
         if not __import__("os").environ.get("SWEG_MOVEPLAN"):
             return
-        if not __import__("os").environ.get("SWEG_COLLISION"):
+        if __import__("os").environ.get("SWEG_COLLISION", "1") == "0":
             return
         objs = self.map.objectives
         if not objs:
@@ -10733,11 +11615,120 @@ class Battle:
         else:
             range_threshold = 3.0   # objective control radius
         needs_to_close = dist - range_threshold
+        # ADVANCE-DISCIPLINE (piloting heuristic, gated SWEG_ADVANCE_DISCIPLINE,
+        # default-off): a shooting unit forfeits its entire Shooting phase when it
+        # Advances (non-ASSAULT weapons cannot fire). The default logic Advances any
+        # unit that cannot reach an objective within a Normal move, which makes a
+        # gunline (tanks, artillery, heavy-weapon squads) walk up the board firing
+        # nothing — the dominant shooting / Astra Militarum under-pole mis-pilot found
+        # by the wave-260 pilot comparison. When ON, a gunline unit (ranged damage
+        # per activation >= 2x melee) seeking an objective does NOT Advance if it has
+        # an enemy in shooting range; it Normal-moves and keeps the shot (still
+        # contesting the board, unlike the rejected gunline-hold). Faithful piloting,
+        # not a rules claim; helps shooting, no-op for melee. Off path byte-identical.
+        # AM-SCOPED entry point (SWEG_AM_ADVANCE_DISCIPLINE, per-faction lever;
+        # ADOPTED default-on 2026-07-01, `=0` is the byte-identical kill-switch):
+        # the SAME gunline-hold logic below, restricted to Astra Militarum. Per
+        # the per-faction AI thesis (Principle 2) the generic gate's lift is
+        # symmetric and durable over-poles bank it too (screened +2.19 harmful),
+        # so scope it to the built-for faction. Astra Militarum is the largest
+        # shooting under-pole and its tanks (Leman Russ variants, Rogal Dorn:
+        # ranged damage per activation >= 2.0, range >= 18") throw away their
+        # whole Shooting phase when the default logic Advances them to an
+        # objective; Cadian Shock Troops (rDPA ~0.5) stay below the 2.0 gate and
+        # still Advance to grab objectives. Screened N=80 paired vs sc22a: Astra
+        # Militarum +5.75 decisive, gated mean absolute error 2.91 -> 2.64 (the
+        # first per-faction lever adopted; Death Guard flat, proving the
+        # army-scoping banks the lift without the durable-over-pole contamination
+        # that washed the faction-agnostic gate). A "advance when more than 1.5
+        # Normal moves from the objective" refinement was tried and REVERTED — it
+        # cost the whole lift (+5.75 -> -2.00), because the benefit IS the
+        # far-holding; the Chaos-Daemons dip that motivated it was noise
+        # (self-cancelling, net -4/200, shrank with N). Off path byte-identical.
+        # Grounds in the core-rules fact that Advancing forfeits non-Assault
+        # shooting; cited as `simulator.am_advance_discipline`.
+        _suppress_advance = False
+        _ad_generic = os.environ.get("SWEG_ADVANCE_DISCIPLINE", "0") == "1"
+        _ad_am = (os.environ.get("SWEG_AM_ADVANCE_DISCIPLINE", "1") != "0"
+                  and (attacker.profile.faction or "") == "Astra Militarum")
+        # CK-SCOPED entry point (SWEG_CK_RANGED_HOLD, ADOPTED default-on 2026-07-01,
+        # `=0` byte-identical kill-switch): the SAME gunline-hold logic, restricted
+        # to Chaos Knights RANGED platforms (no extra_melee_profiles — Knight Tyrant
+        # / Desecrator / War Dog Executioner / Stalker / Brigand / Huntsman). Melee
+        # platforms (Rampager / Despoiler / Abominant / Karnivore, all with
+        # extra_melee_profiles) keep charging via the Knight melee commitment bonus.
+        # A Knight Tyrant that Advances forfeits its 72" Gheiststrike; real play
+        # holds it and shoots. CK-scoped N=80 vs sc28a: Chaos Knights +11.27
+        # (39.1 -> 50.3), gated 2.43 -> 2.37. NB it OVERSHOOTS real 44.7 — the sim's
+        # structural durability over-reward amplifies the durable TITANIC platforms
+        # held alive; the metric still improves via opponent collateral. Adopted
+        # fidelity-first on the owner's call (faithful piloting; the overshoot is the
+        # over-reward's fault, to be corrected structurally). Cited
+        # simulator.ck_ranged_hold.
+        _ad_ck = (os.environ.get("SWEG_CK_RANGED_HOLD", "1") != "0"
+                  and (attacker.profile.faction or "") == "Chaos Knights"
+                  and not getattr(attacker.profile, "extra_melee_profiles", None))
+        # VOTANN-SCOPED entry point (SWEG_VOTANN_RANGED_HOLD, ADOPTED default-on
+        # 2026-07-01, `=0` byte-identical kill-switch): the SAME gunline-hold logic
+        # scoped to Leagues of Votann. The shared rDPA >= 2.0 & range >= 18" filter
+        # below restricts it to Votann's heavy shooting platforms (Hekaton Land
+        # Fortress, Sagitaur, Hearthkyn) and excludes the short-range melee units
+        # (Cthonian Beserks). Votann-scoped N=80 vs sc32a: Votann +10.37 (42.9 ->
+        # 53.3), gated 2.09 -> 2.01. NB it OVERSHOOTS real 48.0 — same durability
+        # over-reward amplification as the CK ranged-hold (the durable Hekaton held
+        # alive over-scores); the metric still improves via broad opponent
+        # collateral deflating the over-poles toward real. Adopted fidelity-first
+        # (same disposition as CK ranged-hold: faithful piloting, the overshoot is
+        # the over-reward's fault). Cited simulator.votann_ranged_hold.
+        _ad_votann = (os.environ.get("SWEG_VOTANN_RANGED_HOLD", "1") != "0"
+                      and (attacker.profile.faction or "") == "Leagues of Votann")
+        if ((_ad_generic or _ad_am or _ad_ck or _ad_votann)
+                and intent in ("CAPTURE", "STEAL")
+                # Units that can shoot AFTER Advancing (ASSAULT weapons, or a
+                # transient ASSAULT grant) lose nothing by it — never suppress them
+                # (the iteration-2 T'au / Aeldari / Drukhari crater).
+                and not attacker.profile.assault
+                and not getattr(attacker, "transient_assault_this_round", False)):
+            # A "shooter" = meaningful ranged output from a real-range weapon. This
+            # catches tanks and artillery (including single-shot anti-tank like the
+            # Leman Russ Vanquisher that the 2x-melee gunline test misses) and excludes
+            # weak-shooting bodies (Guardsmen, rDPA ~0.5) which SHOULD advance to grab
+            # objectives — the gunline-hold lesson that contesting bodies must not hang
+            # back. Targets the heavy shooters that throw away the most by Advancing.
+            _rdpa = (attacker.profile.attacks * attacker.profile.hit_probability
+                     * (attacker.profile.weapon_damage_per_shot or 0.0))
+            if _rdpa >= 2.0 and (attacker.profile.range_inches or 0.0) >= 18.0:
+                # Only hold for a target this unit can actually DAMAGE (expected
+                # ranged damage >= 0.5 after wound + save math) within range of a
+                # Normal move. An anti-infantry gun facing only Knights it cannot
+                # scratch should advance to contest, not stand firing uselessly
+                # (the iteration-2 44%-of-shots-wasted finding).
+                from .strategy import _unsaved_fraction
+                from .units import wound_probability
+                _reach = (attacker.profile.range_inches or 0.0) + normal_move
+                _str = attacker.profile.strength
+                _ap = attacker.profile.ap
+                _shots = attacker.profile.attacks * attacker.profile.hit_probability
+                _dmg = attacker.profile.weapon_damage_per_shot or 1.0
+                if _reach > normal_move:
+                    for _e in defender_army.alive_units:
+                        if _distance(attacker.position, _e.position) > _reach:
+                            continue
+                        _iv = (_e.profile.invuln_save_ranged
+                               if _e.profile.invuln_save_ranged <= 6
+                               else _e.profile.invuln_save)
+                        _exp = (_shots
+                                * wound_probability(_str, _e.profile.toughness)
+                                * _unsaved_fraction(_e.profile.save, _iv, _ap)
+                                * _dmg)
+                        if _exp >= 0.5:
+                            _suppress_advance = True
+                            break
         # Per-squad Advance roll (wave 77, env-gated SWEG_SQUADADV). Real 10e: a
         # unit makes ONE Advance roll (one D6) applied to every model; SwegHammer
         # rolled per model. Same per-unit correctness pattern as the charge roll.
         # Cited as `simulator.advance_per_unit`.
-        if needs_to_close > normal_move:
+        if needs_to_close > normal_move and not _suppress_advance:
             _sid = getattr(attacker, "squad_id", -1)
             if _sid >= 0 and _sid in self._squad_advance_roll:
                 advance_d6 = self._squad_advance_roll[_sid]
@@ -10821,6 +11812,37 @@ class Battle:
                 advance_roll=advance_d6,
                 total_movement=float(move_distance),
             ))
+
+        # SWEG_OVERWATCH_MOVE (default-off, byte-identical off): Fire Overwatch
+        # just after an enemy unit ENDS a Normal or Advance move, not only after
+        # a charge or a Reserves arrival. The cited Fire Overwatch trigger
+        # (`simulator.fire_overwatch`, core stratagem) is verbatim "just after an
+        # enemy unit is set up or starts or ends a Normal, Advance, Fall Back or
+        # Charge move" — but the code only hooked the charge-declaration
+        # (`_do_charge`) and reserves-arrival points, so the first player's
+        # round-1 objective grab (units Normal-/Advance-moving onto midboard
+        # markers within 24" of the second player's guns) drew no reactive fire.
+        # That partial implementation under-credits the going-second player and is
+        # a documented contributor to the going-first over-reward (~69% vs a real
+        # ~50%). When on, the opponent (defender_army) may spend its one Command
+        # Point this round to Fire Overwatch at the unit that just moved, through
+        # the SAME once-per-round / 24" / unmodified-6s `_fire_overwatch` path —
+        # which self-gates (no Command Point is spent unless an eligible unit can
+        # do meaningful damage). The `new_pos != old_pos` guard restricts the
+        # trigger to a unit that actually made a Normal or Advance move (HOLD /
+        # already-in-range activations returned earlier and never reach here).
+        # Off path: the gate guards the whole call, so no Command Point is spent
+        # and no random draw occurs — byte-identical to the baseline. This
+        # completes an already-cited trigger; no new citation key is required.
+        if (
+            new_pos != old_pos
+            and os.environ.get("SWEG_OVERWATCH_MOVE", "0") == "1"
+        ):
+            self._fire_overwatch(defender_army, attacker)
+        # SWEG_REEMBARK (default-off): allow this unit to re-embark into a friendly
+        # transport it can reach after its move — the sim otherwise leaves a
+        # disembarked unit on foot all game. No-op / byte-identical when off.
+        self._maybe_reembark_after_move(attacker, attacker_army, defender_army)
 
     def _gladius_active_doctrine(self, attacker, attacker_army: Army) -> str:
         """Return the active Gladius Task Force Combat Doctrine name for
@@ -11158,6 +12180,8 @@ class Battle:
             return
         from .strategy import (
             _astartes_oath_target_bonus,
+            _votann_pe_target_bonus,
+            _ck_dread_cascade_target_bonus,
             _drukhari_fragile_flyer_bonus,
             _kite_target_bonus,
             _screen_target_bonus,
@@ -11197,6 +12221,8 @@ class Battle:
                         _screen_target_bonus(e)
                         * _synapse_target_bonus(model, e)
                         * _astartes_oath_target_bonus(model, e, attacker_army)
+                        * _votann_pe_target_bonus(model, e, attacker_army)
+                        * _ck_dread_cascade_target_bonus(model, e)
                         * _transport_target_bonus(e)
                         * _drukhari_fragile_flyer_bonus(e)
                         * _kite_target_bonus(e, attacker_army)
@@ -11550,6 +12576,8 @@ class Battle:
         # not transports).
         from .strategy import (
             _astartes_oath_target_bonus,
+            _votann_pe_target_bonus,
+            _ck_dread_cascade_target_bonus,
             _drukhari_fragile_flyer_bonus,
             _kite_target_bonus,
             _screen_target_bonus,
@@ -11604,7 +12632,16 @@ class Battle:
                 attacker.profile, _ff_target
             ) > 0.0:
                 _focus_target = _ff_target
-        if _assigned is not None:
+        # PILOT shoot-target test hook — default-OFF / byte-identical in production
+        # (Battle._pilot_focus is set only by scripts/pilot_manual.py for the
+        # anti-Knight strategy experiment; production never sets it -> getattr None
+        # -> branch skipped). Lets the harness force army A's fire onto a chosen
+        # enemy (e.g. concentrate anti-tank on one Imperial Knight).
+        _pf = getattr(self, "_pilot_focus", None)
+        _pft = _pf(self, attacker, attacker_army, pool) if _pf is not None else None
+        if _pft is not None:
+            shoot_target = _pft
+        elif _assigned is not None:
             shoot_target = _assigned   # Stage D split-fire assignment (legal here)
         elif _focus_target is not None:
             shoot_target = _focus_target
@@ -11615,6 +12652,8 @@ class Battle:
                     _screen_target_bonus(u)
                     * _synapse_target_bonus(attacker, u)
                     * _astartes_oath_target_bonus(attacker, u, attacker_army)
+                    * _votann_pe_target_bonus(attacker, u, attacker_army)
+                    * _ck_dread_cascade_target_bonus(attacker, u)
                     * _transport_target_bonus(u)
                     * _drukhari_fragile_flyer_bonus(u)
                     * _kite_target_bonus(u, attacker_army)
@@ -11704,6 +12743,9 @@ class Battle:
         # No-op for all units that do not carry the csm_daemonic_ordnance flag.
         # Cited as `simulator.csm_daemonic_ordnance`.
         self._apply_daemonic_ordnance(attacker, shoot_target)
+        # T'au Riptide Nova Charge — once-per-battle [DEVASTATING WOUNDS] when the
+        # Riptide is selected to shoot (gated SWEG_TAU_NOVA_CHARGE; no-op off).
+        self._apply_nova_charge(attacker)
         # MR-WE-3 Blood Surge — snapshot pre-shot health so we can detect a
         # model destruction event on the defender (Khorne Berzerkers only).
         # See `simulator.blood_surge` in rule_citations.json.
@@ -12336,6 +13378,55 @@ class Battle:
         if target is None:
             return
 
+        # CHARGE-DISCIPLINE (piloting heuristic, gated SWEG_CHARGE_DISCIPLINE,
+        # default-off): a unit should not declare a charge into a target it
+        # cannot meaningfully damage in melee (expected melee damage < 0.5).
+        # This fixes the AM-vs-IK misplay where CHARACTERs (Lord Solar,
+        # Ursula Creed, Commissars) charged Canis Rex / Knights (T12, durable),
+        # achieved nothing and died.
+        #
+        # Rules:
+        #   - A CHARACTER (keyword "CHARACTER" in unit_keywords) NEVER charges
+        #     a target it cannot meaningfully damage (no tarpit exception).
+        #   - Any other unit that cannot meaningfully damage the target is also
+        #     blocked UNLESS it is cheap expendable chaff (low pts, non-CHARACTER)
+        #     acting as a tarpit — the chaff exception mirrors SWEG_TARPIT logic.
+        #
+        # Off path byte-identical (short-circuit on env check first).
+        # AI piloting heuristic — no rule_citations entry required.
+        #
+        # DO NOT RE-ATTEMPT an Astra-Militarum-scoped entry point on this
+        # block (`SWEG_AM_CHARGE_DISCIPLINE`, built + screened + REVERTED
+        # 2026-07-01): AM-scoped N=80 vs sc34a read Astra Militarum -2.41
+        # DECISIVE (38.1 -> 35.7, AWAY from its real 45.3), gated 2.02 ->
+        # 2.17. Unlike the advance-discipline sibling (+5.75), blocking
+        # "futile" charges strictly hurts AM — a no-damage charge still ties
+        # a melee threat in Engagement Range and contests ground, and the
+        # sim's AM evidently converts those charges into value. Same
+        # empirical class as the rejected SWEG_AM_OFFICER_FRONT_LINE.
+        if os.environ.get("SWEG_CHARGE_DISCIPLINE", "0") == "1":
+            from .strategy import _is_chaff_unit, _unsaved_fraction
+            from .units import wound_probability as _wound_probability
+            _ap = attacker.profile
+            _tp = target.profile
+            _iv_melee = (
+                _tp.invuln_save_melee if _tp.invuln_save_melee <= 6
+                else _tp.invuln_save
+            )
+            _exp_melee = (
+                _ap.melee_attacks
+                * _ap.melee_hit_probability
+                * _wound_probability(_ap.melee_strength, _tp.toughness)
+                * _unsaved_fraction(_tp.save, _iv_melee, _ap.melee_ap)
+                * (_ap.melee_damage_per_shot or 1.0)
+            )
+            if _exp_melee < 0.5:
+                _is_character = "CHARACTER" in (
+                    attacker.profile.unit_keywords or ()
+                )
+                if _is_character or not _is_chaff_unit(attacker):
+                    return
+
         # Fire Overwatch (10e core stratagem, env-gated SWEG_OVERWATCH). The
         # charge has now been DECLARED (a valid charge target exists) but has
         # NOT yet resolved. The charge target's army may overwatch the declared
@@ -12552,6 +13643,11 @@ class Battle:
         if not in_range:
             return
         target = max(in_range, key=lambda e: _melee_target_score(attacker, e))
+        # Custodes Shield-Captain Master of the Stances — once-per-battle
+        # dual Ka'tah stance ([SUSTAINED HITS 1] on top of the modelled
+        # RENDAX [LETHAL HITS]) when the led unit is selected to fight
+        # (gated SWEG_CUSTODES_MASTER_STANCES; no-op off).
+        self._apply_master_of_stances(attacker)
         is_charging = attacker.uid in self._charging_this_round
         dmg = attacker.attack(
             target, distance=1.0, mode="melee", is_charging=is_charging,
@@ -13427,6 +14523,57 @@ class Battle:
             transport_uid=transport.uid,
             passenger_uid=passenger.uid,
         ))
+
+    def _maybe_reembark_after_move(self, attacker, attacker_army, defender_army) -> None:
+        """SWEG_REEMBARK (default-off): after a unit finishes its Movement-phase
+        move, let it voluntarily re-embark into a friendly TRANSPORT within 3" that
+        has spare capacity — the mid-game embark the sim otherwise lacks (a
+        disembarked unit is stuck on foot for the rest of the game). Embarking ends
+        the unit's activation for the Shooting / Charge / Fight phases, which the
+        existing `embarked_in is not None` guards in _do_shoot / _do_charge /
+        _do_fight already enforce, so no changes to those phases are needed.
+
+        AI heuristics: do NOT re-embark when within Engagement Range of a live
+        on-board enemy (resolve the fight, don't flee), and do NOT re-embark when
+        the unit is the SOLE controller of a nearby objective (abandoning it would
+        cost Primary victory points). Off path (gate unset or '0') returns on the
+        first line — no random draws, no state mutation, byte-identical. Cited
+        `simulator.reembark`.
+        """
+        if os.environ.get("SWEG_REEMBARK", "0") != "1":
+            return
+        if getattr(attacker, "embarked_in", None) is not None:
+            return
+        if self._is_transport(attacker):
+            return
+        pos = attacker.position
+        # Don't flee a fight: skip if within ~Engagement Range (1") of a live,
+        # on-board enemy model.
+        for e in defender_army.alive_units:
+            if (getattr(e, "embarked_in", None) is None
+                    and _distance(pos, e.position) <= 1.0):
+                return
+        # Eligible friendly transports within 3" with spare capacity.
+        eligible = [
+            t for t in attacker_army.units
+            if t is not attacker and t.is_alive and self._is_transport(t)
+            and len(t.passengers) < self._TRANSPORT_CAPACITY
+            and _distance(pos, t.position) <= 3.0
+        ]
+        if not eligible:
+            return
+        # AI heuristic: don't abandon an objective this unit is the SOLE controller of.
+        for obj in self.map.objectives:
+            if _distance(pos, (obj.x, obj.y)) <= obj.control_radius:
+                controllers = sum(
+                    1 for u in attacker_army.alive_units
+                    if getattr(u, "embarked_in", None) is None
+                    and _distance(u.position, (obj.x, obj.y)) <= obj.control_radius
+                )
+                if controllers == 1:
+                    return
+        transport = min(eligible, key=lambda t: _distance(pos, t.position))
+        self._embark(attacker, transport)
 
     def _disembark(
         self, passenger: "Unit", transport: "Unit", forced: bool = False,

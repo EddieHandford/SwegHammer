@@ -1,0 +1,39 @@
+{
+  "_comment": "Adeptus Custodes datasheet / army-rule citations. (The Auric Champions detachment rule Assemblage of Might is cited in detachments.json.)",
+
+  "simulator.custodes_katah_lethal": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/",
+    "rule_name": "Martial Ka'tah — RENDAX Stance [LETHAL HITS] (Adeptus Custodes army rule, 10e)",
+    "quoted_text": "Each time a unit with this ability is selected to fight, select one of the Ka'tah stances below. Until that unit has finished making its attacks, the selected Stance is active for it and it gains the relevant ability. RENDAX STANCE: Melee weapons equipped by models in this unit have the [LETHAL HITS] ability.",
+    "trigger": "SWEG_CUSTODES_KATAH_LETHAL default-on (ADOPTED 2026-07-01; '0' is the byte-identical kill-switch); a melee attack (mode == 'melee') by an Adeptus Custodes unit (p.faction == 'Adeptus Custodes') that does not already have [LETHAL HITS] from another source (effective_lethal_hits is False)",
+    "effect": "The melee attack gains [LETHAL HITS] (a Critical Hit auto-wounds): Unit.attack sets effective_lethal_hits = True. Martial Ka'tah lets a unit pick ONE stance per fight (RENDAX [LETHAL HITS], DACATARAI [SUSTAINED HITS 1], and others); the sim models the optimal RENDAX choice for all Custodes melee — [LETHAL HITS] is the high-value pick against the high-toughness targets Custodes prioritise. BSData source: Imperium - Adeptus Custodes.cat.gz shared rule id e348-7090-3aff-ee2c (verified verbatim). APPROXIMATION: always-RENDAX (the sim does not vary the stance per fight, per target, or across the Ka'tah stance menu); slight over-credit on the ~2 archetype units without the Ka'tah infoLink (Prosecutors / Anathema Psykana Rhino, negligible melee). Custodes-scoped paired N=80 vs sc30a: Adeptus Custodes +3.66 (42.8 -> 46.4, toward its real 49.5, no overshoot — the largest single lever of the lever-hunt batch), gated 2.35 -> 2.11. Off path (SWEG_CUSTODES_KATAH_LETHAL=0) leaves effective_lethal_hits unchanged — byte-identical.",
+    "scope": "army-wide"
+  },
+
+  "simulator.custodes_advanced_firepower": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Caladius-Grav-Tank",
+    "rule_name": "Advanced Firepower (Caladius Grav-tank datasheet ability, 10e)",
+    "quoted_text": "Each time this model makes an attack with its Twin iliastus accelerator cannon that targets an enemy unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time this model makes an attack with its Twin arachnus heavy blaze cannon that targets an enemy MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability.",
+    "trigger": "SWEG_CUSTODES_ADVANCED_FIREPOWER default-on ('0' is the byte-identical kill-switch); a ranged attack (mode != 'melee') by the Caladius Grav-tank (p.faction == 'Adeptus Custodes' and p.name == 'Caladius Grav-tank') whose firing weapon (p.weapon, per-profile inside the multi-weapon loop) is the Twin arachnus heavy blaze cannon against a MONSTER/VEHICLE target, or the Twin iliastus accelerator cannon against a non-MONSTER/VEHICLE target",
+    "effect": "The qualifying ranged attack gains [LETHAL HITS] (a Critical Hit auto-wounds): Unit.attack sets effective_lethal_hits = True for that weapon profile's resolution. BSData source: Imperium - Adeptus Custodes.cat.gz profile id 60a4-507e-da36-683c (verified verbatim). The catalogue Caladius loadout fires the blaze cannon + Twin lastrum bolt cannon (the accelerator cannon is the mutually-exclusive turret alternative the loadout picker did not select), so in production the blaze-cannon-vs-MONSTER/VEHICLE branch is the live one; the accelerator branch is kept for loadout variants. Off path (SWEG_CUSTODES_ADVANCED_FIREPOWER=0) leaves effective_lethal_hits unchanged — byte-identical.",
+    "scope": "keyword-gated"
+  },
+
+  "simulator.custodes_master_of_stances": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Shield-Captain",
+    "rule_name": "Master of the Stances (Shield-Captain datasheet ability, 10e)",
+    "quoted_text": "Once per battle, when this model's unit is selected to fight, it can use this ability. If it does, until that fight is resolved, both Ka'tah Stances are active for that unit, instead of only one.",
+    "trigger": "SWEG_CUSTODES_MASTER_STANCES default-on ('0' is the byte-identical kill-switch); the FIRST time in a battle that a Custodes unit led by a Shield-Captain (the leaders.py leading convention: an alive Shield-Captain within its 6.0-inch aura whose LeaderAbility.host_keys admit the unit — Custodian Guard / Custodian Wardens) is selected to fight (Battle._do_fight, immediately before the melee attack resolves)",
+    "effect": "Both Ka'tah stances are active for that fight: since the sim already models RENDAX [LETHAL HITS] always-on (simulator.custodes_katah_lethal), the grant adds the DACATARAI stance's [SUSTAINED HITS 1] — transient_sustained_hits +1 fanned to the squad, cleared at round start. BSData source: Imperium - Adeptus Custodes.cat.gz profile id e6a6-1d13-3027-3fce (verified verbatim); DACATARAI stance text is on the shared Martial Ka'tah rule id e348-7090-3aff-ee2c. APPROXIMATIONS: the AI elects the ability at the led unit's first fight (no lookahead); 'until that fight is resolved' widens to the round (the standard fight-to-round transient convention); the grant fans to the whole squad, matching the squad-as-unit representation. Once-per-battle tracked in the battle-level _custodes_mots_used UID set (the Nova Charge pattern, cleared on Battle reset). Off path (SWEG_CUSTODES_MASTER_STANCES=0) returns before touching state — byte-identical.",
+    "scope": "unit-led"
+  },
+
+  "simulator.custodes_slayers_of_tyrants": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Allarus-Custodians",
+    "rule_name": "Slayers of Tyrants (Allarus Custodians datasheet ability, 10e)",
+    "quoted_text": "Each time a model in this unit makes an attack that targets a Character, Monster or Vehicle unit, you can re-roll the Wound roll.",
+    "trigger": "SWEG_CUSTODES_SLAYERS_OF_TYRANTS default-on ('0' is the byte-identical kill-switch); any attack (ranged or melee) by the Allarus Custodians unit (p.faction == 'Adeptus Custodes' and p.name == 'Allarus Custodians'; per-model promotion preserves profile.name) whose target carries the CHARACTER, MONSTER, or VEHICLE keyword, when the weapon is not already TWIN-LINKED",
+    "effect": "The attack re-rolls a failed Wound roll: Unit.attack sets _effective_twin_linked = True for that resolution (the per-shot wound loop re-rolls one failed Wound roll — the 10e 're-roll the Wound roll' is only ever taken on a failure, so TWIN-LINKED semantics are exact). BSData source: Imperium - Adeptus Custodes.cat.gz profile id d569-61db-406d-1d42 (verified verbatim; the ability appears ONLY on the Allarus Custodians datasheet — the Shield-Captain in Allarus Terminator Armour does not carry it, hence the exact unit-name gate). Off path (SWEG_CUSTODES_SLAYERS_OF_TYRANTS=0) leaves _effective_twin_linked unchanged — byte-identical.",
+    "scope": "keyword-gated"
+  }
+}

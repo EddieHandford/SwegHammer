@@ -269,8 +269,137 @@
           "pistol": false
         }
       ],
-      "notes": "SC5-2 + KNIGHT-STAT-AUDIT + KNIGHTS-MAPPER: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). KNIGHT-STAT-AUDIT dropped the duplicate 'Ectoplasma decimator - standard' (supercharge kept). KNIGHTS-MAPPER: Knight Tyrant datasheet 'equipped with' is 'brimstone volcano lance; ectoplasma decimator; 2 gheiststrike missile launchers; 2 twin daemonbreath meltaguns; twin Desecrator cannon; titanic feet'. BSData mapper picked Warpshock harpoon (alt main) + Brimstone volcano lance + Ectoplasma decimator + Darkflame cannon but dropped all five utility guns (2x Gheiststrike, 2x Twin daemonbreath meltagun, 1x Twin Desecrator cannon). KNIGHTS-MAPPER adds them so the Tyrant's full chassis-mounted firepower is represented. Gheiststrike is the Chaos analogue of Shieldbreaker [DEVASTATING WOUNDS, ANTI-TITANIC 4+] S=12 AP-6 D=D6+1 R=72'. Twin daemonbreath meltagun is [MELTA 2, TWIN-LINKED] S=9 AP-4 D=D6. Twin Desecrator cannon is [BLAST, TWIN-LINKED] A=D6 S=6 AP=0 D=1. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-knights/#Knight-Tyrant (verbatim 'this model is equipped with: brimstone volcano lance; ectoplasma decimator; 2 gheiststrike missile launchers; 2 twin daemonbreath meltaguns; twin Desecrator cannon; titanic feet').",
-      "deadly_demise": 5
+      "notes": "Faithful loadout override (2026-06-30) — restore the Knight Tyrant's DROPPED CARAPACE gun. The BSData mapper's single-model picker resolves the Tyrant's 'Carapace weapons' group to no candidates, so the catalogue Tyrant fired only its 12-inch Warpshock harpoon + twin meltagun. This minimal correction keeps those two real weapons and ADDS the dropped Gheiststrike missile launcher (72-inch carapace, real datasheet weapon, Wahapedia chaos-knights/Knight-Tyrant). Note: the Tyrant still under-fires because the move AI advances it (forfeiting shooting) — that is the metric-blocked advance-discipline piloting issue, not the loadout. See the mapper-fix residual in docs/DECISION_LEDGER.md.",
+      "deadly_demise": 5,
+      "model_loadouts": [
+        {
+          "name": "Knight Tyrant",
+          "count": 1.0,
+          "ranged": [
+            {
+              "weapon": "Warpshock harpoon",
+              "attacks": 2,
+              "weapon_damage_per_shot": 12.0,
+              "hit_probability": 0.667,
+              "ap": -6,
+              "strength": 24,
+              "range_inches": 12,
+              "anti_keywords": {},
+              "lethal_hits": false,
+              "sustained_hits": 0,
+              "twin_linked": false,
+              "devastating_wounds": true,
+              "rapid_fire": 0,
+              "melta": 0,
+              "ignores_cover": false,
+              "heavy": false,
+              "assault": false,
+              "torrent": false,
+              "blast": true,
+              "pistol": false,
+              "indirect_fire": false,
+              "one_shot": false,
+              "hazardous": false,
+              "precision": false,
+              "lance": false,
+              "attacks_dice": "D3",
+              "damage_dice": "12"
+            },
+            {
+              "weapon": "Twin daemonbreath meltagun",
+              "attacks": 1,
+              "weapon_damage_per_shot": 3.5,
+              "hit_probability": 0.667,
+              "ap": -4,
+              "strength": 9,
+              "range_inches": 12,
+              "anti_keywords": {},
+              "lethal_hits": false,
+              "sustained_hits": 0,
+              "twin_linked": true,
+              "devastating_wounds": false,
+              "rapid_fire": 0,
+              "melta": 2,
+              "ignores_cover": false,
+              "heavy": false,
+              "assault": false,
+              "torrent": false,
+              "blast": false,
+              "pistol": false,
+              "indirect_fire": false,
+              "one_shot": false,
+              "hazardous": false,
+              "precision": false,
+              "lance": false,
+              "attacks_dice": "1",
+              "damage_dice": "D6"
+            },
+            {
+              "weapon": "Gheiststrike missile launcher",
+              "attacks": 1,
+              "weapon_damage_per_shot": 4.5,
+              "hit_probability": 0.667,
+              "ap": -6,
+              "strength": 12,
+              "range_inches": 72,
+              "anti_keywords": {
+                "TITANIC": 4
+              },
+              "lethal_hits": false,
+              "sustained_hits": 0,
+              "twin_linked": false,
+              "devastating_wounds": true,
+              "rapid_fire": 0,
+              "melta": 0,
+              "ignores_cover": false,
+              "heavy": false,
+              "assault": false,
+              "torrent": false,
+              "blast": false,
+              "pistol": false,
+              "indirect_fire": false,
+              "one_shot": false,
+              "hazardous": false,
+              "precision": false,
+              "lance": false,
+              "attacks_dice": "1",
+              "damage_dice": "D6+1"
+            }
+          ],
+          "melee": [
+            {
+              "weapon": "Titanic feet",
+              "attacks": 4,
+              "weapon_damage_per_shot": 2.0,
+              "hit_probability": 0.5,
+              "ap": -1,
+              "strength": 8,
+              "range_inches": 0,
+              "anti_keywords": {},
+              "lethal_hits": false,
+              "sustained_hits": 0,
+              "twin_linked": false,
+              "devastating_wounds": false,
+              "rapid_fire": 0,
+              "melta": 0,
+              "ignores_cover": false,
+              "heavy": false,
+              "assault": false,
+              "torrent": false,
+              "blast": false,
+              "pistol": false,
+              "indirect_fire": false,
+              "one_shot": false,
+              "hazardous": false,
+              "precision": false,
+              "lance": false,
+              "attacks_dice": "4",
+              "damage_dice": "2"
+            }
+          ]
+        }
+      ],
+      "range_inches": 72
     },
     "chaos_knights_library_knight_abominant": {
       "invuln_save": 5,
@@ -378,6 +507,7 @@
     "t_au_empire_riptide_battlesuit": {
       "base_shape": "circle",
       "base_diameter_mm": 80,
+      "tau_nova_charge": true,
       "notes": "Riptide ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Riptide-Battlesuit (Base size). points_override removed 2026-05-15 Ã¢â¬â was 1180.58 from sweg_balance_mc (Lanchester-tainted), real GW is 180 pts/model; let base catalogue price it."
     },
     "t_au_empire_pathfinder_team": {
@@ -797,7 +927,8 @@
     },
     "leagues_of_votann_hearthkyn_warriors": {
       "range_inches": 18,
-      "notes": "Ion Blaster (mapper-selected primary, x9 on loadout) range corrected to 18\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Autoch-pattern Bolt Pistol 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hearthkyn-Warriors"
+      "votann_native_reroll_ranged": true,
+      "notes": "Ion Blaster (mapper-selected primary, x9 on loadout) range corrected to 18\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Autoch-pattern Bolt Pistol 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hearthkyn-Warriors | Panspectral Scanning native re-roll-a-Hit-roll-of-1 (ranged), behind SWEG_VOTANN_NATIVE_REROLL. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/Hearthkyn-Warriors"
     },
     "leagues_of_votann_sagitaur": {
       "strength": 14,
@@ -806,7 +937,12 @@
     "leagues_of_votann_hekaton_land_fortress": {
       "strength": 14,
       "weapon_damage_per_shot": 6,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Hekaton primary ranged basket at S18 D7.5 Ã¢â¬â strength 18 does not appear on any Hekaton weapon and was a mapper composite. Real primary is the SP heavy conversion beamer: A D6 S14 AP-3 D6 [HEAVY]. Restoring S14 D6. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hekaton-Land-Fortress"
+      "votann_native_reroll_ranged": true,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Hekaton primary ranged basket at S18 D7.5 Ã¢â¬â strength 18 does not appear on any Hekaton weapon and was a mapper composite. Real primary is the SP heavy conversion beamer: A D6 S14 AP-3 D6 [HEAVY]. Restoring S14 D6. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hekaton-Land-Fortress | Panspectral Scanner native re-roll-a-Hit-roll-of-1 (ranged), behind SWEG_VOTANN_NATIVE_REROLL. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/Hekaton-Land-Fortress | MultiCOG Targeting: each time this model makes a ranged attack, ignore modifiers to Ballistic Skill and Hit roll - implemented as faction+name guard in Unit.attack, ranged only, behind SWEG_VOTANN_HEKATON_MULTICOG. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/Hekaton-Land-Fortress"
+    },
+    "leagues_of_votann_einhyr_hearthguard": {
+      "votann_native_reroll_ranged": true,
+      "notes": "Decisive Destruction native re-roll-a-Hit-roll-of-1 on ranged attacks vs the closest eligible target (restriction dropped as a documented approximation - Unit.attack has no closest-target signal), behind SWEG_VOTANN_NATIVE_REROLL. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/Einhyr-Hearthguard"
     },
     "t_au_empire_strike_team": {
       "range_inches": 30,
@@ -841,6 +977,10 @@
     "t_au_empire_crisis_fireknife_battlesuits": {
       "invuln_save": 4,
       "notes": "iter20 variant-invuln mapper-gap: 4++ Battlesuit Shield Generator. BSData v10.6.0 only encodes the Invulnerable-Save infoLink on the Sunforge entry; Fireknife/Starscythe sibling entries miss the infoLink. Per Wahapedia all three Crisis variants share the gear. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Crisis-Battlesuits"
+    },
+    "t_au_empire_crisis_sunforge_battlesuits": {
+      "tau_sunforge": true,
+      "notes": "Rank-4 lever: Sunforge datasheet ability. Wahapedia verbatim: 'Each time a model in this unit makes a ranged attack that targets a MONSTER or VEHICLE unit, you can re-roll the Wound roll and you can re-roll the Damage roll.' Gated SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES (default OFF). Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Crisis-Sunforge-Battlesuits.html"
     },
     "t_au_empire_crisis_starscythe_battlesuits": {
       "invuln_save": 4,
@@ -1767,7 +1907,9 @@
     },
     "chaos_space_marines_legionaries": {
       "veterans_of_the_long_war": true,
-      "notes": "Wave 217: Legionaries datasheet ability 'Veterans of the Long War' — in melee, re-roll Wound rolls of 1; if the target is within range of an objective marker, re-roll the full Wound roll instead. Read at the melee wound step gated SWEG_VETERANS. Cross-checked verbatim: BSData v10.6.0 Chaos Space Marines.cat.gz ability a5ea-d708-db75-226c + Wahapedia https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Legionaries. Cited simulator.veterans_of_the_long_war."
+      "melee_attacks": 4,
+      "melee_ap": -1,
+      "notes": "MERGED ENTRY (was two duplicate top-level keys; json.load silently kept only the second, dropping veterans_of_the_long_war until this merge). Field 1 — Veterans of the Long War (Wave 217): Legionaries datasheet ability — in melee, re-roll Wound rolls of 1; if the target is within range of an objective marker, re-roll the full Wound roll instead. Read at the melee wound step gated SWEG_VETERANS (default-on). Verbatim BSData v10.6.0 Chaos Space Marines.cat.gz ability a5ea-d708-db75-226c + Wahapedia https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Legionaries. Cited simulator.veterans_of_the_long_war. Field 2 — melee-basket correction (Wave 236): parsed.json names the Astartes chainsword but carries the close combat weapon's statistics (attacks 3, armour penetration 0) — a flattening mismatch. Chainsword-dominant loadout is attacks 4, armour penetration -1 (BSData shared melee profile; the Aspiring Champion resolves the same profile). melee strength 4 and damage 1 already correct in the parsed entry."
     },
     "chaos_space_marines_chaos_terminator_squad": {
       "csm_despoilers": true,
@@ -1784,11 +1926,6 @@
     "chaos_space_marines_heldrake": {
       "devastating_wounds": true,
       "notes": "AK-1: Heldrake claws carry [DEVASTATING WOUNDS] per BSData v10.6.0 Chaos Space Marines.cat.gz (Range=Melee, Keywords=\"Anti-FLY 2+, Devastating Wounds\"). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Heldrake."
-    },
-    "chaos_space_marines_legionaries": {
-      "melee_attacks": 4,
-      "melee_ap": -1,
-      "notes": "Wave 236 melee-basket correction: parsed.json names the Astartes chainsword as the unit's melee weapon but carries the close combat weapon's statistics (attacks 3, armour penetration 0) — a flattening mismatch. The Legionaries datasheet Astartes chainsword is A4 WS3+ S4 AP-1 D1 verbatim from BSData v10.6.0 Chaos - Chaos Space Marines.cat.gz (shared melee profile resolved from the unit's model entries; the Aspiring Champion resolves the same profile). Chainsword-dominant loadout: attacks 4, armour penetration -1; melee strength 4 and damage 1 already correct in the parsed entry."
     },
     "emperor_s_children_heldrake": {
       "devastating_wounds": true,
@@ -2591,6 +2728,8 @@
           "pistol": false
         }
       ],
+      "tau_armour_hunter": true,
+      "tau_targeting_array": true,
       "notes": "MUTEX-SWEEP: Hammerhead Gunship main gun is Railgun OR Ion cannon per codex (BSData selectionEntryGroup Main gun, max=1). Mapper packed Ion cannon (overcharge) into primary, Railgun into secondary, Ion cannon (standard) into extras so the simulator was firing all three every Shooting phase. Set primary to Railgun (meta anti-tank choice, Devastating Wounds), cleared secondary, dropped the Ion cannon standard profile from extras. Kept Seeker missile (one-shot) and Accelerator burst cannon (always-carried hull weapon). Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Hammerhead-Gunship | T-AU-DIAG-3 (2026-05-24): hit_probability values reverted 0.667 -> 0.5 across primary + extras. Hammerhead Gunship is BS 4+ (0.5) per Wahapedia datasheet stat line; MUTEX-SWEEP accidentally copy-pasted the BS 3+ (0.667) value from the Aeldari / Space Marines vehicle overrides where that BS is canonical. T'au battlesuits and vehicles are BS 4+ across the board, with the only BS 3+ exception being characters / specialists (e.g. Farsight, Shadowsun). Seeker missile extra also reverted 0.833 -> 0.5 (a Seeker missile uses the carrier's BS, not its own implicit BS 2+ â same rule as a Hunter-Killer Missile)."
     },
     "t_au_empire_stormsurge": {
@@ -2950,6 +3089,10 @@
       "secondary_heavy": false,
       "secondary_assault": false,
       "notes": "MUTEX-SWEEP: Predator Destructor sponsons are 2x Lascannons OR 2x Heavy Bolters per codex (BSData selectionEntryGroup Side sponsons, max=1 for the pair). Mapper put a single Lascannon profile into secondary and Heavy Bolter into extras, so the simulator was firing both sponson options as if the tank had heterogeneous sponsons. Cleared the lascannon secondary (Predator Destructor is the anti-infantry variant; heavy bolter sponsons match the autocannon turret theme and are the more common loadout). Heavy Bolter remains in extras representing the sponson pair; Hunter-killer and Storm bolter unchanged. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Predator-Destructor"
+    },
+    "astra_militarum_cadian_shock_troops": {
+      "sticky_objective": true,
+      "notes": "Shock Troops (10e Cadian Shock Troops datasheet ability): at the end of the Command phase, if the unit is within range of an objective marker it controls, that marker stays controlled even after the unit leaves, until the opponent controls it. Modelled via the existing sticky_objective profile flag (same machinery as Necron Warriors / Genestealer Cults Acolytes). Source: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Shock-Troops. ADOPTED default-on (wave 255, paired N=80 AM-scoped: Astra Militarum +1.87, gated mean absolute error 3.96 to 3.86) via the key-scoped guard in code/bsdata/loader.py _apply_override; SWEG_AM_STICKY_CADIAN=0 is the byte-identical kill-switch that ignores this flag and loads the unit exactly as before."
     },
     "astra_militarum_cadian_heavy_weapons_squad": {
       "indirect_fire": true,

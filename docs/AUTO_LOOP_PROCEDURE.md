@@ -150,6 +150,12 @@ count toward the caps.
 
 ## I. Batch screens, single re-anchor — the standing wave shape
 
+> The full pre-flight for running an evaluation — the deterministic-eval / reuse-the-
+> anchor-as-the-OFF-arm rule, the byte-identical-off validation, anchor staleness,
+> flip-count forensics, and the forbidden zone — lives in
+> [`EVAL_PROTOCOL.md`](EVAL_PROTOCOL.md). Read it before any screen or re-anchor; the
+> wave shape below is the part of it that governs how a whole wave is batched.
+
 User-set (2026-06-12, wave 244). Re-anchors are the expensive runs, so a wave
 batches its levers against one shared baseline and pays for exactly one
 re-anchor at close:

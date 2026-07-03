@@ -225,6 +225,24 @@ SWEEPING_ENGAGEMENT = Map(
 )
 
 
+# Sweeping Engagement at the 2000-point Strike Force footprint (44x60). The
+# original SWEEPING_ENGAGEMENT above is a 44x90 Onslaught-size board, which is
+# the wrong footprint for the 2000-point rotation, so it was excluded from
+# PARIAH_NEXUS_2K_ROTATION — leaving Sweeping Engagement, one of the five real
+# Pariah Nexus deployments, untested at 2000 points. This 44x60 version restores
+# it at the correct size so the full deployment set can be screened. Gated into
+# the rotation via SWEG_FULL_DEPLOY_ROTATION (default-off, byte-identical) — see
+# PARIAH_NEXUS_2K_ROTATION_FULL and evaluate_vs_meta._pick_rotation_map.
+SWEEPING_ENGAGEMENT_2K = Map(
+    name="Sweeping Engagement (2K)",
+    width=44.0,
+    height=60.0,
+    objectives=_sweeping_engagement_objectives(44.0, 60.0),
+    terrain=_competitive_terrain(44.0, 60.0),
+    deployment_width=12.0,
+)
+
+
 def _take_and_hold_objectives(width: float, height: float) -> tuple:
     """
     Take and Hold (Pariah Nexus mission): 4 objectives in the no-man's-land,
@@ -323,6 +341,7 @@ STOCK_MAPS = {
     "take_and_hold":       TAKE_AND_HOLD,
     "hammer_and_anvil":    HAMMER_AND_ANVIL,
     "tipping_point":       TIPPING_POINT,
+    "sweeping_engagement_2k": SWEEPING_ENGAGEMENT_2K,
 }
 
 # SC4-D — Pariah Nexus mission rotation. evaluate_vs_meta cycles through
@@ -335,6 +354,18 @@ PARIAH_NEXUS_2K_ROTATION: tuple = (
     "hammer_and_anvil",     # short-edge deployment, long-axis fight
     "tipping_point",        # central objective with 4 satellites
     "search_and_destroy",   # opposing corners
+)
+
+# Full deployment rotation including Sweeping Engagement at the correct 2000-point
+# 44x60 footprint — restores the fifth real Pariah Nexus deployment that the base
+# rotation omits (the stock SWEEPING_ENGAGEMENT is 44x90, the wrong size for 2K).
+# Gated via SWEG_FULL_DEPLOY_ROTATION (default-off) in
+# evaluate_vs_meta._pick_rotation_map so the production frame is byte-identical
+# until a deliberate re-anchor adopts the six-map rotation. Adoption is a
+# frame-change (re-bases the metric) and must be screened with a full N=80
+# re-anchor, per docs/EVAL_PROTOCOL.md.
+PARIAH_NEXUS_2K_ROTATION_FULL: tuple = PARIAH_NEXUS_2K_ROTATION + (
+    "sweeping_engagement_2k",   # long-axis spine, 44x60 (the restored 5th deployment)
 )
 
 DEFAULT_MAP = COMBAT_PATROL_BASIC

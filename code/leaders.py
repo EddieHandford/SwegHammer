@@ -160,8 +160,21 @@ class LeaderAbility:
     sustained_hits_melee: int = 0
     # Galvanic Field (AdMech Manipulus): led unit's ranged weapons gain [LETHAL HITS]
     lethal_hits_ranged: bool = False
+    # Kindred Hero (Leagues of Votann Kâhl): led unit's MELEE weapons gain
+    # [LETHAL HITS]. Mirrors lethal_hits_ranged for the melee half (the Kâhl
+    # grant covers all weapons). Consumed in code/units.py attack() on the
+    # melee side (mode == "melee" guard) alongside p.melee_lethal_hits.
+    lethal_hits_melee: bool = False
     extra_invuln: int = 7                   # 7 = none
-    fnp: int = 7                            # 7 = none
+    fnp: int = 7                            # 7 = none; fires on ALL incoming damage
+    # SWEG_DG_TYPHUS_MELEE_ONLY — Typhus "The Destroyer Hive" melee-only gate.
+    # When this gate is ON the Typhus leader entry switches from `fnp=5` to
+    # `fnp_melee_only=5` so the defensive feel-no-pain proxy only fires on
+    # melee attacks targeting the led unit. Gate OFF keeps `fnp=5` (current
+    # all-damage behaviour, byte-identical). Consumed via tgt_buffs in
+    # code/units.py Unit.attack. See docs/OVERPOLE_UNIT_AUDIT.md rank 3
+    # and rule_citations.d/leaders.json `LeaderAbility.The Destroyer Hive`.
+    fnp_melee_only: int = 7                 # 7 = none; fires on MELEE damage only
     # End-of-round healing: restore N HP to the nearest wounded friendly in
     # aura range (or to the leader itself if none are wounded).
     heal_per_round: int = 0
@@ -381,6 +394,37 @@ _TAU_CMD_FIX = os.environ.get("SWEG_TAU_CMD", "1") != "0"
 # the fabrication onto the core squad. It is handled in a separate wave.
 # Set SWEG_CSM_LEADERS=0 to revert to the prior (mis-routed) host_keys for the A/B.
 _CSM_LEADER_FIX = os.environ.get("SWEG_CSM_LEADERS", "1") != "0"
+# VOTANN-KAHL-LETHAL (rank-7 lever, default OFF). When True, the Kâhl's
+# Kindred Hero aura switches from the reroll_hit_ones proxy to the real
+# [LETHAL HITS] grant (ranged + melee) and widens host_keys to include
+# Einhyr Hearthguard. OFF is byte-identical to the prior single-host
+# reroll_hit_ones entry. Cited as `LeaderAbility.Warrior-Forged Leadership`.
+_VOTANN_KAHL_LETHAL_GATE: bool = os.environ.get("SWEG_VOTANN_KAHL_LETHAL", "0") == "1"
+
+# SWEG_DG_TYPHUS_MELEE_ONLY — wave-260 over-pole scope fix for Typhus
+# "The Destroyer Hive" (docs/OVERPOLE_UNIT_AUDIT.md rank 3,
+# rule_citations.d/leaders.json key `LeaderAbility.The Destroyer Hive`).
+# The cited rule subtracts 1 from the Hit roll on MELEE attacks targeting
+# the led unit; the current `fnp=5` proxy fires on ALL incoming damage
+# (ranged and melee), over-crediting the ranged defence. Gate ON: switch
+# to `fnp_melee_only=5` so the proxy is gated to melee attacks only.
+# Gate OFF (default): current `fnp=5` all-damage behaviour, byte-identical.
+# ADOPTED default-on (wave 260, fidelity-first); =0 kill-switch.
+_DG_TYPHUS_MELEE_ONLY: bool = os.environ.get("SWEG_DG_TYPHUS_MELEE_ONLY", "1") != "0"
+
+# SWEG_DG_CONTAGION_MELEE_WOUND — wave-260 over-pole scope fix for Lord of
+# Contagion "Plague-Ridden Champion" / "Vector of Disease"
+# (docs/OVERPOLE_UNIT_AUDIT.md rank 5,
+# rule_citations.d/leaders.json key `LeaderAbility.Plague-Ridden Champion`).
+# The cited rule restricts Vector of Disease to MELEE weapons; the current
+# `plus_one_to_wound=True` proxy fires on all attacks (ranged included).
+# Gate ON: switch to `plus_one_to_wound_melee_only=True` (already read with
+# an `and mode=='melee'` guard in code/units.py) so the wound bonus is
+# restricted to melee attacks. Gate OFF (default): current `plus_one_to_wound`
+# all-damage behaviour, byte-identical.
+# ADOPTED default-on (wave 260, fidelity-first); =0 kill-switch.
+_DG_CONTAGION_MELEE_WOUND: bool = os.environ.get("SWEG_DG_CONTAGION_MELEE_WOUND", "1") != "0"
+
 _CSM_APOSTLE_HOSTS = (
     ("chaos_space_marines_legionaries", "chaos_space_marines_chosen",
      "chaos_space_marines_cultist_mob")
@@ -598,7 +642,7 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Overlord",           LeaderAbility(name="My Will Be Done",            aura_range=6.0, host_keys=_NECRON_HOSTS)),
     ("Chronomancer",       LeaderAbility(name="Chronometron",               aura_range=6.0, host_keys=_NECRON_HOSTS)),
     ("Plasmancer",         LeaderAbility(name="Harbinger of Destruction",   aura_range=6.0, host_keys=("necrons_immortals", "necrons_necron_warriors"))),
-    ("Technomancer",       LeaderAbility(name="Canoptek Cloak",             aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
+    ("Technomancer",       LeaderAbility(name="Rites of Reanimation",       aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
     # Orks — "Might is Right" (Warboss, Warboss In Mega Armour). Real rule:
     # "While this model is leading a unit, each time a model in that unit makes
     # a melee attack, add 1 to the Hit roll." (Wahapedia:
@@ -1264,11 +1308,25 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # (https://wahapedia.ru/wh40k10ed/factions/death-guard/#Lord-of-Contagion)
     # the Leader Bodyguard list is restricted to Blightlord Terminators and
     # Deathshroud Terminators only — NOT Plague Marines. Iter24-D1 fix.
-    ("Lord of Contagion",  LeaderAbility(name="Plague-Ridden Champion",     aura_range=6.0, plus_one_to_wound=True,
+    # SWEG_DG_CONTAGION_MELEE_WOUND (wave-260, default-off): gate ON switches
+    # plus_one_to_wound (all attacks) to plus_one_to_wound_melee_only (melee only)
+    # to match the "Vector of Disease" rule restricting the wound bonus to
+    # MELEE weapons. See docs/OVERPOLE_UNIT_AUDIT.md rank 5 and
+    # rule_citations.d/leaders.json `LeaderAbility.Plague-Ridden Champion`.
+    ("Lord of Contagion",  LeaderAbility(name="Plague-Ridden Champion",     aura_range=6.0,
+                                          plus_one_to_wound=not _DG_CONTAGION_MELEE_WOUND,
+                                          plus_one_to_wound_melee_only=_DG_CONTAGION_MELEE_WOUND,
                                           first_stratagem_free_per_round=True,
                                           host_keys=("death_guard_blightlord_terminators",
                                                      "death_guard_deathshroud_terminators"))),
-    ("Typhus",             LeaderAbility(name="The Destroyer Hive",         aura_range=6.0, fnp=5,
+    # SWEG_DG_TYPHUS_MELEE_ONLY (wave-260, default-off): gate ON switches
+    # fnp=5 (all incoming damage) → fnp_melee_only=5 (melee attacks only) to
+    # match the "The Destroyer Hive" rule which subtracts 1 from Hit rolls on
+    # MELEE attacks targeting the led unit only. See docs/OVERPOLE_UNIT_AUDIT.md
+    # rank 3 and rule_citations.d/leaders.json `LeaderAbility.The Destroyer Hive`.
+    ("Typhus",             LeaderAbility(name="The Destroyer Hive",         aura_range=6.0,
+                                          fnp=5 if not _DG_TYPHUS_MELEE_ONLY else 7,
+                                          fnp_melee_only=5 if _DG_TYPHUS_MELEE_ONLY else 7,
                                           host_keys=("death_guard_plague_marines",))),
     # Grey Knights — Brother-Captain pinned to the registry head above to
     # prevent substring-collision with the generic Marines "Captain"
@@ -1360,8 +1418,22 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # change feeds through the most-played unit. Cited as
     # `LeaderAbility.Warrior-Forged Leadership`.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/K-hl
-    ("Kâhl",               LeaderAbility(name="Warrior-Forged Leadership",  aura_range=6.0, reroll_hit_ones=True,
-                                          host_keys=("leagues_of_votann_hearthkyn_warriors",))),
+    #
+    # VOTANN-KAHL-LETHAL (rank-7 lever, gate SWEG_VOTANN_KAHL_LETHAL default-OFF):
+    # corrects the reroll_hit_ones proxy to the real Kindred Hero [LETHAL HITS]
+    # grant (ranged + melee), and widens the legal host list to the Kâhl's two
+    # Wahapedia attach targets (Hearthkyn Warriors + Einhyr Hearthguard).
+    # rule_name stays "Warrior-Forged Leadership". OFF: byte-identical to the
+    # prior single-host reroll_hit_ones entry. NOTE: ON removes the led
+    # Hearthkyn's re-roll-1s — pairs with the rank-11 native re-roll-1s lever.
+    ("Kâhl",               LeaderAbility(name="Warrior-Forged Leadership",  aura_range=6.0,
+                                          reroll_hit_ones=(not _VOTANN_KAHL_LETHAL_GATE),
+                                          lethal_hits_ranged=_VOTANN_KAHL_LETHAL_GATE,
+                                          lethal_hits_melee=_VOTANN_KAHL_LETHAL_GATE,
+                                          host_keys=(("leagues_of_votann_hearthkyn_warriors",
+                                                      "leagues_of_votann_einhyr_hearthguard")
+                                                     if _VOTANN_KAHL_LETHAL_GATE
+                                                     else ("leagues_of_votann_hearthkyn_warriors",)))),
 )
 
 # ---------------------------------------------------------------------------
@@ -1565,6 +1637,9 @@ _NEUTRAL_BUFFS: Dict[str, object] = {
     "plus_one_save": False,
     "extra_invuln": 7,
     "fnp": 7,
+    # SWEG_DG_TYPHUS_MELEE_ONLY — melee-only feel-no-pain proxy for Typhus'
+    # "The Destroyer Hive". Default 7 (no effect). See LeaderAbility.fnp_melee_only.
+    "fnp_melee_only": 7,
     # LEADERABILITY-SCHEMA: three new Greater Daemon locus fields (see
     # LeaderAbility dataclass docstring for derivation). Defaults False so
     # the buff dict matches every existing call site that consumes it via
@@ -1591,6 +1666,10 @@ _NEUTRAL_BUFFS: Dict[str, object] = {
     # [LETHAL HITS]. Default False; only True when a Tech-Priest Manipulus is
     # alive and leading the single host_keys-gated unit (Kataphron Destroyers).
     "lethal_hits_ranged": False,
+    # Kindred Hero (Votann Kâhl) — led unit's melee weapons gain [LETHAL HITS].
+    # Default False; only True when a Kâhl with lethal_hits_melee=True is
+    # leading a host_keys-gated unit (gate SWEG_VOTANN_KAHL_LETHAL).
+    "lethal_hits_melee": False,
 }
 
 
@@ -1982,6 +2061,8 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         _merge_add(buffs, ability, "plus_one_attack")
         _merge_min(buffs, ability, "extra_invuln")
         _merge_min(buffs, ability, "fnp")
+        # SWEG_DG_TYPHUS_MELEE_ONLY: melee-only feel-no-pain proxy (Typhus gate).
+        _merge_min(buffs, ability, "fnp_melee_only")
         # LEADERABILITY-SCHEMA: Greater Daemon locus fields. Booleans OR
         # together — multiple loci of the same type don't stack numerically
         # in 10e (you either get +1 S / +1 T / +1 AP from a locus or you
@@ -2009,6 +2090,9 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         # Galvanic Field (AdMech Manipulus) — led unit's ranged weapons gain
         # [LETHAL HITS]. Boolean OR (the grant is binary, not stacking).
         _merge_bool(buffs, ability, "lethal_hits_ranged")
+        # Kindred Hero (Votann Kâhl) — led unit's melee weapons gain
+        # [LETHAL HITS]. Boolean OR (binary, not stacking).
+        _merge_bool(buffs, ability, "lethal_hits_melee")
 
     # 10e Enhancements (Warlord upgrades). Each in-range friendly CHARACTER
     # may carry one Enhancement; if it does, OR-merge the aura modifier

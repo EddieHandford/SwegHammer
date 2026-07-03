@@ -1,0 +1,12 @@
+{
+  "_comment": "Citations for the Emperor's Children faction mechanics in code/simulator.py. Source: BSData v10.6.0 Chaos - Emperor's Children.cat.gz.",
+
+  "simulator.ec_daemonette_fights_first": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Chaos%20-%20Emperor's%20Children.cat",
+    "rule_name": "Daemonettes Fights First (unconditional datasheet ability)",
+    "quoted_text": "<infoLink name=\"Fights First\" id=\"fc22-54df-e539-41d9\" hidden=\"false\" type=\"rule\" targetId=\"24-c886-e8ba-5a89\"/>",
+    "trigger": "BSData selectionEntry id 06f6-b870-4e43-4ed9 (Daemonettes, Emperor's Children) carries the Fights First infoLink (id fc22-54df-e539-41d9) with hidden=false and NO condition/modifier — Daemonettes have Fights First unconditionally. CORRECTION (audit wave 2): the earlier version of this citation claimed the ability was detachment-gated via Carnival of Excess. That was a misread — the hidden=true modifier carrying the Carnival conditions (childId cac3-71d1-ea4b-795d / 3c9e-2156-254e-66e8) belongs to the SIBLING Fiends selectionEntry (id c2ca-f754-cc05-0743), and even there it governs unit AVAILABILITY, not the Fights First ability. So the mapper's extract_fights_first() producing fights_first=True is FAITHFUL, not an over-extraction.",
+    "effect": "No code change needed — Daemonettes correctly fight in the Fights First step (priority 0) by default. SWEG_EC_DAEMONETTE_FF (default-off) is a DO-NOT-ADOPT gate: enabling it would demote Daemonettes to the Remaining Combats step, REMOVING a real datasheet ability. Kept off (byte-identical to base) and retained only as documentation of the corrected finding.",
+    "scope": "keyword-gated"
+  }
+}

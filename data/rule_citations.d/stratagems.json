@@ -601,7 +601,7 @@
     "rule_name": "Daemonic Invulnerability (Daemonic Incursion Stratagem)",
     "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: any phase, just after an invulnerable saving throw is failed for a model in a LEGIONES DAEMONICA unit from your army. Effect: re-roll that saving throw.",
     "trigger": "any phase, after a friendly LEGIONES DAEMONICA model fails an invulnerable save",
-    "effect": "(APPROXIMATION) SwegHammer has no transient invuln-save-reroll flag; routed through transient_invuln_4 on the most vulnerable CHAOS DAEMONS unit (grants a 4+ invulnerable save for the round — strictly stronger than a failed-invuln-reroll on a typical 5+ Daemon invuln, acceptable given the round-start dispatcher collapses the reactive trigger). Direction-correct defensive buff. DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "effect": "(APPROXIMATION) SwegHammer has no transient invuln-save-reroll flag; routed through transient_invuln_4 on the most vulnerable CHAOS DAEMONS unit (grants a 4+ invulnerable save for the round — strictly stronger than a failed-invuln-reroll on a typical 5+ Daemon invuln, acceptable given the round-start dispatcher collapses the reactive trigger). Direction-correct defensive buff. Gate SWEG_DAEMONS_INVULN_FAITHFUL (default-off, wave-260 screen): ON keeps the 1 command-point spend (faithful — the stratagem is used in real play) but drops the over-modelled transient_invuln_4 buff because no transient_reroll_invuln_ones mechanism exists yet; net effect on gate-ON is command point consumed, zero defensive uplift. OFF: legacy flat-4+ for the round, byte-identical. Aeldari Fire-and-Fade pattern. DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
     "scope": "phase-gated",
     "approximation": true
   },

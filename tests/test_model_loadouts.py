@@ -164,18 +164,27 @@ class ModelLoadoutShapeTests(unittest.TestCase):
             )
             self.assertEqual(u["model_loadouts"][0]["count"], 1.0)
 
-    def test_wraithknight_has_one_arm_cannon_not_both(self):
-        """The Wraithknight's single-model loadout must carry exactly ONE of
-        its mutually-exclusive arm cannons (Suncannon OR Heavy Wraithcannon),
-        not both — proving the option-per-choice-group picker replaced the
-        legacy flat weapon-walk that collected every arm option."""
+    def test_wraithknight_fills_each_independent_weapon_slot(self):
+        """The Wraithknight has THREE independent weapon slots — Left Arm, Right
+        Arm, and a Secondary Weapons group (max=2) — and must fire all of them.
+        Its Left Arm offers only the Heavy Wraithcannon and its Right Arm offers
+        {Heavy Wraithcannon, Suncannon}, so the faithful loadout carries the
+        Heavy Wraithcannon (Left) plus a second arm cannon plus two secondaries.
+
+        This replaced the buggy behaviour the old union-by-shared-name
+        clustering produced (collapsing the two arm slots to a single cannon):
+        a unit that genuinely fires two arm weapons must keep both. Within ONE
+        slot the picker still chooses one weapon, so the mutually-exclusive
+        Right-arm choice does not list both Heavy Wraithcannon and Suncannon."""
         u = self._get("aeldari_craftworlds_wraithknight")
         ranged_names = [w["weapon"] for w in u["model_loadouts"][0]["ranged"]]
-        cannons = {"Suncannon", "Heavy Wraithcannon"} & set(ranged_names)
-        self.assertEqual(
-            len(cannons),
-            1,
-            msg=f"Wraithknight should carry exactly one arm cannon, got "
+        self.assertIn(
+            "Heavy Wraithcannon", ranged_names,
+            msg=f"Wraithknight lost its Left-arm Heavy Wraithcannon: {ranged_names}",
+        )
+        self.assertGreaterEqual(
+            len(ranged_names), 3,
+            msg=f"Wraithknight should fill its arm + secondary slots, got "
             f"{ranged_names}",
         )
 
@@ -442,12 +451,13 @@ class ModelLoadoutStage3FiringTests(unittest.TestCase):
             f"full={full:.1f} reduced={reduced:.1f}",
         )
 
-    # (5) single-model unit fires its real loadout, not every option --------
-    def test_single_model_unit_fires_one_arm_cannon(self):
-        """A Wraithknight built with the gate ON fires ONE arm cannon group
-        (Suncannon), NOT both Suncannon and the mutually-exclusive Heavy
-        Wraithcannon — the per-model profile carries only the loadout's real
-        equipped arm cannon."""
+    # (5) single-model unit fires its full per-slot loadout ------------------
+    def test_single_model_unit_fires_all_weapon_slots(self):
+        """A Wraithknight built with the gate ON fires every independent weapon
+        slot — its Left-arm Heavy Wraithcannon AND its Right-arm cannon
+        (Suncannon) — carried across the primary weapon plus the extra ranged
+        profiles. The old behaviour kept only one arm cannon; a unit that fires
+        two arm weapons must keep both."""
         os.environ["SWEG_PERMODEL"] = "1"
         army = self._build("aeldari_craftworlds_wraithknight", 1)
         self.assertEqual(len(army.units), 1)
@@ -455,8 +465,8 @@ class ModelLoadoutStage3FiringTests(unittest.TestCase):
         carried = [u.profile.weapon] + [
             dict(e).get("weapon") for e in u.profile.extra_ranged_profiles
         ]
+        self.assertIn("Heavy Wraithcannon", carried)
         self.assertIn("Suncannon", carried)
-        self.assertNotIn("Heavy Wraithcannon", carried)
 
     # (6) OFF path — identity (today's behaviour) ---------------------------
     def test_off_path_shares_input_profile_identity(self):

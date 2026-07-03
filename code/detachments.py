@@ -19,6 +19,7 @@ faction and document the simplification.
 
 from __future__ import annotations
 
+import os
 import random
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, Optional, Tuple
@@ -224,6 +225,15 @@ class Detachment:
     #     in case a future faction needs it with a real codex citation.
     melee_crit_on_5_plus_hits: bool = False
     melee_ap_plus_one: bool = False
+    # Adeptus Custodes Auric Champions — Assemblage of Might (10e detachment
+    # rule). BSData verbatim (AURIC_CHAMPIONS rule id 9eb2-2cdd-3df7-a94e): "At
+    # the start of your Command phase, select one unit from your opponent's army.
+    # Until the start of your next Command phase, each time a model in an ADEPTUS
+    # CUSTODES Character unit from your army makes an attack that targets that
+    # enemy unit, add 1 to the Wound roll." Set True on AURIC_CHAMPIONS only;
+    # gated SWEG_CUSTODES_ASSEMBLAGE_OF_MIGHT (default OFF). Cited as
+    # `AURIC_CHAMPIONS.assemblage_of_might`.
+    assemblage_of_might: bool = False
 
     # Astra Militarum Combined Arms detachment rule (Born Soldiers). Real text
     # (Wahapedia): "Each time a model in a REGIMENT unit from your army makes
@@ -723,9 +733,16 @@ AURIC_CHAMPIONS = Detachment(
         "Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Auric-Champions."
     ),
     # melee_sustained_hits_army_wide intentionally NOT set — see notes above.
-    # The real 'Assemblage of Might' cannot be proxied by any existing
-    # Detachment flag without fabrication (CHARACTER-only + single designated
-    # target). No-op ships until a bespoke flag is added.
+    # The real 'Assemblage of Might' is now modelled by a BESPOKE flag
+    # (assemblage_of_might, below) plus a per-round enemy designation in
+    # Battle._run_round and the +1-to-Wound in Unit.attack — the CHARACTER-only,
+    # single-designated-target mechanic the generic Detachment flags could not
+    # proxy without fabrication. Gated SWEG_CUSTODES_ASSEMBLAGE_OF_MIGHT
+    # (adopted default-on 2026-07-01, `=0` kill-switch; near-inert wash, adopted
+    # fidelity-first). NB the old note that Custodes over-shoots
+    # (~+5) is stale — post-audit Custodes sits ~44 vs its real 49.5 (under-pole),
+    # so modelling this buff is toward-real.
+    assemblage_of_might=True,
     stratagems=SHIELD_HOST_STRATAGEMS,  # share stratagems for now —
     # real Auric Champions has its own 6-stratagem pool that we'd need
     # to wire individually. Per-stratagem differences are smaller and follow-up.
@@ -1541,8 +1558,24 @@ PLAGUE_COMPANY = Detachment(
         "Awakened Dynasty placeholder pending a real Plague Company "
         "stratagem pull."
     ),
-    stratagems=AWAKENED_DYNASTY_STRATAGEMS,  # placeholder; real PC has
-    # its own stratagems. Per-strat differences smaller than rule lever.
+    # SWEG_DG_PLAGUE_NO_NECRON_PROTOCOLS (wave-260, default-off) — fabrication
+    # removal. AWAKENED_DYNASTY_STRATAGEMS is a placeholder; no Plague Company
+    # stratagem has a real Death Guard citation in data/rule_citations.json or
+    # data/rule_citations.d/. The Protocol dispatchers seek a NECRONS unit,
+    # find None on a Death Guard army, and silently fall back to unfiltered
+    # Death Guard units (Rule-13 silent-fallback failure mode), granting
+    # fabricated Necron Protocol effects with no Death Guard citation. Gate ON
+    # assigns an empty stratagem tuple (pending a real cited Plague Company
+    # stratagem pull). Removing the firing frees command points that the AI may
+    # reallocate to generic stratagems — carry this caveat in eval expectations.
+    # Gate OFF = current placeholder behaviour, byte-identical to the anchor.
+    # See docs/OVERPOLE_UNIT_AUDIT.md rank 8; ADOPTED default-on (wave 260,
+    # fidelity-first); =0 kill-switch.
+    stratagems=(
+        ()
+        if os.environ.get("SWEG_DG_PLAGUE_NO_NECRON_PROTOCOLS", "1") != "0"
+        else AWAKENED_DYNASTY_STRATAGEMS  # placeholder; real PC has its own
+    ),
     preferred_composition="infantry",
 )
 

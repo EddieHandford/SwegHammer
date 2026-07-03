@@ -19,6 +19,7 @@ hand-rolled). Those entries must include all required fields.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -37,6 +38,72 @@ CALIBRATED_PATH = REPO_ROOT / "data" / "calibrated_points.json"
 def _codex_corrections_path(codex_version: str) -> "Path":
     return REPO_ROOT / "data" / f"codex_corrections_{codex_version}.json"
 DEFAULT_CODEX_VERSION = "10e"
+
+# ---------------------------------------------------------------------------
+# SWEG_DEEP_STRIKE_TRIAGE — per-unit deployment-piloting correction for fast
+# Aeldari/Drukhari skimmers, transports and gunships.
+#
+# BSData v10.6.0 attaches the standard Core Rules "Deep Strike" infoLink
+# DIRECTLY and UNCONDITIONALLY to each of these unit entries. Deep Strike is
+# ALWAYS an optional player choice ("you can set it up in Reserves instead of
+# on the battlefield" — never mandatory). In 10th-edition competitive play
+# these fast transports/gunships are deployed on-board from Turn 1 because
+# their value is Turn-1 board presence, but the simulator's faction-blind
+# deploy AI (SWEG_DEPLOY_AI) routes every deep_strike=True unit to strategic
+# reserves on Turn 1, breaking their doctrine (the same faction-blind
+# reserve-split flagged in docs/DECISION_LEDGER.md). Clearing deep_strike=False
+# for these specific units is a DEPLOYMENT-PILOTING correction expressed
+# through the only input the deploy AI reads — NOT a claim they lack the
+# ability (they have the real, optional Core Rules Deep Strike). The more
+# faithful long-term fix is a smarter deploy AI that keeps deep_strike=True and
+# chooses on-board for these units; this per-unit gate is the scoped,
+# only-improves interim (a global deploy-AI change would also deploy over-pole
+# factions such as Emperor's Children on-board, wrong-direction for the metric).
+#
+# NB an earlier draft of this comment and the citations invented ability names
+# ("Webway Portal", "Webway Assault", "Phantasm", "Webway Gate") — these do NOT
+# appear on any of these datasheets (0 occurrences in the Aeldari Library
+# cache); the only mechanism is the standard Core Rules Deep Strike. See the
+# adversarial verification at data/_deepstrike_verify_report.md.
+#
+# This set lists ONLY units the triage audit + adversarial verification
+# confirmed as fast transports/skimmers/gunships whose competitive default is
+# on-board deployment. CONSERVATIVE RULE: when uncertain, the unit is NOT in
+# this set (never remove a genuine deep-strike use case). Uncertain units are
+# adjudicated in data/_deepstrike_verify_report.md.
+#
+# Gate: SWEG_DEEP_STRIKE_TRIAGE, default-ON ("1").  Set to "0" to restore
+# pre-triage behaviour byte-identically (no units are cleared).
+_DEEP_STRIKE_TRIAGE_CLEAR_KEYS: frozenset = frozenset({
+    # ── Drukhari ──────────────────────────────────────────────────────────
+    # Skysplinter Assault deploys Raiders/Venom/Ravager on-board Turn 1 to run
+    # Rain of Cruelty + the alpha-strike; reserving them Turn 1 breaks the
+    # faction doctrine (data/_drukhari_strategy_investigation.md). All carry a
+    # direct unconditional Core Rules Deep Strike infoLink in the Aeldari
+    # Library cache. Cited in data/rule_citations.d/deep_strike_triage.json.
+    "aeldari_drukhari_raider",
+    "aeldari_drukhari_venom",
+    "aeldari_drukhari_ravager",
+    # Hellions: MOUNTED/FLY 14" objective-racers; competitive default is
+    # on-board Turn-1 tempo, not deep-strike ambush.
+    "aeldari_drukhari_hellions",
+    # ── Ynnari (same Raider/Venom chassis, SEPARATE selectionEntries) ──────
+    # Verified as distinct entries (ids 8e15-3c74-d36f-7669 / 5443-6671-baeb-77a3),
+    # not shared with the Drukhari entries; same on-board competitive default.
+    "aeldari_craftworlds_ynnari_raider",
+    "aeldari_craftworlds_ynnari_venom",
+    # ── Craftworlds ───────────────────────────────────────────────────────
+    # Falcon: mobile TRANSPORT (Fire Dragons / Wraithguard delivery) deployed
+    # on-board Turn 1, using Battle Focus to shoot after moving. Direct
+    # unconditional Deep Strike infoLink (no "Webway Gate" ability exists on it).
+    "aeldari_craftworlds_falcon",
+    # ── Drukhari Legends (CLEAR-CONFIRMED by the adversarial verification) ──
+    # Identical infoLink structure to the cleared Ravager (Reaper) and Raider
+    # (Tantalus). Legends units — almost certainly inert in the current
+    # tournament-archetype lists, cleared for completeness/faithfulness.
+    "aeldari_drukhari_reaper_legends",
+    "aeldari_drukhari_tantalus_legends",
+})
 
 
 @dataclass
@@ -106,6 +173,14 @@ class CatalogEntry:
     # Adepta Sororitas unit) is a follow-up code build. Cited as
     # `simulator.storm_of_retribution`.
     storm_of_retribution: bool = False
+    # Leagues of Votann native re-roll-Hit-roll-of-1 on ranged attacks
+    # (override-only flag; not a mapper output). Models the per-datasheet
+    # printed abilities Panspectral Scanning (Hearthkyn Warriors),
+    # Panspectral Scanner (Hekaton Land Fortress) and Decisive Destruction
+    # (Einhyr Hearthguard). Set via overrides.json; read at the ranged hit
+    # step in code/units.py Unit.attack behind SWEG_VOTANN_NATIVE_REROLL.
+    # Cited as `simulator.votann_native_reroll_ranged`.
+    votann_native_reroll_ranged: bool = False
     rapid_fire: int = 0
     melta: int = 0
     ignores_cover: bool = False
@@ -141,6 +216,13 @@ class CatalogEntry:
     # of the Fight phase. Parsed from BSData "Fights First" infoLinks /
     # inline profiles. Cited as `simulator.fights_first_keyword`.
     fights_first: bool = False
+    # WAVE-260 — World Eaters "Blessings of Khorne" army-rule ability carrier.
+    # True iff the datasheet carries the Blessings of Khorne infoLink. Khorne
+    # Daemon allies (Bloodletters, Flesh Hounds, Bloodcrushers) read False and
+    # are excluded by the gated read in Unit.attack. Default True so non-World-
+    # Eaters / pre-regen profiles stay permissive (the read is faction-gated).
+    # Cited as `simulator.blessings_of_khorne`.
+    has_blessings_of_khorne: bool = True
     # Phase I — deployment abilities
     deep_strike: bool = False
     scout_distance: int = 0
@@ -179,6 +261,18 @@ class CatalogEntry:
     # roll and add 1 to the Wound roll." Set per-unit via overrides.json.
     # Cited as `simulator.righteous_paragons`.
     righteous_paragons: bool = False
+    # T'AU EMPIRE — Sunforge (Crisis Sunforge Battlesuits datasheet ability).
+    # Cited as `simulator.tau_sunforge`.
+    tau_sunforge: bool = False
+    # T'AU EMPIRE — Armour Hunter (Hammerhead Gunship datasheet ability).
+    # Cited as `simulator.tau_armour_hunter`.
+    tau_armour_hunter: bool = False
+    # T'AU EMPIRE — Targeting Array (Hammerhead Gunship datasheet ability).
+    # Cited as `simulator.tau_targeting_array`.
+    tau_targeting_array: bool = False
+    # T'au Riptide Nova Charge (once-per-battle [DEVASTATING WOUNDS]). Set via
+    # overrides.json; gated SWEG_TAU_NOVA_CHARGE. Cited `simulator.tau_nova_charge`.
+    tau_nova_charge: bool = False
     # NECRONS-CTAN — Necrodermis (C'tan datasheet ability). Halves the
     # Damage characteristic of each allocated attack (rounding up); D1
     # attacks deal 0 damage. Set per-unit via overrides.json (the BSData
@@ -342,6 +436,7 @@ class CatalogEntry:
             csm_despoilers=bool(d.get("csm_despoilers", False)),
             csm_unholy_bloodshed=bool(d.get("csm_unholy_bloodshed", False)),
             storm_of_retribution=bool(d.get("storm_of_retribution", False)),
+            votann_native_reroll_ranged=bool(d.get("votann_native_reroll_ranged", False)),
             rapid_fire=int(d.get("rapid_fire", 0)),
             melta=int(d.get("melta", 0)),
             ignores_cover=bool(d.get("ignores_cover", False)),
@@ -361,6 +456,7 @@ class CatalogEntry:
             stealth=bool(d.get("stealth", False)),
             lone_operative=bool(d.get("lone_operative", False)),
             fights_first=bool(d.get("fights_first", False)),
+            has_blessings_of_khorne=bool(d.get("has_blessings_of_khorne", True)),
             deep_strike=bool(d.get("deep_strike", False)),
             scout_distance=int(d.get("scout_distance", 0)),
             infiltrator=bool(d.get("infiltrator", False)),
@@ -372,6 +468,10 @@ class CatalogEntry:
             murderers_cowl=bool(d.get("murderers_cowl", False)),
             gloam_rot=bool(d.get("gloam_rot", False)),
             righteous_paragons=bool(d.get("righteous_paragons", False)),
+            tau_sunforge=bool(d.get("tau_sunforge", False)),
+            tau_armour_hunter=bool(d.get("tau_armour_hunter", False)),
+            tau_targeting_array=bool(d.get("tau_targeting_array", False)),
+            tau_nova_charge=bool(d.get("tau_nova_charge", False)),
             necrodermis=bool(d.get("necrodermis", False)),
             reanimates_with_army=bool(d.get("reanimates_with_army", False)),
             unit_keywords=list(d.get("unit_keywords") or []),
@@ -563,8 +663,34 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "save": override.get("save", base.save),
         "codex": override.get("codex", base.codex),
         "points_listed": override.get("points_listed", base.points_listed),
-        "min_models": override.get("min_models", base.min_models),
-        "max_models": override.get("max_models", base.max_models),
+        # SWEG_IK_CANIS_SINGLE (default-on, `=0` byte-identical kill-switch) —
+        # data-correctness fix. BSData folds "Sir Hekhtur" into the Canis Rex
+        # datasheet as a second model_loadouts slot (the mapper then emits
+        # min_models=max_models=2), but Sir Hekhtur is the EJECTED-PILOT
+        # replacement — BSData verbatim: "Your Canis Rex unit is not
+        # considered to be destroyed until Sir Hekhtur is also destroyed" —
+        # a 3-wound INFANTRY character who only exists AFTER the Knight is
+        # destroyed. The per-model squad builder (code/army.py
+        # _add_squad_per_model) spawned one Unit per slot, and since
+        # dataclasses.replace only swaps weapon fields BOTH inherited the
+        # shared health=26 — the sim fielded TWO permanent 26-wound TITANIC
+        # combatants from turn 1 in every Imperial Knights game (the
+        # archetype seed guarantees Canis Rex). The faithful minimal model
+        # is ONE Knight; the post-destruction Hekhtur bail-out is an
+        # unmodelled mechanic (documented honest omission — far smaller than
+        # the phantom double Knight). Cited `simulator.ik_canis_single`.
+        "min_models": (
+            1
+            if (base.key == "imperial_knights_library_canis_rex"
+                and os.environ.get("SWEG_IK_CANIS_SINGLE", "1") != "0")
+            else override.get("min_models", base.min_models)
+        ),
+        "max_models": (
+            1
+            if (base.key == "imperial_knights_library_canis_rex"
+                and os.environ.get("SWEG_IK_CANIS_SINGLE", "1") != "0")
+            else override.get("max_models", base.max_models)
+        ),
         "strength": override.get("strength", base.strength),
         "toughness": override.get("toughness", base.toughness),
         "leadership": override.get("leadership", base.leadership),
@@ -595,17 +721,55 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
             base.melee_anti_keyword_basket_fractions,
         ),
         "twin_linked": override.get("twin_linked", base.twin_linked),
-        "devastating_wounds": override.get("devastating_wounds", base.devastating_wounds),
-        "invuln_save": override.get("invuln_save", base.invuln_save),
+        # SWEG_WE_DW_RANGED_FAB (default-on) — the overrides add a unit-level
+        # devastating_wounds=True to world_eaters_heldrake (its Baleflamer is a
+        # Torrent weapon) and world_eaters_master_of_executions (its Bolt pistol);
+        # neither ranged weapon carries [DEVASTATING WOUNDS] on its datasheet. The
+        # melee claws / axe of dismemberment do, and are represented separately via
+        # melee_devastating_wounds (mapper). =0 restores the fabricated ranged flag.
+        "devastating_wounds": (
+            False
+            if (key in ("world_eaters_heldrake",
+                        "world_eaters_master_of_executions")
+                and os.environ.get("SWEG_WE_DW_RANGED_FAB", "1") != "0")
+            else override.get("devastating_wounds", base.devastating_wounds)
+        ),
+        # SWEG_NECRON_LYCHGUARD_INVULN (default-on) — necrons_lychguard is modelled
+        # with the Warscythe loadout (parsed weapon "Warscythe", S8 AP-3 D2 with
+        # Devastating Wounds), but the override adds a 4+ invulnerable save that only
+        # exists on the mutually-exclusive Hyperphase-sword-and-dispersion-shield
+        # loadout. A Warscythe Lychguard has no invulnerable save; the combination is
+        # impossible. Gate forces the base (no invulnerable) across all three invuln
+        # fields; =0 restores the fabricated 4+.
+        "invuln_save": (
+            base.invuln_save
+            if (key == "necrons_lychguard"
+                and os.environ.get("SWEG_NECRON_LYCHGUARD_INVULN", "1") != "0")
+            else override.get("invuln_save", base.invuln_save)
+        ),
         "invuln_ranged_only": override.get("invuln_ranged_only", base.invuln_ranged_only),
         # Task #92: an override may set the per-attack invuln directly; else fall
         # back to any override of the single value, else the base per-attack value.
-        "invuln_save_melee": override.get("invuln_save_melee", override.get("invuln_save", base.invuln_save_melee)),
-        "invuln_save_ranged": override.get("invuln_save_ranged", override.get("invuln_save", base.invuln_save_ranged)),
+        # Lychguard invuln fabrication (SWEG_NECRON_LYCHGUARD_INVULN, see above) must
+        # also zero the per-attack invuln fields — they otherwise fall back to the
+        # override's single invuln_save value.
+        "invuln_save_melee": (
+            base.invuln_save_melee
+            if (key == "necrons_lychguard"
+                and os.environ.get("SWEG_NECRON_LYCHGUARD_INVULN", "1") != "0")
+            else override.get("invuln_save_melee", override.get("invuln_save", base.invuln_save_melee))
+        ),
+        "invuln_save_ranged": (
+            base.invuln_save_ranged
+            if (key == "necrons_lychguard"
+                and os.environ.get("SWEG_NECRON_LYCHGUARD_INVULN", "1") != "0")
+            else override.get("invuln_save_ranged", override.get("invuln_save", base.invuln_save_ranged))
+        ),
         "veterans_of_the_long_war": override.get("veterans_of_the_long_war", base.veterans_of_the_long_war),
         "csm_despoilers": override.get("csm_despoilers", base.csm_despoilers),
         "csm_unholy_bloodshed": override.get("csm_unholy_bloodshed", base.csm_unholy_bloodshed),
         "storm_of_retribution": override.get("storm_of_retribution", base.storm_of_retribution),
+        "votann_native_reroll_ranged": override.get("votann_native_reroll_ranged", base.votann_native_reroll_ranged),
         "rapid_fire": override.get("rapid_fire", base.rapid_fire),
         "melta": override.get("melta", base.melta),
         "ignores_cover": override.get("ignores_cover", base.ignores_cover),
@@ -625,17 +789,126 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "stealth": override.get("stealth", base.stealth),
         "lone_operative": override.get("lone_operative", base.lone_operative),
         "fights_first": override.get("fights_first", base.fights_first),
-        "deep_strike": override.get("deep_strike", base.deep_strike),
+        "has_blessings_of_khorne": override.get("has_blessings_of_khorne", base.has_blessings_of_khorne),
+        # SWEG_DEEP_STRIKE_TRIAGE (default-on) — clears deep_strike=True for
+        # VEHICLE/MOUNTED units whose Deep Strike ability is printed as an
+        # OPTIONAL play (Webway Portal, Webway Assault, Webway Gate) rather
+        # than the unit's actual default deployment method. BSData attaches the
+        # "Deep Strike" infoLink directly to these unit entries because the
+        # ability IS printed on the datasheet, but competitive play NEVER uses
+        # it — deploying these transports and skimmers on-board from T1 is
+        # strictly better. The SWEG_DEPLOY_AI reserve logic sends any
+        # deep_strike=True unit to reserves, which breaks the entire faction
+        # doctrine for Drukhari (and similar Aeldari builds).
+        # Units affected: see _DEEP_STRIKE_TRIAGE_CLEAR_KEYS above.
+        # =0 restores the BSData-verbatim flag (byte-identical to pre-triage).
+        # Citation: data/rule_citations.d/deep_strike_triage.json
+        "deep_strike": (
+            False
+            if (key in _DEEP_STRIKE_TRIAGE_CLEAR_KEYS
+                and os.environ.get("SWEG_DEEP_STRIKE_TRIAGE", "1") != "0")
+            else override.get("deep_strike", base.deep_strike)
+        ),
         "scout_distance": override.get("scout_distance", base.scout_distance),
         "infiltrator": override.get("infiltrator", base.infiltrator),
         "deadly_demise": override.get("deadly_demise", base.deadly_demise),
         "firing_deck": override.get("firing_deck", base.firing_deck),
-        "fnp": override.get("fnp", base.fnp),
-        "sticky_objective": override.get("sticky_objective", base.sticky_objective),
+        # SWEG_EC_LUCIUS_FNP_FIX (wave-260, default-off) — fabrication removal.
+        # parsed.json carries fnp=5 for emperor_s_children_lucius_the_eternal
+        # as a mapper prose-walk artifact; no Feel No Pain ability of any
+        # threshold appears on the real Lucius the Eternal datasheet (his only
+        # defensive special rule is the 4++ Armour of Shrieking Souls, already
+        # wired via overrides.json:1097). No citation exists in
+        # data/rule_citations.json or data/rule_citations.d/ for any Lucius
+        # Feel No Pain. The fix resets fnp to 7 (no effective save) when the
+        # gate is active, matching the sibling mapper-sweep pattern used for
+        # Lion El'Jonson, Azrael, and Saint Celestine. Gate OFF leaves
+        # parsed.json's fnp=5 untouched so the byte-identical anchor is
+        # reproducible. See docs/OVERPOLE_UNIT_AUDIT.md rank 6;
+        # ADOPTED default-on (wave 260, fidelity-first); =0 kill-switch.
+        # SWEG_DG_PLAGUE_FNP_FAITHFUL (default-off) — fabrication removal. The 10e
+        # Plague Marines and Blightlord Terminators datasheets carry NO Feel No
+        # Pain / Disgustingly Resilient (verified against the BSData Death Guard
+        # cat — zero "Feel No Pain" in either datasheet window). The overrides.json
+        # fnp=5 on them is the army-wide-Disgustingly-Resilient-as-FNP fabrication
+        # the project already deleted at iter-15 (see data/rule_citations.d/
+        # death_guard.json _comment: "there is NO codex-level Feel No Pain in the
+        # 10e Death Guard codex... Disgustingly Resilient is ONLY the 2 CP Virulent
+        # Vectorium stratagem (-1 damage)"), which leaked onto the per-datasheet
+        # overrides. The real -1-damage stratagem is modelled separately at
+        # simulator.py:4070 (_try_disgustingly_resilient). Plaguebearers / Typhus /
+        # Mortarion / Poxwalkers / Deathshroud KEEP their fnp — BSData confirms
+        # those datasheets DO carry Feel No Pain. ADOPTED default-on (fidelity-first;
+        # scoped Death-Guard + Chaos-Space-Marines N=80 paired vs sc20a: gated mean
+        # absolute error 3.26 -> 3.06, Death Guard -3.37 decisive toward its real
+        # 47.6, only collateral Grey Knights -0.46). Set =0 as a kill-switch to
+        # restore the fabricated fnp=5 and reproduce the sc20a anchor byte-identically.
+        # SWEG_EC_LUCIUS_FNP_FIX — RETIRED to default-OFF (2026-07-01). The wave-260
+        # removal was WRONG: the 2025 Emperor's Children codex gives Lucius the
+        # Eternal a real Feel No Pain 5+ (BSData infoLink 01a8-58fe-9d82-ae3c,
+        # unconditional; Wahapedia confirms). The mapper captured it correctly; the
+        # wave-260 gate deleted a faithful stat (EVAL_PROTOCOL section 9 forbidden-
+        # zone violation). Default-off now KEEPS his faithful fnp=5; set =1 to
+        # re-enable the old removal (reproduces the sc21a anchor byte-identically).
+        # SWEG_AUDIT2_FNP_FABS (default-ON) — audit-wave-2 fabrication removals. The
+        # mapper prose-walk stamped an aura's GRANTED Feel No Pain onto the granter's
+        # own profile: genestealer_cults_acolyte_iconward (Nexus of Devotion -> led
+        # unit), necrons_technomancer (Rites of Reanimation -> led unit),
+        # chaos_daemons_library_contorted_epitome (Swallow Energy -> Daemonettes).
+        # death_guard_typhus's override fnp instead cited the non-existent army-wide
+        # Disgustingly Resilient (his only relevant ability, The Destroyer Hive, is a
+        # -1-to-hit melee aura). BSData confirms none of the four carries a self Feel
+        # No Pain infoLink. (Locus / Cryptothralls were flagged but are already fnp=7
+        # -- no action.) =0 kill-switch restores the fabricated fnp / reproduces sc21a.
+        "fnp": (
+            7
+            if (
+                (key == "emperor_s_children_lucius_the_eternal"
+                 and os.environ.get("SWEG_EC_LUCIUS_FNP_FIX", "0") == "1")
+                or (key in ("death_guard_plague_marines",
+                            "chaos_space_marines_plague_marines",
+                            "death_guard_blightlord_terminators")
+                    and os.environ.get("SWEG_DG_PLAGUE_FNP_FAITHFUL", "1") != "0")
+                or (key in ("genestealer_cults_acolyte_iconward",
+                            "necrons_technomancer",
+                            "chaos_daemons_library_contorted_epitome",
+                            "death_guard_typhus")
+                    and os.environ.get("SWEG_AUDIT2_FNP_FABS", "1") != "0")
+            )
+            else override.get("fnp", base.fnp)
+        ),
+        # SWEG_AM_STICKY_CADIAN (rank-8 lever) — ADOPTED default-on (wave 255).
+        # Cadian Shock Troops carry the 'Shock Troops' sticky-objective ability
+        # (Wahapedia: Cadian-Shock-Troops). The override sets sticky_objective
+        # True for astra_militarum_cadian_shock_troops; honoured by default,
+        # with SWEG_AM_STICKY_CADIAN=0 the byte-identical kill-switch (restores
+        # base.sticky_objective=False for this unit). Paired N=80 (AM-scoped):
+        # Astra Militarum +1.87 (25.9 -> 27.8), gated mean absolute error
+        # 3.96 -> 3.86. Every other unit takes the unchanged merge regardless.
+        # SWEG_GSC_STICKY_FAB (default-on) — genestealer_cults_acolyte_hybrids_with_
+        # hand_flamers / _with_autopistols carry a fabricated sticky_objective citing
+        # Cult Ambush, which has no sticky-objective clause (Cult Ambush is purely a
+        # marker-redeploy / set-back-up ability; the real sticky rule is the Outlander
+        # Claw detachment passive for Atalan Jackals). Gate zeroes them; =0 restores.
+        "sticky_objective": (
+            base.sticky_objective
+            if (
+                (key == "astra_militarum_cadian_shock_troops"
+                 and os.environ.get("SWEG_AM_STICKY_CADIAN", "1") == "0")
+                or (key in ("genestealer_cults_acolyte_hybrids_with_hand_flamers",
+                            "genestealer_cults_acolyte_hybrids_with_autopistols")
+                    and os.environ.get("SWEG_GSC_STICKY_FAB", "1") != "0")
+            )
+            else override.get("sticky_objective", base.sticky_objective)
+        ),
         "resolute_will": override.get("resolute_will", base.resolute_will),
         "murderers_cowl": override.get("murderers_cowl", base.murderers_cowl),
         "gloam_rot": override.get("gloam_rot", base.gloam_rot),
         "righteous_paragons": override.get("righteous_paragons", base.righteous_paragons),
+        "tau_sunforge": override.get("tau_sunforge", base.tau_sunforge),
+        "tau_armour_hunter": override.get("tau_armour_hunter", base.tau_armour_hunter),
+        "tau_targeting_array": override.get("tau_targeting_array", base.tau_targeting_array),
+        "tau_nova_charge": override.get("tau_nova_charge", base.tau_nova_charge),
         "necrodermis": override.get("necrodermis", base.necrodermis),
         "reanimates_with_army": override.get("reanimates_with_army", base.reanimates_with_army),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),
@@ -691,8 +964,22 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         # override key replaces the whole list (overrides almost never touch it;
         # the mapper populates it from BSData). base value defaults to [] when
         # None.
-        "model_loadouts": override.get(
-            "model_loadouts", base.model_loadouts or []
+        "model_loadouts": (
+            # SWEG_IK_CANIS_SINGLE (see min_models above): drop the Sir
+            # Hekhtur loadout slot so the per-model builder fields exactly
+            # one Knight. `=0` restores the verbatim two-slot list.
+            [
+                e for e in override.get(
+                    "model_loadouts", base.model_loadouts or []
+                )
+                if not (isinstance(e, dict)
+                        and e.get("name") == "Sir Hekhtur")
+            ]
+            if (base.key == "imperial_knights_library_canis_rex"
+                and os.environ.get("SWEG_IK_CANIS_SINGLE", "1") != "0")
+            else override.get(
+                "model_loadouts", base.model_loadouts or []
+            )
         ),
         # DAMAGED-BRACKET (task #77) — per-stat Damaged-bracket reduction. The
         # mapper extracts these from BSData; overrides may correct a mis-parse.

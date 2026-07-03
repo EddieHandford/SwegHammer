@@ -72,7 +72,7 @@
     "rule_name": "Rage Embodied (Aura)",
     "quoted_text": "While a friendly KHORNE Legiones Daemonica unit is within 6\" of this model, add 1 to the Attacks characteristic of melee weapons equipped by models in that unit.",
     "trigger": "Skarbrand is on the battlefield; a friendly KHORNE Legiones Daemonica unit is within 6\" of Skarbrand",
-    "effect": "+1 Attacks on every melee weapon in the affected unit. Modelled as plus_one_attack=1 with host_keys gated to the KHORNE Legiones Daemonica catalogue keys (same roster as Bloodthirster's Daemon Lord of Khorne). (loose-edge) plus_one_attack in SwegHammer applies the +1 to every weapon profile carried by the attacker, which over-includes the ranged profiles on Skull Cannon / Khorne Soul Grinder. Direction-correct uplift, strictly weaker than fabricating the missing field; the codex rule explicitly only adds the attack to melee profiles.",
+    "effect": "+1 Attacks on every melee weapon in the affected unit. Modelled as plus_one_attack=1 with host_keys gated to the KHORNE Legiones Daemonica catalogue keys (same roster as Bloodthirster's Daemon Lord of Khorne). Gate SWEG_DAEMONS_SKARBRAND_MELEE (default-off, wave-260 screen): ON adds the mode==\"melee\" guard in units.py so the +1 applies to melee profiles only, fixing the over-credit on Skull Cannon / Khorne Soul Grinder ranged profiles; OFF retains the all-profiles behaviour (direction-correct uplift, strictly weaker than fabricating the missing field).",
     "scope": "keyword-gated"
   },
 
@@ -184,12 +184,12 @@
     "scope": "unit-led"
   },
 
-  "LeaderAbility.Canoptek Cloak": {
+  "LeaderAbility.Rites of Reanimation": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/Technomancer",
     "rule_name": "Rites of Reanimation",
     "quoted_text": "While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.",
     "trigger": "defender's unit is led by a Technomancer in aura range",
-    "effect": "FNP 5+ in aura range (faithful match — our LeaderAbility.name 'Canoptek Cloak' is a flavour label for the codex ability 'Rites of Reanimation')",
+    "effect": "Feel No Pain 5+ in aura range (the codex ability 'Rites of Reanimation'; BSData Technomancer profile id ff0b-8063-e5bc-1646). The LeaderAbility.name now matches the real rule name — the prior 'Canoptek Cloak' label was invented (absent from BSData and Wahapedia).",
     "scope": "unit-led"
   },
 
@@ -408,7 +408,7 @@
     "rule_name": "Vector of Disease / Lord of the Death Guard (Warlord trait)",
     "quoted_text": "Vector of Disease: While this model is leading a unit, melee weapons equipped by models in that unit have the [SUSTAINED HITS 1] and [LANCE] abilities. Lord of the Death Guard (Warlord trait, codex): the first Stratagem your army uses each battle round costs 0CP.",
     "trigger": "attacker's unit is led by a Lord of Contagion in aura range (Vector of Disease aura); OR this army's Warlord is a Lord of Contagion (Lord of the Death Guard)",
-    "effect": "+1 to Wound in aura range (proxy for Vector of Disease's SUSTAINED HITS 1 + LANCE on melee — neither keyword modelled). When fielded as Warlord, additionally: the first Stratagem this army fires each round has its CP cost refunded immediately, via `Army.first_stratagem_free_this_round` re-armed at the top of every Command phase. The Warlord-trait gate fires only when `warlord_ability(army)` resolves to this LeaderAbility — a non-Warlord LoC does not enable the discount.",
+    "effect": "SWEG_DG_CONTAGION_MELEE_WOUND=0 (default, wave-260 gate OFF): +1 to Wound on all attacks in aura range (proxy for Vector of Disease's SUSTAINED HITS 1 + LANCE on melee -- neither keyword modelled; over-credits ranged). SWEG_DG_CONTAGION_MELEE_WOUND=1 (gate ON): +1 to Wound restricted to MELEE attacks only (plus_one_to_wound_melee_only, consumed with mode=='melee' guard in code/units.py), fixing the ranged over-credit. Real rule restricts to melee weapons. When fielded as Warlord in either gate state: the first Stratagem this army fires each round has its Command Point cost refunded immediately, via Army.first_stratagem_free_this_round re-armed at the top of every Command phase. The Warlord-trait gate fires only when warlord_ability(army) resolves to this LeaderAbility -- a non-Warlord Lord of Contagion does not enable the discount. See docs/OVERPOLE_UNIT_AUDIT.md rank 5.",
     "scope": "unit-led"
   },
 
@@ -417,7 +417,7 @@
     "rule_name": "The Destroyer Hive",
     "quoted_text": "While this model is leading a unit, each time a melee attack targets that unit, subtract 1 from the Hit roll.",
     "trigger": "defender's unit is led by Typhus in aura range",
-    "effect": "FNP 5+ in aura range (defensive proxy; the real Destroyer Hive subtracts 1 from Hit rolls on melee attacks against the led unit. SwegHammer's leader-aura layer does not yet expose a melee-only -1-to-hit modifier on the target side, so we proxy the defensive bundle as FNP 5+ — strictly weaker on melee-heavy match-ups but direction-correct. Once a target-side -1-to-hit-melee mechanic lands, swap fnp=5 → hit_penalty_melee=1.)",
+    "effect": "SWEG_DG_TYPHUS_MELEE_ONLY=0 (default, wave-260 gate OFF): feel-no-pain 5+ on ALL incoming damage (fnp=5 in aura range; over-credits ranged defence). SWEG_DG_TYPHUS_MELEE_ONLY=1 (gate ON): feel-no-pain 5+ restricted to MELEE attacks only (fnp_melee_only=5, consumed in code/units.py with mode=='melee' guard at the tgt_fnp_buff composition step), removing the ranged over-credit. The real Destroyer Hive subtracts 1 from Hit rolls on melee attacks targeting the led unit; feel-no-pain 5+ remains a proxy for that melee-defensive bundle. Once a target-side -1-to-hit-melee mechanic lands, swap fnp_melee_only=5 to hit_penalty_melee=1. See docs/OVERPOLE_UNIT_AUDIT.md rank 3.",
     "scope": "unit-led"
   },
 
@@ -479,8 +479,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/K-hl",
     "rule_name": "Kindred Hero",
     "quoted_text": "While this model is leading a unit, weapons equipped by models in that unit have the [LETHAL HITS] ability.",
-    "trigger": "attacker's unit is led by a Leagues of Votann Kâhl in aura range",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Kindred Hero grants LETHAL HITS to all weapons in the led unit — Critical Hits auto-wound. The simulator does not model the LETHAL HITS keyword. VOTANN-JUDGEMENT-TOKENS-V1 (2026-05-28) downgraded the earlier +1-to-hit proxy to re-roll Hit 1s: on a BS4+ shooter LETHAL HITS yields ~+17% wounds, the +1-to-hit proxy yielded ~+33% wounds — a roughly 2× over-buff. Re-roll Hit 1s matches LETHAL HITS magnitude on BS4+ and is strictly weaker on melee against high-T targets, erring on the under-buff side)",
+    "trigger": "attacker's unit is led by a Leagues of Votann Kâhl in aura range (host_keys: Hearthkyn Warriors or Einhyr Hearthguard)",
+    "effect": "the led unit's weapons (ranged AND melee) gain the [LETHAL HITS] ability — a Critical Hit (natural 6 to Hit) automatically wounds. Implemented via lethal_hits_ranged=True (consumed code/units.py attack() ranged side, mode != 'melee' guard) and lethal_hits_melee=True (consumed code/units.py attack() melee side, mode == 'melee' guard), both gated by SWEG_VOTANN_KAHL_LETHAL (default-OFF). host_keys gates the aura to the Kâhl's two legal attach targets: Hearthkyn Warriors and Einhyr Hearthguard. When the gate is OFF the entry falls back to the prior reroll_hit_ones proxy (re-roll Hit rolls of 1) on Hearthkyn Warriors only. NOTE: turning the gate ON removes the led Hearthkyn's re-roll-1s, so it pairs with the rank-11 native re-roll-1s lever.",
     "scope": "unit-led"
   },
 

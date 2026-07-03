@@ -287,6 +287,17 @@ class Army:
         # "this round" because the simulator activation loop doesn't break
         # round-internal phases out separately. None = not active.
         self.blood_tithe_lethal_hits_round: Optional[int] = None
+        # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 1, gated
+        # SWEG_WE_BLOOD_TITHE_SCOPED, adopted default-on wave 260, =0 kill-switch).
+        # When the scope gate is ON, the 4-BT Lethal Hits spend records the
+        # single recipient unit's uid and the phase it applies in here, and
+        # Unit.attack restricts the [LETHAL HITS] grant to that one unit in
+        # that one phase (the cited rule grants it to ONE WORLD EATERS unit
+        # for ONE phase, not army-wide for the round). None = not recorded /
+        # gate off (the gate-off army-wide read ignores these). Cited as
+        # `simulator.blood_tithe`.
+        self.blood_tithe_lethal_hits_uid: Optional[str] = None
+        self.blood_tithe_lethal_hits_phase: Optional[str] = None
         # World Eaters army rule — Blessings of Khorne (10e). At the start of
         # each battle round a World Eaters army rolls 8D6 and activates up to
         # 2 Blessings of Khorne; each Blessing requires a double (or triple)
@@ -397,6 +408,15 @@ class Army:
         # spamming the same anchor 5 rounds in a row. Cited as part of
         # `simulator.oath_of_moment` (heuristic, not a codex constraint).
         self.prev_oath_target_uid: Optional[str] = None
+        # Adeptus Custodes Auric Champions — Assemblage of Might (10e). The enemy
+        # unit designated at the start of this army's Command phase; ADEPTUS
+        # CUSTODES CHARACTER attacks against it get +1 to the Wound roll until the
+        # next Command phase. Set by Battle._run_round when
+        # SWEG_CUSTODES_ASSEMBLAGE_OF_MIGHT="1" and the army's detachment carries
+        # assemblage_of_might=True (AURIC_CHAMPIONS); None when the gate is off or
+        # the army is not Auric Champions, so Unit.attack adds nothing and the off
+        # path is byte-identical. Cited as `AURIC_CHAMPIONS.assemblage_of_might`.
+        self._assemblage_target_uid: Optional[str] = None
         # Adeptus Mechanicus — Belisarius Cawl's "Invocation of Machine
         # Vengeance" Canticle (10e). At the start of each Command phase, while
         # a Belisarius Cawl model is alive, the AdMech player designates one

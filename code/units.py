@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import functools
 import math
 import os
@@ -91,6 +92,38 @@ def _rolldmg_enabled() -> bool:
     NOTHING and returns the mean — keeping the OFF and per-model-mean RNG
     streams byte-identical to the legacy expected-value frame."""
     return os.environ.get("SWEG_ROLLDMG", "1") != "0"
+
+
+def _tau_battlesuit_weapons_enabled() -> bool:
+    """True when SWEG_TAU_BATTLESUIT_WEAPONS != '0' (adopted default-on, wave 256).
+    Restores the BSData-dropped simultaneously-equipped battlesuit weapons:
+    the Crisis Fireknife missile pod (a 2nd additive ranged profile alongside
+    the plasma rifle) and the Crisis Sunforge second fusion blaster (modelled as
+    attacks=2 on the single mapped fusion-blaster profile, because a duplicate
+    'fusion blaster' extra_ranged_profile collapses into one mutex group under
+    _strip_mode_suffix). Read per-build (not cached) so tests can toggle it via
+    os.environ within a process; when set to 0, _build_catalog skips the injection
+    block entirely and the two units are byte-identical to the legacy catalogue.
+    See data/rule_citations.d/tau_empire.json keys simulator.tau_crisis_fireknife_missile_pod
+    and simulator.tau_crisis_sunforge_second_fusion_blaster."""
+    return os.environ.get("SWEG_TAU_BATTLESUIT_WEAPONS", "1") != "0"
+
+
+def _am_battleline_specials_enabled() -> bool:
+    """True when SWEG_AM_BATTLELINE_SPECIALS == '1' (default-OFF). Restores the
+    2 special weapons per 10 models that the BSData v10.6.0 mapper drops from
+    the Cadian Shock Troops and Death Korps of Krieg datasheets: the mapper
+    collapses each to a single lasgun-only model type (one model_loadouts entry,
+    extra_ranged_profiles empty), even though every 10-model squad fields up to
+    2 special weapons (plasma gun / meltagun / flamer / grenade launcher) and
+    comparable squads (Kasrkin, Tempestus Scions, Cadian Command Squad) ARE
+    mapped heterogeneously. Read per-build (not cached) so tests can toggle it
+    via os.environ within a process; when unset (or any value other than '1'),
+    _build_catalog skips the correction entirely and the two units are
+    byte-identical to the legacy lasgun-only catalogue. See
+    data/rule_citations.d/astra_militarum.json key
+    simulator.am_battleline_special_weapons."""
+    return os.environ.get("SWEG_AM_BATTLELINE_SPECIALS") == "1"
 
 
 def roll_damage(dice_str: str, mean_fallback: float) -> float:
@@ -507,6 +540,14 @@ class UnitProfile:
     # (+1 to Hit/Wound vs an enemy that killed a friendly Adepta Sororitas unit)
     # is a follow-up code build. Cited as `simulator.storm_of_retribution`.
     storm_of_retribution: bool = False
+    # Leagues of Votann native re-roll-a-Hit-roll-of-1 on ranged attacks
+    # (override-only, per-datasheet). Panspectral Scanning (Hearthkyn),
+    # Panspectral Scanner (Hekaton), Decisive Destruction (Einhyr — the
+    # codex restricts that one to the closest eligible target; see the
+    # read-site comment for the documented approximation). Read in
+    # Unit.attack when mode != 'melee' behind SWEG_VOTANN_NATIVE_REROLL.
+    # Cited as `simulator.votann_native_reroll_ranged`.
+    votann_native_reroll_ranged: bool = False
     # CSM Forgefiend datasheet ability "Daemonic Ordnance" (10e): each time
     # this model is selected to shoot, it can use this ability. If it does,
     # until the end of the phase, its ranged weapons have the [DEVASTATING
@@ -567,6 +608,15 @@ class UnitProfile:
     # BSData by the mapper via `extract_fights_first`. Cited as
     # `simulator.fights_first_keyword`.
     fights_first: bool = False
+    # WAVE-260 — World Eaters "Blessings of Khorne" army-rule ability carrier.
+    # True iff the datasheet carries the Blessings of Khorne ability infoLink
+    # (parsed by the mapper via `extract_blessings_of_khorne`). The army rule
+    # only buffs "units from your army WITH THIS ABILITY", so Khorne Daemon
+    # allies (Bloodletters, Flesh Hounds, Bloodcrushers) read False and are
+    # excluded by the gated read in Unit.attack (SWEG_WE_BLESSINGS_ABILITY_GATE).
+    # Default True so non-World-Eaters / pre-regen profiles stay permissive
+    # (the read is faction-gated). Cited as `simulator.blessings_of_khorne`.
+    has_blessings_of_khorne: bool = True
     # Phase I — deployment abilities (decided pre-Round 1 by the simulator)
     deep_strike: bool = False                  # starts in Reserves; arrives from Round 2
     scout_distance: int = 0                    # pre-game Normal Move up to N inches
@@ -620,6 +670,40 @@ class UnitProfile:
     # makes against qualifying targets. Cited as
     # `simulator.righteous_paragons`.
     righteous_paragons: bool = False
+    # T'AU EMPIRE — Sunforge (Crisis Sunforge Battlesuits datasheet ability,
+    # 10e). Wahapedia verbatim: "Each time a model in this unit makes a ranged
+    # attack that targets a MONSTER or VEHICLE unit, you can re-roll the Wound
+    # roll and you can re-roll the Damage roll." Ranged-only, target-keyword-
+    # gated. Wound re-roll reuses att_reroll_all_wounds; damage re-roll is a
+    # per-shot Damage-dice re-roll. Set on the Crisis Sunforge Battlesuits
+    # UnitProfile via overrides.json. Gated SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES
+    # (adopted default-on, wave 256; set to 0 to disable). Cited as `simulator.tau_sunforge`.
+    tau_sunforge: bool = False
+    # T'AU EMPIRE — Armour Hunter (Hammerhead Gunship datasheet ability, 10e).
+    # Wahapedia verbatim: "Each time this model makes an attack that targets a
+    # MONSTER or VEHICLE, add 1 to the Hit roll." Mirrors righteous_paragons'
+    # hit-half but +1-to-Hit ONLY (no wound bonus) and applies to both ranged
+    # and melee. Set on the Hammerhead Gunship UnitProfile via overrides.json.
+    # Gated SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES (adopted default-on, wave 256;
+    # set to 0 to disable). Cited as `simulator.tau_armour_hunter`.
+    tau_armour_hunter: bool = False
+    # T'AU EMPIRE — Targeting Array (Hammerhead Gunship datasheet ability, 10e).
+    # Wahapedia verbatim: "Each time this model is selected to shoot, you can
+    # re-roll one Hit roll or you can re-roll one Wound roll when resolving
+    # those attacks." One re-roll of a single Hit OR Wound die per shooting
+    # activation — modelled by reusing the existing single-slot Code-Chivalric
+    # re-roll machinery (one Wound-die re-roll per activation). Set on the
+    # Hammerhead Gunship UnitProfile via overrides.json. Gated
+    # SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES (adopted default-on, wave 256;
+    # set to 0 to disable). Cited as `simulator.tau_targeting_array`.
+    tau_targeting_array: bool = False
+    # T'au Riptide "Nova Charge" (10e datasheet ability, BSData id
+    # 8fb6-aff7-75ac-f206): once per battle, when this unit is selected to shoot,
+    # one ranged weapon gains [DEVASTATING WOUNDS] until end of phase. Set via
+    # data/overrides.json on the Riptide; gated SWEG_TAU_NOVA_CHARGE. Modelled as
+    # a whole-unit transient for the phase (same approximation as Unholy Bloodshed
+    # / Daemonic Ordnance). Cited as `simulator.tau_nova_charge`.
+    tau_nova_charge: bool = False
     # MAP-4 — per-unit Reanimation Protocols eligibility flag.
     # 10e Necron datasheets all CARRY the "Reanimation Protocols" ability, but
     # the ability text excludes CHARACTER / MONSTER / VEHICLE models from
@@ -971,6 +1055,16 @@ class Unit:
         #       `orders._apply_order`; cleared with all other transient flags.
         #       Cited as `Order.First Rank, Fire! Second Rank, Fire!`.
         "transient_frfsrf_active",
+        # Astra Militarum Voice of Command Order — Duty and Honour!:
+        #   transient_plus_one_oc — Duty and Honour! Order. While True, the
+        #       affected unit's models add 1 to their Objective Control
+        #       characteristic (and, in the faithful rule, Leadership — see
+        #       note in _effective_oc; Leadership is not read by the scoring
+        #       path so only the OC half is modelled). Set by
+        #       `orders._apply_order`; cleared with all other transient flags.
+        #       Read by `Battle._effective_oc` behind SWEG_AM_DUTY_AND_HONOUR.
+        #       Cited as `Order.Duty and Honour!`.
+        "transient_plus_one_oc",
         "transient_plus_one_to_wound_shooting",
         "transient_invuln_4",
         "transient_minus_one_damage_taken",
@@ -1012,6 +1106,9 @@ class Unit:
         "transient_reroll_wounds_ones",
         "transient_reroll_all_hits",
         "transient_devastating_wounds",
+        "transient_devastating_wounds_vs_infantry",
+        "transient_brides_of_death",
+        "transient_set_melee_attacks",
         "transient_hazardous",
         # Go To Ground (10e core Battle Tactic Stratagem, 1CP, env-gated
         # SWEG_GTG). Defender buff: a targeted INFANTRY unit gains a 6+
@@ -1204,6 +1301,10 @@ class Unit:
         # First Rank, Fire! Second Rank, Fire! (AM Order): +1 Attacks for
         # Rapid Fire weapons (unconditional, any range). Cleared per round.
         self.transient_frfsrf_active: bool = False
+        # Duty and Honour! (AM Order): +1 Objective Control on the affected
+        # unit's models for the round. Read by Battle._effective_oc behind
+        # SWEG_AM_DUTY_AND_HONOUR; cleared per round. Default False = no-op.
+        self.transient_plus_one_oc: bool = False
         # Saim-Hann (Aeldari) per-round stratagem flag.
         self.transient_halve_damage: bool = False
         # Awakened Dynasty (Necrons) Protocol of the Undying Legions: integer
@@ -1221,6 +1322,18 @@ class Unit:
         # See simulator._apply_dark_pacts for the grant site.
         self.transient_reroll_all_hits: bool = False
         self.transient_devastating_wounds: bool = False
+        # Drukhari Power From Pain per-datasheet transient flags
+        # (SWEG_DRUKHARI_PFP_PERDATASHEET, default OFF). All three default to
+        # their inert state so the OFF path is byte-identical.
+        # transient_devastating_wounds_vs_infantry: Incubi 'Decapitating
+        #   Strikes' — melee [DEVASTATING WOUNDS] vs INFANTRY targets only.
+        # transient_brides_of_death: Lelith Hesperax 'Brides of Death'
+        #   — +1 Strength and +1 Armour Penetration on melee attacks.
+        # transient_set_melee_attacks: Wracks 'Experimental Enhancements'
+        #   — SET melee Attacks to this fixed value (0 = inactive).
+        self.transient_devastating_wounds_vs_infantry: bool = False
+        self.transient_brides_of_death: bool = False
+        self.transient_set_melee_attacks: int = 0
         # Daemonic Ordnance (Forgefiend datasheet ability): ranged weapons gain
         # [HAZARDOUS] for this shooting activation when the ability is elected.
         # Cleared per-round by _clear_transient_stratagem_flags. See
@@ -1487,6 +1600,20 @@ class Unit:
         # consult and set. Unset/"1" (the default) uses the codex-correct
         # per-phase flag; "0" reverts to the legacy per-round flag.
         _aof_per_phase: bool = __import__("os").environ.get("SWEG_AOF_PER_PHASE", "1") == "1"
+        # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 2, gated
+        # SWEG_WE_BLESSINGS_ABILITY_GATE, adopted default-on wave 260, =0 kill-switch).
+        # When set, the three World Eaters Blessings of Khorne legs below
+        # (Cleaving Blows melee AP+1, Warp Blades melee LETHAL HITS, Martial
+        # Excellence melee SUSTAINED HITS 1) additionally require
+        # p.has_blessings_of_khorne, so Khorne Daemon allies that carry no
+        # Blessings of Khorne ability infoLink (Bloodletters, Flesh Hounds,
+        # Bloodcrushers) are excluded — the cited rule applies only to "units
+        # from your army WITH THIS ABILITY". Default-off leaves the existing
+        # faction-only gating byte-identical. Cited as
+        # `simulator.blessings_of_khorne`.
+        _blessings_ability_gate: bool = os.environ.get(
+            "SWEG_WE_BLESSINGS_ABILITY_GATE", "1",
+        ) != "0"
 
         # ---- Buff lookups (detachment + in-range leader auras) -------------
         # Attacker side: detachment passives + every in-range friendly leader
@@ -1961,6 +2088,24 @@ class Unit:
                 # add is safe. Cited as `simulator.combat_drugs`.
                 n_attacks += int(getattr(self, "combat_drug_extra_melee_attacks", 0))
                 strength += int(getattr(self, "combat_drug_melee_strength_bonus", 0))
+                # ---- Drukhari Power From Pain per-datasheet Pain abilities
+                # (SWEG_DRUKHARI_PFP_PERDATASHEET, default OFF). Set by
+                # _apply_power_from_pain_spend -> _grant_pain_ability on the
+                # Empowered squad. Consumed here; defaults are 0/False on all
+                # units unless the spend sets them, so the OFF path is a no-op.
+                # Lelith Hesperax 'Brides of Death': +1 Strength and +1 Armour
+                # Penetration on melee attacks (improve by 1 each).
+                if getattr(self, "transient_brides_of_death", False):
+                    strength += 1
+                    ap = ap - 1  # lower (more negative) AP = better penetration
+                # Wracks 'Experimental Enhancements': SET melee Attacks to a
+                # fixed value (3). Placed AFTER the combat-drug +Attacks add
+                # so the SET overwrites; faithful because the ability sets a
+                # fixed total, not an additive bonus, and Wracks are not a
+                # WYCH CULT unit (combat-drug adds are 0 for them anyway).
+                _set_atk = int(getattr(self, "transient_set_melee_attacks", 0))
+                if _set_atk > 0:
+                    n_attacks = _set_atk
                 # ---- World Eaters Exalted Eightbound — Rend and Tear (datasheet
                 # ability, BSData v10.6.0 verbatim): "Each time a model in this
                 # unit makes a melee attack that targets a Monster or Vehicle
@@ -2009,6 +2154,27 @@ class Unit:
                 ignore_cover = bool(
                     p.ignores_cover
                     or getattr(self, "transient_ignores_cover_this_turn", False)
+                    or (
+                        # SWEG_TAU_MARKERLIGHT_IGNORES_COVER (For the Greater Good army
+                        # rule, BSData eeb6-c42-48f7-cc21): a Guided T'au attack against a
+                        # Spotted unit marked by a MARKERLIGHT-keyword Observer gains
+                        # [IGNORES COVER]. `guided_los_enemy_uids` is built exclusively
+                        # from MARKERLIGHT carriers in Battle._run_markerlight_phase, so
+                        # every uid in it qualifies under the rule. Same access as the
+                        # base Guided +1 at ~line 3090; we are already in the ranged
+                        # branch here. ADOPTED default-on 2026-07-01 (`=0` is the
+                        # byte-identical kill-switch). Screened T'au-scoped N=80 vs sc24a:
+                        # gated 2.50 -> 2.49, T'au +1.46 toward its real 54.3; a companion
+                        # target-bias heuristic was screened and REJECTED (it over-
+                        # concentrated fire and dragged the metric +0.01). Cited
+                        # simulator.tau_markerlight_ignores_cover.
+                        __import__("os").environ.get(
+                            "SWEG_TAU_MARKERLIGHT_IGNORES_COVER", "1") != "0"
+                        and (p.faction or "").lower() in ("t'au empire", "tau empire")
+                        and target.uid in getattr(
+                            getattr(self, "army_ref", None),
+                            "guided_los_enemy_uids", set())
+                    )
                 )
                 # LEADERABILITY-SCHEMA: Lord of Change "Daemon Lord of
                 # Tzeentch" aura — +1 to the Strength characteristic of
@@ -2073,7 +2239,18 @@ class Unit:
             # round. AP+1 maps to subtracting 1 from `ap` (AP-1 -> AP-2
             # etc.) — same convention as SHIELD_HOST.melee_ap_plus_one.
             # Cited as `simulator.blessings_of_khorne`.
-            if mode == "melee" and p.faction == "World Eaters":
+            #
+            # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 2,
+            # gated SWEG_WE_BLESSINGS_ABILITY_GATE, adopted default-on wave 260,
+            # =0 kill-switch). The cited rule applies "to all units from your army WITH
+            # THIS ABILITY", so Khorne Daemon allies that carry no Blessings of
+            # Khorne infoLink (Bloodletters, Flesh Hounds, Bloodcrushers) must
+            # NOT benefit. The faction-only gate over-credits them. When the
+            # gate is ON, additionally require p.has_blessings_of_khorne; OFF
+            # leaves the faction-only behaviour byte-identical.
+            if mode == "melee" and p.faction == "World Eaters" and (
+                not _blessings_ability_gate or p.has_blessings_of_khorne
+            ):
                 _own_army_cb = getattr(self, "army_ref", None)
                 if _own_army_cb is not None:
                     _cb_round = getattr(
@@ -2150,7 +2327,22 @@ class Unit:
                 n_attacks += same_squad // 5
 
             # ---- Buffs: +N extra attacks per weapon (detachment-only field) ----
-            if att_buffs["plus_one_attack"]:
+            # Gate SWEG_DAEMONS_SKARBRAND_MELEE (default-off, wave-260 screen):
+            # docs/OVERPOLE_UNIT_AUDIT.md rank 4, rule_citations key
+            # "LeaderAbility.Rage Embodied" — the cited rule adds +1 Attack to
+            # melee weapons only ("add 1 to the Attacks characteristic of melee
+            # weapons equipped by models in that unit"). Gate ON: add the melee-
+            # only guard, fixing the over-credit on ranged profiles (Skull Cannon,
+            # Khorne Soul Grinder). Gate OFF: all-profiles behaviour, byte-identical
+            # to pre-wave-260. Sibling guards at lines 2359 and 2369 already carry
+            # this pattern for plus_one_to_hit_melee_only / plus_one_to_wound_melee_only.
+            # adopted default-on wave 260, =0 kill-switch.
+            _skarbrand_melee_gate = (
+                __import__("os").environ.get("SWEG_DAEMONS_SKARBRAND_MELEE", "1") != "0"
+            )
+            if att_buffs["plus_one_attack"] and (
+                not _skarbrand_melee_gate or mode == "melee"
+            ):
                 n_attacks += int(att_buffs["plus_one_attack"])
 
             if hit_target is None:
@@ -2229,7 +2421,27 @@ class Unit:
                 _gthr = getattr(self.profile, "damaged_threshold", 0) or 0
                 _ghp = getattr(self.profile, "damaged_hit_penalty", 0) or 0
                 if _gthr and _ghp and self.current_health <= _gthr:
-                    hit_mod_delta -= _ghp
+                    # ---- Leagues of Votann Hekaton Land Fortress — MultiCOG Targeting
+                    # (datasheet ability, 10e). Wahapedia verbatim: "Each time this model
+                    # makes a ranged attack, you can ignore any or all modifiers to the
+                    # following: that attack's Ballistic Skill characteristic; the Hit
+                    # roll." The model therefore ignores its OWN damaged-bracket -1-to-Hit
+                    # on RANGED attacks (you always elect to ignore the negative modifier).
+                    # SCOPE: ranged-only (the ability reads "makes a ranged attack"), so
+                    # the damaged penalty STILL applies to the Hekaton's melee (Armoured
+                    # wheels). Gated SWEG_VOTANN_HEKATON_MULTICOG — ADOPTED
+                    # default-on (wave 257, data-correctness fidelity fix, metric-
+                    # inert); SWEG_VOTANN_HEKATON_MULTICOG=0 restores the original
+                    # `hit_mod_delta -= _ghp` byte-identically. Cited
+                    # `simulator.hekaton_multicog_targeting`.
+                    _multicog = (
+                        mode != "melee"
+                        and (p.faction or "") == "Leagues of Votann"
+                        and getattr(p, "name", "") == "Hekaton Land Fortress"
+                        and __import__("os").environ.get("SWEG_VOTANN_HEKATON_MULTICOG", "1") != "0"
+                    )
+                    if not _multicog:
+                        hit_mod_delta -= _ghp
 
             # ---- Buffs: +1 to hit / +1 to wound (any of leader aura, detachment,
             # enhancement — all merged to a single bool by leaders.effective_buffs).
@@ -2246,11 +2458,32 @@ class Unit:
             # `plus_one_to_wound_melee_only` fires only in the Fight phase (melee).
             # Used for leader auras whose codex text reads "each time a model in
             # that unit makes a melee attack, add 1 to the Wound roll" (e.g. CSM
-            # Dark Apostle "Dark Zealotry"). Gated SWEG_CSM_ABILITIES (OFF keeps
-            # the prior reroll_hit_ones proxy unchanged). Cited as
-            # `simulator.dark_apostle_dark_zealotry`.
+            # Dark Apostle "Dark Zealotry"; Death Guard Lord of Contagion "Vector
+            # of Disease" when SWEG_DG_CONTAGION_MELEE_WOUND=1). Primary gate is
+            # SWEG_CSM_ABILITIES (OFF keeps the Dark Apostle reroll_hit_ones proxy
+            # unchanged). Also fires when SWEG_DG_CONTAGION_MELEE_WOUND=1 so the
+            # Death Guard scope fix is decoupled from the CSM gate.
+            # Cited as `simulator.dark_apostle_dark_zealotry`.
             if (att_buffs.get("plus_one_to_wound_melee_only") and mode == "melee"
-                    and __import__("os").environ.get("SWEG_CSM_ABILITIES", "1") != "0"):
+                    and (__import__("os").environ.get("SWEG_CSM_ABILITIES", "1") != "0"
+                         or __import__("os").environ.get("SWEG_DG_CONTAGION_MELEE_WOUND", "1") != "0")):
+                wound_mod_delta += 1
+
+            # ---- Adeptus Custodes Auric Champions — Assemblage of Might (10e
+            # detachment rule, gated SWEG_CUSTODES_ASSEMBLAGE_OF_MIGHT). "each time
+            # a model in an ADEPTUS CUSTODES Character unit from your army makes an
+            # attack that targets that [designated] enemy unit, add 1 to the Wound
+            # roll." army._assemblage_target_uid is designated once per Command
+            # phase in Battle._run_round, ONLY for an Auric Champions army with the
+            # gate on; it is None otherwise, so this adds nothing on the off /
+            # non-Auric path (target.uid never equals None) — byte-identical.
+            # Attacker-side +1 to wound, ranged and melee (the rule is
+            # mode-agnostic). Cited `AURIC_CHAMPIONS.assemblage_of_might`.
+            if (self.profile.faction == "Adeptus Custodes"
+                    and "CHARACTER" in (self.profile.unit_keywords or ())
+                    and target.uid == getattr(
+                        getattr(self, "army_ref", None),
+                        "_assemblage_target_uid", None)):
                 wound_mod_delta += 1
 
             # ---- Chaos Knights — Harbingers of Dread (army rule, 10e). Verbatim
@@ -2284,6 +2517,71 @@ class Unit:
                 )
             ):
                 wound_mod_delta += 1
+
+            # ---- Chaos Knights — Harbingers of Dread: Doom (independent gate,
+            # SWEG_CK_DOOM, default OFF). BSData v10.6.0 (Chaos - Chaos Knights
+            # Library.cat.gz) verbatim rule text:
+            # "2 - Doom: Each time this model makes an attack, if the target is
+            # Battle-shocked, add 1 to the Wound roll."
+            # Doom is an independent Harbingers of Dread pick (ability 2) — it
+            # fires per attack by the Chaos Knights model, not as an aura, and
+            # does not overlap with Despair or Darkness (which affect Ld and Hit
+            # rolls respectively). Under the existing SWEG_HARBINGERS=1 path,
+            # Doom is suppressed to stay within the 3-pick rule-limit (Despair,
+            # Darkness, Dismay/Delirium fill the picks). This gate lifts that
+            # suppression independently, modelling Doom as an additional active
+            # Dread pick whenever SWEG_CK_DOOM=1. Direction: raises Chaos Knights
+            # win rate (they are under-poled: sim ~37-40 % vs real ~45 %). When
+            # OFF (default, SWEG_CK_DOOM unset or "0"): byte-identical to base.
+            # Cited as `simulator.harbingers_of_dread_doom`.
+            if (
+                mode in ("melee", "ranged")
+                and (p.faction or "") == "Chaos Knights"
+                and __import__("os").environ.get("SWEG_CK_DOOM", "0") == "1"
+                and target.is_currently_battle_shocked(
+                    getattr(
+                        getattr(getattr(self, "army_ref", None), "_battle_ref", None),
+                        "_current_round",
+                        0,
+                    )
+                )
+            ):
+                wound_mod_delta += 1
+
+            # ---- Drukhari Incubi — Tormentors (datasheet ability, 10e).
+            # BSData v10.6.0 (Aeldari - Aeldari Library.cat.gz, Incubi
+            # datasheet "Tormentors" ability id 8ffb-f801-cd2f-d05e) verbatim:
+            # "At the start of the Fight phase, each enemy unit within
+            # Engagement Range of one or more units with this ability must
+            # take a Battle-shock test. Each time a model in this unit makes a
+            # melee attack that targets a Battle-shocked unit, add 1 to the Hit
+            # roll." This block is the +1-to-Hit half (melee only). The
+            # force-a-Battle-shock-test half is applied in code/simulator.py
+            # (Battle._apply_drukhari_tormentors_forced_tests) at the start of
+            # each Fight phase; a failed test sets the target's persistent
+            # `battleshocked_until_round` marker, which is read here through the
+            # SAME is_currently_battle_shocked(current_round) check the Chaos
+            # Knights Doom block above uses. The +1 is added to hit_mod_delta
+            # and composes with any other +1-to-Hit source through the existing
+            # 10e +/-1 Hit-modifier cap (hit_mod_clamped) — it never doubles and
+            # never bypasses the cap. Faction- and datasheet-gated to Drukhari
+            # Incubi. Env-gated SWEG_DRUKHARI_TORMENTORS (default OFF); when OFF
+            # (unset or "0") this path is dead and byte-identical to base.
+            # Cited as `simulator.drukhari_tormentors`.
+            if (
+                mode == "melee"
+                and (p.faction or "") == "Drukhari"
+                and (p.name or "") == "Incubi"
+                and __import__("os").environ.get("SWEG_DRUKHARI_TORMENTORS", "1") != "0"
+                and target.is_currently_battle_shocked(
+                    getattr(
+                        getattr(getattr(self, "army_ref", None), "_battle_ref", None),
+                        "_current_round",
+                        0,
+                    )
+                )
+            ):
+                hit_mod_delta += 1
 
             # ---- Chaos Knights Iconoclast Fiefdom — Dread Tyrants Aura (10e).
             # BSData v10.6.0 (Chaos - Chaos Knights Library.cat.gz) verbatim
@@ -2836,23 +3134,34 @@ class Unit:
             # MARKERLIGHT unit (a conservative under-approximation of "any
             # target visible to a Markerlight unit"). Cited as
             # `simulator.markerlights`.
-            # GATE 2 — SWEG_TAU_MARKERLIGHT_BASE_LOS (default OFF, byte-identical
-            # when unset). The base Guided buff (+1 to Hit here, [SUSTAINED HITS
+            # GATE 2 — SWEG_TAU_MARKERLIGHT_BASE_LOS (ADOPTED default-on wave 254;
+            # =0 is the byte-identical kill-switch). The base Guided buff (+1 to Hit here, [SUSTAINED HITS
             # 1] in the sustained-hits branch below) is gated on the Marked set
-            # populated by Battle._run_markerlight_phase. The base sim gates it
-            # on `guided_enemy_uids`, which is gated on a per-carrier BS to-hit
-            # roll — firing the base buff only ~half the time the real rule
-            # (a line-of-sight / markerlight-token condition) does. When the
-            # gate is ON, read the line-of-sight set `guided_los_enemy_uids`
-            # instead (built without the to-hit roll). Mont'ka [LETHAL HITS]
-            # still reads `guided_enemy_uids` elsewhere, so only the base buff
-            # changes. When OFF this resolves to `guided_enemy_uids` exactly as
-            # before. Cited as `simulator.tau_markerlight_base_los`.
+            # populated by Battle._run_markerlight_phase. The legacy sim gated it
+            # on `guided_enemy_uids`, which is gated on a per-carrier Ballistic
+            # Skill to-hit roll — firing the base buff only ~half the time the
+            # real rule does. The verbatim rule grants the buff purely on the
+            # line-of-sight / markerlight-token condition ("while targeting an
+            # enemy unit that is visible to one or more friendly MARKERLIGHT
+            # units"), with NO per-attacker to-hit roll, so the line-of-sight
+            # set `guided_los_enemy_uids` (built without the to-hit roll) is the
+            # faithful Marked set. ADOPTED default-on (wave 254): this completes
+            # wave 252, which made the PRODUCER (simulator.py) build the
+            # line-of-sight set default-on but left this CONSUMER gate-read at
+            # `== "1"` (default-off), so the line-of-sight set was built every
+            # Shooting phase and silently discarded at the production default.
+            # Paired N=80 (T'au-scoped, merged into the sc14a anchor): gated mean
+            # absolute error 4.20 -> 3.96 (-0.24); T'au +3.81 (43.6 -> 47.4),
+            # moving the under-pole toward its real 54.3. SWEG_TAU_MARKERLIGHT_BASE_LOS=0
+            # is the kill-switch restoring the legacy to-hit-gated `guided_enemy_uids`
+            # (byte-identical to pre-adoption). Mont'ka [LETHAL HITS] still reads
+            # `guided_enemy_uids` elsewhere, so only the base buff changes.
+            # Cited as `simulator.tau_markerlight_base_los`.
             _ml_guided_attr = (
                 "guided_los_enemy_uids"
                 if __import__("os").environ.get(
-                    "SWEG_TAU_MARKERLIGHT_BASE_LOS"
-                ) == "1"
+                    "SWEG_TAU_MARKERLIGHT_BASE_LOS", "1"
+                ) != "0"
                 else "guided_enemy_uids"
             )
             _tau_markerlight_guided = (
@@ -3273,6 +3582,33 @@ class Unit:
             # a full failure re-roll, not just nat-1s.
             att_reroll_all_wounds = False
 
+            # ---- T'au Empire Sunforge + Armour Hunter (datasheet abilities,
+            # 10e). Gated SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES (adopted default-on,
+            # wave 256; set to 0 to disable).
+            # Sunforge (Crisis Sunforge Battlesuits): ranged attacks vs MONSTER/
+            #   VEHICLE may re-roll the Wound roll AND re-roll the Damage roll.
+            # Armour Hunter (Hammerhead Gunship): +1 to Hit vs MONSTER/VEHICLE
+            #   (both ranged and melee), modelled exactly like Righteous Paragons'
+            #   hit-half (no wound bonus).
+            # _sunforge_vs_armour is set True here and consumed at the per-shot
+            # damage-roll site below; it must start False so the damage re-roll
+            # branch is skipped entirely when the gate is off.
+            _sunforge_vs_armour = False
+            if (p.tau_sunforge or p.tau_armour_hunter) and \
+                    os.environ.get("SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES", "1") != "0":
+                _tau_tgt_kws = set(target.profile.unit_keywords or ())
+                _tau_vs_armour = ("MONSTER" in _tau_tgt_kws or "VEHICLE" in _tau_tgt_kws)
+                if _tau_vs_armour:
+                    if p.tau_armour_hunter:
+                        hit_mod_delta += 1
+                    if p.tau_sunforge and mode != "melee":
+                        # Sunforge wound re-roll — reuse the existing full-failed-
+                        # wound re-roll plumbing (consumed in the wound loop).
+                        att_reroll_all_wounds = True
+                        # Flag the per-shot Damage re-roll for the ranged damage
+                        # loop (the one novel branch). Ranged-only per the rule.
+                        _sunforge_vs_armour = True
+
             # Resolve the attacker's owning Army once; downstream gates
             # (Oath of Moment, Votann tokens) all read it.
             own_army = getattr(self, "army_ref", None)
@@ -3379,6 +3715,18 @@ class Unit:
             )
             _chiv_wound_reroll = _chiv_hit_reroll
 
+            # T'au Empire Targeting Array (Hammerhead Gunship) — one Hit-or-Wound
+            # re-roll per shooting activation. Reuse the single-slot Code-Chivalric
+            # Wound re-roll: grant one per-activation Wound-die re-roll (ranged).
+            # APPROXIMATION: the rule allows re-rolling EITHER one Hit OR one Wound
+            # die; we always spend it on a Wound die (the higher-value choice for an
+            # anti-armour Railgun where the wound roll is the bottleneck).
+            # Gated SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES (adopted default-on, wave 256;
+            # set to 0 to disable).
+            if (mode != "melee" and p.tau_targeting_array and
+                    os.environ.get("SWEG_TAU_SUNFORGE_HAMMERHEAD_ABILITIES", "1") != "0"):
+                _chiv_wound_reroll = True
+
             # Fire and Fade (Aeldari Warhost stratagem) — transient
             # re-roll hit rolls of 1 on shooting attacks for the round.
             att_reroll_hits_shooting_ones = (
@@ -3458,6 +3806,35 @@ class Unit:
                 att_reroll_hit_ones = True
                 att_reroll_wound_ones = True
 
+            # Leagues of Votann native per-datasheet re-roll-a-Hit-roll-of-1
+            # on ranged attacks (Panspectral Scanning / Panspectral Scanner /
+            # Decisive Destruction). Verbatim (Wahapedia, see
+            # data/rule_citations.d/votann.json simulator.votann_native_reroll_ranged):
+            # Hearthkyn/Hekaton "Each time a model in this unit makes a ranged
+            # attack, re-roll a Hit roll of 1." Ranged-only via mode != 'melee'.
+            # Einhyr Decisive Destruction adds 'that targets the closest
+            # eligible target' — DOCUMENTED APPROXIMATION: Unit.attack has no
+            # closest-target signal, so we apply it unconditionally to the
+            # Einhyr key (a moderate, deliberate over-credit, following the
+            # established Combat Debarkation precedent). Composes by OR with
+            # detachment/leader re-roll-ones (one re-roll per die).
+            # `and not overwatch_attack` is required: during overwatch fire
+            # re-roll of Hit 1s is suppressed (the overwatch guard above
+            # zeros att_reroll_hit_ones at ~line 3517). This block sits after
+            # that guard, so we must not re-set it for overwatch shots.
+            # COMPLEMENTS rank 7 (Kahl [LETHAL HITS]) — a led Hearthkyn unit
+            # that gains [LETHAL HITS] from the Kahl loses its native re-roll
+            # under the real rules; this unconditional per-unit flag restores
+            # it. ADOPTED default-on (wave 257, Votann +3.77 -> into the noise
+            # band of real 48.0); SWEG_VOTANN_NATIVE_REROLL=0 is the kill-switch.
+            if (
+                mode != "melee"
+                and getattr(p, "votann_native_reroll_ranged", False)
+                and not overwatch_attack
+                and __import__("os").environ.get("SWEG_VOTANN_NATIVE_REROLL", "1") != "0"
+            ):
+                att_reroll_hit_ones = True
+
             # Drukhari Power From Pain (10e codex, wave 246): the army rule
             # grants LETHAL HITS per activation by SPENDING 1 Pain token from
             # the army-level pool (army.pain_token_pool). The spend fires in
@@ -3498,6 +3875,60 @@ class Unit:
             # LeaderAbility.Galvanic Field.
             if mode != "melee" and att_buffs.get("lethal_hits_ranged"):
                 effective_lethal_hits = True
+            # Kindred Hero (Leagues of Votann Kâhl) — "weapons equipped by
+            # models in that unit have the [LETHAL HITS] ability." Melee half
+            # (the ranged half is the att_buffs.get("lethal_hits_ranged") block
+            # above). att_buffs is composed by effective_buffs(); host_keys
+            # gates the aura to the led unit. Cited as
+            # LeaderAbility.Warrior-Forged Leadership.
+            if mode == "melee" and att_buffs.get("lethal_hits_melee"):
+                effective_lethal_hits = True
+            # Adeptus Custodes Martial Ka'tah — RENDAX [LETHAL HITS] stance (10e
+            # datasheet ability, BSData shared rule id e348-7090-3aff-ee2c). Each
+            # time a Ka'tah unit is selected to fight it picks one stance; RENDAX
+            # gives its melee weapons [LETHAL HITS]. The sim models the optimal
+            # stance choice (RENDAX) for all Custodes melee — auto-wound on a crit
+            # hit, the high-value pick against the high-toughness targets Custodes
+            # face. ADOPTED default-on 2026-07-01 (`=0` is the byte-identical
+            # kill-switch); Custodes-scoped N=80 vs sc30a: Custodes +3.66 (42.8 ->
+            # 46.4, toward real 49.5, no overshoot), gated 2.35 -> 2.11 — the
+            # largest single lever of the lever-hunt batch. Cited
+            # `simulator.custodes_katah_lethal`.
+            if (mode == "melee" and p.faction == "Adeptus Custodes"
+                    and not effective_lethal_hits
+                    and __import__("os").environ.get(
+                        "SWEG_CUSTODES_KATAH_LETHAL", "1") != "0"):
+                effective_lethal_hits = True
+            # Adeptus Custodes Caladius Grav-tank "Advanced Firepower" (10e
+            # datasheet ability, BSData profile id 60a4-507e-da36-683c):
+            # "Each time this model makes an attack with its Twin iliastus
+            # accelerator cannon that targets an enemy unit (excluding
+            # MONSTERS and VEHICLES), that attack has the [LETHAL HITS]
+            # ability. Each time this model makes an attack with its Twin
+            # arachnus heavy blaze cannon that targets an enemy MONSTER or
+            # VEHICLE unit, that attack has the [LETHAL HITS] ability."
+            # Weapon-AND-target-conditional ranged [LETHAL HITS]: inside the
+            # multi-profile firing loop `p` is the per-weapon profile, so
+            # p.weapon names the gun actually firing (the catalogue Caladius
+            # fires the blaze cannon + lastrum bolt cannon; the accelerator
+            # branch covers the alternate turret loadout). The exact-name
+            # gate is safe under per-model promotion, which replaces only
+            # weapon fields (army.py _add_squad_per_model). Gated
+            # SWEG_CUSTODES_ADVANCED_FIREPOWER (default-on; `=0` is the
+            # byte-identical kill-switch). Cited
+            # `simulator.custodes_advanced_firepower`.
+            if (mode != "melee" and not effective_lethal_hits
+                    and p.faction == "Adeptus Custodes"
+                    and p.name == "Caladius Grav-tank"
+                    and __import__("os").environ.get(
+                        "SWEG_CUSTODES_ADVANCED_FIREPOWER", "1") != "0"):
+                _af_weapon = p.weapon or ""
+                _af_kws = set(target.profile.unit_keywords or ())
+                _af_big = "MONSTER" in _af_kws or "VEHICLE" in _af_kws
+                if (("arachnus heavy blaze cannon" in _af_weapon and _af_big)
+                        or ("iliastus accelerator cannon" in _af_weapon
+                            and not _af_big)):
+                    effective_lethal_hits = True
             # World Eaters Blood Tithe — 4-BT spend grants [LETHAL HITS] on a
             # WE unit for the phase. SwegHammer collapses "this phase" to "this
             # round" since the activation loop doesn't break phases out. The
@@ -3506,6 +3937,21 @@ class Unit:
             # if we skip clearing it. Faction-gated to keep allies clean.
             # Composes with profile.lethal_hits via OR (never double-fires —
             # the gate is at the crit-to-hit branch below, fires once per crit).
+            #
+            # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 1,
+            # gated SWEG_WE_BLOOD_TITHE_SCOPED, adopted default-on wave 260,
+            # =0 kill-switch). The cited rule (`simulator.blood_tithe`, clause 4)
+            # grants [LETHAL HITS] to ONE WORLD EATERS unit for ONE phase —
+            # "Until the end of the phase, weapons equipped by models in one
+            # WORLD EATERS unit from your army have the [LETHAL HITS] ability."
+            # The default (gate-off) army-wide-for-the-round behaviour below
+            # over-credits every WE model in every phase. When the gate is ON,
+            # additionally require the attacking unit to be the recipient
+            # recorded at the spend site (blood_tithe_lethal_hits_uid) AND the
+            # current attack mode to match the recorded phase
+            # (blood_tithe_lethal_hits_phase, "melee" for the Fight-phase spend
+            # WE units actually use). Gate OFF leaves the round/army-wide gate
+            # byte-identical.
             if p.faction == "World Eaters" and not effective_lethal_hits:
                 own_army = getattr(self, "army_ref", None)
                 if own_army is not None:
@@ -3513,7 +3959,24 @@ class Unit:
                     battle = getattr(own_army, "_battle_ref", None)
                     cur_round = getattr(battle, "_current_round", 0) if battle else 0
                     if bt_round is not None and bt_round == cur_round:
-                        effective_lethal_hits = True
+                        _bt_scoped = os.environ.get(
+                            "SWEG_WE_BLOOD_TITHE_SCOPED", "1",
+                        ) != "0"
+                        if _bt_scoped:
+                            _bt_uid = getattr(
+                                own_army, "blood_tithe_lethal_hits_uid", None,
+                            )
+                            _bt_phase = getattr(
+                                own_army, "blood_tithe_lethal_hits_phase", None,
+                            )
+                            if (
+                                _bt_uid is not None
+                                and self.uid == _bt_uid
+                                and mode == _bt_phase
+                            ):
+                                effective_lethal_hits = True
+                        else:
+                            effective_lethal_hits = True
 
             # ---- World Eaters Blessings of Khorne (10e army rule) — Warp
             # Blades grants army-wide melee LETHAL HITS for the battle round.
@@ -3521,10 +3984,16 @@ class Unit:
             # AND the army's `blessings_warp_blades_round` stamp matches the
             # current battle round. Composes with `p.lethal_hits` via OR.
             # Cited as `simulator.blessings_of_khorne`.
+            #
+            # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 2,
+            # gated SWEG_WE_BLESSINGS_ABILITY_GATE, default-off). When ON,
+            # additionally require p.has_blessings_of_khorne so Khorne Daemon
+            # allies without the ability are excluded; OFF byte-identical.
             if (
                 mode == "melee"
                 and p.faction == "World Eaters"
                 and not effective_lethal_hits
+                and (not _blessings_ability_gate or p.has_blessings_of_khorne)
             ):
                 _own_army_bok = getattr(self, "army_ref", None)
                 if _own_army_bok is not None:
@@ -3730,6 +4199,30 @@ class Unit:
             _effective_twin_linked = bool(
                 p.melee_twin_linked if mode == "melee" else p.twin_linked
             )
+            # Adeptus Custodes Allarus Custodians "Slayers of Tyrants" (10e
+            # datasheet ability, BSData profile id d569-61db-406d-1d42):
+            # "Each time a model in this unit makes an attack that targets a
+            # Character, Monster or Vehicle unit, you can re-roll the Wound
+            # roll." Modelled through the TWIN-LINKED wound-re-roll path
+            # (the per-shot loop re-rolls a failed Wound roll once), on both
+            # ranged and melee attacks, gated on the target carrying
+            # CHARACTER / MONSTER / VEHICLE. BSData carries the ability on
+            # the Allarus Custodians datasheet ONLY (the Shield-Captain in
+            # Allarus Terminator Armour does not have it), hence the exact
+            # unit-name gate; per-model promotion preserves profile.name so
+            # the gate holds for promoted models. Gated
+            # SWEG_CUSTODES_SLAYERS_OF_TYRANTS (default-on; `=0` is the
+            # byte-identical kill-switch). Cited
+            # `simulator.custodes_slayers_of_tyrants`.
+            if (not _effective_twin_linked
+                    and p.faction == "Adeptus Custodes"
+                    and p.name == "Allarus Custodians"
+                    and __import__("os").environ.get(
+                        "SWEG_CUSTODES_SLAYERS_OF_TYRANTS", "1") != "0"):
+                _sot_kws = set(target.profile.unit_keywords or ())
+                if ("CHARACTER" in _sot_kws or "MONSTER" in _sot_kws
+                        or "VEHICLE" in _sot_kws):
+                    _effective_twin_linked = True
             # LC1-A — generalised gate: any faction whose detachment carries
             # the `melee_sustained_hits_army_wide` flag triggers SUSTAINED
             # HITS 1 on melee. Currently only WAR_HORDE (Orks) sets this
@@ -3762,7 +4255,14 @@ class Unit:
             # `melee_sustained_hits` already on the profile, matching the
             # WAR_HORDE compositional convention. Cited as
             # `simulator.blessings_of_khorne`.
-            if mode == "melee" and p.faction == "World Eaters":
+            #
+            # WAVE-260 over-credit fix (docs/OVERPOLE_UNIT_AUDIT.md rank 2,
+            # gated SWEG_WE_BLESSINGS_ABILITY_GATE, default-off). When ON,
+            # additionally require p.has_blessings_of_khorne so Khorne Daemon
+            # allies without the ability are excluded; OFF byte-identical.
+            if mode == "melee" and p.faction == "World Eaters" and (
+                not _blessings_ability_gate or p.has_blessings_of_khorne
+            ):
                 _own_army_me = getattr(self, "army_ref", None)
                 if _own_army_me is not None:
                     _me_round = getattr(
@@ -3920,6 +4420,20 @@ class Unit:
                         roll_damage(_dmg_dice, _dmg_dice_mean)
                         + (per_shot_dmg - _dmg_dice_mean)
                     )
+                # T'au Sunforge — re-roll the Damage roll vs MONSTER/VEHICLE
+                # (ranged). 10e 'you can re-roll the Damage roll': re-roll once
+                # and keep the new result. We exercise the option when the first
+                # roll is below the dice mean (an attacker maximises damage), so
+                # the re-roll is the optional 'you can'. Only fires when the
+                # gate-set _sunforge_vs_armour flag is on AND real dice were
+                # rolled (flat-damage weapons draw nothing and are untouched).
+                if _sunforge_vs_armour and _roll_dmg_active and _dmg_dice:
+                    _dice_only = _shot_dmg - (per_shot_dmg - _dmg_dice_mean)
+                    if _dice_only < _dmg_dice_mean:
+                        _shot_dmg = (
+                            roll_damage(_dmg_dice, _dmg_dice_mean)
+                            + (per_shot_dmg - _dmg_dice_mean)
+                        )
                 # MAP-3-FIX — per-shot Bernoulli gating for partial-coverage
                 # weapon keywords. Lance and Anti-X resolve their per-shot value
                 # here so a heterogeneous squad's specialist-weapon keyword fires
@@ -4261,6 +4775,20 @@ class Unit:
                         continue
 
                     tgt_fnp_buff = int(tgt_buffs["fnp"])
+                    # SWEG_DG_TYPHUS_MELEE_ONLY (wave-260, default-off). Typhus
+                    # "The Destroyer Hive" is a MELEE-only ability (subtracts 1
+                    # from Hit rolls on melee attacks targeting the led unit).
+                    # Gate ON: the leader entry carries `fnp_melee_only=5` instead
+                    # of `fnp=5`; here we take the min of the unconditional fnp
+                    # and the melee-only fnp (the latter only activating when
+                    # mode == 'melee') so ranged attacks against a Typhus-led unit
+                    # no longer receive the feel-no-pain roll.
+                    # Gate OFF: `fnp_melee_only` stays at 7 (no-op), byte-identical.
+                    # See docs/OVERPOLE_UNIT_AUDIT.md rank 3 and
+                    # rule_citations.d/leaders.json `LeaderAbility.The Destroyer Hive`.
+                    _fnp_melee_only = int(tgt_buffs.get("fnp_melee_only", 7))
+                    if mode == "melee" and _fnp_melee_only < tgt_fnp_buff:
+                        tgt_fnp_buff = _fnp_melee_only
                     # MAP-3-FIX — Devastating Wounds basket-fraction gate. The
                     # MAP-3 UNION lets a single specialist weapon (Rubric Marines'
                     # Soulreaper Cannon, AdMech Skitarii Plasma Calivers) tag the
@@ -4292,6 +4820,17 @@ class Unit:
                     # in simulator._apply_dark_pacts; gated SWEG_CSM_ABILITIES.
                     # Cited as `simulator.csm_unholy_bloodshed`.
                     _transient_dw = getattr(self, "transient_devastating_wounds", False)
+                    # Incubi 'Decapitating Strikes' (SWEG_DRUKHARI_PFP_PERDATASHEET):
+                    # melee [DEVASTATING WOUNDS] only vs INFANTRY targets. Composes
+                    # via OR with the existing unconditional flag. Default False on
+                    # all units so OFF path is byte-identical (dead clause when flag
+                    # is False). Only fires in melee mode against INFANTRY.
+                    if (
+                        mode == "melee"
+                        and getattr(self, "transient_devastating_wounds_vs_infantry", False)
+                        and "INFANTRY" in set(target.profile.unit_keywords or ())
+                    ):
+                        _transient_dw = True
                     # WAVE-244 melee mode-routing — DEVASTATING WOUNDS is a
                     # per-weapon keyword. Pre-wave-244 this read `p.devastating_wounds`
                     # (the ranged-primary field) in the Fight phase too, so a
@@ -4321,16 +4860,21 @@ class Unit:
                         and crit_wound
                         and random.random() < _dw_fraction
                     ):
-                        # NECRONS-CTAN: Necrodermis halves Damage characteristic
-                        # (rounding up); D1 attacks deal 0. Wahapedia C'tan
-                        # datasheet ability. Cited as `UnitProfile.necrodermis`.
-                        # PER-MODEL-LOADOUTS (Stage 4): apply the halving to the
-                        # ROLLED per-shot damage (10e: roll the Damage, THEN
-                        # modify). `_shot_dmg` == `per_shot_dmg` when the gate is
-                        # off / no dice, so the mean path is unchanged.
+                        # NECRONS-CTAN: Necrodermis. SWEG_NECRODERMIS_MINUS_ONE
+                        # (default-on) applies the faithful 10e rule "subtract 1
+                        # from the Damage characteristic" (BSData shared profile
+                        # 61c9-1b37-b067-44ba, linked by all four C'tan). The prior
+                        # code applied the 9e "halve (rounding up); D1 -> 0", which
+                        # over-protected every C'tan (Damage-6: real 5 vs halved 3).
+                        # =0 restores the old halving. Cited as `UnitProfile.necrodermis`.
+                        # PER-MODEL-LOADOUTS (Stage 4): applied to the ROLLED per-shot
+                        # damage (10e: roll the Damage, THEN modify). `_shot_dmg` ==
+                        # `per_shot_dmg` when the gate is off / no dice.
                         _dw_dmg = _shot_dmg
                         if target.profile.necrodermis:
-                            if _dw_dmg <= 1.0:
+                            if os.environ.get("SWEG_NECRODERMIS_MINUS_ONE", "1") != "0":
+                                _dw_dmg = max(0.0, _dw_dmg - 1.0)
+                            elif _dw_dmg <= 1.0:
                                 _dw_dmg = 0.0
                             else:
                                 _dw_dmg = math.ceil(_dw_dmg / 2.0)
@@ -4445,16 +4989,17 @@ class Unit:
                                     tgt_army.aof_squad_mark_used(target.profile.name, getattr(target, "squad_id", -1))  # SOROR-ACTS-OF-FAITH-V1
                         if sroll >= save_target:
                             continue   # saved
-                    # NECRONS-CTAN: Necrodermis halves Damage characteristic
-                    # (rounding up); D1 attacks deal 0. Wahapedia C'tan
-                    # datasheet ability. Cited as `UnitProfile.necrodermis`.
-                    # PER-MODEL-LOADOUTS (Stage 4): apply the halving to the ROLLED
-                    # per-shot damage (10e: roll the Damage, THEN modify). When the
-                    # gate is off / no dice, `_shot_dmg` == `per_shot_dmg`, so the
-                    # mean path is unchanged.
+                    # NECRONS-CTAN: Necrodermis. SWEG_NECRODERMIS_MINUS_ONE
+                    # (default-on) applies the faithful 10e rule "subtract 1 from the
+                    # Damage characteristic" (BSData shared profile 61c9-1b37-b067-44ba);
+                    # =0 restores the prior 9e "halve (rounding up); D1 -> 0". Cited as
+                    # `UnitProfile.necrodermis`. PER-MODEL-LOADOUTS (Stage 4): applied to
+                    # the ROLLED per-shot damage; `_shot_dmg` == `per_shot_dmg` off / no dice.
                     _alloc_dmg = _shot_dmg
                     if target.profile.necrodermis:
-                        if _alloc_dmg <= 1.0:
+                        if os.environ.get("SWEG_NECRODERMIS_MINUS_ONE", "1") != "0":
+                            _alloc_dmg = max(0.0, _alloc_dmg - 1.0)
+                        elif _alloc_dmg <= 1.0:
                             _alloc_dmg = 0.0
                         else:
                             _alloc_dmg = math.ceil(_alloc_dmg / 2.0)
@@ -4594,6 +5139,105 @@ def _unflatten_model_loadouts(
                 d[k] = v
         out.append(d)
     return out
+
+
+# ---------------------------------------------------------------------------
+# SWEG_AM_BATTLELINE_SPECIALS — Astra Militarum core battleline special weapons
+# ---------------------------------------------------------------------------
+#
+# The BSData v10.6.0 mapper collapses Cadian Shock Troops and Death Korps of
+# Krieg to a single lasgun-only model type (model_loadouts has ONE entry, a
+# Lasgun + Close combat weapon model). The real 10e datasheets field "1 Sergeant
+# + 9 Troopers", and for every 10 models up to 2 of the Troopers replace their
+# lasgun with a special weapon (BSData cache "...w/ Special Weapon" group carries
+# constraint max=2 per squad). `_am_battleline_specials_loadouts` rebuilds a
+# heterogeneous model_loadouts — per 10 models: 8 lasgun troopers + 1 plasma gun
+# + 1 meltagun — by copying the mapper's base lasgun model dict (so every key /
+# type the flatten round-trip preserves is inherited verbatim) and swapping only
+# the ranged weapon for the two special-weapon slots. The per-model promotion in
+# Army._add_squad_per_model then builds one plasma-armed and one meltagun-armed
+# model; a whole-unit extra_ranged_profiles would over-credit (every model would
+# fire a special, but only 2/10 carry one).
+#
+# Weapon stats verbatim from the cited datasheets / BSData cache:
+#   Plasma gun (supercharge): Range 24", A 1, BS 4+, S 8, AP -3, D 2,
+#       [RAPID FIRE 1], [HAZARDOUS]. (mean damage 2.0; damage_dice "2")
+#   Meltagun:                 Range 12", A 1, BS 4+, S 9, AP -4, D D6, [MELTA 2].
+#       (mean damage 3.5; damage_dice "D6")
+# hit_probability is INHERITED from the base lasgun model (0.5 = Guardsman BS 4+);
+# only the weapon-defining fields below are overridden.
+_AM_PLASMA_GUN_RANGED_OVERRIDE: Dict[str, Any] = {
+    "weapon": "Plasma gun (supercharge)",
+    "attacks": 1,
+    "weapon_damage_per_shot": 2.0,
+    "ap": -3,
+    "strength": 8,
+    "range_inches": 24,
+    "rapid_fire": 1,
+    "melta": 0,
+    "hazardous": True,
+    "attacks_dice": "1",
+    "damage_dice": "2",
+}
+_AM_MELTAGUN_RANGED_OVERRIDE: Dict[str, Any] = {
+    "weapon": "Meltagun",
+    "attacks": 1,
+    "weapon_damage_per_shot": 3.5,
+    "ap": -4,
+    "strength": 9,
+    "range_inches": 12,
+    "rapid_fire": 0,
+    "melta": 2,
+    "hazardous": False,
+    "attacks_dice": "1",
+    "damage_dice": "D6",
+}
+
+
+def _am_battleline_specials_loadouts(
+    flattened: Tuple[Tuple[Tuple[str, Any], ...], ...],
+) -> Tuple[Tuple[Tuple[str, Any], ...], ...]:
+    """Build the heterogeneous (8 lasgun + 1 plasma + 1 meltagun per 10)
+    model_loadouts for a Cadian Shock Troops / Death Korps of Krieg catalog
+    entry whose mapper output is a single lasgun-only model.
+
+    Takes the entry's flattened `model_loadouts`, derives the special-weapon
+    models from the base lasgun model (so weapon-dict shape / inherited keys
+    round-trip exactly), and returns the re-flattened heterogeneous loadout.
+
+    Fails loud (CLAUDE.md §13) if the base shape is not the expected single
+    lasgun-only model with exactly one ranged weapon — that means the mapper
+    output changed under this correction and it must be re-verified rather than
+    silently producing a wrong squad.
+    """
+    base_models = _unflatten_model_loadouts(flattened)
+    if len(base_models) != 1 or len(base_models[0].get("ranged") or []) != 1:
+        raise ValueError(
+            "SWEG_AM_BATTLELINE_SPECIALS expected a single lasgun-only "
+            f"model_loadouts entry but found {len(base_models)} model entries "
+            f"(ranged weapons on first entry: "
+            f"{len(base_models[0].get('ranged') or []) if base_models else 0}). "
+            "The BSData mapper output for Cadian Shock Troops / Death Korps of "
+            "Krieg has changed — re-verify code/units.py "
+            "_am_battleline_specials_loadouts before relying on the gate."
+        )
+    base = base_models[0]
+    base_name = base.get("name", "")
+
+    def _special_model(ranged_override: Dict[str, Any]) -> Dict[str, Any]:
+        model = copy.deepcopy(base)
+        model["count"] = 1.0
+        model["name"] = f"{base_name} w/ {ranged_override['weapon']}"
+        ranged = copy.deepcopy(base["ranged"][0])
+        ranged.update(ranged_override)
+        model["ranged"] = [ranged]
+        return model
+
+    troopers = copy.deepcopy(base)
+    troopers["count"] = 8.0
+    plasma = _special_model(_AM_PLASMA_GUN_RANGED_OVERRIDE)
+    melta = _special_model(_AM_MELTAGUN_RANGED_OVERRIDE)
+    return _flatten_model_loadouts([troopers, plasma, melta])
 
 
 # ---------------------------------------------------------------------------
@@ -4997,6 +5641,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             csm_despoilers=entry.csm_despoilers,
             csm_unholy_bloodshed=entry.csm_unholy_bloodshed,
             storm_of_retribution=entry.storm_of_retribution,
+            votann_native_reroll_ranged=entry.votann_native_reroll_ranged,
             rapid_fire=entry.rapid_fire,
             melta=entry.melta,
             ignores_cover=entry.ignores_cover,
@@ -5016,6 +5661,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             stealth=entry.stealth,
             lone_operative=entry.lone_operative,
             fights_first=getattr(entry, "fights_first", False),
+            has_blessings_of_khorne=getattr(entry, "has_blessings_of_khorne", True),
             deep_strike=entry.deep_strike,
             scout_distance=entry.scout_distance,
             infiltrator=entry.infiltrator,
@@ -5028,6 +5674,10 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             gloam_rot=entry.gloam_rot,
             necrodermis=entry.necrodermis,
             righteous_paragons=entry.righteous_paragons,
+            tau_sunforge=entry.tau_sunforge,
+            tau_armour_hunter=entry.tau_armour_hunter,
+            tau_targeting_array=entry.tau_targeting_array,
+            tau_nova_charge=entry.tau_nova_charge,
             reanimates_with_army=entry.reanimates_with_army,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,
@@ -5116,6 +5766,144 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             base_width_mm=entry.base_width_mm,
             base_length_mm=entry.base_length_mm,
         )
+
+        # TAU-BATTLESUIT-WEAPONS (default-OFF, SWEG_TAU_BATTLESUIT_WEAPONS): the
+        # BSData v10.6.0 mapper drops the simultaneously-equipped battlesuit
+        # weapons. Fireknife models carry plasma rifle AND missile pod but only
+        # the plasma rifle is mapped; Sunforge models carry 2 fusion blasters but
+        # only 1 (attacks=1) is mapped. Re-add them here, GATED, so OFF is
+        # byte-identical (this whole block is skipped when the env gate is unset).
+        # Faithful per data/rule_citations.d/tau_empire.json. Done in code (not
+        # overrides.json) because overrides merge unconditionally and could not be
+        # held behind a default-off screening gate.
+        if _tau_battlesuit_weapons_enabled():
+            from dataclasses import replace
+            if key == "t_au_empire_crisis_fireknife_battlesuits":
+                # Missile pod as a 2nd ranged profile. Distinct weapon root from
+                # 'plasma rifle' under _strip_mode_suffix, so the multi-root
+                # firing loop in Unit.attack fires both additively (mirrors the
+                # Hammerhead multi-weapon override). damage_dice='' -> mean D2.
+                _missile_pod = _flatten_extra_profiles([{
+                    "weapon": "missile pod",
+                    "attacks": 2,
+                    "weapon_damage_per_shot": 2.0,
+                    "damage_dice": "",
+                    "hit_probability": 0.5,
+                    "ap": -1,
+                    "strength": 7,
+                    "range_inches": 30,
+                }])
+                catalog[key] = replace(
+                    catalog[key],
+                    extra_ranged_profiles=(
+                        catalog[key].extra_ranged_profiles + _missile_pod
+                    ),
+                )
+            elif key == "t_au_empire_crisis_sunforge_battlesuits":
+                # Second fusion blaster = double the primary fusion-blaster
+                # attacks (a duplicate 'fusion blaster' extra collapses into one
+                # mutex group under _strip_mode_suffix and only the higher-EV copy
+                # would fire). All other fusion-blaster characteristics unchanged.
+                catalog[key] = replace(catalog[key], attacks=2)
+
+        # AM-BATTLELINE-SPECIALS (default-OFF, SWEG_AM_BATTLELINE_SPECIALS): the
+        # BSData v10.6.0 mapper collapses Cadian Shock Troops and Death Korps of
+        # Krieg to a single lasgun-only model type (model_loadouts has one entry,
+        # extra_ranged_profiles empty), dropping the 2 special weapons each
+        # 10-model squad fields per the datasheet. Comparable squads (Kasrkin,
+        # Tempestus Scions, Cadian Command Squad) ARE mapped heterogeneously —
+        # this gap is specific to these two. When gated ON, REPLACE model_loadouts
+        # with a heterogeneous version (per 10: 8 lasgun troopers + 1 plasma gun +
+        # 1 meltagun) so the per-model promotion (Army._add_squad_per_model) builds
+        # the special-weapon models. NOT modelled as whole-unit
+        # extra_ranged_profiles, which would over-credit (every model would fire a
+        # special; only 2/10 carry one — these squads are heterogeneous). Faithful
+        # per data/rule_citations.d/astra_militarum.json key
+        # simulator.am_battleline_special_weapons. Done in code (not overrides.json)
+        # because overrides merge unconditionally and could not be held behind a
+        # default-off screening gate. OFF skips this block entirely → byte-identical
+        # to the legacy lasgun-only catalogue.
+        if _am_battleline_specials_enabled() and key in (
+            "astra_militarum_cadian_shock_troops",
+            "astra_militarum_death_korps_of_krieg",
+        ):
+            from dataclasses import replace
+            catalog[key] = replace(
+                catalog[key],
+                model_loadouts=_am_battleline_specials_loadouts(
+                    catalog[key].model_loadouts
+                ),
+            )
+
+    # SWEG_DAEMONS_EPITOME_FNP (default-OFF, byte-identical off): the Contorted
+    # Epitome carries a fabricated personal Feel No Pain 4+ — a mapper prose-walk
+    # artifact: the "4+" was extracted from its "Swallow Energy" LEADER ability,
+    # which grants FNP 4+ vs mortal/psychic to its LED unit (Daemonettes), NOT to
+    # the Epitome itself (that leader aura is separately + correctly wired in
+    # code/leaders.py). When gated, remove the phantom personal FNP (set 7 = none).
+    # Rule-10 fabrication removal (over-credit-vs-Knights investigation; same class
+    # as the wave-260 Lucius the Eternal fix). Gate unset -> fnp unchanged ->
+    # byte-identical to the sc17a anchor.
+    if (__import__("os").environ.get("SWEG_DAEMONS_EPITOME_FNP") == "1"
+            and "chaos_daemons_library_contorted_epitome" in catalog):
+        catalog["chaos_daemons_library_contorted_epitome"] = replace(
+            catalog["chaos_daemons_library_contorted_epitome"], fnp=7)
+
+    # (Chaos Space Marine Legionaries "Veterans of the Long War" is restored
+    # directly in data/overrides.json — the two duplicate top-level keys were
+    # merged so the veterans_of_the_long_war flag survives json.load. The melee
+    # wound-reroll mechanic itself is applied default-on via SWEG_VETERANS
+    # (see the melee resolution above). No loader gate is needed.)
+
+    # SWEG_CUSTODES_NO_FAKE_FNP (ADOPTED — default-ON, `=0` reverts): Adeptus
+    # Custodes have NO base Feel No Pain in 10e matched play (Wahapedia Custodian
+    # Guard datasheet: no Feel No Pain ability; "Feel No Pain can only be granted
+    # through specific Stratagems"). The BSData mapper's legacy prose walk
+    # (code.bsdata.mapper.extract_fnp, fallback path 3) descends into Crusade
+    # Relics / Battle Traits / Crusade Honours selectionEntryGroups — narrative-
+    # only upgrade content, NOT the matched-play datasheet — and pins their "the
+    # bearer has the Feel No Pain 5+ ability" text onto the unit's personal fnp.
+    # Result: 30 of 31 Custodes datasheets carried a fabricated unconditional
+    # 5+++ (24 units), 6+++ (1) or 3+++ (5 — the Sisters of Silence Anathema
+    # Psykana units, whose real Feel No Pain 3+ is CONDITIONAL vs Psychic Attacks
+    # / mortal wounds only). The simulator applies fnp unconditionally
+    # (Unit.receive_damage), inflating an over-pole faction's durability ~17%.
+    # Screened: gated mean absolute error 3.45 -> 3.32 (-0.13). Removing it makes
+    # Custodes overshoot real 52.1 -> sim 46.1, which exposes a separate Custodes
+    # under-model to investigate (the fabrication had masked it). The permanent
+    # fix is in the mapper (prune Crusade/Battle-Trait subtrees, model conditional
+    # Feel No Pain as conditional); this default-on loader correction stands in
+    # until that lands. `SWEG_CUSTODES_NO_FAKE_FNP=0` restores the (incorrect)
+    # fabricated saves.
+    if __import__("os").environ.get("SWEG_CUSTODES_NO_FAKE_FNP", "1") != "0":
+        for _ck, _cu in list(catalog.items()):
+            if (_cu.faction or "") == "Adeptus Custodes" and getattr(_cu, "fnp", 7) < 7:
+                catalog[_ck] = replace(_cu, fnp=7)
+
+    # SWEG_FIX_BODYGUARD_FNP (ADOPTED — default-ON, `=0` reverts): same prose-walk
+    # Feel No Pain leak as the Custodes correction, but the per-unit "bodyguard"
+    # cases where the datasheet's Feel No Pain explicitly belongs to a DIFFERENT
+    # model than the one the mapper pinned it on. Each unit below grants Feel No
+    # Pain to its accompanying CHARACTER / leader, not to itself, so its own
+    # personal fnp is 7 (verified against Wahapedia / BSData ability text):
+    #   * Cryptothralls (Necrons) — "Bound Creation": the CRYPTEK gets 4+.
+    #   * Deathshroud Terminators (Death Guard) — "Silent Bodyguard": the led
+    #     CHARACTER gets 4+.
+    #   * Locus (Genestealer Cults) — "Bodyguard": OTHER Character models get 4+.
+    #   * The Visarch (Ynnari) — "Yvraine's Champion": OTHER Character models get
+    #     4+.
+    # (Tyrant Guard and Kastelan Robots had the same leak but were already
+    # corrected via data/overrides.json in prior waves.) Both over-pole landings
+    # (Necrons, Death Guard) move toward real with no overshoot. Screened: gated
+    # mean absolute error 3.45 -> 3.40 (-0.05), ungated -0.03. `=0` restores the
+    # (incorrect) fabricated saves.
+    if __import__("os").environ.get("SWEG_FIX_BODYGUARD_FNP", "1") != "0":
+        for _bgk in ("necrons_cryptothralls",
+                     "death_guard_deathshroud_terminators",
+                     "genestealer_cults_locus",
+                     "aeldari_ynnari_the_visarch"):
+            if _bgk in catalog and getattr(catalog[_bgk], "fnp", 7) < 7:
+                catalog[_bgk] = replace(catalog[_bgk], fnp=7)
     return catalog
 
 

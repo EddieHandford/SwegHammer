@@ -767,7 +767,8 @@ def event_description(event) -> str:
         return f"--- Round {event.round_num} ---"
     if isinstance(event, RoundEnded):
         return (f"--- End of round {event.round_num} "
-                f"(VP {event.a_vp_total}–{event.b_vp_total}) ---")
+                f"(capped VP {event.a_vp_capped}–{event.b_vp_capped}; "
+                f"uncapped {event.a_vp_total}–{event.b_vp_total}) ---")
     if isinstance(event, UnitActivated):
         return f"  Activate  {event.unit_uid} ({event.army_name})"
     if isinstance(event, UnitMoved):

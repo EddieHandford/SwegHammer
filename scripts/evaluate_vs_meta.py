@@ -27,10 +27,27 @@ from typing import Dict, List, Optional, Tuple
 # by ~3 pts between back-to-back invocations.
 if os.environ.get("PYTHONHASHSEED") != "0":
     os.environ["PYTHONHASHSEED"] = "0"
-    os.execvpe(sys.executable, [sys.executable, "-m", "scripts.evaluate_vs_meta"] + sys.argv[1:], os.environ)
+    # Re-launch with the hash seed pinned. `os.execvpe` was used here but
+    # segfaults on this Windows / Git-Bash box: the Windows exec emulation
+    # (spawn-and-exit) is flaky when the child's stdout is redirected to a file,
+    # crashing the worker pool before any output (exit 139, empty log). Spawn a
+    # clean child via subprocess and propagate its exit code instead — robust on
+    # Windows. (Callers may also preset PYTHONHASHSEED=0 to skip this entirely.)
+    import subprocess
+    sys.exit(
+        subprocess.run(
+            [sys.executable, "-m", "scripts.evaluate_vs_meta"] + sys.argv[1:],
+            env=os.environ,
+        ).returncode
+    )
 
 from code.army_builder import build_faction_random_army
-from code.maps import DEFAULT_MAP, PARIAH_NEXUS_2K_ROTATION, STOCK_MAPS
+from code.maps import (
+    DEFAULT_MAP,
+    PARIAH_NEXUS_2K_ROTATION,
+    PARIAH_NEXUS_2K_ROTATION_FULL,
+    STOCK_MAPS,
+)
 from code.simulator import Battle, RulesConfig
 
 FACTIONS: List[str] = [
@@ -214,8 +231,19 @@ def _pick_rotation_map(seed: int):
 
     Deterministic by seed so PYTHONHASHSEED=0 invocations reproduce
     identical matrices across runs.
+
+    SWEG_FULL_DEPLOY_ROTATION (default-off): when set, use the six-map rotation
+    that adds Sweeping Engagement at the correct 2000-point 44x60 footprint — the
+    fifth real Pariah Nexus deployment the base rotation omits (the stock
+    Sweeping Engagement is 44x90, the wrong size for 2K, so it was dropped). With
+    the gate unset the base five-map rotation is used and the frame is
+    byte-identical. Adopting the six-map rotation is a frame-change that re-bases
+    the metric and requires a full N=80 re-anchor (docs/EVAL_PROTOCOL.md).
     """
-    rotation = PARIAH_NEXUS_2K_ROTATION
+    if os.environ.get("SWEG_FULL_DEPLOY_ROTATION", "0") == "1":
+        rotation = PARIAH_NEXUS_2K_ROTATION_FULL
+    else:
+        rotation = PARIAH_NEXUS_2K_ROTATION
     key = rotation[seed % len(rotation)]
     return STOCK_MAPS[key]
 

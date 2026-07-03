@@ -247,6 +247,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Once-per-battle first-turn roll-off (10e mission sequence, gated
     # SWEG_ROLLOFF_ONCE) — registered so the citation is enforced, not stale.
     "simulator.first_turn_rolloff",
+    # Action-economy Tactical action cards (Chapter Approved 2025-26, gated
+    # SWEG_ACTION_ECONOMY) — registered so the citations are enforced, not stale.
+    "simulator.secondary_establish_locus",
+    "simulator.secondary_recover_assets",
+    "secondaries.a_tempting_target",
     "simulator.judgement_tokens",
     # Orks faction army rules (10e). mob_rule auto-passes Battle-shock for
     # Ork units when the army has 10+ Ork models on the battlefield;
@@ -270,6 +275,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Drukhari army rule (10e). Command-phase token award + while-held
     # buffs (Lethal Hits, FNP 6+). Faction-gated on attacker/defender.
     "simulator.power_from_pain",
+    # Drukhari Incubi "Tormentors" datasheet ability (env-gated
+    # SWEG_DRUKHARI_TORMENTORS, default OFF): force a Battle-shock test on
+    # enemy units within Engagement Range at Fight-phase start, and +1 to Hit
+    # on Incubi melee attacks vs Battle-shocked targets.
+    "simulator.drukhari_tormentors",
     # Death Guard army-wide FNP 5+ was a fabrication (no such rule exists
     # in the 10e codex per Wahapedia + Goonhammer review). Removed in
     # iter 15. Per-datasheet innate FNP (Plague Marines fnp=5, Deathshroud
@@ -417,6 +427,19 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # data/overrides.json today (BSData mapper does not yet emit it).
     # See data/rule_citations.d/chaos_knights.json#simulator.extra_melee_profiles.
     "simulator.extra_melee_profiles",
+    # SWEG_CK_DREAD_FOCUS (default-on 2026-07-01). An AI target-selection
+    # heuristic (not a separate rule): the Chaos Knights shooting picker prefers
+    # Below-Half-strength enemy targets (_ck_dread_cascade_target_bonus,
+    # code/strategy.py, 2.0x score multiplier), the class the Harbingers of Dread
+    # / War Dog Executioner cascade rewards. Cited in
+    # data/rule_citations.d/chaos_knights.json.
+    "strategy.ck_dread_cascade_target",
+    # SWEG_CK_RANGED_HOLD (default-on 2026-07-01). AI piloting heuristic (same as
+    # simulator.am_advance_discipline, CK-scoped): Chaos Knights ranged platforms
+    # (no extra_melee_profiles) hold and shoot instead of Advancing and forfeiting
+    # their Shooting phase; melee platforms keep charging. Grounds in the core
+    # Advance rule. Cited in data/rule_citations.d/chaos_knights.json.
+    "simulator.ck_ranged_hold",
     # Core targeting restrictions (10e core rules). Both filter the ranged
     # candidate list inside Battle._do_shoot via code.army.can_target_for_ranged.
     # Look Out Sir gates non-MONSTER/VEHICLE CHARACTERS that have a non-CHARACTER
@@ -470,6 +493,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.disembark",
     "simulator.firing_deck",
     "simulator.destroyed_transport",
+    # SWEG_REEMBARK (default-off, HELD 2026-07-01). Mid-game voluntary re-embark
+    # into a friendly transport within 3" after a unit's move — a piloting
+    # extension of simulator.embark. Near-inert on the current archetype frame
+    # (the 3" condition rarely holds); built + held. Cited in core_transports.json.
+    "simulator.reembark",
     # Drukhari Skysplinter Assault detachment — Rain of Cruelty. When a
     # DRUKHARI unit disembarks from a TRANSPORT (voluntary or forced),
     # until the end of the turn its ranged weapons gain [IGNORES COVER]
@@ -509,6 +537,48 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # MARKERLIGHT units" condition. The Mont'ka [LETHAL HITS] consumer keeps
     # reading guided_enemy_uids. Cited in data/rule_citations.d/tau_empire.json.
     "simulator.tau_markerlight_base_los",
+    # SWEG_TAU_MARKERLIGHT_IGNORES_COVER (default OFF). For the Greater Good grants
+    # [IGNORES COVER] to a Guided attack against a Spotted unit marked by a
+    # MARKERLIGHT Observer; modelled as a third OR-arm in the Unit.attack
+    # ignore_cover boolean (guided_los_enemy_uids membership + T'au faction). A
+    # companion AI target-bias _tau_guided_target_bonus concentrates fire on the
+    # Spotted unit. Cited in data/rule_citations.d/tau_empire.json.
+    "simulator.tau_markerlight_ignores_cover",
+    # SWEG_TAU_NOVA_CHARGE (default-on 2026-07-01). Riptide once-per-battle
+    # [DEVASTATING WOUNDS] (datasheet ability, BSData id 8fb6-aff7-75ac-f206),
+    # via Battle._apply_nova_charge in the shooting activation. Cited in
+    # data/rule_citations.d/tau_empire.json.
+    "simulator.tau_nova_charge",
+    # SWEG_CUSTODES_KATAH_LETHAL (default-on 2026-07-01). Martial Ka'tah RENDAX
+    # stance [LETHAL HITS] on all Adeptus Custodes melee (the optimal stance the
+    # sim models; BSData shared rule id e348-7090-3aff-ee2c). Unit.attack sets
+    # effective_lethal_hits. Cited in data/rule_citations.d/adeptus_custodes.json.
+    "simulator.custodes_katah_lethal",
+    # SWEG_CUSTODES_ADVANCED_FIREPOWER. Caladius Grav-tank "Advanced Firepower"
+    # (BSData profile id 60a4-507e-da36-683c): weapon-and-target-conditional
+    # ranged [LETHAL HITS] (blaze cannon vs MONSTER/VEHICLE, accelerator cannon
+    # vs everything else). Unit.attack sets effective_lethal_hits. Cited in
+    # data/rule_citations.d/adeptus_custodes.json.
+    "simulator.custodes_advanced_firepower",
+    # SWEG_CUSTODES_MASTER_STANCES. Shield-Captain "Master of the Stances"
+    # (BSData profile id e6a6-1d13-3027-3fce): once per battle the led unit
+    # fights with BOTH Ka'tah stances — adds DACATARAI [SUSTAINED HITS 1] on
+    # top of the modelled RENDAX. Battle._apply_master_of_stances. Cited in
+    # data/rule_citations.d/adeptus_custodes.json.
+    "simulator.custodes_master_of_stances",
+    # SWEG_CUSTODES_SLAYERS_OF_TYRANTS. Allarus Custodians "Slayers of
+    # Tyrants" (BSData profile id d569-61db-406d-1d42): re-roll the Wound roll
+    # vs CHARACTER/MONSTER/VEHICLE targets, both modes, via the TWIN-LINKED
+    # path (_effective_twin_linked). Cited in
+    # data/rule_citations.d/adeptus_custodes.json.
+    "simulator.custodes_slayers_of_tyrants",
+    # SWEG_IK_CANIS_SINGLE. Canis Rex phantom-second-model fix: BSData folds
+    # the ejected-pilot Sir Hekhtur into the Canis Rex entry as a second
+    # model_loadouts slot, so the sim fielded two permanent 26-wound TITANIC
+    # combatants in every Imperial Knights game. Loader gate sets the unit to
+    # one model and drops the Hekhtur slot. Cited in
+    # data/rule_citations.d/imperial_knights.json.
+    "simulator.ik_canis_single",
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
     # hard cap, but real-player CP economy averages ~1 stratagem per
@@ -605,6 +675,19 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # (melee Wound-roll re-rolls, upgraded to full re-roll near objectives).
     # Gated SWEG_VETERANS.
     "simulator.veterans_of_the_long_war",
+    # EC-DAEMONETTE-FF (recovered 2026-06-29 from git c6b40b9, lost in a
+    # re-anchor). Daemonettes' Fights First is detachment-gated (Carnival of
+    # Excess) in BSData but extract_fights_first() over-extracts it as always-on.
+    # Gate SWEG_EC_DAEMONETTE_FF suppresses it for Emperor's Children Daemonettes.
+    # Cited in data/rule_citations.d/emperors_children.json.
+    "simulator.ec_daemonette_fights_first",
+    # Two-card hand cap for the legacy-union secondary fallback (env-gated
+    # SWEG_SECONDARY_HANDCAP, default OFF; recovered 2026-06-29 from git 58acc4b).
+    # When ON, Battle._score_secondaries_deck caps the round total at the two
+    # highest-scoring chosen cards, modelling the Chapter Approved 2025-26 rule
+    # that a player has at most TWO active Secondary Mission cards. OFF sums all
+    # cards byte-identically. See data/rule_citations.d/core_secondary_hand_cap.json.
+    "simulator.secondary_two_card_hand_cap",
     # CSM wave — Chaos Terminator Squad "Despoilers": when making a Dark Pact,
     # re-roll the Hit roll until the end of the phase. Gated SWEG_CSM_ABILITIES.
     # Cited in data/rule_citations.d/keywords_and_mechanics.json.
@@ -746,6 +829,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # `score_position_delta` via the `chosen` parameter; threaded
     # through from `code/simulator.py::_score_secondaries`.
     "simulator.secondary_selection",
+    # Astra Militarum core battleline special weapons (env-gated
+    # SWEG_AM_BATTLELINE_SPECIALS, default OFF). The BSData v10.6.0 mapper drops
+    # the up-to-2-special-weapons-per-10-models options from Cadian Shock Troops
+    # and Death Korps of Krieg (collapsing both to a lasgun-only model type);
+    # when the gate is on, _build_catalog replaces their model_loadouts with a
+    # heterogeneous 8 lasgun + 1 plasma gun + 1 meltagun per 10 models so the
+    # per-model promotion builds the special-weapon models. Cited in
+    # data/rule_citations.d/astra_militarum.json.
+    "simulator.am_battleline_special_weapons",
     # Astra Militarum Voice of Command (army rule, 10e). At the start of
     # each Command phase, each AM OFFICER (CHARACTER) issues one Order to
     # an eligible BATTLELINE INFANTRY (REGIMENT) target within 6". Four
@@ -790,6 +882,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.harbingers_of_dread_darkness",
     "simulator.harbingers_of_dread_dismay",
     "simulator.harbingers_of_dread_delirium",
+    # Chaos Knights Harbingers of Dread: Doom (Dread ability 2, env-gated
+    # SWEG_CK_DOOM, default OFF). Independent of SWEG_HARBINGERS: enables Doom
+    # (+1 to Wound vs Battle-shocked targets) as an additional active Dread pick.
+    # Wired in code/units.py Unit.attack. Direction: raises Chaos Knights win rate.
+    "simulator.harbingers_of_dread_doom",
     "simulator.multi_profile_weapon_selection",
     # PER-MODEL-LOADOUTS (Stage 3, env-gated SWEG_PERMODEL). One Unit per model,
     # each firing its OWN BSData loadout, so a special-weapon model loses its
@@ -849,6 +946,18 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # notes in data/rule_citations.d/votann.json. Cited there as
     # simulator.prioritised_efficiency.
     "simulator.prioritised_efficiency",
+    # SWEG_VOTANN_PE_TARGET_BIAS (default-on 2026-07-01). An AI target-selection
+    # heuristic (not a separate rule): the Votann shooting picker prefers
+    # on-objective enemy targets (_votann_pe_target_bonus, code/strategy.py, 1.5x
+    # score multiplier), concentrating fire where the Prioritised Efficiency
+    # +1-to-Hit compounds. Cited in data/rule_citations.d/votann.json.
+    "simulator.votann_pe_target_bias",
+    # SWEG_VOTANN_RANGED_HOLD (default-on 2026-07-01). AI piloting heuristic (same
+    # as simulator.am_advance_discipline / ck_ranged_hold, Votann-scoped): Votann
+    # shooting platforms (Hekaton/Sagitaur/Hearthkyn) hold and shoot instead of
+    # Advancing and forfeiting their Shooting phase. Overshoots via the durability
+    # over-reward but improves the metric via collateral. Cited in votann.json.
+    "simulator.votann_ranged_hold",
     "unit.necrodermis",
     # Wave 181 — CA-2025-26 Tactical-track flat kill card VP values.
     # When a TACTICAL-track army (SWEG_TAC_DECK path) draws one of these three
