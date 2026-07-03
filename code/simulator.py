@@ -12528,8 +12528,11 @@ class Battle:
         # the over-reward's fault). Cited simulator.votann_ranged_hold.
         _ad_votann = (os.environ.get("SWEG_VOTANN_RANGED_HOLD", "1") != "0"
                       and (attacker.profile.faction or "") == "Leagues of Votann")
-        # THOUSAND-SONS-SCOPED entry point (SWEG_TSONS_RANGED_HOLD, default-OFF
-        # screening gate, `=1` opt-in): the SAME gunline-hold logic, restricted
+        # THOUSAND-SONS-SCOPED entry point (SWEG_TSONS_RANGED_HOLD — ADOPTED
+        # default-on 2026-07-03, `=0` kill-switch; N=80 Thousand-Sons-scoped
+        # screen vs sc48a: Thousand Sons +2.40 toward real 54.6 (48.2 -> 50.6),
+        # gated 3.70 -> 3.67, collateral flat everywhere — the fourth scoped
+        # ranged-hold adoption): the SAME gunline-hold logic, restricted
         # to Thousand Sons. Derived from watched pilot-observation (2026-07-03,
         # docs/PILOT_FINDINGS.md): across three piloted games (vs Imperial
         # Knights seed 0, Orks seed 1, Necrons seed 2) the Thousand Sons
