@@ -2533,6 +2533,31 @@ class Unit:
                          or __import__("os").environ.get("SWEG_DG_CONTAGION_MELEE_WOUND", "1") != "0")):
                 wound_mod_delta += 1
 
+            # ---- Death Guard Myphitic Blight-hauler "Tank Hunters" (10e
+            # datasheet ability, BSData Chaos - Death Guard.cat.gz inline
+            # Abilities profile id e47-254c-cdf9-7c5e, verified verbatim):
+            # "In your Shooting phase, each time a model in this unit makes
+            # an attack that targets a Monster or Vehicle unit, add 1 to the
+            # Hit roll and add 1 to the Wound roll." Ranged-only (mode !=
+            # "melee", matching "In your Shooting phase"); name-gated since
+            # this ability is unique to the Blight-hauler among Death Guard
+            # datasheets. Follows the weapon-and-target-conditional shape of
+            # the Adeptus Custodes Caladius Grav-tank "Advanced Firepower"
+            # gate above (`p` is the per-weapon profile inside the
+            # multi-weapon firing loop, safe under per-model promotion),
+            # minus the weapon condition — Tank Hunters applies to every
+            # weapon the model fires, not just one. Gated
+            # SWEG_DG_TANK_HUNTERS (default-on; `=0` is the byte-identical
+            # kill-switch). Cited `simulator.dg_tank_hunters`.
+            if (mode != "melee" and p.faction == "Death Guard"
+                    and p.name == "Myphitic Blight-hauler"
+                    and __import__("os").environ.get(
+                        "SWEG_DG_TANK_HUNTERS", "1") != "0"):
+                _th_kws = set(target.profile.unit_keywords or ())
+                if "MONSTER" in _th_kws or "VEHICLE" in _th_kws:
+                    hit_mod_delta += 1
+                    wound_mod_delta += 1
+
             # ---- Adeptus Custodes Auric Champions — Assemblage of Might (10e
             # detachment rule, gated SWEG_CUSTODES_ASSEMBLAGE_OF_MIGHT). "each time
             # a model in an ADEPTUS CUSTODES Character unit from your army makes an

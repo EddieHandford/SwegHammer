@@ -1280,6 +1280,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # command-point/cover/hit-modifier machinery. See
     # data/rule_citations.d/core_smokescreen.json.
     "simulator.smokescreen",
+    # Durability fidelity wave, audit B fix 2 (2026-07-03). Myphitic
+    # Blight-hauler datasheet ability "Tank Hunters": ranged attacks against
+    # a MONSTER or VEHICLE target get +1 to the Hit roll and +1 to the Wound
+    # roll. Env-gated SWEG_DG_TANK_HUNTERS (default on). Follows the
+    # weapon-and-target-conditional shape of
+    # simulator.custodes_advanced_firepower. See
+    # data/rule_citations.d/death_guard.json.
+    "simulator.dg_tank_hunters",
 )
 
 
