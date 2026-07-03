@@ -261,6 +261,49 @@ def _is_near_enemy_dg_model(unit: "Unit", radius: float = 6.0) -> bool:
     return False
 
 
+# DURA-AUDIT-D3: the "select one of the Plagues below" Declare Battle
+# Formations choice. BSData/Wahapedia verbatim (Nurgle's Gift / Afflicted):
+#   "During the Declare Battle Formations step, select one of the Plagues
+#    below. Until the end of the battle, while an enemy unit is Afflicted,
+#    ... that unit has the effect of your chosen Plague.
+#    Skullsquirm Blight -- Each time a model in this unit makes an attack,
+#      subtract 1 from the Hit roll.
+#    Rattlejoint Ague -- Worsen the Save characteristic of models in this
+#      unit by 1.
+#    Scabrous Soulrot -- Worsen the Move, Leadership and Objective Control
+#      characteristics of models in this unit by 1 (this rule can only
+#      worsen a model's Objective Control characteristic to a minimum of 1)."
+# The choice itself is seeded once per battle by `Battle._choose_dg_plague`
+# (an artificial-intelligence heuristic -- see that method's docstring for
+# the reasoning -- NOT a codex rule) and cached on `army.dg_chosen_plague`.
+# This helper is the read-side lookup every plague-effect consumer uses.
+# Cited as `simulator.dg_chosen_plague`.
+def _dg_chosen_plague_for(unit: "Unit") -> Optional[str]:
+    """Return the Death Guard chosen-Plague name ("Skullsquirm Blight" /
+    "Rattlejoint Ague" / "Scabrous Soulrot") active against `unit`, or None
+    when the opposing side has no Death Guard army (or the battle has not
+    seeded a choice yet -- should not happen once `Battle.run` has started).
+
+    Mirrors `_is_near_enemy_dg_model`'s own-army/opposing-army resolution
+    exactly, so the two helpers always agree on which side is Death Guard.
+    """
+    own_army = getattr(unit, "army_ref", None)
+    if own_army is None:
+        return None
+    battle = getattr(own_army, "_battle_ref", None)
+    if battle is None:
+        return None
+    if own_army is getattr(battle, "a", None):
+        opposing = getattr(battle, "b", None)
+    elif own_army is getattr(battle, "b", None):
+        opposing = getattr(battle, "a", None)
+    else:
+        return None
+    if opposing is None:
+        return None
+    return getattr(opposing, "dg_chosen_plague", None)
+
+
 def _doctrina_battleline_proximity_met(unit: "Unit") -> bool:
     """True iff `unit` satisfies the Doctrina Imperatives BATTLELINE proximity
     gate: it has the BATTLELINE keyword itself, OR it is within 6" of any
@@ -3492,21 +3535,37 @@ class Unit:
             if mode != "melee" and tgt_buffs.get("grants_stealth_aura"):
                 hit_mod_delta -= 1
 
-            # ---- Death Guard Contagions of Nurgle — Round 3+ Fulminating Plague:
-            # an enemy unit (the ATTACKER here) within Contagion Range of any DG
-            # model takes -1 to its Hit rolls. We gate on `self` (the attacker)
-            # being near a DG model on the opposing side, and on the attacker
-            # NOT being a DG model itself (the aura debuffs *enemy* units). The
-            # ±1 cap below subsumes the old "skip if already capped" gate —
-            # adding -1 here when the delta is already -1 is harmless because
-            # the clamp collapses the net to -1 anyway. DURA-AUDIT-D1: the
-            # radius now escalates by round (3"/6"/9") via
-            # `_contagion_range_for_round` instead of a fixed 3" — see that
-            # helper's docstring for the SWEG_DG_CONTAGION_ESCALATION gate.
-            # Cited as `simulator.contagions_of_nurgle`.
+            # ---- Death Guard Contagions of Nurgle — chosen-Plague Skullsquirm
+            # Blight: an enemy unit (the ATTACKER here) that is Afflicted takes
+            # -1 to its own Hit rolls. BSData/Wahapedia verbatim: "Skullsquirm
+            # Blight — Each time a model in this unit makes an attack, subtract
+            # 1 from the Hit roll." We gate on `self` (the attacker) being near
+            # a DG model on the opposing side, on the attacker NOT being a DG
+            # model itself (the aura debuffs *enemy* units), and — DURA-AUDIT-D3
+            # — on the opposing Death Guard army having chosen Skullsquirm
+            # Blight at Declare Battle Formations. The ±1 cap below subsumes
+            # the old "skip if already capped" gate — adding -1 here when the
+            # delta is already -1 is harmless because the clamp collapses the
+            # net to -1 anyway. DURA-AUDIT-D1: the radius escalates by round
+            # (3"/6"/9") via `_contagion_range_for_round` instead of a fixed
+            # 3" — see that helper's docstring for the
+            # SWEG_DG_CONTAGION_ESCALATION gate. Env-gated
+            # SWEG_DG_CHOSEN_PLAGUE, default ON: when ON, the effect is active
+            # from ROUND 1 (matching the printed "Until the end of the battle"
+            # duration) rather than the pre-fix round-3-onward gate; when OFF,
+            # restores the exact pre-fix round>=3 gate with no plague-choice
+            # concept, so the all-three-gates-off combination reproduces the
+            # original code exactly. Cited as `simulator.dg_chosen_plague`
+            # (and legacy `simulator.contagions_of_nurgle` for the OFF path).
             _dg_round_for_hit = _contagion_round_for(self)
+            if os.environ.get("SWEG_DG_CHOSEN_PLAGUE", "1") != "0":
+                _skullsquirm_active = (
+                    _dg_chosen_plague_for(self) == "Skullsquirm Blight"
+                )
+            else:
+                _skullsquirm_active = _dg_round_for_hit >= 3
             if (
-                _dg_round_for_hit >= 3
+                _skullsquirm_active
                 and p.faction != "Death Guard"
                 and _is_near_enemy_dg_model(
                     self, radius=_contagion_range_for_round(_dg_round_for_hit)
@@ -3612,7 +3671,32 @@ class Unit:
                         _frac = float(_anti_fractions.get(kw, 1.0) or 1.0)
                         _anti_applicable.append((int(thresh), _frac))
 
-            save_after_ap = target.profile.save - ap
+            # ---- DURA-AUDIT-D3: Death Guard Contagions of Nurgle -- chosen-
+            # Plague Rattlejoint Ague. BSData/Wahapedia verbatim: "Rattlejoint
+            # Ague — Worsen the Save characteristic of models in this unit by
+            # 1." A CHARACTERISTIC change (like the Afflicted -1 Toughness
+            # fix, not a Save-roll modifier), so it is folded into the base
+            # Save here, before AP and cover are applied, rather than through
+            # the separate ±1 Save-roll-modifier cap further below. Fires
+            # whenever `target` is Afflicted (enemy of a Death Guard army,
+            # within the round's escalating Contagion Range) AND that Death
+            # Guard army chose Rattlejoint Ague at Declare Battle Formations.
+            # Env-gated SWEG_DG_CHOSEN_PLAGUE, default ON; "0" restores legacy
+            # behaviour (Rattlejoint Ague's save-worsening was never modelled
+            # pre-fix — divergence D1's audit note). Cited as
+            # `simulator.dg_chosen_plague`.
+            _effective_save_base = target.profile.save
+            if (
+                os.environ.get("SWEG_DG_CHOSEN_PLAGUE", "1") != "0"
+                and (target.profile.faction or "") != "Death Guard"
+                and _dg_chosen_plague_for(target) == "Rattlejoint Ague"
+                and _is_near_enemy_dg_model(
+                    target,
+                    radius=_contagion_range_for_round(_contagion_round_for(target)),
+                )
+            ):
+                _effective_save_base += 1
+            save_after_ap = _effective_save_base - ap
             # Precision: a ranged shot at a CHARACTER target pierces concealment —
             # cover does not improve the save. Same effect as Ignores Cover, but
             # gated on the target's keywords.
@@ -3640,9 +3724,11 @@ class Unit:
             cover_blocked_by_ap0_exception = (
                 # `ap` is the attack's Armour Penetration as a non-positive
                 # int (0, -1, -2, …); ap == 0 is the AP0 case. The model's
-                # base Save characteristic is target.profile.save (3 means
-                # 3+; a lower number is a better save).
-                ap == 0 and target.profile.save <= 3
+                # base Save characteristic is `_effective_save_base` (3 means
+                # 3+; a lower number is a better save) -- reads the
+                # Rattlejoint-Ague-worsened value when that Plague is active,
+                # since the rule worsens the Save CHARACTERISTIC itself.
+                ap == 0 and _effective_save_base <= 3
             )
             # Recon Element "Masters of Camouflage" (gated SWEG_AM_RECON, default-off
             # -> byte-identical). Detachment rule: "Astra Militarum Walker and

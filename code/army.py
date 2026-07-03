@@ -356,13 +356,26 @@ class Army:
         # `Stratagem.Putrid Detonation`.
         self.putrid_detonation_armed: bool = False
         # Virulent Vectorium Plaguesurge (Death Guard stratagem, 2 CP).
-        # When True for the round, the army's Contagion Range is conceptually
-        # +3" — the simulator currently hard-codes contagion radius at 6"
-        # so this flag is APPROXIMATED as informational only (the buff isn't
-        # consumed by any active code path yet). Reset by
+        # When True for the round, the army's Contagion Range is +3" on top
+        # of whatever the round's base escalated range is
+        # (`_contagion_range_for_round`, DURA-AUDIT-D1). Consumed by the
+        # three contagion_range computations in code/simulator.py and by
+        # `_dg_range_for_round` callers. Reset by
         # Battle._clear_transient_stratagem_flags. Cited as
         # `Stratagem.Plaguesurge`.
         self.plaguesurge_active: bool = False
+        # Death Guard army rule Nurgle's Gift / Afflicted -- the "select one
+        # of the Plagues below" Declare Battle Formations choice
+        # (DURA-AUDIT-D3, docs/_DURA_AUDIT_D_DEATHGUARD.md divergence D3).
+        # Seeded once per battle, before Round 1, by
+        # `Battle._choose_dg_plague` for every army that fields at least one
+        # Death Guard unit (called from `Battle.run`, at the same
+        # start-of-battle point as the Warlord CP-econ scan). One of
+        # "Skullsquirm Blight" / "Rattlejoint Ague" / "Scabrous Soulrot", or
+        # None on a non-Death-Guard army (or before the battle has run). Read via
+        # `_dg_chosen_plague_for` in code/units.py. Cited as
+        # `simulator.dg_chosen_plague`.
+        self.dg_chosen_plague: Optional[str] = None
         # CP discount / refund mechanics tied to specific Warlord characters
         # (Belisarius Cawl, Roboute Guilliman, Trazyn the Infinite, Lord of
         # Contagion). The Battle initialiser scans this army's CHARACTER

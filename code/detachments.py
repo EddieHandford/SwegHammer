@@ -2472,18 +2472,49 @@ def effective_move(unit) -> float:
     # means this add is safe. Cited as `simulator.combat_drugs`.
     base = base + float(getattr(unit, "combat_drug_move_bonus", 0.0) or 0.0)
     army = getattr(unit, "army_ref", None)
-    if army is None:
-        return base
-    try:
-        det = army.resolve_detachment()
-    except Exception:
-        det = None
-    if det is None:
-        return base
-    if getattr(det, "aspect_warrior_or_bike_plus_one_move", False):
-        name = getattr(unit.profile, "name", "") or ""
-        if name in ASPECT_WARRIOR_OR_BIKE_NAMES:
-            return base + 1.0
+    if army is not None:
+        try:
+            det = army.resolve_detachment()
+        except Exception:
+            det = None
+        if det is not None and getattr(det, "aspect_warrior_or_bike_plus_one_move", False):
+            name = getattr(unit.profile, "name", "") or ""
+            if name in ASPECT_WARRIOR_OR_BIKE_NAMES:
+                base += 1.0
+        # DURA-AUDIT-D3: Death Guard Contagions of Nurgle -- chosen-Plague
+        # Scabrous Soulrot's Move-worsening half. BSData/Wahapedia verbatim:
+        # "Scabrous Soulrot — Worsen the Move, Leadership and Objective
+        # Control characteristics of models in this unit by 1 (this rule can
+        # only worsen a model's Objective Control characteristic to a
+        # minimum of 1)." (The Leadership half lives in
+        # `_dg_ld_contagion_sources` / the Battle-shock phase; the Objective
+        # Control half lives in `Battle._effective_oc`.) Fires whenever
+        # `unit` is Afflicted (enemy of a Death Guard army, within the
+        # round's escalating Contagion Range) and that Death Guard army
+        # chose Scabrous Soulrot at Declare Battle Formations. Lazily
+        # imports code/units.py helpers (mirrors the existing deferred
+        # import pattern in code/simulator.py `_try_creeping_blight`) to
+        # avoid a module-level import cycle (units.py -> army.py ->
+        # detachments.py). Env-gated SWEG_DG_CHOSEN_PLAGUE, default ON; "0"
+        # skips this block entirely (byte-identical pre-fix behaviour, since
+        # Scabrous Soulrot's Move-worsening was never modelled before this
+        # fix). Cited as `simulator.dg_chosen_plague`.
+        if os.environ.get("SWEG_DG_CHOSEN_PLAGUE", "1") != "0":
+            from .units import (
+                _is_near_enemy_dg_model,
+                _contagion_round_for,
+                _contagion_range_for_round,
+                _dg_chosen_plague_for,
+            )
+            if (
+                (unit.profile.faction or "") != "Death Guard"
+                and _dg_chosen_plague_for(unit) == "Scabrous Soulrot"
+                and _is_near_enemy_dg_model(
+                    unit,
+                    radius=_contagion_range_for_round(_contagion_round_for(unit)),
+                )
+            ):
+                base = max(0.0, base - 1.0)
     return base
 
 

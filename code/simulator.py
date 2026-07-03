@@ -267,6 +267,40 @@ def _angular_gap(a: float, b: float) -> float:
     return d
 
 
+def _dg_ld_contagion_sources(round_num: int, dg_side_army) -> list:
+    """Death Guard Battle-shock Leadership-penalty sources from
+    `dg_side_army`'s roster (DURA-AUDIT-D3, chosen-Plague Scabrous Soulrot's
+    Leadership-worsening half). BSData/Wahapedia verbatim: "Scabrous Soulrot
+    — Worsen the Move, Leadership and Objective Control characteristics of
+    models in this unit by 1 (this rule can only worsen a model's Objective
+    Control characteristic to a minimum of 1)."
+
+    Shared by the three call sites that build a `contagion_sources` list for
+    `Battle._battleshock_test_squad` (`_run_battleshock_phase`,
+    `_apply_shadow_in_the_warp_forced_tests`,
+    `_apply_drukhari_tormentors_forced_tests`): each passes its own
+    Death-Guard-providing army (the opposing/aura-source side in that call's
+    context) as `dg_side_army`.
+
+    Env-gated SWEG_DG_CHOSEN_PLAGUE (default ON): when ON, the penalty is
+    active from round 1 onward, but ONLY when `dg_side_army.dg_chosen_plague
+    == "Scabrous Soulrot"` (the printed rule is "until the end of the
+    battle" once a single Plague is chosen — not tied to any specific
+    round). When OFF, restores the exact pre-fix legacy gate (round 2 only,
+    no plague-choice concept — the old "Maladictive Pall" approximation),
+    so the all-gates-off combination reproduces the original code exactly.
+    Cited as `simulator.dg_chosen_plague` (legacy:
+    `simulator.contagions_of_nurgle`).
+    """
+    if os.environ.get("SWEG_DG_CHOSEN_PLAGUE", "1") != "0":
+        active = getattr(dg_side_army, "dg_chosen_plague", None) == "Scabrous Soulrot"
+    else:
+        active = round_num == 2
+    if not active:
+        return []
+    return [s for s in dg_side_army.alive_units if s.profile.faction == "Death Guard"]
+
+
 # ---------------------------------------------------------------------------
 # SWEG_STAGING — threat-range-aware commit discipline (AI piloting heuristic).
 # ---------------------------------------------------------------------------
@@ -668,6 +702,21 @@ class Battle:
                 continue
             army.cp_refund_remaining = wl.cp_refund_per_battle
             army._warlord_first_strat_free_enabled = wl.first_stratagem_free_per_round
+
+        # Death Guard army rule Nurgle's Gift / Afflicted -- Declare Battle
+        # Formations Plague choice (DURA-AUDIT-D3,
+        # docs/_DURA_AUDIT_D_DEATHGUARD.md divergence D3). BSData/Wahapedia
+        # verbatim: "During the Declare Battle Formations step, select one
+        # of the Plagues below. Until the end of the battle, while an enemy
+        # unit is Afflicted ... that unit has the effect of your chosen
+        # Plague." Seeded once per battle, before Round 1, for every Death
+        # Guard army (mirrors the Warlord CP-econ scan just above -- a
+        # one-time start-of-battle read of the opposing roster). Non-Death-
+        # Guard armies keep `dg_chosen_plague = None` (Army.__init__
+        # default). Cited as `simulator.dg_chosen_plague`.
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            if any(u.profile.faction == "Death Guard" for u in army.units):
+                army.dg_chosen_plague = self._choose_dg_plague(army, opponent)
 
         # Drukhari Combat Drugs (army rule, 10e). DRK-NON-SKYSPLINTER-V1
         # (2026-05-29): drug application moved from pre-game (battle start)
@@ -1667,12 +1716,43 @@ class Battle:
         # damaged, per their own datasheet. The data-driven Knight values reproduce
         # the retired heuristic exactly (Questoris 1-9/−5, Armiger 1-5/−3, Dominus
         # 1-10/−5). Cited `simulator.damaged_bracket`.
-        if __import__("os").environ.get("SWEG_DMGBRACKET", "1") == "0":
-            return base
-        thr = getattr(u.profile, "damaged_threshold", 0) or 0
-        pen = getattr(u.profile, "damaged_oc_penalty", 0) or 0
-        if thr and pen and u.current_health <= thr:
-            return max(0, base - pen)            # floor at 0 — never negative
+        if __import__("os").environ.get("SWEG_DMGBRACKET", "1") != "0":
+            thr = getattr(u.profile, "damaged_threshold", 0) or 0
+            pen = getattr(u.profile, "damaged_oc_penalty", 0) or 0
+            if thr and pen and u.current_health <= thr:
+                base = max(0, base - pen)        # floor at 0 — never negative
+        # DURA-AUDIT-D3: Death Guard Contagions of Nurgle -- chosen-Plague
+        # Scabrous Soulrot's Objective-Control-worsening half. BSData/
+        # Wahapedia verbatim: "Scabrous Soulrot — Worsen the Move, Leadership
+        # and Objective Control characteristics of models in this unit by 1
+        # (this rule can only worsen a model's Objective Control
+        # characteristic to a minimum of 1)." Fires whenever `u` is Afflicted
+        # (enemy of a Death Guard army, within the round's escalating
+        # Contagion Range) and that Death Guard army chose Scabrous Soulrot.
+        # Applied AFTER the Damaged-bracket reduction above so the two floors
+        # (0 for Damaged, 1 for this rule) never conflict — a unit already at
+        # 0 Objective Control from the Damaged bracket stays at 0 here
+        # because `max(1, base - 1)` only lifts a value that would otherwise
+        # drop below 1, and 0 - 1 floored to 1 would WRONGLY restore
+        # Objective Control to a Damaged unit, so this rule only fires when
+        # base > 0. Env-gated SWEG_DG_CHOSEN_PLAGUE, default ON; "0" skips
+        # this block entirely (byte-identical pre-fix behaviour). Cited as
+        # `simulator.dg_chosen_plague`.
+        if base > 0 and __import__("os").environ.get("SWEG_DG_CHOSEN_PLAGUE", "1") != "0":
+            from .units import (
+                _is_near_enemy_dg_model,
+                _contagion_round_for,
+                _contagion_range_for_round,
+                _dg_chosen_plague_for,
+            )
+            if (
+                (u.profile.faction or "") != "Death Guard"
+                and _dg_chosen_plague_for(u) == "Scabrous Soulrot"
+                and _is_near_enemy_dg_model(
+                    u, radius=_contagion_range_for_round(_contagion_round_for(u))
+                )
+            ):
+                base = max(1, base - 1)
         return base
 
     def _ocflip_instrument(self, obj, a_oc, b_oc) -> None:
@@ -4956,6 +5036,61 @@ class Battle:
             target.current_health = min(
                 target.profile.health, target.current_health + float(heal),
             )
+
+    def _choose_dg_plague(self, army: Army, opponent: Army) -> str:
+        """Artificial-intelligence heuristic for the Death Guard "select one
+        of the Plagues below" Declare Battle Formations choice (DURA-AUDIT-D3;
+        docs/_DURA_AUDIT_D_DEATHGUARD.md divergence D3). The 10e codex rule is
+        a one-time PLAYER decision made before Round 1, active for the whole
+        battle against every unit that becomes Afflicted. SwegHammer has no
+        player here, so this is an ARTIFICIAL-INTELLIGENCE CHOICE, not a
+        codex rule -- it reads the opposing roster at battle start (the same
+        information a real Death Guard player has after list reveal) and
+        picks whichever Plague denies that specific list the most:
+
+          - Rattlejoint Ague (worsen Save by 1) when the opponent's average
+            unmodified Save characteristic is 3 or better -- a save-heavy
+            list (Custodes, Knights, Terminator-costed elites) whose
+            durability is armour-save-driven, so degrading the Save
+            characteristic denies the most expected saved wounds.
+          - Skullsquirm Blight (worsen the afflicted unit's own Hit roll by
+            1) when the opponent's average per-model output (attacks * hit
+            probability, ranged + melee combined) is high -- a high-volume
+            shooting/melee list, where blunting the OPPONENT's own damage
+            output matters more than degrading their defence.
+          - Scabrous Soulrot (worsen Move / Leadership / Objective Control by
+            1, Objective Control floored at 1) otherwise -- the general-
+            utility pick against balanced or objective-focused lists.
+
+        The average is taken across every instantiated Unit in the opposing
+        roster (one Unit per model, per the simulator's representation), so
+        a large squad naturally weighs more than a lone character -- matching
+        a real player's overall impression of "what does this list do".
+
+        Computed once, at the start of `Battle.run` (proxying Declare Battle
+        Formations, which happens before Round 1 — the same one-time
+        start-of-battle point the Warlord CP-econ scan and Aeldari fate-dice
+        roll use just above the call site), and cached on
+        `army.dg_chosen_plague` for the rest of the battle by the caller.
+        Deterministic (no `random` draws), so computing it here never shifts
+        the RNG stream relative to a non-Death-Guard battle. Cited as
+        `simulator.dg_chosen_plague`.
+        """
+        opp_units = opponent.units
+        if not opp_units:
+            return "Scabrous Soulrot"
+        n = len(opp_units)
+        mean_save = sum(u.profile.save for u in opp_units) / n
+        mean_output = sum(
+            (u.profile.attacks or 0) * (u.profile.hit_probability or 0.0)
+            + (u.profile.melee_attacks or 0) * (u.profile.melee_hit_probability or 0.0)
+            for u in opp_units
+        ) / n
+        if mean_save <= 3.0:
+            return "Rattlejoint Ague"
+        if mean_output >= 4.0:
+            return "Skullsquirm Blight"
+        return "Scabrous Soulrot"
 
     def _try_overwhelming_generosity(self, army: Army, opponent: Army) -> None:
         """Overwhelming Generosity (Virulent Vectorium, 1 CP): re-roll the
@@ -10140,14 +10275,11 @@ class Battle:
             and s.profile.faction == "Tyranids"
         ]
         # contagion_sources: Death Guard in the Tyranid army — unusual but
-        # consistent with the general-case logic.
-        contagion_sources = (
-            [
-                s for s in sitw_army.alive_units
-                if s.profile.faction == "Death Guard"
-            ]
-            if round_num == 2 else []
-        )
+        # consistent with the general-case logic. DURA-AUDIT-D3: sourced from
+        # the shared `_dg_ld_contagion_sources` helper (Scabrous Soulrot
+        # Leadership-worsening, active from round 1 when chosen; legacy
+        # round-2-only gate when SWEG_DG_CHOSEN_PLAGUE is off).
+        contagion_sources = _dg_ld_contagion_sources(round_num, sitw_army)
         # Plaguesurge range extension: the Death Guard player (here sitw_army
         # in the edge-case path) may have spent Plaguesurge this Command phase.
         # DURA-AUDIT-D1: the base Contagion Range escalates by round (3"/6"/9")
@@ -10259,13 +10391,11 @@ class Battle:
                 ]
             else:
                 shadow_sources = []
-            contagion_sources = (
-                [
-                    s for s in incubi_army.alive_units
-                    if s.profile.faction == "Death Guard"
-                ]
-                if round_num == 2 else []
-            )
+            # DURA-AUDIT-D3: sourced from the shared `_dg_ld_contagion_sources`
+            # helper (Scabrous Soulrot Leadership-worsening, active from
+            # round 1 when chosen; legacy round-2-only gate when
+            # SWEG_DG_CHOSEN_PLAGUE is off).
+            contagion_sources = _dg_ld_contagion_sources(round_num, incubi_army)
             _plaguesurge_active = getattr(
                 incubi_army, "plaguesurge_active", False
             )
@@ -10367,12 +10497,17 @@ class Battle:
             below-half tests within 6". Cited as
             `simulator.shadow_in_the_warp` and
             `simulator.shadow_in_the_warp_forced_test`.
-          - Contagions of Nurgle Round 2 Maladictive Pall (Death Guard, 10e):
-            enemy units within Contagion Range of any DG model take -1 Ld.
-            Cited as `simulator.contagions_of_nurgle`. (DURA-AUDIT-D1: the
-            Contagion Range escalates 3"/6"/9" by round per the printed
-            schedule, via `_contagion_range_for_round`
-            (SWEG_DG_CONTAGION_ESCALATION gate) — no longer a fixed 3".)
+          - Contagions of Nurgle -- chosen-Plague Scabrous Soulrot (Death
+            Guard, 10e): enemy units within Contagion Range of any DG model
+            take -1 Ld, active from round 1 whenever the DG army chose
+            Scabrous Soulrot at Declare Battle Formations (DURA-AUDIT-D3,
+            `_dg_ld_contagion_sources`, SWEG_DG_CHOSEN_PLAGUE gate; legacy
+            round-2-only "Maladictive Pall" gate when that gate is off).
+            Cited as `simulator.dg_chosen_plague` (legacy:
+            `simulator.contagions_of_nurgle`). (DURA-AUDIT-D1: the Contagion
+            Range escalates 3"/6"/9" by round per the printed schedule, via
+            `_contagion_range_for_round` (SWEG_DG_CONTAGION_ESCALATION gate)
+            — no longer a fixed 3".)
           - Shadow of Chaos (Chaos Daemons, 10e): enemy units within the
             Shadow of Chaos take Battle-shock at -1 AND, if failed,
             suffer D3 mortal wounds. APPROXIMATION: SwegHammer does not
@@ -10384,9 +10519,10 @@ class Battle:
 
         iter-13 fix: previously gated on `round_num <= 1` (skipped R1
         entirely). 10e core fires the test at the start of every Command
-        phase, R1 included. The R1 path is now live; the
-        contagion-source escalation gate below remains R2-only because
-        Maladictive Pall itself is R2 in the contagion schedule.
+        phase, R1 included. The R1 path is now live; DURA-AUDIT-D3 made the
+        contagion-source gate itself round-1-eligible whenever the chosen
+        Plague is Scabrous Soulrot (`_dg_ld_contagion_sources`) — it is only
+        R2-only in the SWEG_DG_CHOSEN_PLAGUE=0 legacy fallback.
         """
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
             opponent_det = opponent.resolve_detachment()
@@ -10414,13 +10550,11 @@ class Battle:
                 ]
             else:
                 shadow_sources = []
-            contagion_sources = (
-                [
-                    s for s in opponent.alive_units
-                    if s.profile.faction == "Death Guard"
-                ]
-                if round_num == 2 else []
-            )
+            # DURA-AUDIT-D3: sourced from the shared `_dg_ld_contagion_sources`
+            # helper (Scabrous Soulrot Leadership-worsening, active from
+            # round 1 when chosen; legacy round-2-only gate when
+            # SWEG_DG_CHOSEN_PLAGUE is off).
+            contagion_sources = _dg_ld_contagion_sources(round_num, opponent)
             # Plaguesurge (Virulent Vectorium, 2 command points, wave 235):
             # "Until the start of your next Command phase, add 3\" to the
             # Contagion Range of models from your army."

@@ -325,15 +325,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # separately under `Stratagem.Disgustingly Resilient`.
     # Death Guard army rule (10e). Nurgle's Gift / Contagions of Nurgle —
     # every DG model projects an aura that subjects enemy units within
-    # Contagion Range to the active Contagion. DURA-AUDIT-D1: the range now
+    # Contagion Range to the active Contagion. DURA-AUDIT-D1: the range
     # escalates 3"/6"/9" by battle round (`_contagion_range_for_round`,
-    # SWEG_DG_CONTAGION_ESCALATION gate) instead of a flat 3". Pending the
-    # chosen-Plague fix (D3, see `simulator.dg_chosen_plague`), the effect
-    # mix is still round-staggered: round 2 -1 Ld (battleshock in
-    # _run_battleshock_phase), round 3+ -1 to hit on enemy attackers near a
-    # DG model (Unit.attack). Faction-gated on the DG aura source; never
-    # debuffs DG units themselves; the round-3+ -1 to hit doesn't compound
-    # with other -1-to-hit modifiers (10e cap).
+    # SWEG_DG_CONTAGION_ESCALATION gate) instead of a flat 3". This key now
+    # covers only the SWEG_DG_CHOSEN_PLAGUE=0 legacy fallback shape (round 2
+    # -1 Ld, round 3+ -1 to hit); the default-ON live behaviour is the
+    # chosen-Plague mechanic, see `simulator.dg_chosen_plague`. Faction-gated
+    # on the DG aura source; never debuffs DG units themselves; the -1 to
+    # hit doesn't compound with other -1-to-hit modifiers (10e cap).
     "simulator.contagions_of_nurgle",
     # Death Guard army rule (10e). Nurgle's Gift / Afflicted -- the
     # always-on -1 Toughness half of the rule (DURA-AUDIT-D2): every enemy
@@ -344,6 +343,17 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # faithful S-vs-T wound chart is consulted. SWEG_DG_AFFLICTED_TOUGHNESS
     # gate, default ON.
     "simulator.dg_afflicted_toughness",
+    # Death Guard army rule (10e). Nurgle's Gift / Afflicted -- the chosen-
+    # Plague mechanic (DURA-AUDIT-D3): the Death Guard player picks ONE
+    # Plague (Skullsquirm Blight / Rattlejoint Ague / Scabrous Soulrot) at
+    # Declare Battle Formations, active from round 1 for the whole battle.
+    # `Battle._choose_dg_plague` is a documented artificial-intelligence
+    # heuristic (not a codex rule) that picks by opponent composition;
+    # the three effects themselves (attacker-side -1 to hit, defender Save
+    # characteristic -1, defender Move/Leadership/Objective-Control -1) are
+    # implemented strictly per print across Unit.attack, `effective_move`,
+    # and `Battle._effective_oc`. SWEG_DG_CHOSEN_PLAGUE gate, default ON.
+    "simulator.dg_chosen_plague",
     # Chaos Daemons army rule (10e). Shadow of Chaos — enemy units within
     # the Shadow of Chaos take Battle-shock at -1 AND, on a failed test,
     # suffer D3 mortal wounds. APPROXIMATION: the canonical zone-based

@@ -487,12 +487,15 @@ class FactionMechanicSmokeTests(unittest.TestCase):
             msg=f"DG unit with profile.fnp=7 must take every wound; got {dg_taken}.",
         )
 
-    def test_death_guard_contagions_no_r1_toughness_debuff(self):
-        """Iter-4 dropped the legacy R1 Virulent Rot (-1 T) branch — the
-        modern 10e codex replaces it with randomly-assigned Afflictions and
-        none of those are a toughness debuff. A DG attacker firing into a
-        Marine within 3" in round 1 must NOT land more wounds than the same
-        shooter into a Marine 12" away. Cites: simulator.contagions_of_nurgle."""
+    def test_death_guard_contagions_r1_afflicted_toughness_debuff(self):
+        """DURA-AUDIT-D2 (docs/_DURA_AUDIT_D_DEATHGUARD.md divergence D2):
+        the printed Nurgle's Gift / Afflicted rule always-on -1 Toughness
+        is active from round 1 (a different, faithfully-cited rule from the
+        launch-index Virulent Rot branch iter-4 removed — that removal is
+        still correct, since Virulent Rot itself has no modern-codex
+        anchor). A DG attacker firing into a Marine within Contagion Range
+        in round 1 must land MORE expected wounds than the same shooter
+        into a Marine 12" away. Cites: simulator.dg_afflicted_toughness."""
         # In-aura run.
         random.seed(2026)
         dg_in = Army("Death Guard")
@@ -529,12 +532,13 @@ class FactionMechanicSmokeTests(unittest.TestCase):
                 ast_out.units[0], distance=12.0, mode="ranged", has_los=True,
             )
 
-        # Allow 15% stochastic band for noise. Before the iter-4 fix the
-        # in-aura run was ~50% higher than out (-1 T turned T4 into T3).
-        self.assertLessEqual(
+        # Allow 15% stochastic band for noise. DURA-AUDIT-D2: the in-aura run
+        # should be ~50% higher than out (-1 T turns T4 into T3, S4 vs T3 is
+        # 3+ to wound vs S4 vs T4's 4+).
+        self.assertGreater(
             in_dmg, out_dmg * 1.15,
-            f"Iter-4 dropped R1 -1 T; in-aura damage should NOT be uplifted "
-            f"vs out-of-aura. got in={in_dmg:.1f} out={out_dmg:.1f}",
+            f"DURA-AUDIT-D2 Afflicted -1 Toughness should uplift in-aura "
+            f"damage vs out-of-aura. got in={in_dmg:.1f} out={out_dmg:.1f}",
         )
 
     # ----- Thousand Sons -----------------------------------------------
