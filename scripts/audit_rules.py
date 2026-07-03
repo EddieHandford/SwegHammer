@@ -202,6 +202,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # data/rule_citations.d/core_damage_allocation.json.
     "simulator.mortal_wound_spillover",
     "simulator.big_guns_never_tire",
+    # Reciprocal half of Big Guns Never Tire / shooting-into-engagement (audit
+    # C divergence 1, gated SWEG_BGNT_RECIPROCAL). A target within Engagement
+    # Range of a friendly unit OTHER than the attacker cannot be shot unless it
+    # is a MONSTER/VEHICLE (then at -1 to Hit, Pistols exempt); Blast weapons
+    # have no carve-out and cannot target a unit engaged with ANY friendly unit
+    # including the attacker's own. Cited in
+    # data/rule_citations.d/core_big_guns_reciprocal.json.
+    "simulator.big_guns_reciprocal",
+    "simulator.blast_engagement_restriction",
     "simulator.cover_light",
     "simulator.cover_heavy",
     "simulator.deep_strike",

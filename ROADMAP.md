@@ -153,7 +153,11 @@ in real play.
   - Astra Militarum: Voice of Command Orders (Officers issue per-datasheet Order counts to REGIMENT / SQUADRON / TITANIC units — wave 243 made REGIMENT and SQUADRON first-class unit keywords from the BSData categoryLink entries, replacing a BATTLELINE proxy that silently blocked nearly the whole faction; "First Rank, Fire! Second Rank, Fire!" is only issued to units that actually carry a Rapid Fire weapon, since the rule text buffs Rapid Fire weapons exclusively — tanks receive Take Aim! instead) + Flexible Command stratagem (widens a REGIMENT-only Officer's eligible set to SQUADRON for the round) + Grizzled Company detachment (env-gated `SWEG_AM_GRIZZLED`, default OFF — the real top-performing Astra Militarum detachment released Grotmas December 2025, previously entirely absent from the simulator: Ruthless Discipline gives +1 Order per Officer and re-rolls Hit rolls of 1 for attacks made by a unit affected by an Order; byte-identical to the pre-existing Combined Arms default when the gate is off)
   - Adeptus Astartes: **[pending — needs retry]** Oath of Moment + Combat Doctrines
 - **Core 10e mechanics**: Hit/Wound/Save w/ crits, AP+invuln+FNP, 18 weapon
-  keywords, Cover (light/heavy/obscuring), Big Guns Never Tire,
+  keywords, Cover (light/heavy/obscuring), Big Guns Never Tire (both
+  directions — the attacker's own in-engagement -1 and the reciprocal
+  shooting-into-engagement clause, gate `SWEG_BGNT_RECIPROCAL`: an enemy
+  pinned in melee by a friendly unit can only be shot if it is a
+  MONSTER/VEHICLE, at -1; Blast can never target an engaged unit),
   Sticky Objectives, Deep Strike / Scouts / Infiltrators, Battleshock with
   Mob Rule auto-pass, Heroic Intervention + Counter-Offensive stratagems,
   CP economy (3 start, +1/round capped at 6).

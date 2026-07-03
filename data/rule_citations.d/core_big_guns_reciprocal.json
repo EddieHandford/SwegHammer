@@ -1,0 +1,21 @@
+{
+  "_comment": "Reciprocal half of the 10e Big Guns Never Tire / shooting-into-engagement rule (audit C divergence 1). Paragraph one is the general lock: a unit locked in melee by one of your own units cannot be shot; paragraph three is the MONSTER/VEHICLE carve-out at -1 to Hit. The attacker's OWN-unit engagement (paragraph two and Pistols) is a separate, already-modelled clause (simulator.big_guns_never_tire, weapon.pistol). This fragment covers the OTHER direction plus the Blast weapon's engagement-range targeting restriction. Gated SWEG_BGNT_RECIPROCAL (default ON; =0 kill-switch is byte-identical to the pre-existing pipeline). Rule text verified live against Wahapedia core rules during the build and corroborated by docs/_DURA_AUDIT_C_POINTS_OUT.md.",
+
+  "simulator.big_guns_reciprocal": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Big-Guns-Never-Tire",
+    "rule_name": "Big Guns Never Tire (reciprocal shooting-into-engagement clause)",
+    "quoted_text": "While an enemy unit is within Engagement Range of one or more units from your army, you cannot select that enemy unit as a target of ranged weapons. You can select an enemy MONSTER or VEHICLE unit within Engagement Range of one or more units from your army as a target of ranged weapons. Each time a model from your army makes a ranged attack against such a target, unless that attack is made with a Pistol, subtract 1 from that attack's Hit roll.",
+    "trigger": "a ranged attack selects an enemy unit that is within Engagement Range of a friendly unit OTHER than the attacker's own unit (the attacker's own-unit engagement is governed separately by the Pistols rule and the attacker-side Big Guns Never Tire -1)",
+    "effect": "such a target cannot be selected unless it is a MONSTER or VEHICLE; when it is a MONSTER/VEHICLE the shot is permitted but each attack takes -1 to the Hit roll, unless the attack is made with a Pistol. Implemented in code/simulator.py _do_shoot as a candidate-legality filter (_reciprocal_ranged_legal, excluding any candidate the attacker is itself within Engagement Range of per paragraph two) and the shooting_at_engaged_brick per-activation flag read in code/units.py Unit.attack. The -1 composes with the attacker's own in-engagement -1 (simulator.big_guns_never_tire) under the +/-1 hit-modifier cap (simulator.modifier_cap_plus_minus_one), so when both fire the net stays a single -1 rather than -2 — matching the printed interaction, where the core rule caps every Hit-roll modifier at -1 or +1. The split-fire planner (_plan_squad_fire) and the T'au Markerlight emission apply the same legality gate before scoring. Pistols are exempt from the -1 but not from the general lock. Cross-checked against Wahapedia during build and docs/_DURA_AUDIT_C_POINTS_OUT.md.",
+    "scope": "keyword-gated"
+  },
+
+  "simulator.blast_engagement_restriction": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Blast",
+    "rule_name": "[BLAST] engagement-range targeting restriction",
+    "quoted_text": "Blast weapons can never be used to make attacks against a unit that is within Engagement Range of one or more units from the attacking model's army (including its own unit).",
+    "trigger": "a Blast weapon selects a target that is within Engagement Range of any unit from the attacking model's army, including the attacker's own unit",
+    "effect": "the target cannot be selected by a Blast weapon, with NO MONSTER/VEHICLE carve-out (unlike the general Big Guns Never Tire reciprocal clause). This extends the pre-existing attacker's-own-model Blast filter in code/simulator.py _do_shoot (which enforced only the attacker model's own Engagement Range) to cover every other friendly unit of the attacking army as well, matching the verbatim 'one or more units from the attacking model's army (including its own unit)'. Gated SWEG_BGNT_RECIPROCAL; the OFF path is byte-identical.",
+    "scope": "weapon-keyword"
+  }
+}

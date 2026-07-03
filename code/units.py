@@ -985,6 +985,14 @@ class Unit:
         # legacy / shared-profile units. Cited as `simulator.per_model_loadouts`.
         "squad_profile_ref",
         "moved_this_round", "on_objective", "shooting_in_engagement",
+        # RECIPROCAL BIG GUNS NEVER TIRE (gated SWEG_BGNT_RECIPROCAL). Set per
+        # shooting activation by Battle._do_shoot: True when this ranged
+        # activation targets an enemy MONSTER/VEHICLE that is within Engagement
+        # Range of a friendly unit OTHER than the attacker's own unit, in which
+        # case each non-Pistol attack takes -1 to Hit (the "shooting into
+        # another unit's engagement" reciprocal clause). Cited as
+        # `simulator.big_guns_reciprocal`.
+        "shooting_at_engaged_brick",
         # Pariah Nexus action state (wave 74). Set to an action name (e.g.
         # "cleanse") by Battle._assign_cleanse_actions when the unit performs a
         # 10e action this round; while set, _do_shoot and _do_charge refuse to
@@ -1309,6 +1317,12 @@ class Unit:
         # is firing while inside an enemy's engagement range (Big Guns
         # Never Tire). Triggers a -1 to hit modifier per 10e core rules.
         self.shooting_in_engagement: bool = False
+        # Reciprocal Big Guns Never Tire (gated SWEG_BGNT_RECIPROCAL): set by
+        # Battle._do_shoot when this activation fires at an enemy MONSTER/VEHICLE
+        # that is pinned in melee by a friendly unit other than the attacker's
+        # own unit — each non-Pistol attack then takes -1 to Hit. Default False;
+        # reset every activation. Off path leaves it permanently False.
+        self.shooting_at_engaged_brick: bool = False
         # Transient stratagem flags. Cleared every round by Battle._run_round
         # before the new round's stratagems are decided. Documented on the
         # __slots__ tuple above; default False on construction.
@@ -3265,6 +3279,21 @@ class Unit:
             # ---- Big Guns Never Tire: VEHICLE / MONSTER units that shoot
             # while in engagement range pay -1 to hit. Ranged only.
             if mode != "melee" and self.shooting_in_engagement:
+                hit_mod_delta -= 1
+
+            # ---- Big Guns Never Tire, RECIPROCAL clause (gated
+            # SWEG_BGNT_RECIPROCAL, flag set in Battle._do_shoot): a ranged
+            # attack against an enemy MONSTER/VEHICLE that is within Engagement
+            # Range of a friendly unit other than the attacker takes -1 to Hit,
+            # unless the attack is a Pistol (the Pistol exemption and the
+            # MONSTER/VEHICLE gate are resolved at the target-selection site,
+            # which only sets `shooting_at_engaged_brick` for a non-Pistol
+            # attacker firing at a qualifying engaged target). Composes with the
+            # attacker's own in-engagement -1 above through the ±1 modifier cap
+            # below: when both fire the net collapses to a single -1, matching
+            # the printed interaction (the core "-1 or +1" cap governs both
+            # clauses jointly). Cited as `simulator.big_guns_reciprocal`.
+            if mode != "melee" and self.shooting_at_engaged_brick:
                 hit_mod_delta -= 1
 
             # ---- Indirect Fire: -1 to hit when target is not visible. Ranged only.

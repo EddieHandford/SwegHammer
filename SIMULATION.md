@@ -123,6 +123,29 @@ normal (excess-lost) allocation above. **Deadly Demise** hits each *unit* within
 takes its X mortal wounds a single time. **Blast** likewise counts the models in
 the *targeted unit* (by `squad_id`), not every same-name model in the army.
 
+### Shooting into engagements — the reciprocal Big Guns Never Tire rule
+
+Two directions of the same core rule are modelled. The *attacker's own*
+engagement was already handled: a unit within Engagement Range of an enemy
+normally cannot shoot, except Pistols (fire freely) and MONSTER/VEHICLE units
+(Big Guns Never Tire — they shoot at −1 to Hit and may only target enemies they
+are themselves engaged with). The *reciprocal* direction (gate
+`SWEG_BGNT_RECIPROCAL`, default-ON; `=0` restores the prior pipeline
+byte-for-byte) closes the other half in `Battle._do_shoot`: an enemy unit within
+Engagement Range of a friendly unit *other than the attacker* cannot be selected
+as a ranged target **unless it is a MONSTER or VEHICLE**, in which case the shot
+is permitted but each non-Pistol attack takes −1 to Hit (set on the firing model
+as `shooting_at_engaged_brick`, read in `Unit.attack`). That −1 composes with
+the attacker's own in-engagement −1 under the ±1 hit-modifier cap, so the two
+never stack past −1. **Blast** weapons get no carve-out at all — they can never
+target a unit within Engagement Range of *any* friendly unit, including the
+attacker's own. The candidate list is filtered before every target scorer, so
+the focus-fire and target-economics pickers only ever score legal targets; the
+split-fire planner (`_plan_squad_fire`) and the T'au Markerlight emission apply
+the same gate. One deliberate consequence, faithful to the printed rule: a melee
+army that pins an enemy now *protects* that enemy from its own guns. Cited as
+`simulator.big_guns_reciprocal` and `simulator.blast_engagement_restriction`.
+
 ### Charge-Path Legality (screening)
 
 A charging unit may not pass within Engagement Range of any enemy unit it did

@@ -193,6 +193,67 @@ def _er_gap_units(a, b) -> float:
     return _er_gap(a.position, a.profile, b.position, b.profile)
 
 
+def _er_engaged_by(target, units) -> bool:
+    """True iff `target` is within Engagement Range (<= 1") of ANY unit in
+    `units`. Used by the reciprocal shooting-into-engagement rule's Blast leg,
+    which forbids a Blast weapon from targeting a unit engaged with any unit of
+    the attacker's army, including the attacker's own unit."""
+    return any(_er_gap_units(u, target) <= 1.0 for u in units)
+
+
+def _er_engaged_by_other_unit(target, units, attacker) -> bool:
+    """True iff `target` is within Engagement Range (<= 1") of a friendly unit
+    that is NOT the attacker and NOT a model of the attacker's own squad.
+
+    The attacker's OWN engagement (its own model, or another model of its own
+    squad, being within Engagement Range of the target) is governed separately
+    by the Pistols / Big Guns Never Tire rules applied at the shoot gate, so it
+    is excluded here. Squad membership is by `squad_id` (the simulator models a
+    codex squad as one Unit per model, all sharing a squad_id); a lone model
+    (squad_id < 0) excludes only itself."""
+    a_sid = getattr(attacker, "squad_id", -1)
+    for u in units:
+        if u is attacker:
+            continue
+        if a_sid >= 0 and getattr(u, "squad_id", -1) == a_sid:
+            continue
+        if _er_gap_units(u, target) <= 1.0:
+            return True
+    return False
+
+
+def _reciprocal_ranged_legal(target, friendly_units, attacker) -> bool:
+    """Reciprocal "shooting into engagements" legality for a non-Blast ranged
+    weapon (10e Big Guns Never Tire, gated SWEG_BGNT_RECIPROCAL).
+
+    Core rule, paragraph one: "While an enemy unit is within Engagement Range of
+    one or more units from your army, you cannot select that enemy unit as a
+    target of ranged weapons." Paragraph three carves MONSTER/VEHICLE targets
+    back in: "You can select an enemy MONSTER or VEHICLE unit within Engagement
+    Range of one or more units from your army as a target of ranged weapons ...
+    unless that attack is made with a Pistol, subtract 1 from that attack's Hit
+    roll." (The -1 is applied in Unit.attack; this predicate only governs
+    legality.)
+
+    Returns True iff `target` is a legal ranged target for `attacker` under
+    this clause:
+      * A target the attacker is itself within Engagement Range of is always
+        legal here — paragraph two lets a MONSTER/VEHICLE (or a Pistol model)
+        shoot an enemy it is engaged with "even if other friendly units are
+        also within Engagement Range of the same enemy unit"; that own-unit
+        case is governed by the shoot gate, never blocked by the reciprocal
+        clause.
+      * Otherwise, a target engaged by a friendly unit OTHER than the
+        attacker's own unit is legal only if it is a MONSTER or VEHICLE.
+    """
+    if _er_gap_units(attacker, target) <= 1.0:
+        return True
+    if not _er_engaged_by_other_unit(target, friendly_units, attacker):
+        return True
+    kw = target.profile.unit_keywords or ()
+    return "MONSTER" in kw or "VEHICLE" in kw
+
+
 def _angular_gap(a: float, b: float) -> float:
     """Absolute smallest angle (radians, in [0, pi]) between two bearings.
 
@@ -13560,6 +13621,25 @@ class Battle:
         else:
             members = [first_model]
         enemies = list(defender_army.alive_units)
+        # RECIPROCAL BIG GUNS NEVER TIRE (gated SWEG_BGNT_RECIPROCAL): drop
+        # targets the reciprocal shooting-into-engagement rule makes illegal (an
+        # enemy pinned in melee by a friendly unit that is not a MONSTER/VEHICLE)
+        # from the split-fire plan, so the planner never commits a squad's
+        # expected wounds onto a target `_do_shoot` will reject. This mirrors the
+        # `_do_shoot` candidate filter; legality is an army-level property (does
+        # any friendly unit pin the target), so it is safe to apply here even
+        # though the planner does not yet know each model's line of sight, and
+        # `_do_shoot` still validates every assignment per model. OFF path leaves
+        # `enemies` untouched (byte-identical). Cited as
+        # `simulator.big_guns_reciprocal`.
+        if os.environ.get("SWEG_BGNT_RECIPROCAL", "1") != "0":
+            _plan_friendly = attacker_army.alive_units
+            enemies = [
+                e for e in enemies
+                if _reciprocal_ranged_legal(e, _plan_friendly, first_model)
+            ]
+            if not enemies:
+                return
         if not enemies:
             return
         from .strategy import (
@@ -13901,6 +13981,40 @@ class Battle:
                 u for u in candidates
                 if _er_gap_units(attacker, u) > 1.0
             ]
+        # RECIPROCAL BIG GUNS NEVER TIRE / shooting-into-engagement (gated
+        # SWEG_BGNT_RECIPROCAL, default ON; =0 kill-switch restores the legacy
+        # pipeline byte-for-byte). The audit-C reciprocal half of the rule: an
+        # enemy unit within Engagement Range of a friendly unit OTHER than the
+        # attacker's own unit cannot be selected as a ranged target UNLESS it is
+        # a MONSTER or VEHICLE (which the Big Guns Never Tire clause carves back
+        # in, at -1 to Hit applied in Unit.attack via `shooting_at_engaged_brick`
+        # below). The attacker's OWN engagement is already handled above (the
+        # shoot gate + the in-engagement candidate restriction). The incentive
+        # flip this creates — a melee army that pins an enemy now PROTECTS it
+        # from that same army's own guns — is the real rule and is deliberately
+        # preserved. Filtering here, before `if not candidates: return` and
+        # before every target scorer, means the focus-fire / target-economics
+        # pickers only ever score legal targets. Cited as
+        # `simulator.big_guns_reciprocal`.
+        if os.environ.get("SWEG_BGNT_RECIPROCAL", "1") != "0":
+            _bgnt_friendly = attacker_army.alive_units
+            candidates = [
+                u for u in candidates
+                if _reciprocal_ranged_legal(u, _bgnt_friendly, attacker)
+            ]
+            # Blast weapons get NO MONSTER/VEHICLE carve-out and the restriction
+            # includes the attacker's own unit: "Blast weapons can never be used
+            # to make attacks against a unit that is within Engagement Range of
+            # one or more units from the attacking model's army (including its
+            # own unit)." The attacker-model half is enforced by the Blast
+            # filter above; this extends it to every other friendly unit, with
+            # no exception for engaged enemy MONSTERs/VEHICLEs. Cited as
+            # `simulator.blast_engagement_restriction`.
+            if attacker.profile.blast:
+                candidates = [
+                    u for u in candidates
+                    if not _er_engaged_by(u, _bgnt_friendly)
+                ]
         if not candidates:
             return
 
@@ -14089,6 +14203,28 @@ class Battle:
         # nearest visible model of the target unit. It stays in range even
         # when the defender allocates the wounds to a different model below.
         math_target = shoot_target
+
+        # RECIPROCAL BIG GUNS NEVER TIRE -1 (gated SWEG_BGNT_RECIPROCAL): when
+        # this activation fires at an enemy that is within Engagement Range of a
+        # friendly unit OTHER than the attacker's own unit, each non-Pistol
+        # attack takes -1 to Hit (core rule para three). The candidate filter
+        # above has already guaranteed any such other-unit-engaged target that
+        # survived is a MONSTER/VEHICLE (or a target the attacker is itself
+        # engaged with, whose -1 is the para-two own-engagement case), so we
+        # only re-test the engagement here; Pistols are exempt. The flag is read
+        # in Unit.attack and composed under the ±1 cap, so if the attacker's own
+        # in-engagement -1 also fires the net stays a single -1. Reset every
+        # activation; the OFF path leaves it False (byte-identical). Cited as
+        # `simulator.big_guns_reciprocal`.
+        attacker.shooting_at_engaged_brick = False
+        if (
+            os.environ.get("SWEG_BGNT_RECIPROCAL", "1") != "0"
+            and not attacker.profile.pistol
+            and _er_engaged_by_other_unit(
+                math_target, attacker_army.alive_units, attacker,
+            )
+        ):
+            attacker.shooting_at_engaged_brick = True
 
         # Defender allocation (SWEG_DEFENDER_ALLOC, default ON): the attacker's
         # heuristics above identify which squad to target; the DEFENDING player
@@ -15526,6 +15662,14 @@ class Battle:
                     target_keywords=e.profile.unit_keywords or (),
                 )
                 and can_target_for_ranged(mk, e, alive_enemies)
+                # Reciprocal Big Guns Never Tire (gated SWEG_BGNT_RECIPROCAL): a
+                # Markerlight is a ranged weapon, so it cannot mark an enemy
+                # pinned in melee by a friendly unit unless that enemy is a
+                # MONSTER/VEHICLE. OFF path keeps the legacy candidate set.
+                and (
+                    os.environ.get("SWEG_BGNT_RECIPROCAL", "1") == "0"
+                    or _reciprocal_ranged_legal(e, army.alive_units, mk)
+                )
             ]
             if not candidates:
                 continue
@@ -15572,6 +15716,13 @@ class Battle:
                             target_keywords=e.profile.unit_keywords or (),
                         )
                         and can_target_for_ranged(mk, e, alive_enemies)
+                        # Reciprocal Big Guns Never Tire (gated
+                        # SWEG_BGNT_RECIPROCAL): same targeting-legality gate as
+                        # the hit-roll marked set above.
+                        and (
+                            os.environ.get("SWEG_BGNT_RECIPROCAL", "1") == "0"
+                            or _reciprocal_ranged_legal(e, army.alive_units, mk)
+                        )
                     ):
                         los_marked.add(e.uid)
             army.guided_los_enemy_uids = los_marked
