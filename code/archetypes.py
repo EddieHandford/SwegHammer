@@ -1773,6 +1773,67 @@ def _effective_template(
         template = dict(template)
         template["thousand_sons_magnus_the_red"] = 1
 
+    # SWEG_ORKS_GHAZGHKULL (2026-07-04) — Orks Ghazghkull Thraka centerpiece.
+    # Default OFF (screening gate; adopt default-on only after the
+    # orchestrator's N=80 screen). List-realism correction, NOT win-rate
+    # tuning — the metric direction is accepted whatever it is.
+    #
+    # WHY: the Orks template (Waaagh!) fields Boyz x2, Meganobz, Warboss in
+    # Mega Armour, Killa Kans, Tankbustas, Nobz, Deffkoptas — a headless
+    # chaff mob with zero epic heroes. Ghazghkull Thraka is in the catalogue
+    # but absent from the template, so he is BARRED from random_fill by the
+    # MONSTER / EPIC HERO cap (a template_count of 0 caps his fills at 0) —
+    # the exact bar that hid Magnus from Thousand Sons. He was fielded in 0%
+    # of builds (`docs/_COMPAUDIT_UNDERPOLES.md`, 20/20 census), so the sim
+    # fights without its only durable anchor and without its only army-wide
+    # offence multiplier.
+    #
+    # SOURCED — real May/2026 competitive Orks run Ghazghkull as the War
+    # Horde centerpiece (the detachment SwegHammer already fields for Orks):
+    #   - Tabletop Battles "Detachment Focus: War Horde" (updated
+    #     2025-12-30): "you need Ghazghkull, who during a Waaagh! gives his
+    #     unit Crits on a 5+ and through Makari gives Ork units within 12"
+    #     LETHAL HITS"; War Horde is "the only [detachment] where Ghazghkull
+    #     is a must-take" and "currently the preferred way to run the
+    #     faction competitively." https://www.tabletopbattles.com/
+    #     detachment-focus-war-horde/
+    #   - Tabletop Battles "10th Edition Competitive Faction Focus: Orks".
+    #     https://www.tabletopbattles.com/10th-edition-competitive-faction-
+    #     focus-orks/
+    #   - Bolter and Chainsword "2,000 Point Tournament War Horde List" — a
+    #     Ghazghkull-anchored 2000-point tournament build.
+    #     https://bolterandchainsword.com/topic/382953-2000-point-
+    #     tournament-war-horde-list/
+    #   - Corroborated 2026-07-04: Ghazghkull typically rides a Battlewagon
+    #     ('Ard Case) or joins 20 Boyz / Breaka Boyz / Nobz; the War Horde's
+    #     always-on abilities (Prophet of Da Great Waaagh! crits-on-5+ in
+    #     melee while the Waaagh! is active; Makari's Waaagh! Banner grants
+    #     Lethal Hits to friendly ORKS within 12" of Makari) became much more
+    #     viable in late 2025 when Battlewagon and Ghazghkull changes landed,
+    #     and the detachment "remains competitive in 2026, particularly when
+    #     built around Ghazghkull as a centerpiece."
+    # MECHANISM: seed Ghazghkull into the template (count=1). He is the sole
+    # template EPIC HERO once added, so the existing EPIC HERO anchor
+    # guarantee in `_instantiate_template` force-seeds him as the centerpiece
+    # (validated 20/20 in the under-pole audit's read-only probe) — the same
+    # mechanism that seeds Death Guard Mortarion, World Eaters Khârn, and
+    # (once adopted) Thousand Sons Magnus. Random_fill's EPIC HERO cap is
+    # unchanged. The War Horde detachment picker is untouched — nothing is
+    # dropped from the existing template, only added.
+    # Guarded per CLAUDE.md rule 13 (fail loud on missing data): if the
+    # catalogue key ever stops resolving, raise instead of silently dropping
+    # the centerpiece from a would-be-default-on template.
+    if os.environ.get("SWEG_ORKS_GHAZGHKULL", "0") == "1" and fac == "Orks":
+        if "orks_ghazghkull_thraka" not in UNIT_CATALOG:
+            raise KeyError(
+                "archetypes._effective_template: SWEG_ORKS_GHAZGHKULL expects "
+                "'orks_ghazghkull_thraka' to resolve in UNIT_CATALOG but it "
+                "is missing — check for a regression that dropped the "
+                "datasheet from the catalogue or a typo'd key."
+            )
+        template = dict(template)
+        template["orks_ghazghkull_thraka"] = 1
+
     return template
 
 
