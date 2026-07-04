@@ -1708,6 +1708,99 @@ def _effective_template(
         template["chaos_knights_library_chaos_cerastus_knight_atrapos"] = 1
         template["chaos_knights_library_knight_despoiler"] = 2
 
+    # SWEG_ASTARTES_BATTLELINE (2026-07-04) — Adeptus Astartes broadened
+    # objective-holding battleline. Default OFF. List-composition correction,
+    # NOT win-rate tuning — the metric direction is accepted whatever it is.
+    #
+    # SCREENED AND NOT ADOPTED (2026-07-04): the N=20 Adeptus-Astartes-scoped
+    # probe vs the sc56a standing anchor moved the over-pole the WRONG way —
+    # Adeptus Astartes 51.1 -> 57.4 (+6.30 paired, decisive, 189/36960 flips),
+    # widening the over-pole vs real 47.0 from about +4 to about +10.4,
+    # instead of deflating it toward real as the composition audit predicted.
+    # A narrower Intercessor-only diagnostic variant (count=2, no Infiltrator/
+    # Scout added) still moved up (+3.25 paired), just by less — so the
+    # direction-reversal is not an Infiltrator/Scout-stacking artifact, it is
+    # the core mechanism: trading premium-shooting squads for more objective-
+    # control-2 battleline bodies INCREASES the simulator's win rate here,
+    # the opposite of the audit's causal theory that thin battleline / stacked
+    # firepower was suppressing scoring. Likely cause: the sim's existing
+    # objective-control/victory-point economy already rewards cheap high-
+    # model-count bodies more than the firepower they displace costs (the
+    # same economy the fill-mechanism audit flagged from the opposite side).
+    # Kept default-off and in the codebase per the SWEG_AM_GRIZZLED precedent
+    # (docs/DECISION_LEDGER.md) for screened-not-adopted list-realism levers —
+    # do not re-screen without a new theory for why it would help.
+    #
+    # WHY: the `Gladius Strike Force` template is `{Intercessor 1, Hellblaster
+    # 1, Eradicator 1, Aggressor 1, Captain-in-Terminator-Armour 1, Apothecary
+    # 1, Repulsor 1}` — three of the seven entries are premium-shooting
+    # elites (Hellblaster plasma, Eradicator melta, Aggressor Gravis) and only
+    # ONE is an objective-holding battleline entry (Intercessors). Hellblaster
+    # / Aggressor / Eradicator carry no BATTLELINE keyword in the catalogue,
+    # so `_random_fill`'s BATTLELINE cap (which throttles Intercessor fill
+    # picks to `max(1, template_count)`) never applies to them — only the
+    # generic per-name spend cap (`remaining_budget * 0.5`) does, so they
+    # stack to ~3 Hellblaster squads + ~2 Aggressor squads + ~2 Eradicator
+    # squads across seed + fill (docs/_COMPAUDIT_OVERPOLES.md census: 15.8
+    # Hellblasters, 12.1 Aggressors, 8.5 Eradicators, 100% presence each,
+    # vs a single 7.6-model Intercessor squad at only 76% presence). Real
+    # 2026 competitive Gladius lists run several distinct objective-holding
+    # troop choices (Intercessor / Incursor / Scout / Assault-Intercessor-
+    # with-jump-packs) and only a modest premium-shooting slice, not three
+    # triplicated elite squads.
+    #
+    # SOURCED — AdeptiCon 2026 1st place Ultramarines Gladius Task Force
+    # (spikeybits.com/results-warhammer-40k-army-lists-meta-adepticon-champs/):
+    # 1x Intercessor Squad + 1x Incursor Squad + 2x Scout Squad + 1x Assault
+    # Intercessor Squad with Jump Packs as the objective-holding battleline,
+    # ZERO Hellblaster / Aggressor / Eradicator squads (the list's ranged
+    # punch is 2x Ballistus Dreadnought + 2x Repulsor Executioner — vehicles,
+    # not infantry elites), plus Guilliman + Victrix Honour Guard + Uriel
+    # Ventris + Wardens of Ultramar as the character/elite spine. Grimhammer
+    # Tactics "Faction Focus: Space Marines — Gladius Task Force" (updated
+    # 2026-01-03) describes the same shape generically: "Scouts, Incursors,
+    # Intercessors, and Jump Pack Assault Intercessors keep objectives
+    # covered, while Guilliman, the Victrix, and the armor package remove
+    # threats." Matches docs/_COMPAUDIT_OVERPOLES.md's independent Goonhammer
+    # citation (Manel Tulla / Peyton Link 2nd — character goodstuff + several
+    # Intercessor/Incursor objective squads, 1-2 premium-shooting units).
+    #
+    # MECHANISM: raise Intercessor Squad to count=2 (doubles its BATTLELINE
+    # fill cap from 1 to 2) and add Infiltrator Squad + Scout Squad at
+    # count=1 each. Infiltrator/Scout carry no BATTLELINE keyword in the
+    # catalogue either, so they compete for fill picks on the same uniform
+    # `rng.choice` draw the premium-shooting elites use — widening the
+    # affordable-candidate pool with three additional objective-holding
+    # entries means a materially larger share of fill iterations land on a
+    # scoring body instead of a third Hellblaster/Aggressor/Eradicator squad.
+    # The premium units are NOT removed or capped directly — this is a
+    # rebalance of the fill's draw pool toward the real ratio, not a nerf of
+    # the faction's real tools (per the audit's framing: "Keep the premium
+    # units in the template — this is REBALANCE toward the real ratio, not a
+    # nerf"). Guarded per CLAUDE.md rule 13 (fail loud on missing data): if
+    # any of the three catalogue keys ever stops resolving, raise instead of
+    # silently shrinking the would-be-default-on template.
+    if (
+        os.environ.get("SWEG_ASTARTES_BATTLELINE") == "1"
+        and fac == "Adeptus Astartes"
+    ):
+        for _bl_key in (
+            "space_marines_intercessor_squad",
+            "space_marines_infiltrator_squad",
+            "space_marines_scout_squad",
+        ):
+            if _bl_key not in UNIT_CATALOG:
+                raise KeyError(
+                    "archetypes._effective_template: SWEG_ASTARTES_BATTLELINE "
+                    f"expects '{_bl_key}' to resolve in UNIT_CATALOG but it "
+                    "is missing — check for a regression that dropped the "
+                    "datasheet from the catalogue or a typo'd key."
+                )
+        template = dict(template)
+        template["space_marines_intercessor_squad"] = 2
+        template["space_marines_infiltrator_squad"] = 1
+        template["space_marines_scout_squad"] = 1
+
     # SWEG_TSONS_MAGNUS (2026-07-04) — Thousand Sons Magnus the Red
     # centerpiece. Default OFF (screening gate; adopt default-on only after
     # the orchestrator's N=80 screen). List-realism correction, NOT win-rate
