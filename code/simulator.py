@@ -2424,6 +2424,19 @@ class Battle:
         "ORKS": "Orks",
         "SOROR": "Adepta Sororitas",
         "GSC": "Genestealer Cults",
+        # DAEMONS added 2026-07-04 (Chaos Daemons Principle-2 pilot). Chaos
+        # Daemons is the #2 under-pole (sim 44.2 vs real 52.6) and its crater is
+        # concentrated in the DURABLE over-poles (Death Guard 36% / Imperial
+        # Knights 42% / Chaos Knights 42%) — so a Daemon-SCOPED lift is doubly
+        # corrective in the closed matrix (Daemons up toward 52.6 AND those
+        # over-poles down toward their targets in the Daemon cells), and the
+        # −9.3 going-first A/B asymmetry (the fragile-swarm mirror of the
+        # durability-over-reward) is exactly what a scoped STAGING gate
+        # addresses. Byte-identical off: a Chaos Daemons army previously fell
+        # through this loop to the final `return False`; now it matches here and
+        # reads `SWEG_DAEMONS_<suffix>` which is default-off (`== "1"`), so the
+        # returned boolean is unchanged until a scoped gate is explicitly set.
+        "DAEMONS": "Chaos Daemons",
     }
 
     def _scoped_lever_on(self, lever: str, army) -> bool:
