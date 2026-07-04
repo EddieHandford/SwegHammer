@@ -105,6 +105,61 @@ _DEEP_STRIKE_TRIAGE_CLEAR_KEYS: frozenset = frozenset({
     "aeldari_drukhari_tantalus_legends",
 })
 
+# ---------------------------------------------------------------------------
+# SWEG_IK_INVULN_RANGED_ONLY_BATCH2 (default-on, `=0` byte-identical
+# kill-switch) — durability fidelity wave, audit B, divergence 1
+# (docs/_DURA_AUDIT_B_DEFENSES.md). Five Imperial Knight chassis share the
+# identical shared BSData Ion Shield infoLink shape already corrected via the
+# `invuln_ranged_only` override key (data/overrides.json) for twelve sibling
+# chassis (Armiger Helverin/Moirax/Warglaive, Canis Rex, Knight Castellan/
+# Crusader/Errant/Gallant/Paladin/Preceptor/Valiant/Warden) but were never
+# given the same correction, so they currently carry their full invulnerable
+# save into melee combat — a phantom melee invulnerable save the printed rule
+# denies them (Ion Shields protect against ranged fire only). Verified
+# directly against `data/bsdata/cache/Imperium - Imperial Knights -
+# Library.cat.gz`: Knight Destrier, Acastus Knight Asterius, Acastus Knight
+# Porphyrion and Cerastus Knight Castigator all reuse the shared 5+ profile
+# (id `8552-862d-6a49-4879`, "This model has a 5+ invulnerable save against
+# ranged attacks."); Knight Defender uses the shared 4+ variant (id
+# `5a7a-57fa-9801-4e25`, same wording at 4+). Set `SWEG_IK_INVULN_RANGED_ONLY_
+# BATCH2=0` to restore the raw (mapper-Shape-1-blind-spot) unconditional
+# invulnerable save byte-identically. Cited
+# `simulator.ik_invuln_ranged_only_batch2`.
+_IK_INVULN_RANGED_ONLY_BATCH2_KEYS: frozenset = frozenset({
+    "imperial_knights_library_knight_destrier",
+    "imperial_knights_library_acastus_knight_asterius",
+    "imperial_knights_library_acastus_knight_porphyrion",
+    "imperial_knights_library_cerastus_knight_castigator",
+    "imperial_knights_library_knight_defender",
+})
+
+# SWEG_IK_ACHERON_INVULN (default-on, `=0` byte-identical kill-switch) —
+# durability fidelity wave, audit B, divergence 2
+# (docs/_DURA_AUDIT_B_DEFENSES.md). The Imperial Cerastus Knight Acheron's Ion
+# Shield ability is authored in BSData under an inline `Abilities` profile
+# NAMED AFTER THE UNIT ITSELF ("Cerastus Knight Acheron", not the conventional
+# "Invulnerable Save..." every other chassis in the same file uses), so the
+# mapper's Shape 3 name-prefix filter (`code/bsdata/mapper.py`,
+# `extract_invuln`) never matches it and the unit carries NO invulnerable
+# save at all in the raw parsed data. Verified directly against
+# `data/bsdata/cache/Imperium - Imperial Knights - Library.cat.gz`: profile
+# id `7afa-5443-53e3-5707`, typeName `Abilities`, name `"Cerastus Knight
+# Acheron"`, Description "This model has a 5+ invulnerable save against
+# ranged attacks only." — a single occurrence in the file, inline on the
+# Acheron's own `selectionEntry` (id `11d3-167b-6dff-a4c2`), so this
+# correction is scoped to exactly one unit key and cannot over-match any
+# other chassis. The Chaos-side twin (`Chaos Cerastus Knight Acheron`,
+# `Chaos - Chaos Knights Library.cat.gz`) authors the identical ability under
+# the conventional "Invulnerable Save" name and is already parsed correctly.
+# Fixed at this loader layer — rather than the mapper/`parsed.json` layer —
+# so the `=0` kill-switch can be validated at eval time without a
+# `parsed.json` regeneration cycle, matching the established
+# `SWEG_IK_CANIS_SINGLE` / `SWEG_NECRON_LYCHGUARD_INVULN` precedent for this
+# exact class of BSData-shape-blind-spot bug. Set
+# `SWEG_IK_ACHERON_INVULN=0` to restore the no-invulnerable-save-at-all
+# byte-identically. Cited `simulator.ik_acheron_invuln`.
+_IK_ACHERON_KEY = "imperial_knights_library_cerastus_knight_acheron"
+
 
 @dataclass
 class CatalogEntry:
@@ -790,9 +845,26 @@ def _apply_override(
             base.invuln_save
             if (key == "necrons_lychguard"
                 and os.environ.get("SWEG_NECRON_LYCHGUARD_INVULN", "1") != "0")
+            # SWEG_IK_ACHERON_INVULN (see the module-level comment above
+            # _IK_ACHERON_KEY): the mapper's Shape 3 name-prefix filter never
+            # finds the Acheron's Ion Shield ability at all, so base.invuln_save
+            # is 7 (none) pre-fix. 5 is the BSData-verified value.
+            else 5
+            if (key == _IK_ACHERON_KEY
+                and os.environ.get("SWEG_IK_ACHERON_INVULN", "1") != "0")
             else override.get("invuln_save", base.invuln_save)
         ),
-        "invuln_ranged_only": override.get("invuln_ranged_only", base.invuln_ranged_only),
+        "invuln_ranged_only": (
+            True
+            if (base.key in _IK_INVULN_RANGED_ONLY_BATCH2_KEYS
+                and os.environ.get("SWEG_IK_INVULN_RANGED_ONLY_BATCH2", "1") != "0")
+            else (
+                True
+                if (base.key == _IK_ACHERON_KEY
+                    and os.environ.get("SWEG_IK_ACHERON_INVULN", "1") != "0")
+                else override.get("invuln_ranged_only", base.invuln_ranged_only)
+            )
+        ),
         # Task #92: an override may set the per-attack invuln directly; else fall
         # back to any override of the single value, else the base per-attack value.
         # Lychguard invuln fabrication (SWEG_NECRON_LYCHGUARD_INVULN, see above) must
@@ -828,6 +900,12 @@ def _apply_override(
             base.invuln_save_ranged
             if (key == "necrons_lychguard"
                 and os.environ.get("SWEG_NECRON_LYCHGUARD_INVULN", "1") != "0")
+            # SWEG_IK_ACHERON_INVULN — the base per-attack ranged value is 7
+            # (none) pre-fix for the same reason as invuln_save above; restore
+            # the BSData-verified 5+ ranged invulnerable save.
+            else 5
+            if (key == _IK_ACHERON_KEY
+                and os.environ.get("SWEG_IK_ACHERON_INVULN", "1") != "0")
             else override.get(
                 "invuln_save_ranged",
                 # SWEG_INVULN_SPLIT_FIX — symmetric guard (see melee above).

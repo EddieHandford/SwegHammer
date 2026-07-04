@@ -3703,47 +3703,86 @@ def extract_deployment_abilities(entry: ET.Element) -> Dict[str, object]:
 
 
 _DEADLY_DEMISE_INT_RE = re.compile(r"^\s*(\d+)\s*$")
+# Some BSData entries append a parenthetical qualifier that names which
+# model within a multi-model characterful entry the value applies to (e.g.
+# Necrons "Szarekh" -> "D6+3 (Szarekh model only)"). The qualifier identifies
+# a model, not a different dice expression, so it is stripped before the
+# dice-notation match.
+_DEADLY_DEMISE_PAREN_RE = re.compile(r"^(.*?)\s*\([^)]*\)\s*$")
 
 
-def _parse_demise_value(s: str) -> int:
+def _parse_demise_value(s: str, unit_name: str = "?") -> int:
     """Map a 'Deadly Demise N' suffix string to its expected-value integer.
 
     Canonical forms seen in BSData 10e infoLink modifiers:
-       "1", "2", "3", "D3", "D6", "D3+3", "D6+2", "D6+3"
-    Returns 0 if unrecognised. Mapping:
+       "1", "2", "3", "D3", "D6", "D3+3", "D6+2", "D6+3", "D6+6", "2D6",
+       "3D6", "2D6+6", and one parenthetical-qualified form
+       ("D6+3 (Szarekh model only)" — the qualifier names the model, not a
+       different dice expression, and is stripped before matching).
+    Mapping (all rounded down to the nearest integer per project convention):
        integer N -> N
-       "D3"      -> 2   (expected value)
-       "D6"      -> 3   (expected value, rounded down from 3.5)
-       "D3+3"    -> 5   (E[D3] + 3 = 2 + 3)
-       "D6+2"    -> 5   (E[D6] + 2 = 3.5 + 2 = 5.5, rounded down to 5)
-       "D6+3"    -> 6   (E[D6] + 3 = 3.5 + 3 = 6.5, rounded down to 6)
+       "D3"      -> 2    (expected value, exact)
+       "D6"      -> 3    (E[D6] = 3.5, rounded down to 3)
+       "2D6"     -> 7    (E[2D6] = 7, exact)
+       "3D6"     -> 10   (E[3D6] = 10.5, rounded down to 10)
+       "D3+3"    -> 5    (E[D3] + 3 = 2 + 3)
+       "D6+2"    -> 5    (E[D6] + 2 = 3.5 + 2 = 5.5, rounded down to 5)
+       "D6+3"    -> 6    (E[D6] + 3 = 3.5 + 3 = 6.5, rounded down to 6)
+       "D6+6"    -> 9    (E[D6] + 6 = 3.5 + 6 = 9.5, rounded down to 9)
+       "2D6+6"   -> 13   (E[2D6] + 6 = 7 + 6 = 13, exact)
 
-    Note: "D6+2" was previously unhandled and fell through to 0, then to the
-    no-suffix fallback (returns 1). Affects Knight Castellan, Knight Valiant,
-    all Cerastus Knights (IK/CK), Knight Tyrant, Baneblade-class super-heavies,
-    Stormsurge, Khorne Lord of Skulls, and others. Fixed 2026-05-30.
+    Raises ValueError, naming the unit and the unrecognised string, for any
+    value string not covered above — CLAUDE.md rule 13 (fail loud on missing
+    data): a present-but-unparseable string must never silently collapse to
+    a default value.
+
+    History: "D6+2" was previously unhandled and fell through to a silent 1
+    (fixed 2026-05-30, affecting Knight Castellan, Knight Valiant, all
+    Cerastus Knights (Imperial and Chaos), Knight Tyrant, Baneblade-class
+    super-heavies, Stormsurge, Khorne Lord of Skulls, and others). "2D6" was
+    the next silent gap, discovered by durability-fidelity audit C
+    (`docs/_DURA_AUDIT_C_POINTS_OUT.md` divergence 3): it silently collapsed
+    to 1 instead of 7 on the four Acastus Knight chassis (Imperial and
+    Chaos). Making this function raise instead of default surfaced three
+    further unhandled forms across the wider catalogue in the same pass —
+    "2D6+6" (Warlord Titan), "3D6" (Manta, and two Legends fortifications),
+    and "D6+6" (Phantom, Reaver, and Warbringer Nemesis Titans) — all fixed
+    in the same sweep, plus the Szarekh parenthetical-qualifier form above.
     """
-    s = (s or "").strip()
-    if not s:
+    raw = (s or "").strip()
+    if not raw:
         return 0
-    su = s.upper().replace(" ", "")
+    paren_match = _DEADLY_DEMISE_PAREN_RE.match(raw)
+    core = paren_match.group(1).strip() if paren_match else raw
+    su = core.upper().replace(" ", "")
     if su == "D3":
         return 2
     if su == "D6":
         return 3
+    if su == "2D6":
+        return 7
+    if su == "3D6":
+        return 10
     if su == "D3+3":
         return 5
     if su == "D6+2":
         return 5
     if su == "D6+3":
         return 6
-    m = _DEADLY_DEMISE_INT_RE.match(s)
+    if su == "D6+6":
+        return 9
+    if su == "2D6+6":
+        return 13
+    m = _DEADLY_DEMISE_INT_RE.match(core)
     if m:
-        try:
-            return int(m.group(1))
-        except ValueError:
-            return 0
-    return 0
+        return int(m.group(1))
+    raise ValueError(
+        f"_parse_demise_value: unrecognised Deadly Demise value string "
+        f"{s!r} for unit {unit_name!r} in BSData mapper "
+        "(code/bsdata/mapper.py). Add an explicit branch for this dice "
+        "notation with its verbatim BSData source instead of silently "
+        "defaulting (CLAUDE.md rule 13: fail loud on missing data)."
+    )
 
 
 def extract_deadly_demise(entry: ET.Element) -> int:
@@ -3754,8 +3793,17 @@ def extract_deadly_demise(entry: ET.Element) -> int:
     value="X"/> that carries the X value as a literal (e.g. "1", "D3", "D6",
     "D3+3"). Returns the parsed integer expected value, or 0 if not present.
 
+    The "return 1" fallback below fires only when the ability is present
+    with no value-carrying modifier at all (structurally absent suffix) —
+    that is a genuine "ability present, no suffix" state, not a silent
+    default for an unrecognised value. A modifier that DOES carry a value
+    string is always passed to `_parse_demise_value`, which raises (rather
+    than returning a fallback) if that string is not one of the recognised
+    dice forms, per CLAUDE.md rule 13.
+
     Cited as `simulator.deadly_demise`.
     """
+    unit_name = entry.get("name") or "?"
     for il in entry.findall(".//infoLink"):
         name = (il.get("name") or "").strip()
         if name != "Deadly Demise":
@@ -3768,7 +3816,7 @@ def extract_deadly_demise(entry: ET.Element) -> int:
             if mod.get("field") != "name" or mod.get("type") != "append":
                 continue
             val = (mod.get("value") or "").strip()
-            v = _parse_demise_value(val)
+            v = _parse_demise_value(val, unit_name)
             if v > 0:
                 return v
         # Fall back: an infoLink named "Deadly Demise" with no suffix is

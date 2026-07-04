@@ -46,6 +46,7 @@ serialises cleanly to event-log / Streamlit replays.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Tuple
 
@@ -1618,14 +1619,46 @@ CP_PER_COMMAND_PHASE: int = 1
 CP_CAP: int = 6                          # 10e core: armies can't bank more than 6 CP
 
 
+def _cp_per_command_phase_enabled() -> bool:
+    """SWEG_CP_PER_COMMAND_PHASE (default ON; `=0` is the byte-identical-off
+    kill-switch reproducing the pre-fix single-grant-per-round rate). See
+    `data/rule_citations.d/core_command_points.json`."""
+    return os.environ.get("SWEG_CP_PER_COMMAND_PHASE", "1") != "0"
+
+
 def award_command_phase_cp(army) -> None:
     """Grant the start-of-Command-phase CP, capped at CP_CAP.
 
-    Called by Battle._run_round at the top of every round. The Strike Force
-    starting allotment (STARTING_CP) is set on Army.__init__ — this function
-    handles the per-round drip only.
+    Printed 10e core rule (Wahapedia core rules, Command phase): "At the
+    start of your Command phase, before doing anything else, both players
+    gain 1CP." There are TWO Command phases per battle round — one at the
+    start of each player's own turn — and in EACH of them BOTH players
+    (not only the active one) gain 1CP, so each player gains 2CP per
+    battle round from this source alone. A separate printed cap ("Outside
+    of the 1CP players gain at the start of the Command phase, each player
+    can only gain a total of 1CP per battle round, regardless of the
+    source (this includes other CP gained at the start of the Command
+    phase)") does NOT bind this grant — it caps CP gained from OTHER
+    sources in a round (Stratagems, Warlord traits, the voluntary-discard
+    "New Orders" gain), not the two Command-phase drips themselves.
+
+    Called by `Battle._run_round` once per army at the top of every round.
+    The simulator's round loop does not model the two player turns as
+    separate Command-phase events, so the printed 2-per-round rate is
+    represented here as a single grant of `CP_PER_COMMAND_PHASE * 2`
+    rather than two call sites — the net effect on `army.command_points`
+    is identical either way. The Strike Force starting allotment
+    (STARTING_CP) is set on Army.__init__ — this function handles the
+    per-round drip only.
+
+    Gated `SWEG_CP_PER_COMMAND_PHASE` (default ON; `=0` restores the
+    pre-fix 1-per-round rate for the byte-identical-off validation —
+    durability fidelity wave, secondary-economy audit fix D4, 2026-07-03).
     """
-    army.command_points = min(CP_CAP, army.command_points + CP_PER_COMMAND_PHASE)
+    grants = 2 if _cp_per_command_phase_enabled() else 1
+    army.command_points = min(
+        CP_CAP, army.command_points + CP_PER_COMMAND_PHASE * grants
+    )
 
 
 def stratagems_for_army(army) -> Tuple[Stratagem, ...]:

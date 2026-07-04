@@ -18,6 +18,7 @@ in `_run_round` (Command phase) and `_fire_stratagem` (spend).
 
 from __future__ import annotations
 
+import os
 import unittest
 
 from code.army import Army
@@ -136,10 +137,14 @@ class GuillimanCpDiscountTests(unittest.TestCase):
         # Pre-round 1 baseline: STARTING_CP=3.
         baseline = a.command_points
 
-        # Simulate one Command phase only (call the CP drips directly).
-        # We bypass the full _run_round to keep the test focused on the
-        # CP economy and avoid combat noise. award_command_phase_cp adds
-        # 1, then the Warlord block in _run_round adds another +1 = +2 total.
+        # Simulate one round's Command-phase economy only (call the CP
+        # drips directly). We bypass the full _run_round to keep the test
+        # focused on the CP economy and avoid combat noise.
+        # award_command_phase_cp adds 2 (secondary-economy audit fix D4:
+        # both players gain 1CP at the start of EACH of the two Command
+        # phases per round), then the Warlord block in _run_round adds
+        # Guilliman's own extra +1 = +3 total.
+        os.environ.pop("SWEG_CP_PER_COMMAND_PHASE", None)
         from code.stratagems import award_command_phase_cp
         award_command_phase_cp(a)
         # Replicate the Warlord-discount step from _run_round inline.
@@ -150,8 +155,8 @@ class GuillimanCpDiscountTests(unittest.TestCase):
             )
 
         self.assertEqual(
-            a.command_points, min(CP_CAP, baseline + 2),
-            "Guilliman should add +1 CP on top of the +1/round drip"
+            a.command_points, min(CP_CAP, baseline + 3),
+            "Guilliman should add +1 CP on top of the +2/round drip"
         )
 
     def test_guilliman_cp_discount_respects_cap(self):

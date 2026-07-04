@@ -55,19 +55,29 @@ if TYPE_CHECKING:
 # (assigns 2 Fixed + 2 Tactical to each army at battle start) and the
 # `chosen` gate in `score_round_delta` / `score_position_delta`.
 #
-# Fixed Secondaries pool (CA-2025-26 tournament legal, pick 2):
+# Fixed Secondaries — the printed CA-2025-26 Fixed pool is FIVE cards, pick 2
+# (distinct): Assassination, No Prisoners, Cull the Horde, Bring It Down, Cleanse.
+# The three kill cards below are the always-present core; No Prisoners and Cleanse
+# are added as legal Fixed picks by D5 (`_pick_fixed_pair_full`, env-gated
+# SWEG_FIXED_POOL_FULL, default ON) — see `simulator.fixed_pool_full` for the
+# citation and the open caveat that whether the specific May-2026 Warp Friends
+# tournament banned No Prisoners as a Fixed pick is unverified (the base rule
+# includes it). This tuple stays the 3-card core because it feeds the
+# backward-compatible `score_round_delta(chosen=None)` fallback; the picker
+# returns the No Prisoners / Cleanse picks directly and the scorer handles them.
 #   bring_it_down       — MONSTER/VEHICLE kill credit
 #   cull_the_horde      — kill credit for 13+model squads
 #   assassination       — CHARACTER kill credit (wound-bracket split)
-# NOTE: no_prisoners is NOT a valid Fixed pick in CA-2025-26 tournament play
-# (see quoted_text in data/rule_citations.d/secondaries_pariah_nexus.json for
-# `simulator.secondary_no_prisoners`). It is a Tactical-only mission card.
-# It remains in TACTICAL_SECONDARY_KEYS and TACTICAL_DECK_POOL so it can still
-# be drawn and scored on the Tactical track.
 # Tactical Secondaries (pool of 9+, draw 2 per round in real play):
 #   engage_on_all_fronts — board-spread victory points
 #   behind_enemy_lines   — opponent deployment zone victory points
 #   no_prisoners         — generic unit-kill credit (Tactical only in tournament)
+# Durability fidelity wave, audit C divergence 2 (2026-07-03): the printed
+# CA-2025-26 Secondary Mission deck carries BOTH a Fixed box and a Tactical
+# box on the same physical card for most cards, including bring_it_down and
+# assassination — they are NOT Fixed-exclusive. See TACTICAL_DECK_POOL below
+# and `simulator.tactical_deck_big_game` (env-gated SWEG_TACDECK_BIG_GAME,
+# default ON) for the reachability fix that adds them to the drawable deck.
 # Source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
 # Cited as `simulator.secondary_selection`.
 FIXED_SECONDARY_KEYS: Tuple[str, ...] = (
@@ -100,6 +110,15 @@ TACTICAL_SECONDARY_KEYS: Tuple[str, ...] = (
     "establish_locus",
     "recover_assets",
     "a_tempting_target",
+    # Secondary-economy audit fix wave, D3 (SWEG_TACDECK_FULL): the three printed
+    # Chapter Approved 2025-26 Tactical cards the sim did not implement at all.
+    # Scored in code/simulator.py (Battle._score_marked_for_death /
+    # _score_overwhelming_force / _score_display_of_might); registered here so
+    # ALL_SECONDARY_KEYS stays complete and the per-card `chosen` gate recognises
+    # them. Only ever drawn when SWEG_TACDECK_FULL adds them to TACTICAL_DECK_POOL.
+    "marked_for_death",
+    "overwhelming_force",
+    "display_of_might",
 )
 # Wave 83 Tier A: the objective-holding / board-control secondaries. Scoring +
 # zone classification live in code/simulator.py (Battle._score_board_secondaries,
@@ -128,15 +147,25 @@ ALL_SECONDARY_KEYS: Tuple[str, ...] = (
 # TWO HELD cards per round — not the whole pile.
 #
 # The deck pool below is the Tactical / action / take-and-hold set the simulator
-# already scores (the 3 Fixed KILL cards — bring_it_down, cull_the_horde,
-# assassination — are the FIXED track's pool and are NOT in this deck; No
-# Prisoners IS in this deck because it is a Tactical-only card in CA-2025-26
-# tournament play). Each card here is routed to its existing scorer by
+# already scores. Two of the three Fixed KILL cards (bring_it_down and
+# assassination) are ALSO drawable from this deck — see the
+# `_BIG_GAME_DECK_CARDS` block further down and `simulator.tactical_deck_big_game`
+# for the reachability fix and its printed-deck verification (durability
+# fidelity wave, audit C divergence 2, 2026-07-03). Cull the Horde is left
+# out of scope for that fix (a separate, un-audited reachability gap of the
+# same shape — its Tactical text is already cited at
+# `simulator.secondary_cull_the_horde_tactical` but likewise unreachable — is
+# noted there for a future ticket, not fixed here). No Prisoners IS in this
+# deck because it is a Tactical-only card in CA-2025-26 tournament play (it
+# is never a valid Fixed pick, so there is no Fixed-track overlap to reason
+# about). Each card here is routed to its existing scorer by
 # `Battle._score_one_card`. This is the union of:
 #   * No Prisoners (generic unit-kill credit, Tactical only in tournament),
 #   * the two position Tactical cards (Engage on All Fronts, Behind Enemy Lines),
-#   * the two action cards (Cleanse, Sabotage), and
-#   * the five Tier-A take-and-hold board cards.
+#   * the two action cards (Cleanse, Sabotage),
+#   * the five Tier-A take-and-hold board cards, and
+#   * (gated) Bring It Down / Assassination, the two Tactical-capable Fixed
+#     kill cards.
 # Source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
 # (deck mechanic) + the per-card sources already cited in
 # data/rule_citations.d/secondaries_pariah_nexus.json. Cited as
@@ -172,11 +201,99 @@ _ACTION_ECONOMY_DECK_CARDS: Tuple[str, ...] = (
     "recover_assets",
     "a_tempting_target",
 )
-TACTICAL_DECK_POOL: Tuple[str, ...] = (
-    _TACTICAL_DECK_BASE_POOL + _ACTION_ECONOMY_DECK_CARDS
-    if _action_economy_enabled()
-    else _TACTICAL_DECK_BASE_POOL
+# Durability fidelity wave, audit C divergence 2 (2026-07-03, env-gated
+# SWEG_TACDECK_BIG_GAME, DEFAULT-ON) — Bring It Down and Assassination are
+# Tactical-capable Fixed kill cards in the real CA-2025-26 Secondary Mission
+# deck, not Fixed-exclusive. Verified against Wahapedia
+# (https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ and
+# https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/): the printed
+# deck prints a Tactical scoring box on both cards ("One or more enemy
+# MONSTER or VEHICLE units were destroyed this turn. TACTICAL 4VP" / "One or
+# more enemy CHARACTER models were destroyed this turn. TACTICAL 5VP"),
+# corroborating the verbatim text a prior session already captured (wave 181)
+# in the `simulator.secondary_bring_it_down_tactical` /
+# `..._assassination_tactical` citations — text that has been fully wired
+# into `Battle._score_one_card`'s `is_tactical` branch since wave 181
+# (`code/simulator.py:3616-3633`) but was unreachable because no TACTICAL-track
+# army could ever draw either card. This gate makes the deck include them so
+# that already-implemented, already-cited scoring path actually runs.
+# Cited as `simulator.tactical_deck_big_game`.
+_BIG_GAME_DECK_CARDS: Tuple[str, ...] = (
+    "bring_it_down",
+    "assassination",
 )
+
+
+def _big_game_tactical_enabled() -> bool:
+    """Bring It Down / Assassination Tactical-deck reachability gate. DEFAULT
+    ON; `SWEG_TACDECK_BIG_GAME=0` is the byte-identical-off kill-switch that
+    restores the pre-fix deck (`_TACTICAL_DECK_BASE_POOL` plus whatever the
+    independent `SWEG_ACTION_ECONOMY` gate adds) exactly, with no perturbed
+    shuffle order and no extra random consumption when both cards are
+    absent — see `_BIG_GAME_DECK_CARDS` above for the rule verification."""
+    return os.environ.get("SWEG_TACDECK_BIG_GAME", "1") != "0"
+
+
+# Secondary-economy audit fix wave, D3 (env-gated SWEG_TACDECK_FULL, DEFAULT-ON):
+# complete the printed Chapter Approved 2025-26 Secondary Mission deck (19 cards).
+# The pre-fix production pool was 12 cards (base 10 + big-game 2); it lacked seven
+# printed cards (docs/_SEC_ECONOMY_AUDIT.md D3), so its drawable pool was smaller
+# and harder than the real one. These seven complete it:
+#   * establish_locus / recover_assets / a_tempting_target — implemented action
+#     cards previously reachable only under SWEG_ACTION_ECONOMY; their gating
+#     folds into this fix (the shedding fix D1 and hand-gating fix D2 remove the
+#     action-economy over-assignment that caused their prior metric-harm rejection).
+#   * cull_the_horde — its Tactical scorer (CULL_THE_HORDE_TACTICAL_VP, routed in
+#     Battle._score_one_card) already existed but the card was unreachable on the
+#     Tactical track (the wave-181 exclusion the big-game citation flagged as a
+#     separate follow-up); this restores it.
+#   * marked_for_death / overwhelming_force / display_of_might — the three cards
+#     not implemented at all; their scorers are added in code/simulator.py and
+#     cited verbatim (simulator.secondary_marked_for_death /
+#     simulator.secondary_overwhelming_force / simulator.secondary_display_of_might).
+# The full drawable census (SWEG_TACDECK_BIG_GAME + SWEG_TACDECK_FULL both default
+# ON) is exactly the printed 19-card list. Cited `simulator.tactical_deck_full`.
+# Source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
+_TACDECK_FULL_EXTRA_CARDS: Tuple[str, ...] = (
+    "establish_locus",
+    "recover_assets",
+    "a_tempting_target",
+    "cull_the_horde",
+    "marked_for_death",
+    "overwhelming_force",
+    "display_of_might",
+)
+
+
+def _tacdeck_full_enabled() -> bool:
+    """D3 full printed 19-card deck gate. DEFAULT ON; `SWEG_TACDECK_FULL=0`
+    restores the pre-fix pool byte-identically (base + action-economy-if-gated +
+    big-game-if-gated, in exactly the pre-fix order)."""
+    return os.environ.get("SWEG_TACDECK_FULL", "1") != "0"
+
+
+def _build_tactical_deck_pool() -> Tuple[str, ...]:
+    """Assemble the drawable Tactical deck pool at import time. With
+    SWEG_TACDECK_FULL on, the printed 19-card deck (base + big-game + the seven
+    D3 cards, de-duplicated, preserving first-seen order). With it off, the exact
+    pre-fix expression (byte-identical shuffle input)."""
+    if _tacdeck_full_enabled():
+        pool: List[str] = list(_TACTICAL_DECK_BASE_POOL)
+        if _big_game_tactical_enabled():
+            pool += [c for c in _BIG_GAME_DECK_CARDS if c not in pool]
+        for c in _TACDECK_FULL_EXTRA_CARDS:
+            if c not in pool:
+                pool.append(c)
+        return tuple(pool)
+    # Legacy pre-fix pool (byte-identical order).
+    return (
+        _TACTICAL_DECK_BASE_POOL
+        + (_ACTION_ECONOMY_DECK_CARDS if _action_economy_enabled() else ())
+        + (_BIG_GAME_DECK_CARDS if _big_game_tactical_enabled() else ())
+    )
+
+
+TACTICAL_DECK_POOL: Tuple[str, ...] = _build_tactical_deck_pool()
 
 
 # Per-round VP caps (Pariah Nexus rule text, tuned 2026-05-20).
@@ -897,13 +1014,49 @@ def _tac_deck_enabled() -> bool:
     return os.environ.get("SWEG_TAC_DECK") == "1"
 
 
-def _pick_fixed_kill_pair(own_army: "Army", enemy_army: "Army") -> List[str]:
-    """The 2 Fixed KILL cards an army brings (CA-2025-26 Fixed pool). This is
-    exactly today's Fixed-pick logic, factored out so both the legacy path and
-    the M2 FIXED track use the identical heuristic.
+def _fixed_pool_full_enabled() -> bool:
+    """D5 — the printed 5-card Fixed Secondary pool (SWEG_FIXED_POOL_FULL,
+    DEFAULT-ON). The printed Chapter Approved 2025-26 Fixed pool is Assassination,
+    No Prisoners, Cull the Horde, Bring It Down and Cleanse; a Fixed player picks
+    TWO (distinct) of them. The pre-fix picker excluded No Prisoners and Cleanse
+    and could resolve BOTH slots to Cull the Horde (a degenerate duplicate). `=0`
+    restores the pre-fix 3-card picker byte-identically. Cited
+    `simulator.fixed_pool_full`."""
+    return os.environ.get("SWEG_FIXED_POOL_FULL", "1") != "0"
 
-    No Prisoners is NOT a valid Fixed pick in CA-2025-26 tournament play, so it
-    is excluded from both slots. The revised heuristic:
+
+def _pick_fixed_pair_full(own_army: "Army", enemy_army: "Army") -> List[str]:
+    """D5 — pick TWO DISTINCT Fixed Secondary Missions from the printed 5-card
+    Fixed pool. Slots 1 and 2 keep the pre-fix target-richness heuristic exactly
+    (so bring_it_down + cull, bring_it_down + assassination and cull + assassination
+    are unchanged); only the degenerate case where both slots would resolve to
+    Cull the Horde is corrected, by falling through the rest of the printed Fixed
+    pool for a DISTINCT second pick — No Prisoners first (broad generic-kill,
+    achievable against any roster; the natural pick facing a chaff-heavy,
+    character-light, vehicle-light enemy) then Cleanse. This removes the duplicate
+    the printed 'note down which TWO Fixed Missions' rule forbids, and makes No
+    Prisoners and Cleanse legal Fixed picks."""
+    mv = _enemy_monster_vehicle_count(enemy_army)
+    enemy_chars = sum(1 for u in enemy_army.units if _is_character(u))
+    slot1 = "bring_it_down" if mv >= _BID_TARGET_THRESHOLD else "cull_the_horde"
+    slot2 = "assassination" if enemy_chars >= 2 else "cull_the_horde"
+    if slot2 == slot1:
+        for candidate in ("no_prisoners", "cleanse", "assassination",
+                          "bring_it_down"):
+            if candidate != slot1:
+                slot2 = candidate
+                break
+    return [slot1, slot2]
+
+
+def _pick_fixed_kill_pair(own_army: "Army", enemy_army: "Army") -> List[str]:
+    """The 2 Fixed cards an army brings (CA-2025-26 Fixed pool). Factored out so
+    both the legacy path and the M2 FIXED track use the identical heuristic.
+
+    D5 (SWEG_FIXED_POOL_FULL, default ON): pick two DISTINCT cards from the printed
+    5-card Fixed pool (Assassination, No Prisoners, Cull the Horde, Bring It Down,
+    Cleanse) — see `_pick_fixed_pair_full`. `SWEG_FIXED_POOL_FULL=0` restores the
+    pre-fix 3-card picker below byte-identically:
 
       Slot 1: enemy has >= 3 MONSTER/VEHICLE units → bring_it_down,
               else → cull_the_horde (the broadest remaining kill card; fires
@@ -911,13 +1064,12 @@ def _pick_fixed_kill_pair(own_army: "Army", enemy_army: "Army") -> List[str]:
               destroyed, which is common against any body army).
       Slot 2: enemy has >= 2 CHARACTER units → assassination, else → cull_the_horde.
 
-    In the degenerate case where both slots resolve to cull_the_horde (enemy
-    has neither 3+ MONSTER/VEHICLE nor 2+ CHARACTERs), the army runs two
-    copies. This is mechanically harmless — the scorer gates on
-    `"cull_the_horde" in chosen`, so two copies collapse to one scoring pass.
-    It is faithful: a player facing a chaff-heavy, character-light, vehicle-
-    light enemy would genuinely lean Cull-heavy in their Fixed picks.
+    In the degenerate case where both slots resolve to cull_the_horde the pre-fix
+    picker runs two copies (the scorer gates on `"cull_the_horde" in chosen`, so
+    two copies collapse to one scoring pass) — the duplicate D5 removes.
     """
+    if _fixed_pool_full_enabled():
+        return _pick_fixed_pair_full(own_army, enemy_army)
     fixed: List[str] = []
     if _enemy_monster_vehicle_count(enemy_army) >= _BID_TARGET_THRESHOLD:
         fixed.append("bring_it_down")

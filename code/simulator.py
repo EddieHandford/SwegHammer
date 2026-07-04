@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import math
 import os
 import random
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from .army import Army
 from .detachments import effective_move
@@ -153,6 +154,7 @@ from .sim.constants import (  # noqa: F401  (re-exported for the public surface)
     OVERSCORE_STATS,
     DELIVERY_STATS,
     SHOOTLOSS_STATS,
+    RECIP_INSTR_STATS,
     BOARDCONTROL_STATS,
     PATHFIND_STAGE0_STATS,
     REACH_STATS,
@@ -190,6 +192,114 @@ def _er_gap_units(a, b) -> float:
     a centre-based `<= 1.0` gate can never see). Cited as
     `simulator.engagement_range_base_edge`."""
     return _er_gap(a.position, a.profile, b.position, b.profile)
+
+
+def _er_engaged_by(target, units) -> bool:
+    """True iff `target` is within Engagement Range (<= 1") of ANY unit in
+    `units`. Used by the reciprocal shooting-into-engagement rule's Blast leg,
+    which forbids a Blast weapon from targeting a unit engaged with any unit of
+    the attacker's army, including the attacker's own unit."""
+    return any(_er_gap_units(u, target) <= 1.0 for u in units)
+
+
+def _er_engaged_by_other_unit(target, units, attacker) -> bool:
+    """True iff `target` is within Engagement Range (<= 1") of a friendly unit
+    that is NOT the attacker and NOT a model of the attacker's own squad.
+
+    The attacker's OWN engagement (its own model, or another model of its own
+    squad, being within Engagement Range of the target) is governed separately
+    by the Pistols / Big Guns Never Tire rules applied at the shoot gate, so it
+    is excluded here. Squad membership is by `squad_id` (the simulator models a
+    codex squad as one Unit per model, all sharing a squad_id); a lone model
+    (squad_id < 0) excludes only itself."""
+    a_sid = getattr(attacker, "squad_id", -1)
+    for u in units:
+        if u is attacker:
+            continue
+        if a_sid >= 0 and getattr(u, "squad_id", -1) == a_sid:
+            continue
+        if _er_gap_units(u, target) <= 1.0:
+            return True
+    return False
+
+
+def _reciprocal_ranged_legal(target, friendly_units, attacker) -> bool:
+    """Reciprocal "shooting into engagements" legality for a non-Blast ranged
+    weapon (10e Big Guns Never Tire, gated SWEG_BGNT_RECIPROCAL).
+
+    Core rule, paragraph one: "While an enemy unit is within Engagement Range of
+    one or more units from your army, you cannot select that enemy unit as a
+    target of ranged weapons." Paragraph three carves MONSTER/VEHICLE targets
+    back in: "You can select an enemy MONSTER or VEHICLE unit within Engagement
+    Range of one or more units from your army as a target of ranged weapons ...
+    unless that attack is made with a Pistol, subtract 1 from that attack's Hit
+    roll." (The -1 is applied in Unit.attack; this predicate only governs
+    legality.)
+
+    Returns True iff `target` is a legal ranged target for `attacker` under
+    this clause:
+      * A target the attacker is itself within Engagement Range of is always
+        legal here — paragraph two lets a MONSTER/VEHICLE (or a Pistol model)
+        shoot an enemy it is engaged with "even if other friendly units are
+        also within Engagement Range of the same enemy unit"; that own-unit
+        case is governed by the shoot gate, never blocked by the reciprocal
+        clause.
+      * Otherwise, a target engaged by a friendly unit OTHER than the
+        attacker's own unit is legal only if it is a MONSTER or VEHICLE.
+    """
+    if _er_gap_units(attacker, target) <= 1.0:
+        return True
+    if not _er_engaged_by_other_unit(target, friendly_units, attacker):
+        return True
+    kw = target.profile.unit_keywords or ()
+    return "MONSTER" in kw or "VEHICLE" in kw
+
+
+def _angular_gap(a: float, b: float) -> float:
+    """Absolute smallest angle (radians, in [0, pi]) between two bearings.
+
+    Used by the multi-unit melee CAGING wrap placement (SWEG_MELEE_CAGING) to
+    land each coordinated charger on the side of a durable brick farthest from
+    the chargers already on it, and by the fall-back-block's opposing-sides
+    test in code/strategy.py."""
+    d = (a - b) % (2.0 * math.pi)
+    if d > math.pi:
+        d = 2.0 * math.pi - d
+    return d
+
+
+def _dg_ld_contagion_sources(round_num: int, dg_side_army) -> list:
+    """Death Guard Battle-shock Leadership-penalty sources from
+    `dg_side_army`'s roster (DURA-AUDIT-D3, chosen-Plague Scabrous Soulrot's
+    Leadership-worsening half). BSData/Wahapedia verbatim: "Scabrous Soulrot
+    — Worsen the Move, Leadership and Objective Control characteristics of
+    models in this unit by 1 (this rule can only worsen a model's Objective
+    Control characteristic to a minimum of 1)."
+
+    Shared by the three call sites that build a `contagion_sources` list for
+    `Battle._battleshock_test_squad` (`_run_battleshock_phase`,
+    `_apply_shadow_in_the_warp_forced_tests`,
+    `_apply_drukhari_tormentors_forced_tests`): each passes its own
+    Death-Guard-providing army (the opposing/aura-source side in that call's
+    context) as `dg_side_army`.
+
+    Env-gated SWEG_DG_CHOSEN_PLAGUE (default ON): when ON, the penalty is
+    active from round 1 onward, but ONLY when `dg_side_army.dg_chosen_plague
+    == "Scabrous Soulrot"` (the printed rule is "until the end of the
+    battle" once a single Plague is chosen — not tied to any specific
+    round). When OFF, restores the exact pre-fix legacy gate (round 2 only,
+    no plague-choice concept — the old "Maladictive Pall" approximation),
+    so the all-gates-off combination reproduces the original code exactly.
+    Cited as `simulator.dg_chosen_plague` (legacy:
+    `simulator.contagions_of_nurgle`).
+    """
+    if os.environ.get("SWEG_DG_CHOSEN_PLAGUE", "1") != "0":
+        active = getattr(dg_side_army, "dg_chosen_plague", None) == "Scabrous Soulrot"
+    else:
+        active = round_num == 2
+    if not active:
+        return []
+    return [s for s in dg_side_army.alive_units if s.profile.faction == "Death Guard"]
 
 
 # ---------------------------------------------------------------------------
@@ -593,6 +703,21 @@ class Battle:
                 continue
             army.cp_refund_remaining = wl.cp_refund_per_battle
             army._warlord_first_strat_free_enabled = wl.first_stratagem_free_per_round
+
+        # Death Guard army rule Nurgle's Gift / Afflicted -- Declare Battle
+        # Formations Plague choice (DURA-AUDIT-D3,
+        # docs/_DURA_AUDIT_D_DEATHGUARD.md divergence D3). BSData/Wahapedia
+        # verbatim: "During the Declare Battle Formations step, select one
+        # of the Plagues below. Until the end of the battle, while an enemy
+        # unit is Afflicted ... that unit has the effect of your chosen
+        # Plague." Seeded once per battle, before Round 1, for every Death
+        # Guard army (mirrors the Warlord CP-econ scan just above -- a
+        # one-time start-of-battle read of the opposing roster). Non-Death-
+        # Guard armies keep `dg_chosen_plague = None` (Army.__init__
+        # default). Cited as `simulator.dg_chosen_plague`.
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            if any(u.profile.faction == "Death Guard" for u in army.units):
+                army.dg_chosen_plague = self._choose_dg_plague(army, opponent)
 
         # Drukhari Combat Drugs (army rule, 10e). DRK-NON-SKYSPLINTER-V1
         # (2026-05-29): drug application moved from pre-game (battle start)
@@ -1592,12 +1717,43 @@ class Battle:
         # damaged, per their own datasheet. The data-driven Knight values reproduce
         # the retired heuristic exactly (Questoris 1-9/−5, Armiger 1-5/−3, Dominus
         # 1-10/−5). Cited `simulator.damaged_bracket`.
-        if __import__("os").environ.get("SWEG_DMGBRACKET", "1") == "0":
-            return base
-        thr = getattr(u.profile, "damaged_threshold", 0) or 0
-        pen = getattr(u.profile, "damaged_oc_penalty", 0) or 0
-        if thr and pen and u.current_health <= thr:
-            return max(0, base - pen)            # floor at 0 — never negative
+        if __import__("os").environ.get("SWEG_DMGBRACKET", "1") != "0":
+            thr = getattr(u.profile, "damaged_threshold", 0) or 0
+            pen = getattr(u.profile, "damaged_oc_penalty", 0) or 0
+            if thr and pen and u.current_health <= thr:
+                base = max(0, base - pen)        # floor at 0 — never negative
+        # DURA-AUDIT-D3: Death Guard Contagions of Nurgle -- chosen-Plague
+        # Scabrous Soulrot's Objective-Control-worsening half. BSData/
+        # Wahapedia verbatim: "Scabrous Soulrot — Worsen the Move, Leadership
+        # and Objective Control characteristics of models in this unit by 1
+        # (this rule can only worsen a model's Objective Control
+        # characteristic to a minimum of 1)." Fires whenever `u` is Afflicted
+        # (enemy of a Death Guard army, within the round's escalating
+        # Contagion Range) and that Death Guard army chose Scabrous Soulrot.
+        # Applied AFTER the Damaged-bracket reduction above so the two floors
+        # (0 for Damaged, 1 for this rule) never conflict — a unit already at
+        # 0 Objective Control from the Damaged bracket stays at 0 here
+        # because `max(1, base - 1)` only lifts a value that would otherwise
+        # drop below 1, and 0 - 1 floored to 1 would WRONGLY restore
+        # Objective Control to a Damaged unit, so this rule only fires when
+        # base > 0. Env-gated SWEG_DG_CHOSEN_PLAGUE, default ON; "0" skips
+        # this block entirely (byte-identical pre-fix behaviour). Cited as
+        # `simulator.dg_chosen_plague`.
+        if base > 0 and __import__("os").environ.get("SWEG_DG_CHOSEN_PLAGUE", "1") != "0":
+            from .units import (
+                _is_near_enemy_dg_model,
+                _contagion_round_for,
+                _contagion_range_for_round,
+                _dg_chosen_plague_for,
+            )
+            if (
+                (u.profile.faction or "") != "Death Guard"
+                and _dg_chosen_plague_for(u) == "Scabrous Soulrot"
+                and _is_near_enemy_dg_model(
+                    u, radius=_contagion_range_for_round(_contagion_round_for(u))
+                )
+            ):
+                base = max(1, base - 1)
         return base
 
     def _ocflip_instrument(self, obj, a_oc, b_oc) -> None:
@@ -1857,6 +2013,30 @@ class Battle:
                 total += self._effective_oc(u)
         return total
 
+    def _actions_hand_gated_enabled(self) -> bool:
+        """D2 — action assignment gated on the HELD hand (SWEG_ACTIONS_HAND_GATED,
+        DEFAULT-ON). `=0` restores the legacy chosen-pool membership test
+        byte-for-byte. See `_action_card_available` and
+        docs/_SEC_ECONOMY_AUDIT.md D2."""
+        return __import__("os").environ.get("SWEG_ACTIONS_HAND_GATED", "1") != "0"
+
+    def _action_card_available(self, army, card: str) -> bool:
+        """D2 — may a unit be pulled out of shooting/charging to perform `card`'s
+        Action this turn? Only if the army can actually SCORE that card, i.e. it
+        holds it. For a TACTICAL-track army the scoreable set is the two-card held
+        hand (`tactical_hand`), NOT the whole ~12-card pool that
+        `chosen_secondaries` returns for a Tactical army — the audit found the
+        assignment step gating on the pool committed units to actions for cards
+        the army does not hold and can never score (958 Cleanse assignments
+        realised only 172 victory points; docs/_SEC_ECONOMY_AUDIT.md D2). For a
+        FIXED army `chosen_secondaries` IS its two-card hand, so the test is
+        unchanged. Env-gated SWEG_ACTIONS_HAND_GATED (default ON); with it off the
+        legacy `card in chosen_secondaries` membership runs byte-for-byte."""
+        if (self._actions_hand_gated_enabled()
+                and getattr(army, "secondary_track", None) == "TACTICAL"):
+            return card in (getattr(army, "tactical_hand", ()) or ())
+        return card in (getattr(army, "chosen_secondaries", ()) or ())
+
     def _assign_cleanse_actions(self, active, other) -> None:
         """Pariah Nexus Cleanse (wave 74; Action-cost contract rebuilt wave 135).
         After the Movement phase, flag up to two SURPLUS units that sit on an
@@ -1878,7 +2058,8 @@ class Battle:
         `simulator.secondary_action_cost` (the ON-path Action contract)."""
         if not self._cleanse_enabled():
             return
-        if "cleanse" not in (getattr(active, "chosen_secondaries", ()) or ()):
+        # D2: gate on the HELD hand for a Tactical army, not the whole pool.
+        if not self._action_card_available(active, "cleanse"):
             return
         from .strategy import _is_chaff_unit
         use_action_cost = self._secondary_dedication_enabled()
@@ -1989,7 +2170,8 @@ class Battle:
         `simulator.secondary_action_cost`."""
         if not self._sabotage_enabled():
             return
-        if "sabotage" not in (getattr(active, "chosen_secondaries", ()) or ()):
+        # D2: gate on the HELD hand for a Tactical army, not the whole pool.
+        if not self._action_card_available(active, "sabotage"):
             return
         from .strategy import _is_chaff_unit
         use_action_cost = self._secondary_dedication_enabled()
@@ -2084,6 +2266,39 @@ class Battle:
         TACTICAL_DECK_POOL so they are never drawn or chosen and (b) every
         method below short-circuits here before touching the board or the RNG."""
         return __import__("os").environ.get("SWEG_ACTION_ECONOMY", "0") == "1"
+
+    def _tacdeck_full_enabled(self) -> bool:
+        """D3 — the full printed 19-card Tactical deck (SWEG_TACDECK_FULL,
+        DEFAULT-ON). Mirrors secondaries._tacdeck_full_enabled (same env var), so
+        the Battle-side reads (the new-card scorers, the near-objective capture,
+        the action-card activation) agree with the import-time deck build. `=0`
+        restores the pre-fix 12-card pool byte-identically. See
+        data/rule_citations.d/secondaries_pariah_nexus.json#simulator.tactical_deck_full."""
+        return __import__("os").environ.get("SWEG_TACDECK_FULL", "1") != "0"
+
+    def _action_cards_active(self) -> bool:
+        """Establish Locus / Recover Assets / A Tempting Target are live when
+        EITHER the legacy SWEG_ACTION_ECONOMY gate is on OR the full printed deck
+        (D3, SWEG_TACDECK_FULL, default ON) includes them. With both off the three
+        cards are absent from the pool and every scorer / assigner below
+        short-circuits — byte-identical."""
+        return self._action_economy_enabled() or self._tacdeck_full_enabled()
+
+    def _units_near_objective(self, army) -> frozenset:
+        """The set of id(u) for `army`'s alive units within an objective marker's
+        control range at the call moment. Captured at round start (in _run_round)
+        for the Overwhelming Force card, which scores per enemy unit that started
+        the turn within range of an objective marker and was destroyed this turn.
+        Read-only; no RNG."""
+        ids = set()
+        for u in army.alive_units:
+            for obj in self.map.objectives:
+                dx = u.position[0] - obj.x
+                dy = u.position[1] - obj.y
+                if dx * dx + dy * dy <= obj.control_radius * obj.control_radius:
+                    ids.add(id(u))
+                    break
+        return frozenset(ids)
 
     # ------------------------------------------------------------------
     # SWEG_SECONDARY_PURSUIT — the tactical-secondary-pursuit package.
@@ -2316,9 +2531,10 @@ class Battle:
         scoring position (whether it walked there on its own or was routed
         there by the SWEG_SECONDARY_PURSUIT card-pursuit movement layer, part
         (b) of the same package) is ever committed to the action."""
-        if not self._action_economy_enabled():
+        if not self._action_cards_active():
             return
-        if "establish_locus" not in (getattr(active, "chosen_secondaries", ()) or ()):
+        # D2: gate on the HELD hand for a Tactical army, not the whole pool.
+        if not self._action_card_available(active, "establish_locus"):
             return
         own_is_a = active is self.a
         _positional_filter = self._secondary_pursuit_enabled(active)
@@ -2346,7 +2562,7 @@ class Battle:
         6" of the battlefield centre, else 0. The two tiers are mutually exclusive
         (the higher enemy-deployment-zone tier wins). Cited
         `simulator.secondary_establish_locus`."""
-        if not self._action_economy_enabled():
+        if not self._action_cards_active():
             return 0
         chosen = (chosen_override if chosen_override is not None
                   else (getattr(army, "chosen_secondaries", ()) or ()))
@@ -2384,9 +2600,10 @@ class Battle:
         the discard explicitly — the spare-unit `_unit_can_perform_action` gate
         already prevents a low-unit army from committing the bodies, which is the
         same emergent outcome. Cited `simulator.secondary_recover_assets`."""
-        if not self._action_economy_enabled():
+        if not self._action_cards_active():
             return
-        if "recover_assets" not in (getattr(active, "chosen_secondaries", ()) or ()):
+        # D2: gate on the HELD hand for a Tactical army, not the whole pool.
+        if not self._action_card_available(active, "recover_assets"):
             return
         own_is_a = active is self.a
         claimed_zones: set = set()
@@ -2410,7 +2627,7 @@ class Battle:
         `_action_completes` gate) and are still each in a distinct area. 3 VP if
         two recovered assets this turn, 5 VP if three or more. Cited
         `simulator.secondary_recover_assets`."""
-        if not self._action_economy_enabled():
+        if not self._action_cards_active():
             return 0
         chosen = (chosen_override if chosen_override is not None
                   else (getattr(army, "chosen_secondaries", ()) or ()))
@@ -2477,7 +2694,7 @@ class Battle:
         player's turn (so up to twice per round); the simulator scores secondaries
         once per round (at round end), so this awards the 5 VP once per round it is
         held and controlled. The 40 VP secondary total cap still bounds it."""
-        if not self._action_economy_enabled():
+        if not self._action_cards_active():
             return 0
         chosen = (chosen_override if chosen_override is not None
                   else (getattr(army, "chosen_secondaries", ()) or ()))
@@ -2490,6 +2707,132 @@ class Battle:
         if self._oc_within(army, obj) > self._oc_within(opponent, obj):
             return 5
         return 0
+
+    # ------------------------------------------------------------------
+    # D3 (SWEG_TACDECK_FULL) — the three printed Chapter Approved 2025-26 Tactical
+    # cards the simulator did not implement at all: Marked for Death, Overwhelming
+    # Force, Display of Might. Verbatim card texts cited at
+    # simulator.secondary_marked_for_death / simulator.secondary_overwhelming_force
+    # / simulator.secondary_display_of_might. Each returns 0 when the full-deck
+    # gate is off (byte-identical: the card is never in the pool, never chosen).
+    # ------------------------------------------------------------------
+
+    def _marked_for_death_targets(self, own_is_army_a: bool, other_army):
+        """Resolve (and cache) the Alpha Target set and Gamma Target for a Marked
+        for Death card held by the scoring army. Printed When Drawn: the opponent
+        selects three of THEIR units as your Alpha Targets and you select one of
+        their units as your Gamma Target. Faithful-direction deterministic pick:
+        the opponent picks to MINIMISE the scoring army's chance, i.e. its three
+        highest-Wounds (hardest-to-destroy) units; the scoring army picks its
+        easiest kill (lowest Wounds) from the rest as Gamma. Pure function of the
+        static roster, global-RNG-free, cached per side."""
+        cache = getattr(self, "_marked_for_death_cache", None)
+        if cache is None:
+            cache = {}
+            self._marked_for_death_cache = cache
+        key = "a" if own_is_army_a else "b"
+        if key in cache:
+            return cache[key]
+        # Order by Wounds characteristic, tie-broken by the deterministic per-unit
+        # uid ("A0"/"B3", assigned by Battle._assign_uids) — NOT id(u), which is a
+        # memory address and would make the selection non-reproducible across
+        # processes. The stored target identity stays id(u) so it matches the
+        # round-start snapshot's id-based unit set.
+        ordered = sorted(
+            other_army.units,
+            key=lambda u: (-(getattr(u.profile, "health", 0) or 0),
+                           getattr(u, "uid", "")),
+        )
+        alpha = frozenset(id(u) for u in ordered[:3])
+        gamma = None
+        remaining = [u for u in ordered if id(u) not in alpha]
+        if remaining:
+            gamma = id(min(
+                remaining,
+                key=lambda u: ((getattr(u.profile, "health", 0) or 0),
+                               getattr(u, "uid", "")),
+            ))
+        cache[key] = (alpha, gamma)
+        return cache[key]
+
+    def _score_marked_for_death(self, army, other_army, own_is_army_a: bool,
+                                chosen_override=None) -> int:
+        """Marked for Death (Chapter Approved 2025-26). "One or more of your Alpha
+        Target units were destroyed ... this turn" -> 5 VP; else "your Gamma Target
+        unit was destroyed ... this turn" -> 2 VP. Cited
+        `simulator.secondary_marked_for_death`."""
+        if not self._tacdeck_full_enabled():
+            return 0
+        chosen = (chosen_override if chosen_override is not None
+                  else (getattr(army, "chosen_secondaries", ()) or ()))
+        if "marked_for_death" not in chosen:
+            return 0
+        # The enemy's round-start snapshot: any id in it that is not alive now was
+        # destroyed this round (same machinery as the kill cards).
+        snap = (self._b_round_snapshot if own_is_army_a
+                else self._a_round_snapshot)
+        if snap is None:
+            return 0
+        alpha_ids, gamma_id = self._marked_for_death_targets(own_is_army_a,
+                                                             other_army)
+        alive_now = frozenset(id(u) for u in other_army.units
+                              if u.current_health > 0)
+        started = snap.unit_ids_alive
+
+        def _destroyed(uid):
+            return uid in started and uid not in alive_now
+
+        if any(_destroyed(a) for a in alpha_ids):
+            return 5
+        if gamma_id is not None and _destroyed(gamma_id):
+            return 2
+        return 0
+
+    def _score_overwhelming_force(self, army, other_army, own_is_army_a: bool,
+                                  chosen_override=None) -> int:
+        """Overwhelming Force (Chapter Approved 2025-26). "Each time an enemy unit
+        that started the turn within range of an objective marker is destroyed" ->
+        3 VP, up to 5 VP. Cited `simulator.secondary_overwhelming_force`."""
+        if not self._tacdeck_full_enabled():
+            return 0
+        chosen = (chosen_override if chosen_override is not None
+                  else (getattr(army, "chosen_secondaries", ()) or ()))
+        if "overwhelming_force" not in chosen:
+            return 0
+        snap = (self._b_round_snapshot if own_is_army_a
+                else self._a_round_snapshot)
+        if snap is None:
+            return 0
+        near = (self._b_near_obj_start if own_is_army_a
+                else self._a_near_obj_start)
+        if not near:
+            return 0
+        alive_now = frozenset(id(u) for u in other_army.units
+                              if u.current_health > 0)
+        started = snap.unit_ids_alive
+        kills = sum(1 for uid in near if uid in started and uid not in alive_now)
+        if kills <= 0:
+            return 0
+        return min(kills * 3, 5)   # 3 VP each, "up to 5 VP"
+
+    def _score_display_of_might(self, army, other_army, own_is_army_a: bool,
+                                chosen_override=None) -> int:
+        """Display of Might (Chapter Approved 2025-26). "There are more units from
+        your army than from your opponent's army wholly within No Man's Land" ->
+        4 VP. The "wholly within" test is approximated by the single-point zone
+        classifier (`_unit_zone`), which is side-independent for the No Man's Land
+        strip. Cited `simulator.secondary_display_of_might`."""
+        if not self._tacdeck_full_enabled():
+            return 0
+        chosen = (chosen_override if chosen_override is not None
+                  else (getattr(army, "chosen_secondaries", ()) or ()))
+        if "display_of_might" not in chosen:
+            return 0
+        own_n = sum(1 for u in army.alive_units
+                    if self._unit_zone(u, own_is_army_a) == "nml")
+        opp_n = sum(1 for u in other_army.alive_units
+                    if self._unit_zone(u, own_is_army_a) == "nml")
+        return 4 if own_n > opp_n else 0
 
     def _scorched_burn_enabled(self) -> bool:
         """Scorched Earth Burn/Raze Action — active whenever the Scorched Earth
@@ -3529,6 +3872,174 @@ class Battle:
                     "SWEG_TAC_VOLUNTARY_DISCARD", "0") == "1"
                 or self._secondary_pursuit_enabled(army))
 
+    def _tac_shedding_enabled(self) -> bool:
+        """D1 — Tactical card-shedding (SWEG_TAC_SHEDDING, DEFAULT-ON). Restores
+        the three printed Chapter Approved 2025-26 mechanisms a real Tactical
+        player uses to shed an unscoreable card, which the simulator omitted so
+        its 2-card hand ossified (docs/_SEC_ECONOMY_AUDIT.md §2: 71.7% of held-
+        card-rounds scored zero):
+          (a) the per-card "When Drawn" redraw clause (_when_drawn_clause /
+              _draw_tactical_card),
+          (b) the end-of-turn voluntary discard for 1 command point, made the
+              default under this gate and switched to the achievability heuristic
+              (_score_tactical_hand), and
+          (c) the New Orders core stratagem (_apply_new_orders).
+        `SWEG_TAC_SHEDDING=0` is the byte-identical-off kill-switch: no redraw at
+        draw time, no default voluntary discard, no New Orders — the pre-fix
+        blind 2-card deal and achieve->discard->redraw reproduce exactly. Cited
+        as `simulator.tactical_when_drawn_redraw`, `simulator.new_orders_stratagem`
+        and (voluntary-discard half) `simulator.tactical_voluntary_discard`."""
+        return __import__("os").environ.get("SWEG_TAC_SHEDDING", "1") != "0"
+
+    def _when_drawn_clause(self, card_key: str, army: Army, other: Army,
+                           round_num: int):
+        """D1a — return the printed "When Drawn" clause that applies to `card_key`
+        as it is drawn this turn, or None. Two clause shapes (verbatim texts in
+        data/rule_citations.d/secondaries_pariah_nexus.json#
+        simulator.tactical_when_drawn_redraw):
+
+          "shuffle_back" — the first-battle-round positional clause on Behind
+            Enemy Lines / Defend Stronghold / Storm Hostile Objective / Display of
+            Might: "If it is the first battle round, draw a new Secondary Mission
+            card and shuffle this card back into your Secondary Mission deck."
+
+          "discard" — the no-valid-target clause on Bring It Down ("If there are
+            no enemy MONSTER or VEHICLE units on the battlefield"), Cull the Horde
+            ("If there are no enemy units ... that satisfy the condition below"),
+            Marked for Death ("If there are no units from their army on the
+            battlefield"), and Recover Assets ("if there are fewer than three
+            units from your army on the battlefield"): "you can discard this card
+            and draw a new Secondary Mission card."
+
+        Deterministic and free of the global RNG (a pure read of already-known
+        board state)."""
+        from .secondaries import _is_monster_or_vehicle, _is_horde_unit
+        if round_num <= 1 and card_key in (
+                "behind_enemy_lines", "defend_stronghold",
+                "storm_hostile_objective", "display_of_might"):
+            return "shuffle_back"
+        other_alive = other.alive_units
+        if card_key == "bring_it_down":
+            if not any(_is_monster_or_vehicle(u) for u in other_alive):
+                return "discard"
+        elif card_key == "cull_the_horde":
+            if not any(_is_horde_unit(u) for u in other_alive):
+                return "discard"
+        elif card_key == "marked_for_death":
+            if not any(True for _ in other_alive):
+                return "discard"
+        elif card_key == "recover_assets":
+            if sum(1 for _ in army.alive_units) < 3:
+                return "discard"
+        return None
+
+    def _draw_tactical_card(self, army: Army, other: Army, round_num: int):
+        """Draw one card from `army.tactical_deck`, applying each card's printed
+        "When Drawn" clause (D1a) when SWEG_TAC_SHEDDING is on. A "discard"-clause
+        card is dropped and the next drawn; a "shuffle_back"-clause card is placed
+        at the bottom of the deck and the next drawn. Returns the kept card key,
+        or None if the deck empties.
+
+        BYTE-IDENTICAL OFF: with shedding off this is exactly `deck.pop(0)` (or
+        None on an empty deck), so the opening deal reproduces `deck[:2]` /
+        `deck[2:]` and the refill reproduces the old pop-front loop.
+
+        Determinism: no global RNG. "Shuffle back" is a deterministic bottom-
+        insert (a documented determinism-preserving approximation of the printed
+        'shuffle this card back into your deck'); a per-draw `reshuffled` guard
+        and a hard iteration bound make the loop terminate even if the whole deck
+        were first-battle-round positional cards."""
+        deck = army.tactical_deck
+        if not self._tac_shedding_enabled():
+            return deck.pop(0) if deck else None
+        reshuffled: set = set()
+        guard = 0
+        while deck:
+            guard += 1
+            if guard > 64:   # the deck is tiny; a legitimate draw never spins
+                break
+            card = deck.pop(0)
+            clause = self._when_drawn_clause(card, army, other, round_num)
+            if clause == "discard":
+                continue
+            if clause == "shuffle_back" and card not in reshuffled:
+                reshuffled.add(card)
+                deck.append(card)
+                continue
+            return card
+        return None
+
+    def _tac_card_structurally_dead(self, card_key: str, army: Army,
+                                    other_army: Army, own_is_a: bool) -> bool:
+        """True when `card_key`, held by `army`, can NEVER score again this battle
+        (its qualifying target / marker / actor no longer exists) — the structural
+        half of `_tac_discard_card_cannot_pay`, WITHOUT the persistent-zero-read
+        fallback. `_apply_new_orders` uses this so New Orders only ever spends a
+        command point on a provably-dead card, which is correct play regardless of
+        the tight command-point economy."""
+        from .secondaries import (_is_monster_or_vehicle, _is_horde_unit,
+                                  _is_character)
+        other_alive = other_army.alive_units
+        if card_key == "bring_it_down":
+            return not any(_is_monster_or_vehicle(u) for u in other_alive)
+        if card_key == "cull_the_horde":
+            return not any(_is_horde_unit(u) for u in other_alive)
+        if card_key == "assassination":
+            return not any(_is_character(u) for u in other_alive)
+        if card_key == "a_tempting_target":
+            return self._tempting_target_obj_idx(own_is_a) is None
+        if card_key in ("cleanse", "sabotage", "establish_locus",
+                        "recover_assets"):
+            return not any((getattr(u.profile, "oc", 0) or 0) > 0
+                           for u in army.alive_units)
+        return False
+
+    def _apply_new_orders(self, army: Army, other: Army, own_is_a: bool,
+                          round_num: int) -> None:
+        """D1c — New Orders core stratagem (Chapter Approved 2025-26). Verbatim:
+        "1CP. Core Stratagem – Strategic Ploy. WHEN: End of your Command phase.
+        TARGET: One of your active Secondary Mission cards. EFFECT: Discard it and
+        draw one new Secondary Mission card." Cited
+        `simulator.new_orders_stratagem`.
+
+        Called once per army at the Command phase (from `_run_round`, after the
+        command-phase command-point award). Spend heuristic consistent with the
+        (deliberately un-doubled — D4 is out of scope) command-point economy: fire
+        at most ONCE per Command phase, only when the army holds a STRUCTURALLY
+        DEAD card (`_tac_card_structurally_dead`) and has a command point to spend.
+        Swapping a card that can never score again is unambiguously correct even
+        under a scarce budget, so this never starves a defensive stratagem of a
+        point it would otherwise have used. Deterministic and global-RNG-free.
+        No-op / byte-identical when shedding is off, the deck gate is off, or the
+        army is on the Fixed track."""
+        if not self._tac_shedding_enabled():
+            return
+        if not self._tac_deck_enabled():
+            return
+        if getattr(army, "secondary_track", None) != "TACTICAL":
+            return
+        hand = getattr(army, "tactical_hand", None)
+        deck = getattr(army, "tactical_deck", None)
+        if not hand or not deck:
+            return
+        NEW_ORDERS_CP = 1   # printed cost
+        if army.command_points < NEW_ORDERS_CP:
+            return
+        dead = [c for c in hand
+                if self._tac_card_structurally_dead(c, army, other, own_is_a)]
+        if not dead:
+            return
+        # Deterministic pick: longest-held provably-dead card first, ties by key.
+        dead.sort(key=lambda c: (-army.tactical_hand_age.get(c, 0), c))
+        discard_card = dead[0]
+        army.tactical_hand.remove(discard_card)
+        army.tactical_hand_age.pop(discard_card, None)
+        army.command_points -= NEW_ORDERS_CP
+        new_card = self._draw_tactical_card(army, other, round_num)
+        if new_card is not None:
+            army.tactical_hand.append(new_card)
+            army.tactical_hand_age[new_card] = 0
+
     def _init_tactical_deck(self, army: Army) -> None:
         """Seed a TACTICAL army's 2-card hand + remaining deck deterministically.
 
@@ -3568,12 +4079,23 @@ class Battle:
         deck_rng = random.Random(name_crc ^ matchup_crc)
         deck = list(TACTICAL_DECK_POOL)
         deck_rng.shuffle(deck)
-        # Draw the opening hand of two (or fewer if the pool is tiny).
-        army.tactical_hand = deck[:2]
-        army.tactical_deck = deck[2:]
-        # Voluntary-discard hold-age bookkeeping (see `Army.tactical_hand_age`
-        # docstring comment) — every freshly-drawn card starts at age 0.
-        army.tactical_hand_age = {card: 0 for card in army.tactical_hand}
+        army.tactical_deck = deck
+        # Draw the opening hand of two through the shared draw helper, so each
+        # card's printed "When Drawn" clause fires at the opening deal (D1a,
+        # SWEG_TAC_SHEDDING). With shedding OFF the helper is a plain deck.pop(0),
+        # so the hand is deck[:2] and the remaining deck is deck[2:] exactly as
+        # before — byte-identical.
+        army.tactical_hand = []
+        army.tactical_hand_age = {}
+        other = self.b if army is self.a else self.a
+        for _ in range(2):
+            card = self._draw_tactical_card(army, other, 1)
+            if card is None:
+                break
+            army.tactical_hand.append(card)
+            # Voluntary-discard hold-age bookkeeping (see `Army.tactical_hand_age`
+            # docstring comment) — every freshly-drawn card starts at age 0.
+            army.tactical_hand_age[card] = 0
 
     def _score_one_card(self, card_key: str, scoring_army: Army,
                         other_army: Army, own_is_army_a: bool,
@@ -3660,6 +4182,20 @@ class Battle:
             return self._score_a_tempting_target(scoring_army, other_army,
                                                  own_is_army_a=own_is_army_a,
                                                  chosen_override=one)
+        # --- D3 full-deck cards (Marked for Death / Overwhelming Force /
+        #     Display of Might) — env-gated SWEG_TACDECK_FULL, return 0 OFF -------
+        if card_key == "marked_for_death":
+            return self._score_marked_for_death(scoring_army, other_army,
+                                                own_is_army_a=own_is_army_a,
+                                                chosen_override=one)
+        if card_key == "overwhelming_force":
+            return self._score_overwhelming_force(scoring_army, other_army,
+                                                  own_is_army_a=own_is_army_a,
+                                                  chosen_override=one)
+        if card_key == "display_of_might":
+            return self._score_display_of_might(scoring_army, other_army,
+                                                own_is_army_a=own_is_army_a,
+                                                chosen_override=one)
         # --- Board take-and-hold cards -----------------------------------------
         from .secondaries import BOARD_SECONDARY_KEYS
         if card_key in BOARD_SECONDARY_KEYS:
@@ -3739,10 +4275,22 @@ class Battle:
             self._secondary_pursuit_enabled(army)
             and not self.rules.alternating_activations
         )
-        if (self._tac_voluntary_discard_enabled(army)
+        # D1b: fold the voluntary discard into production default-on under
+        # SWEG_TAC_SHEDDING (the base SWEG_TAC_VOLUNTARY_DISCARD env var still
+        # forces it on independently). When shedding is on, the eligibility test
+        # is the achievability read (`_tac_discard_card_cannot_pay`) rather than
+        # the base gate's age-only trigger — docs/_SEC_ECONOMY_AUDIT.md §7 item
+        # 1b: the real bottleneck is card ACHIEVABILITY, not raw hand turnover.
+        _shedding = self._tac_shedding_enabled()
+        if ((self._tac_voluntary_discard_enabled(army) or _shedding)
                 and not _pursuit_own_turn_active):
-            eligible = [c for c in army.tactical_hand
-                       if entering_ages.get(c, 0) >= 1]
+            if _shedding:
+                eligible = [c for c in army.tactical_hand
+                            if self._tac_discard_card_cannot_pay(
+                                c, army, other_army, own_is_army_a, round_num)]
+            else:
+                eligible = [c for c in army.tactical_hand
+                            if entering_ages.get(c, 0) >= 1]
             if eligible:
                 # Deterministic pick — no dice may enter this decision (RNG
                 # discipline: only `_init_tactical_deck`'s private stream may
@@ -3767,7 +4315,11 @@ class Battle:
         for card in army.tactical_hand:
             army.tactical_hand_age[card] = army.tactical_hand_age.get(card, 0) + 1
         while len(army.tactical_hand) < 2 and army.tactical_deck:
-            new_card = army.tactical_deck.pop(0)
+            # D1a: apply each drawn card's "When Drawn" clause on the refill too
+            # (shedding on). Byte-identical pop-front when shedding is off.
+            new_card = self._draw_tactical_card(army, other_army, round_num)
+            if new_card is None:
+                break
             army.tactical_hand.append(new_card)
             army.tactical_hand_age[new_card] = 0
         return total
@@ -4154,6 +4706,10 @@ class Battle:
             # (the 6++/cover buff is only read while the unit is shot, which
             # happens in the opponent's one Shooting phase per round).
             u.go_to_ground_active = False
+            # Smokescreen also lasts "until the end of the phase"; cleared
+            # with the other per-round transient flags for the same reason
+            # go_to_ground_active is (see comment above).
+            u.smokescreen_active = False
             u.transient_fnp_5 = False
             u.transient_plus_one_to_hit_shooting = False
             # First Rank, Fire! Second Rank, Fire! (AM Order) per-round flag.
@@ -4226,6 +4782,18 @@ class Battle:
         # the round the stratagem fires.
         army.orders_eligible_squadron_this_round = False
         army.orders_extra_this_round = 0
+        # Rotate Ion Shields (Imperial Knights) / Diabolic Bulwark (Chaos
+        # Knights) once-per-phase usage flags. The real 10e core restriction
+        # is "the same Stratagem cannot be used more than once in the same
+        # phase"; this army is the defender in exactly one opponent's
+        # Shooting phase per round under the I-go-U-go turn structure
+        # (`_run_round_vanilla_turns` runs (first, second) then (second,
+        # first) once each per round), so resetting here at round start is
+        # equivalent to resetting at the start of that one relevant phase.
+        # Cited as `simulator.ik_rotate_ion_shields` / `simulator.ck_diabolic_
+        # bulwark`.
+        army.rotate_ion_shields_used_this_phase = False
+        army.diabolic_bulwark_used_this_phase = False
 
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
@@ -4866,6 +5434,61 @@ class Battle:
                 target.profile.health, target.current_health + float(heal),
             )
 
+    def _choose_dg_plague(self, army: Army, opponent: Army) -> str:
+        """Artificial-intelligence heuristic for the Death Guard "select one
+        of the Plagues below" Declare Battle Formations choice (DURA-AUDIT-D3;
+        docs/_DURA_AUDIT_D_DEATHGUARD.md divergence D3). The 10e codex rule is
+        a one-time PLAYER decision made before Round 1, active for the whole
+        battle against every unit that becomes Afflicted. SwegHammer has no
+        player here, so this is an ARTIFICIAL-INTELLIGENCE CHOICE, not a
+        codex rule -- it reads the opposing roster at battle start (the same
+        information a real Death Guard player has after list reveal) and
+        picks whichever Plague denies that specific list the most:
+
+          - Rattlejoint Ague (worsen Save by 1) when the opponent's average
+            unmodified Save characteristic is 3 or better -- a save-heavy
+            list (Custodes, Knights, Terminator-costed elites) whose
+            durability is armour-save-driven, so degrading the Save
+            characteristic denies the most expected saved wounds.
+          - Skullsquirm Blight (worsen the afflicted unit's own Hit roll by
+            1) when the opponent's average per-model output (attacks * hit
+            probability, ranged + melee combined) is high -- a high-volume
+            shooting/melee list, where blunting the OPPONENT's own damage
+            output matters more than degrading their defence.
+          - Scabrous Soulrot (worsen Move / Leadership / Objective Control by
+            1, Objective Control floored at 1) otherwise -- the general-
+            utility pick against balanced or objective-focused lists.
+
+        The average is taken across every instantiated Unit in the opposing
+        roster (one Unit per model, per the simulator's representation), so
+        a large squad naturally weighs more than a lone character -- matching
+        a real player's overall impression of "what does this list do".
+
+        Computed once, at the start of `Battle.run` (proxying Declare Battle
+        Formations, which happens before Round 1 — the same one-time
+        start-of-battle point the Warlord CP-econ scan and Aeldari fate-dice
+        roll use just above the call site), and cached on
+        `army.dg_chosen_plague` for the rest of the battle by the caller.
+        Deterministic (no `random` draws), so computing it here never shifts
+        the RNG stream relative to a non-Death-Guard battle. Cited as
+        `simulator.dg_chosen_plague`.
+        """
+        opp_units = opponent.units
+        if not opp_units:
+            return "Scabrous Soulrot"
+        n = len(opp_units)
+        mean_save = sum(u.profile.save for u in opp_units) / n
+        mean_output = sum(
+            (u.profile.attacks or 0) * (u.profile.hit_probability or 0.0)
+            + (u.profile.melee_attacks or 0) * (u.profile.melee_hit_probability or 0.0)
+            for u in opp_units
+        ) / n
+        if mean_save <= 3.0:
+            return "Rattlejoint Ague"
+        if mean_output >= 4.0:
+            return "Skullsquirm Blight"
+        return "Scabrous Soulrot"
+
     def _try_overwhelming_generosity(self, army: Army, opponent: Army) -> None:
         """Overwhelming Generosity (Virulent Vectorium, 1 CP): re-roll the
         number-of-attacks roll for a DG CHARACTER unit's ranged attacks vs a
@@ -4950,15 +5573,19 @@ class Battle:
             INFANTRY unit unconditionally, as before.  Byte-identical to
             pre-gate behaviour.
           - ON: the re-roll flags are only applied when the chosen target is
-            Afflicted — i.e. within 3" of any DEATH GUARD model from the DG
-            army — matching the real codex condition (Nurgle's Gift / Afflicted
-            = enemy unit within 3" of a DG model).  Detection reuses the
-            existing `_is_near_enemy_dg_model(target, radius=3.0)` helper in
+            Afflicted — i.e. within the current Contagion Range of any DEATH
+            GUARD model from the DG army — matching the real codex condition
+            (Nurgle's Gift / Afflicted = enemy unit within Contagion Range of a
+            DG model).  Detection reuses the existing
+            `_is_near_enemy_dg_model(target, radius=...)` helper in
             code/units.py (the same helper that gates Contagions of Nurgle /
-            Fulminating Plague).  The command point is spent either way — do
-            NOT move this spend inside the gate; gating the firing reallocates
-            the saved command point and causes back-fire (Conquering Tyrant
-            lesson, 868f9a4).  Only the transient buff application is gated.
+            Fulminating Plague), with the radius sourced from
+            `_contagion_range_for_round` (DURA-AUDIT-D1: the Contagion Range
+            escalates 3"/6"/9" by round rather than a fixed 3").  The command
+            point is spent either way — do NOT move this spend inside the
+            gate; gating the firing reallocates the saved command point and
+            causes back-fire (Conquering Tyrant lesson, 868f9a4).  Only the
+            transient buff application is gated.
 
         Picks the highest-DPA friendly DG INFANTRY that has not yet shot this
         phase (implicit at round-start dispatch)."""
@@ -4992,8 +5619,15 @@ class Battle:
             os.environ.get("SWEG_CREEPING_AFFLICTED", "1") != "0"
         )
         if _afflicted_gate_on:
-            from .units import _is_near_enemy_dg_model
-            target_is_afflicted = _is_near_enemy_dg_model(target, radius=3.0)
+            from .units import (
+                _is_near_enemy_dg_model,
+                _contagion_round_for,
+                _contagion_range_for_round,
+            )
+            target_is_afflicted = _is_near_enemy_dg_model(
+                target,
+                radius=_contagion_range_for_round(_contagion_round_for(target)),
+            )
         else:
             target_is_afflicted = True  # OFF path: unconditional (legacy)
         if target_is_afflicted:
@@ -10038,18 +10672,21 @@ class Battle:
             and s.profile.faction == "Tyranids"
         ]
         # contagion_sources: Death Guard in the Tyranid army — unusual but
-        # consistent with the general-case logic.
-        contagion_sources = (
-            [
-                s for s in sitw_army.alive_units
-                if s.profile.faction == "Death Guard"
-            ]
-            if round_num == 2 else []
-        )
+        # consistent with the general-case logic. DURA-AUDIT-D3: sourced from
+        # the shared `_dg_ld_contagion_sources` helper (Scabrous Soulrot
+        # Leadership-worsening, active from round 1 when chosen; legacy
+        # round-2-only gate when SWEG_DG_CHOSEN_PLAGUE is off).
+        contagion_sources = _dg_ld_contagion_sources(round_num, sitw_army)
         # Plaguesurge range extension: the Death Guard player (here sitw_army
         # in the edge-case path) may have spent Plaguesurge this Command phase.
+        # DURA-AUDIT-D1: the base Contagion Range escalates by round (3"/6"/9")
+        # via `_contagion_range_for_round` instead of a fixed 3"; Plaguesurge
+        # still adds +3" on top for the round it is active.
+        from .units import _contagion_range_for_round as _dg_range_for_round
         _sitw_plaguesurge = getattr(sitw_army, "plaguesurge_active", False)
-        sitw_contagion_range = 3.0 + (3.0 if _sitw_plaguesurge else 0.0)
+        sitw_contagion_range = (
+            _dg_range_for_round(round_num) + (3.0 if _sitw_plaguesurge else 0.0)
+        )
         # Shadow of Chaos: Chaos Daemons in the Tyranid army (edge case).
         # SWEG_SHADOW_ROUND2 (default OFF, recovered 2026-06-29 from git b499a57):
         # the midboard Shadow-of-Chaos proxy only activates from round 2 — No Man's
@@ -10151,17 +10788,20 @@ class Battle:
                 ]
             else:
                 shadow_sources = []
-            contagion_sources = (
-                [
-                    s for s in incubi_army.alive_units
-                    if s.profile.faction == "Death Guard"
-                ]
-                if round_num == 2 else []
-            )
+            # DURA-AUDIT-D3: sourced from the shared `_dg_ld_contagion_sources`
+            # helper (Scabrous Soulrot Leadership-worsening, active from
+            # round 1 when chosen; legacy round-2-only gate when
+            # SWEG_DG_CHOSEN_PLAGUE is off).
+            contagion_sources = _dg_ld_contagion_sources(round_num, incubi_army)
             _plaguesurge_active = getattr(
                 incubi_army, "plaguesurge_active", False
             )
-            contagion_range = 3.0 + (3.0 if _plaguesurge_active else 0.0)
+            # DURA-AUDIT-D1: base Contagion Range escalates by round (3"/6"/9")
+            # instead of a fixed 3"; Plaguesurge still adds +3" on top.
+            from .units import _contagion_range_for_round as _dg_range_for_round
+            contagion_range = (
+                _dg_range_for_round(round_num) + (3.0 if _plaguesurge_active else 0.0)
+            )
             _shadow_round2_on = os.environ.get("SWEG_SHADOW_ROUND2", "0") == "1"
             shadow_of_chaos_active = (
                 any(
@@ -10254,10 +10894,17 @@ class Battle:
             below-half tests within 6". Cited as
             `simulator.shadow_in_the_warp` and
             `simulator.shadow_in_the_warp_forced_test`.
-          - Contagions of Nurgle Round 2 Maladictive Pall (Death Guard, 10e):
-            enemy units within 3" of any DG model take -1 Ld. Cited as
-            `simulator.contagions_of_nurgle`. (Radius gated to 3" per the
-            modern Nurgle's Gift / Afflicted rule; older index rule was 6".)
+          - Contagions of Nurgle -- chosen-Plague Scabrous Soulrot (Death
+            Guard, 10e): enemy units within Contagion Range of any DG model
+            take -1 Ld, active from round 1 whenever the DG army chose
+            Scabrous Soulrot at Declare Battle Formations (DURA-AUDIT-D3,
+            `_dg_ld_contagion_sources`, SWEG_DG_CHOSEN_PLAGUE gate; legacy
+            round-2-only "Maladictive Pall" gate when that gate is off).
+            Cited as `simulator.dg_chosen_plague` (legacy:
+            `simulator.contagions_of_nurgle`). (DURA-AUDIT-D1: the Contagion
+            Range escalates 3"/6"/9" by round per the printed schedule, via
+            `_contagion_range_for_round` (SWEG_DG_CONTAGION_ESCALATION gate)
+            — no longer a fixed 3".)
           - Shadow of Chaos (Chaos Daemons, 10e): enemy units within the
             Shadow of Chaos take Battle-shock at -1 AND, if failed,
             suffer D3 mortal wounds. APPROXIMATION: SwegHammer does not
@@ -10269,9 +10916,10 @@ class Battle:
 
         iter-13 fix: previously gated on `round_num <= 1` (skipped R1
         entirely). 10e core fires the test at the start of every Command
-        phase, R1 included. The R1 path is now live; the
-        contagion-source escalation gate below remains R2-only because
-        Maladictive Pall itself is R2 in the contagion schedule.
+        phase, R1 included. The R1 path is now live; DURA-AUDIT-D3 made the
+        contagion-source gate itself round-1-eligible whenever the chosen
+        Plague is Scabrous Soulrot (`_dg_ld_contagion_sources`) — it is only
+        R2-only in the SWEG_DG_CHOSEN_PLAGUE=0 legacy fallback.
         """
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
             opponent_det = opponent.resolve_detachment()
@@ -10299,25 +10947,28 @@ class Battle:
                 ]
             else:
                 shadow_sources = []
-            contagion_sources = (
-                [
-                    s for s in opponent.alive_units
-                    if s.profile.faction == "Death Guard"
-                ]
-                if round_num == 2 else []
-            )
+            # DURA-AUDIT-D3: sourced from the shared `_dg_ld_contagion_sources`
+            # helper (Scabrous Soulrot Leadership-worsening, active from
+            # round 1 when chosen; legacy round-2-only gate when
+            # SWEG_DG_CHOSEN_PLAGUE is off).
+            contagion_sources = _dg_ld_contagion_sources(round_num, opponent)
             # Plaguesurge (Virulent Vectorium, 2 command points, wave 235):
             # "Until the start of your next Command phase, add 3\" to the
             # Contagion Range of models from your army."
             # Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium
-            # Base contagion range for the Maladictive Pall Battle-shock
-            # penalty is 3". Plaguesurge extends it by 3" for the round,
-            # making it 6" whenever the Death Guard player fired it this
-            # Command phase. The flag is reset to False at the start of each
-            # Command phase in `_reset_round_state` so it only applies for
-            # the round in which it was spent.
+            # DURA-AUDIT-D1: the base Contagion Range for the Maladictive Pall
+            # Battle-shock penalty now escalates 3"/6"/9" by round (per the
+            # printed schedule) instead of a fixed 3" — see
+            # `_contagion_range_for_round` (SWEG_DG_CONTAGION_ESCALATION gate).
+            # Plaguesurge still extends it by 3" for the round, on top of
+            # whatever the round's base range is. The flag is reset to False
+            # at the start of each Command phase in `_reset_round_state` so it
+            # only applies for the round in which it was spent.
+            from .units import _contagion_range_for_round as _dg_range_for_round
             _plaguesurge_active = getattr(opponent, "plaguesurge_active", False)
-            contagion_range = 3.0 + (3.0 if _plaguesurge_active else 0.0)
+            contagion_range = (
+                _dg_range_for_round(round_num) + (3.0 if _plaguesurge_active else 0.0)
+            )
             # Shadow of Chaos (Chaos Daemons army rule, 10e). APPROXIMATION:
             # the real Shadow of Chaos covers the Daemons player's deployment
             # zone always plus contested portions of No Man's Land /
@@ -10537,6 +11188,12 @@ class Battle:
         self._squad_advance_roll = {}  # wave 77: per-squad advance roll, fresh each round
         self._battleshocked_this_round = set()
         self._charging_this_round = set()
+        # Multi-unit melee CAGING (gate SWEG_MELEE_CAGING): per-brick list of the
+        # bearings already occupied by cage chargers this round, so each later
+        # coordinated charger lands on the OPPOSING side (the wrap). Fresh each
+        # round; only written when the gate fires, so it is an unused empty dict
+        # on the byte-identical off path.
+        self._cage_bearings: Dict[int, List[float]] = {}
         # Fire Overwatch: new round, each army may use the overwatch stratagem
         # again (once per round per army). Cited as `simulator.fire_overwatch`.
         self._overwatched_this_round = set()
@@ -10635,6 +11292,17 @@ class Battle:
         # Wave 83 Tier A: record who controls each objective at round start, so
         # Storm Hostile Objective can score taking one the opponent held.
         self._obj_controller_at_round_start = self._objective_controllers()
+        # D3 (SWEG_TACDECK_FULL) — record which units START the round within range
+        # of an objective marker, for the Overwhelming Force card (it scores per
+        # enemy unit that started the turn on an objective and was destroyed this
+        # turn). Read-only, no RNG; gated so the off path sets empty sets and the
+        # scorer short-circuits. Byte-identical when off.
+        if self._tacdeck_full_enabled():
+            self._a_near_obj_start = self._units_near_objective(self.a)
+            self._b_near_obj_start = self._units_near_objective(self.b)
+        else:
+            self._a_near_obj_start = frozenset()
+            self._b_near_obj_start = frozenset()
 
         # Fix F-NEC-1: snapshot per-profile alive counts AT ROUND START for
         # any army with Reanimation Protocols. End-of-round `_apply_reanimation`
@@ -10652,13 +11320,25 @@ class Battle:
                     counts[u.profile.name] = counts.get(u.profile.name, 0) + 1
             self._round_start_alive_counts[army.name] = counts
 
-        # ---- Command phase: each army gains 1 CP (capped at 6). 10e core
-        # rule. Starting CP (3 = Strike Force standard) is set by
-        # Army.__init__; this is the per-round drip on top. The smaller-army
-        # CP bonus is a separate SwegHammer-specific catch-up mechanism
-        # awarded later by _award_cp.
+        # ---- Command phase: each army gains 2 CP per round (capped at 6),
+        # 10e core rule — both players gain 1CP at the start of EACH of the
+        # two Command phases per battle round (fix D4, secondary-economy
+        # audit, 2026-07-03; gated SWEG_CP_PER_COMMAND_PHASE, default ON,
+        # `=0` restores the pre-fix 1-per-round rate). Starting CP (3 =
+        # Strike Force standard) is set by Army.__init__; this is the
+        # per-round drip on top. The smaller-army CP bonus is a separate
+        # SwegHammer-specific catch-up mechanism awarded later by _award_cp.
+        # See data/rule_citations.d/core_command_points.json and
+        # `stratagems.award_command_phase_cp` for the full rule text.
         award_command_phase_cp(self.a)
         award_command_phase_cp(self.b)
+        # ---- New Orders core stratagem (Chapter Approved 2025-26, D1c,
+        # SWEG_TAC_SHEDDING). "End of your Command phase": a Tactical army may
+        # spend 1 command point to discard one active Secondary Mission card and
+        # draw a new one. Fired here for a provably-dead held card only. No-op /
+        # byte-identical when shedding is off (or on the Fixed track).
+        self._apply_new_orders(self.a, self.b, True, round_num)
+        self._apply_new_orders(self.b, self.a, False, round_num)
         # ---- Warlord-gated CP discount (Roboute Guilliman, Lord of
         # Contagion). After the per-round drip, look up the army's Warlord
         # and apply any additional per-round CP mechanic:
@@ -12606,8 +13286,45 @@ class Battle:
         # simulator.soror_ranged_hold.
         _ad_soror = (os.environ.get("SWEG_SOROR_RANGED_HOLD", "1") != "0"
                      and (attacker.profile.faction or "") == "Adepta Sororitas")
+        # TYRANIDS-SCOPED entry point (SWEG_TYRANIDS_RANGED_HOLD — default-OFF
+        # screening gate; "1" opt-in, unset/"0" is the byte-identical off path):
+        # the SAME gunline-hold logic, restricted to Tyranids. Derived from
+        # watched pilot-observation (2026-07-03, docs/PILOT_FINDINGS.md): across
+        # three piloted games (versus Imperial Knights seed 0, Orks seed 1,
+        # Necrons seed 2) the Tyranids dedicated fire platforms Advanced their
+        # opening rounds forfeiting the Shooting phase, then dealt heavy damage
+        # only once they finally held. The Exocrine (Bio-Plasmic Cannon, ranged
+        # damage per activation 12.0, range 36 inches) and the Tyrannofex
+        # (Rupture Cannon, 12.7 / 48 inches) each Advanced rounds 1-2 versus the
+        # Orks and marched INTO the melee horde, feeding a 29-48 blow-out; when
+        # held instead they killed 15 Boyz (Exocrine) and dealt 21 and 12 damage
+        # (Tyrannofex) the following round. Versus Necrons the Exocrine Advanced
+        # rounds 1-4 and died round 4 having fired NOTHING (the Sororitas
+        # Castigator misplay recurring); versus Imperial Knights the Tyrannofex
+        # forfeited its shooting rounds 1-4 and, when finally held, killed an
+        # Armiger Warglaive for 12 damage. Checked and ruled out first: Synapse
+        # Imperative and Shadow in the Warp ARE modelled
+        # (_apply_shadow_in_the_warp_forced_tests) — the deficit is the mis-pilot,
+        # not a missing rule. ROSTER-FILTER AUDIT (scripts/diag_tyranids_filter):
+        # the shared rDPA >= 2.0 & range >= 18 inch filter below holds exactly
+        # 20 Tyranids units, EVERY one a MONSTER or dedicated fire platform
+        # (Tyrannofex, Exocrine, Hive Guard, Hive Tyrant, Zoanthropes,
+        # Neurotyrant, Maleceptor, Norn Emissary, Tervigon, Carnifexes, the
+        # bio-titans) and holds NO swarm unit — Termagants (rDPA 1.10, below the
+        # 2.0 floor), Hormagaunts (range 1 inch), Ripper Swarms, Gargoyles,
+        # Genestealers, the Trygon (range 12 inches) and every melee Prime /
+        # Lictor / Ravener stay FREE to Advance onto objectives. The swarm's
+        # forward pressure is untouched, so the shared filter needs no narrowing
+        # (the Orks WAAAGH-delay / melee-caging rejections do not apply: nothing
+        # here delays or diverts the horde). Faithful piloting, not a rules claim
+        # (Advancing forfeits non-[ASSAULT] shooting); the direct analog of
+        # _ad_am / _ad_ck / _ad_votann / _ad_tsons / _ad_soror and the seventh
+        # entry point on the shared advance-suppression block. Off path (gate
+        # unset) byte-identical. Cited simulator.tyranids_ranged_hold.
+        _ad_tyranids = (os.environ.get("SWEG_TYRANIDS_RANGED_HOLD", "0") == "1"
+                        and (attacker.profile.faction or "") == "Tyranids")
         if ((_ad_generic or _ad_am or _ad_ck or _ad_votann or _ad_tsons
-                or _ad_soror)
+                or _ad_soror or _ad_tyranids)
                 and intent in ("CAPTURE", "STEAL")
                 # Units that can shoot AFTER Advancing (ASSAULT weapons, or a
                 # transient ASSAULT grant) lose nothing by it — never suppress them
@@ -13503,6 +14220,25 @@ class Battle:
         else:
             members = [first_model]
         enemies = list(defender_army.alive_units)
+        # RECIPROCAL BIG GUNS NEVER TIRE (gated SWEG_BGNT_RECIPROCAL): drop
+        # targets the reciprocal shooting-into-engagement rule makes illegal (an
+        # enemy pinned in melee by a friendly unit that is not a MONSTER/VEHICLE)
+        # from the split-fire plan, so the planner never commits a squad's
+        # expected wounds onto a target `_do_shoot` will reject. This mirrors the
+        # `_do_shoot` candidate filter; legality is an army-level property (does
+        # any friendly unit pin the target), so it is safe to apply here even
+        # though the planner does not yet know each model's line of sight, and
+        # `_do_shoot` still validates every assignment per model. OFF path leaves
+        # `enemies` untouched (byte-identical). Cited as
+        # `simulator.big_guns_reciprocal`.
+        if os.environ.get("SWEG_BGNT_RECIPROCAL", "1") != "0":
+            _plan_friendly = attacker_army.alive_units
+            enemies = [
+                e for e in enemies
+                if _reciprocal_ranged_legal(e, _plan_friendly, first_model)
+            ]
+            if not enemies:
+                return
         if not enemies:
             return
         from .strategy import (
@@ -13614,6 +14350,47 @@ class Battle:
             return (already_wounded, on_obj, -min_dist, hp_frac)
 
         return min(candidates, key=_score)
+
+    def _record_reciprocal_block(self, attacker, before, after) -> None:
+        """Read-only instrument (SWEG_RECIP_INSTR): tally the reciprocal
+        shooting-into-engagement filter's effect on one shooting activation's
+        legal-target pool into RECIP_INSTR_STATS, keyed by the attacker's
+        faction. `before` is the candidate list immediately before the filter,
+        `after` immediately after. Records fully-lost activations (pool emptied)
+        and focus-fire downgrades (the best expected-wounds target was dropped,
+        forcing a weaker shot). No RNG, no state change — the caller only invokes
+        this when SWEG_RECIP_INSTR is set, so it is byte-identical when unset.
+        """
+        fac = attacker.profile.faction or "?"
+        d = RECIP_INSTR_STATS.setdefault(fac, {
+            "reaching_filter": 0, "had_target": 0, "lost_all": 0,
+            "partial_retarget": 0, "targets_dropped": 0,
+            "downgraded_shot": 0, "downgrade_ew_lost": 0.0,
+        })
+        n_before, n_after = len(before), len(after)
+        d["reaching_filter"] += 1
+        d["targets_dropped"] += (n_before - n_after)
+        if n_before > 0:
+            d["had_target"] += 1
+            if n_after == 0:
+                d["lost_all"] += 1
+            elif n_after < n_before:
+                d["partial_retarget"] += 1
+        # Focus-fire downgrade: was the best expected-wounds target dropped?
+        ap = attacker.profile
+        kept_ids = {id(u) for u in after}
+        best_dropped = max(
+            (self._ranged_expected_wounds(ap, u)
+             for u in before if id(u) not in kept_ids),
+            default=0.0,
+        )
+        best_kept = max(
+            (self._ranged_expected_wounds(ap, u) for u in after),
+            default=0.0,
+        )
+        if best_dropped > best_kept and best_dropped > 0.0:
+            d["downgraded_shot"] += 1
+            d["downgrade_ew_lost"] += (best_dropped - best_kept)
 
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         # Pariah Nexus action lockout (10e core, wave 74): a unit performing an
@@ -13844,6 +14621,49 @@ class Battle:
                 u for u in candidates
                 if _er_gap_units(attacker, u) > 1.0
             ]
+        # RECIPROCAL BIG GUNS NEVER TIRE / shooting-into-engagement (gated
+        # SWEG_BGNT_RECIPROCAL, default ON; =0 kill-switch restores the legacy
+        # pipeline byte-for-byte). The audit-C reciprocal half of the rule: an
+        # enemy unit within Engagement Range of a friendly unit OTHER than the
+        # attacker's own unit cannot be selected as a ranged target UNLESS it is
+        # a MONSTER or VEHICLE (which the Big Guns Never Tire clause carves back
+        # in, at -1 to Hit applied in Unit.attack via `shooting_at_engaged_brick`
+        # below). The attacker's OWN engagement is already handled above (the
+        # shoot gate + the in-engagement candidate restriction). The incentive
+        # flip this creates — a melee army that pins an enemy now PROTECTS it
+        # from that same army's own guns — is the real rule and is deliberately
+        # preserved. Filtering here, before `if not candidates: return` and
+        # before every target scorer, means the focus-fire / target-economics
+        # pickers only ever score legal targets. Cited as
+        # `simulator.big_guns_reciprocal`.
+        if os.environ.get("SWEG_BGNT_RECIPROCAL", "1") != "0":
+            _bgnt_friendly = attacker_army.alive_units
+            _recip_before = candidates
+            candidates = [
+                u for u in candidates
+                if _reciprocal_ranged_legal(u, _bgnt_friendly, attacker)
+            ]
+            # RECIPROCAL-BLOCK instrument (SWEG_RECIP_INSTR, read-only): record
+            # this activation's footprint from the reciprocal filter — whether it
+            # emptied the pool (lost activation) and whether it dropped the gun's
+            # single best target for a lower-expected-wounds shot (a focus-fire
+            # downgrade). Sizes how much of a faction under-pole the reciprocal
+            # rule can own. No RNG, no state change; byte-identical when unset.
+            if os.environ.get("SWEG_RECIP_INSTR"):
+                self._record_reciprocal_block(attacker, _recip_before, candidates)
+            # Blast weapons get NO MONSTER/VEHICLE carve-out and the restriction
+            # includes the attacker's own unit: "Blast weapons can never be used
+            # to make attacks against a unit that is within Engagement Range of
+            # one or more units from the attacking model's army (including its
+            # own unit)." The attacker-model half is enforced by the Blast
+            # filter above; this extends it to every other friendly unit, with
+            # no exception for engaged enemy MONSTERs/VEHICLEs. Cited as
+            # `simulator.blast_engagement_restriction`.
+            if attacker.profile.blast:
+                candidates = [
+                    u for u in candidates
+                    if not _er_engaged_by(u, _bgnt_friendly)
+                ]
         if not candidates:
             return
 
@@ -14033,6 +14853,28 @@ class Battle:
         # when the defender allocates the wounds to a different model below.
         math_target = shoot_target
 
+        # RECIPROCAL BIG GUNS NEVER TIRE -1 (gated SWEG_BGNT_RECIPROCAL): when
+        # this activation fires at an enemy that is within Engagement Range of a
+        # friendly unit OTHER than the attacker's own unit, each non-Pistol
+        # attack takes -1 to Hit (core rule para three). The candidate filter
+        # above has already guaranteed any such other-unit-engaged target that
+        # survived is a MONSTER/VEHICLE (or a target the attacker is itself
+        # engaged with, whose -1 is the para-two own-engagement case), so we
+        # only re-test the engagement here; Pistols are exempt. The flag is read
+        # in Unit.attack and composed under the ±1 cap, so if the attacker's own
+        # in-engagement -1 also fires the net stays a single -1. Reset every
+        # activation; the OFF path leaves it False (byte-identical). Cited as
+        # `simulator.big_guns_reciprocal`.
+        attacker.shooting_at_engaged_brick = False
+        if (
+            os.environ.get("SWEG_BGNT_RECIPROCAL", "1") != "0"
+            and not attacker.profile.pistol
+            and _er_engaged_by_other_unit(
+                math_target, attacker_army.alive_units, attacker,
+            )
+        ):
+            attacker.shooting_at_engaged_brick = True
+
         # Defender allocation (SWEG_DEFENDER_ALLOC, default ON): the attacker's
         # heuristics above identify which squad to target; the DEFENDING player
         # then picks which model in that squad absorbs the wounds. Per 10e this
@@ -14065,6 +14907,22 @@ class Battle:
         # targeted INFANTRY unit a 6++ invuln + Benefit of Cover until end of
         # phase. No-op when the gate is unset, so the OFF path is unchanged.
         self._maybe_go_to_ground(defender_army, shoot_target, attacker)
+        # Rotate Ion Shields (Imperial Knights, env-gated SWEG_IK_ROTATE_IONS):
+        # the defender may spend 1 Command Point, just after this target was
+        # selected, to give the targeted IMPERIAL KNIGHTS unit a 4+
+        # invulnerable save until end of phase. No-op for every other faction
+        # and when the gate is unset. See Battle._maybe_rotate_ion_shields.
+        self._maybe_rotate_ion_shields(defender_army, shoot_target, attacker)
+        # Diabolic Bulwark (Chaos Knights, env-gated SWEG_CK_DIABOLIC_BULWARK):
+        # the same stratagem shape as Rotate Ion Shields above, restricted to
+        # CHAOS KNIGHTS units. See Battle._maybe_diabolic_bulwark.
+        self._maybe_diabolic_bulwark(defender_army, shoot_target, attacker)
+        # Smokescreen (10e core Wargear Stratagem, env-gated SWEG_SMOKESCREEN):
+        # the defender may spend 1 Command Point, just after this target was
+        # selected, to give the targeted [SMOKE] unit the Benefit of Cover +
+        # Stealth until end of phase. No-op when the gate is unset, so the OFF
+        # path is unchanged.
+        self._maybe_smokescreen(defender_army, shoot_target, attacker)
 
         # Terrain-aware cover: target counts as in cover if it stands inside
         # cover terrain, OR if the army-wide cover flag is set. In 10e all
@@ -14090,6 +14948,23 @@ class Battle:
         # Go To Ground grants the Benefit of Cover (+1 save) on every attack while
         # the buff is active, independent of terrain.
         if getattr(shoot_target, "go_to_ground_active", False):
+            shoot_target.in_cover = True
+        # Smokescreen (10e core Wargear Stratagem) grants the Benefit of Cover
+        # the same way, independent of terrain; the accompanying Stealth grant
+        # is applied at the Stealth hit-modifier branch in Unit.attack. Cited
+        # as `simulator.smokescreen`.
+        if getattr(shoot_target, "smokescreen_active", False):
+            shoot_target.in_cover = True
+        # Knight Defender "Selfless Protector" (10e datasheet ability,
+        # env-gated SWEG_IK_DEFENDER_COVER): bracketed per-attack (not a
+        # per-round transient — the real ability has no duration or Command
+        # Point cost, see the field comment on Unit.ik_defender_cover_active)
+        # exactly like in_cover/in_heavy_cover just above. Restored after the
+        # attack alongside saved_cover/saved_heavy below. Cited as
+        # `simulator.ik_defender_selfless_protector`.
+        saved_ik_defender_cover = shoot_target.ik_defender_cover_active
+        if self._ik_defender_screening_active(defender_army, shoot_target):
+            shoot_target.ik_defender_cover_active = True
             shoot_target.in_cover = True
 
         # Distance and line-of-sight for the to-hit math use math_target (the
@@ -14132,6 +15007,7 @@ class Battle:
             )
         shoot_target.in_cover = saved_cover
         shoot_target.in_heavy_cover = saved_heavy
+        shoot_target.ik_defender_cover_active = saved_ik_defender_cover
         # Mark One Shot weapons as expended for the rest of the battle.
         if attacker.profile.one_shot:
             self._one_shot_fired.add(attacker.uid)
@@ -14462,6 +15338,492 @@ class Battle:
         else:
             shoot_target.go_to_ground_active = True
 
+    # Rotate Ion Shields (Imperial Knights, 1 CP, Wargear Stratagem, env-gated
+    # SWEG_IK_ROTATE_IONS) and Diabolic Bulwark (Chaos Knights, 1 CP, Wargear
+    # Stratagem, env-gated SWEG_CK_DIABOLIC_BULWARK) print byte-identical
+    # WHEN/TARGET/EFFECT text (only the faction keyword differs — verified
+    # live against wahapedia.ru/wh40k10ed/factions/imperial-knights/ and
+    # .../chaos-knights/ on 2026-07-03), so both share the mechanism below.
+    _ROTATE_IONS_CP_COST = 1
+    _DIABOLIC_BULWARK_CP_COST = 1
+    # Same reasoning as _GTG_THREAT_FRACTION above: only spend the Command
+    # Point when the incoming fire is a genuinely meaningful share of the
+    # targeted model's current health — a real player holds the Command
+    # Point against a stray shot.
+    _ION_SHIELD_STRAT_THREAT_FRACTION = 0.5
+
+    def _maybe_ion_shield_stratagem(
+        self, defending_army: Army, shoot_target, attacker, *,
+        faction: str, cp_cost: int, env_var: str, used_flag: str,
+    ) -> None:
+        """Shared mechanism for the Knight households' reactive "4+ invuln
+        until end of phase" stratagem pair: Imperial Knights' Rotate Ion
+        Shields and Chaos Knights' Diabolic Bulwark.
+
+        Trigger (both, verbatim): "Your opponent's Shooting phase, just
+        after an enemy unit has selected its targets. TARGET: One
+        <FACTION> unit from your army that was selected as the target of
+        one or more of the attacking unit's attacks. EFFECT: Until the end
+        of the phase, models in your unit have a 4+ invulnerable save."
+        Hooked at the same target-selection point as Go To Ground
+        (`Battle._maybe_go_to_ground`), called immediately after it in
+        `_do_shoot`.
+
+        The 4+ invulnerable save is granted via the existing
+        `transient_invuln_4` slot (the same generic "flat 4+ invuln for the
+        round" flag Glamour of Tzeentch / Daemonic Invulnerability use),
+        only overriding a worse invulnerable save, at the save-resolution
+        branch in `Unit.attack`. The printed "until the end of the phase"
+        duration is collapsed to the round — cleared with the other
+        per-round transient flags in `_clear_transient_stratagem_flags` —
+        the same simplification already accepted for Go To Ground's own
+        6++, because this army is the defender in exactly one Shooting
+        phase per round under the I-go-U-go turn structure.
+
+        Once-per-phase: the real 10e core restriction is "the same
+        Stratagem cannot be used more than once in the same phase."
+        Enforced via `used_flag` on `defending_army`, reset once per round
+        in `_clear_transient_stratagem_flags` (equivalent to a phase-start
+        reset for the reason above).
+
+        Decision heuristic (AI): fire only when the incoming shot(s)
+        genuinely threaten the target, reusing `_ranged_expected_wounds`
+        (the existing expected-incoming-damage helper Go To Ground and
+        Focus Fire already use) rather than a new estimator — threat must
+        reach `_ION_SHIELD_STRAT_THREAT_FRACTION` of the target's current
+        health, same threshold and reasoning as Go To Ground.
+        """
+        if __import__("os").environ.get(env_var, "1") == "0":
+            return
+        if shoot_target is None or not getattr(shoot_target, "is_alive", False):
+            return
+        if getattr(defending_army, used_flag, False):
+            return
+        if (shoot_target.profile.faction or "") != faction:
+            return
+        if defending_army.command_points < cp_cost:
+            return
+        if attacker is None:
+            return
+        # Already carrying an equal-or-better invulnerable save this round
+        # (e.g. the stratagem already fired on this unit earlier, or a
+        # different source granted a stronger save) — don't waste the
+        # Command Point. Mirrors Go To Ground's per-unit "already active"
+        # no-op.
+        if getattr(shoot_target, "transient_invuln_4", False):
+            return
+        threat = self._ranged_expected_wounds(attacker.profile, shoot_target)
+        if threat < self._ION_SHIELD_STRAT_THREAT_FRACTION * shoot_target.current_health:
+            return
+
+        defending_army.command_points -= cp_cost
+        setattr(defending_army, used_flag, True)
+        self._set_transient_squad(shoot_target, "transient_invuln_4")
+
+    def _maybe_rotate_ion_shields(self, defending_army: Army, shoot_target, attacker) -> None:
+        """Rotate Ion Shields (Imperial Knights Household, 1 CP, Wargear
+        Stratagem, env-gated SWEG_IK_ROTATE_IONS, default ON per the
+        Custodes-batch precedent for verified real rules).
+
+        Wahapedia (verified live 2026-07-03):
+        https://wahapedia.ru/wh40k10ed/factions/imperial-knights/
+        "ROTATE ION SHIELDS — 1CP. Wargear Stratagem. WHEN: Your opponent's
+        Shooting phase, just after an enemy unit has selected its targets.
+        TARGET: One IMPERIAL KNIGHTS unit from your army that was selected
+        as the target of one or more of the attacking unit's attacks.
+        EFFECT: Until the end of the phase, models in your unit have a 4+
+        invulnerable save."
+
+        See `_maybe_ion_shield_stratagem` for the shared mechanism this
+        wraps. Cited as `simulator.ik_rotate_ion_shields`.
+        """
+        self._maybe_ion_shield_stratagem(
+            defending_army, shoot_target, attacker,
+            faction="Imperial Knights",
+            cp_cost=self._ROTATE_IONS_CP_COST,
+            env_var="SWEG_IK_ROTATE_IONS",
+            used_flag="rotate_ion_shields_used_this_phase",
+        )
+
+    def _maybe_diabolic_bulwark(self, defending_army: Army, shoot_target, attacker) -> None:
+        """Diabolic Bulwark (Chaos Knights Infernal Lance detachment, 1 CP,
+        Wargear Stratagem, env-gated SWEG_CK_DIABOLIC_BULWARK, default ON
+        per the Custodes-batch precedent for verified real rules).
+
+        Wahapedia (verified live 2026-07-03):
+        https://wahapedia.ru/wh40k10ed/factions/chaos-knights/
+        "WHEN: Your opponent's Shooting phase, just after an enemy unit has
+        selected its targets. TARGET: One CHAOS KNIGHTS unit from your army
+        that was selected as the target of one or more of the attacking
+        unit's attacks. EFFECT: Until the end of the phase, models in your
+        unit have a 4+ invulnerable save." — byte-identical in shape to
+        Imperial Knights' Rotate Ion Shields (only the faction keyword
+        differs).
+
+        See `_maybe_ion_shield_stratagem` for the shared mechanism this
+        wraps. Cited as `simulator.ck_diabolic_bulwark`.
+        """
+        self._maybe_ion_shield_stratagem(
+            defending_army, shoot_target, attacker,
+            faction="Chaos Knights",
+            cp_cost=self._DIABOLIC_BULWARK_CP_COST,
+            env_var="SWEG_CK_DIABOLIC_BULWARK",
+            used_flag="diabolic_bulwark_used_this_phase",
+        )
+    # Smokescreen (10e core Wargear Stratagem, env-gated SWEG_SMOKESCREEN).
+    _SMOKESCREEN_CP_COST = 1
+    # Same AI-heuristic shape as Go To Ground (_GTG_THREAT_FRACTION /
+    # _GTG_MIN_MODELS / _GTG_MIN_SOLO_HEALTH above): these are not rules
+    # eligibility gates (the printed stratagem has none beyond the [SMOKE]
+    # keyword and the command point cost) — they decide whether a real player
+    # would judge the incoming fire worth a command point, so the AI doesn't
+    # burn its whole budget smoking every single stray shot.
+    _SMOKESCREEN_THREAT_FRACTION = 0.5
+    _SMOKESCREEN_MIN_MODELS = 3
+    _SMOKESCREEN_MIN_SOLO_HEALTH = 4.0
+
+    # Faction-neutral [SMOKE] keyword carriers (10e core rules; see the
+    # `simulator.smokescreen` citation in
+    # data/rule_citations.d/core_smokescreen.json). Enumerated directly from
+    # BSData v10.6.0 (`data/bsdata/cache/*.cat.gz`): every unit (type="unit"
+    # selectionEntry) across all 46 cached catalogue files carrying a direct
+    # categoryLink name="Smoke" on its own entry — e.g. the Myphitic
+    # Blight-hauler (`Chaos - Death Guard.cat.gz`, categoryLink id
+    # 6df-937-16bc-8c1a) — matched against the live `code.units.UNIT_CATALOG`
+    # by (profile.faction, profile.name). 192 catalogue entries across every
+    # Imperium/Chaos faction plus a handful of Aeldari/Drukhari/Genestealer
+    # Cults/Tyranids/Votann/T'au datasheets; not Death-Guard-specific.
+    #
+    # Hardcoded here rather than exposed on `UnitProfile.unit_keywords`
+    # (which would be the natural home, alongside TRANSPORT/REGIMENT/
+    # SQUADRON in `code/bsdata/mapper.py`'s `_TRACKED_UNIT_KEYWORDS`) because
+    # this worktree's committed `data/bsdata/parsed.json` is already stale
+    # relative to the current mapper: a full `python -m code.bsdata.mapper`
+    # regeneration reorders/changes thousands of unrelated weapon-profile
+    # lines even with `PYTHONHASHSEED=0` pinned (verified before this change
+    # landed), which would silently perturb hundreds of other units' stats
+    # and break the byte-identical-off eval reproducibility this fix's own
+    # validation (and every other lever's) depends on. Re-derive this set
+    # with: temporarily add "SMOKE" to `_TRACKED_UNIT_KEYWORDS`, run
+    # `python -m code.bsdata.mapper`, read the resulting
+    # `code.units.UNIT_CATALOG` for `"SMOKE" in profile.unit_keywords`, then
+    # revert `data/bsdata/parsed.json` and `code/bsdata/mapper.py` — exactly
+    # as this set was produced.
+    _SMOKE_UNITS: FrozenSet[Tuple[str, str]] = frozenset({
+        ('Adepta Sororitas', 'Castigator'),
+        ('Adepta Sororitas', 'Exorcist'),
+        ('Adepta Sororitas', 'Immolator'),
+        ('Adepta Sororitas', 'Repressor [Legends]'),
+        ('Adepta Sororitas', 'Sororitas Rhino'),
+        ('Adeptus Astartes', 'Carab Culln the Risen [Legends]'),
+        ('Adeptus Astartes', 'Deimos Predator [Legends]'),
+        ('Adeptus Astartes', 'Dreadnought'),
+        ('Adeptus Astartes', 'Gladiator Lancer'),
+        ('Adeptus Astartes', 'Gladiator Reaper'),
+        ('Adeptus Astartes', 'Gladiator Valiant'),
+        ('Adeptus Astartes', 'Hunter [Legends]'),
+        ('Adeptus Astartes', 'Incursor Squad'),
+        ('Adeptus Astartes', 'Infiltrator Squad'),
+        ('Adeptus Astartes', 'Ironclad Dreadnought [Legends]'),
+        ('Adeptus Astartes', 'Land Raider'),
+        ('Adeptus Astartes', 'Land Raider Crusader'),
+        ('Adeptus Astartes', 'Land Raider Excelsior [Legends]'),
+        ('Adeptus Astartes', 'Land Raider Helios [Legends]'),
+        ('Adeptus Astartes', 'Land Raider Prometheus [Legends]'),
+        ('Adeptus Astartes', 'Land Raider Redeemer'),
+        ('Adeptus Astartes', 'Lieutenant in Reiver Armour'),
+        ('Adeptus Astartes', 'Predator Annihilator'),
+        ('Adeptus Astartes', 'Predator Destructor'),
+        ('Adeptus Astartes', 'Razorback'),
+        ('Adeptus Astartes', 'Reiver Squad'),
+        ('Adeptus Astartes', 'Relic Razorback [Legends]'),
+        ('Adeptus Astartes', 'Repulsor'),
+        ('Adeptus Astartes', 'Repulsor Executioner'),
+        ('Adeptus Astartes', 'Rhino'),
+        ('Adeptus Astartes', 'Rhino Primaris [Legends]'),
+        ('Adeptus Astartes', 'Scout Bike Squad [Legends]'),
+        ('Adeptus Astartes', 'Scout Sniper Squad [Legends]'),
+        ('Adeptus Astartes', 'Scout Squad'),
+        ('Adeptus Astartes', 'Sicaran Arcus [Legends]'),
+        ('Adeptus Astartes', 'Sicaran Omega [Legends]'),
+        ('Adeptus Astartes', 'Stalker [Legends]'),
+        ('Adeptus Astartes', 'Stormhawk Interceptor'),
+        ('Adeptus Astartes', 'Suppressor Squad'),
+        ('Adeptus Astartes', 'Terminus Ultra [Legends]'),
+        ('Adeptus Astartes', 'Venerable Dreadnought [Legends]'),
+        ('Adeptus Astartes', 'Vindicator'),
+        ('Adeptus Astartes', 'Vindicator Laser Destroyer [Legends]'),
+        ('Adeptus Astartes', 'Whirlwind'),
+        ('Adeptus Custodes', 'Anathema Psykana Rhino'),
+        ('Adeptus Custodes', 'Venerable Land Raider'),
+        ('Adeptus Mechanicus', 'Ironstrider Ballistarii'),
+        ('Adeptus Mechanicus', 'Onager Dunecrawler'),
+        ('Adeptus Mechanicus', 'Skorpius Disintegrator'),
+        ('Adeptus Mechanicus', 'Skorpius Dunerider'),
+        ('Adeptus Mechanicus', 'Sydonian Dragoons with radium jezzails'),
+        ('Adeptus Mechanicus', 'Sydonian Dragoons with taser lances'),
+        ('Aeldari', 'Skyweavers'),
+        ('Aeldari', 'Starweaver'),
+        ('Agents of the Imperium', 'Corvus Blackstar'),
+        ('Agents of the Imperium', 'Imperial Navy Breachers'),
+        ('Agents of the Imperium', 'Imperial Rhino'),
+        ('Agents of the Imperium', 'Inquisitorial Chimera'),
+        ('Agents of the Imperium', 'Sisters of Battle Immolator'),
+        ('Agents of the Imperium', 'Spectrus Kill Team [Legends]'),
+        ('Agents of the Imperium', 'Vindicare Assassin'),
+        ('Astra Militarum', 'Armageddon-pattern Medusa [Legends]'),
+        ('Astra Militarum', 'Atlas Recovery Vehicle [Legends]'),
+        ('Astra Militarum', 'Baneblade'),
+        ('Astra Militarum', 'Banehammer'),
+        ('Astra Militarum', 'Banesword'),
+        ('Astra Militarum', 'Basilisk'),
+        ('Astra Militarum', 'Cadian Recon Squad'),
+        ('Astra Militarum', 'Carnodon [Legends]'),
+        ('Astra Militarum', 'Centaur Light Carrier [Legends]'),
+        ('Astra Militarum', 'Centaur RSV'),
+        ('Astra Militarum', 'Chimera'),
+        ('Astra Militarum', 'Colossus [Legends]'),
+        ('Astra Militarum', 'Crassus [Legends]'),
+        ('Astra Militarum', 'Deathstrike'),
+        ('Astra Militarum', 'Dominus Armoured Siege Bombard [Legends]'),
+        ('Astra Militarum', 'Doomhammer'),
+        ('Astra Militarum', 'Elysian Drop Sentinel [Legends]'),
+        ('Astra Militarum', 'Gorgon Heavy Transport [Legends]'),
+        ('Astra Militarum', 'Griffon Mortar Carrier [Legends]'),
+        ('Astra Militarum', 'Hellhammer'),
+        ('Astra Militarum', 'Hellhound'),
+        ('Astra Militarum', 'Hydra'),
+        ('Astra Militarum', 'Krieg Combat Engineers'),
+        ('Astra Militarum', 'Leman Russ Battle Tank'),
+        ('Astra Militarum', 'Leman Russ Commander'),
+        ('Astra Militarum', 'Leman Russ Demolisher'),
+        ('Astra Militarum', 'Leman Russ Eradicator'),
+        ('Astra Militarum', 'Leman Russ Executioner'),
+        ('Astra Militarum', 'Leman Russ Exterminator'),
+        ('Astra Militarum', 'Leman Russ Punisher'),
+        ('Astra Militarum', 'Leman Russ Vanquisher'),
+        ('Astra Militarum', 'Macharius Omega [Legends]'),
+        ('Astra Militarum', 'Macharius Vanquisher [Legends]'),
+        ('Astra Militarum', 'Macharius Vulcan [Legends]'),
+        ('Astra Militarum', 'Macharius [Legends]'),
+        ('Astra Militarum', 'Malcador Annihilator [Legends]'),
+        ('Astra Militarum', 'Malcador Defender [Legends]'),
+        ('Astra Militarum', 'Malcador Infernus [Legends]'),
+        ('Astra Militarum', 'Malcador [Legends]'),
+        ('Astra Militarum', 'Manticore'),
+        ('Astra Militarum', 'Minotaur [Legends]'),
+        ('Astra Militarum', 'Praetor [Legends]'),
+        ('Astra Militarum', 'Rogal Dorn Battle Tank'),
+        ('Astra Militarum', 'Rogal Dorn Commander'),
+        ('Astra Militarum', 'Salamander Command Vehicle [Legends]'),
+        ('Astra Militarum', 'Salamander Scout Vehicle [Legends]'),
+        ('Astra Militarum', 'Scout Sentinels'),
+        ('Astra Militarum', 'Sentinel Powerlifter [Legends]'),
+        ('Astra Militarum', 'Shadowsword'),
+        ('Astra Militarum', 'Storm Chimera [Legends]'),
+        ('Astra Militarum', 'Stormblade [Legends]'),
+        ('Astra Militarum', 'Stormlord'),
+        ('Astra Militarum', 'Stormsword'),
+        ('Astra Militarum', 'Stygies Destroyer Tank Hunter [Legends]'),
+        ('Astra Militarum', 'Tempestus Aquilons'),
+        ('Astra Militarum', 'Trojan Support Vehicle [Legends]'),
+        ('Astra Militarum', 'Valdor [Legends]'),
+        ('Astra Militarum', 'Wyvern'),
+        ('Black Templars', 'Gladiator Lancer'),
+        ('Black Templars', 'Gladiator Reaper'),
+        ('Black Templars', 'Gladiator Valiant'),
+        ('Black Templars', 'Land Raider Crusader'),
+        ('Black Templars', 'Repulsor'),
+        ('Black Templars', 'Repulsor Executioner'),
+        ('Blood Angels', 'Baal Predator'),
+        ('Blood Angels', 'Death Company Dreadnought with Magna-Grapple [Legends]'),
+        ('Blood Angels', 'Furioso Dreadnought [Legends]'),
+        ('Blood Angels', 'Librarian Dreadnought [Legends]'),
+        ('Chaos Space Marines', 'Cerberus [Legends]'),
+        ('Chaos Space Marines', 'Chaos Deimos Predator [Legends]'),
+        ('Chaos Space Marines', 'Chaos Land Raider'),
+        ('Chaos Space Marines', 'Chaos Predator Annihilator'),
+        ('Chaos Space Marines', 'Chaos Predator Destructor'),
+        ('Chaos Space Marines', 'Chaos Rhino'),
+        ('Chaos Space Marines', 'Chaos Vindicator'),
+        ('Chaos Space Marines', 'Deredeo Dreadnought [Legends]'),
+        ('Chaos Space Marines', 'Falchion [Legends]'),
+        ('Chaos Space Marines', 'Fellblade [Legends]'),
+        ('Chaos Space Marines', 'Kratos [Legends]'),
+        ('Chaos Space Marines', 'Land Raider Achilles [Legends]'),
+        ('Chaos Space Marines', 'Land Raider Proteus [Legends]'),
+        ('Chaos Space Marines', 'Leviathan Dreadnought [Legends]'),
+        ('Chaos Space Marines', 'Mastodon [Legends]'),
+        ('Chaos Space Marines', 'Sicaran Battle Tank [Legends]'),
+        ('Chaos Space Marines', 'Sicaran Punisher [Legends]'),
+        ('Chaos Space Marines', 'Sicaran Venator [Legends]'),
+        ('Chaos Space Marines', 'Spartan [Legends]'),
+        ('Chaos Space Marines', 'Typhon [Legends]'),
+        ('Chaos Space Marines', 'Whirlwind Scorpius [Legends]'),
+        ('Death Guard', 'Chaos Land Raider'),
+        ('Death Guard', 'Chaos Predator Annihilator'),
+        ('Death Guard', 'Chaos Predator Destructor'),
+        ('Death Guard', 'Chaos Rhino'),
+        ('Death Guard', 'Myphitic Blight-hauler'),
+        ('Deathwatch', 'Corvus Blackstar'),
+        ('Deathwatch', 'Spectrus Kill Team'),
+        ('Drukhari', 'Hand of the Archon'),
+        ('Drukhari', 'Kabalite Warriors'),
+        ("Emperor's Children", 'Chaos Land Raider'),
+        ("Emperor's Children", 'Chaos Rhino'),
+        ('Genestealer Cults', 'Achilles Ridgerunners'),
+        ('Grey Knights', 'Grey Knights Dreadnought [Legends]'),
+        ('Grey Knights', 'Grey Knights Relic Razorback [Legends]'),
+        ('Grey Knights', 'Land Raider'),
+        ('Grey Knights', 'Land Raider Banisher'),
+        ('Grey Knights', 'Land Raider Crusader'),
+        ('Grey Knights', 'Land Raider Redeemer'),
+        ('Grey Knights', 'Razorback'),
+        ('Grey Knights', 'Rhino'),
+        ('Grey Knights', 'Stormhawk Interceptor'),
+        ('Grey Knights', 'Venerable Dreadnought'),
+        ('Leagues of Votann', 'Kapricus Carrier'),
+        ('Orks', 'Boss Snikrot'),
+        ('Orks', 'Kommandos'),
+        ('Orks', 'Wazdakka Gutsmek'),
+        ('Space Wolves', 'Bjorn the Fell-Handed'),
+        ('Space Wolves', 'Hounds of Morkai [Legends]'),
+        ('Space Wolves', 'Venerable Dreadnought'),
+        ('Space Wolves', 'Wolf Scouts'),
+        ('Space Wolves', 'Wolf Scouts [Legends]'),
+        ("T'au Empire", 'Ghostkeel Battlesuit'),
+        ('Thousand Sons', 'Chaos Land Raider'),
+        ('Thousand Sons', 'Chaos Predator Annihilator'),
+        ('Thousand Sons', 'Chaos Predator Destructor'),
+        ('Thousand Sons', 'Chaos Rhino'),
+        ('Thousand Sons', 'Chaos Vindicator'),
+        ('Tyranids', 'Psychophage'),
+        ('World Eaters', 'Chaos Land Raider'),
+        ('World Eaters', 'Chaos Predator Annihilator'),
+        ('World Eaters', 'Chaos Predator Destructor'),
+        ('World Eaters', 'Chaos Rhino'),
+    })
+
+    def _maybe_smokescreen(self, defending_army: Army, shoot_target, attacker) -> None:
+        """Smokescreen (10e core Wargear Stratagem, env-gated SWEG_SMOKESCREEN).
+
+        Printed rule (Wahapedia, https://wahapedia.ru/wh40k10ed/the-rules/core-rules/,
+        https://wahapedia.ru/wh40k10ed/Stratagems.csv): "Smokescreen — 1CP, Core
+        - Wargear Stratagem. WHEN: Your opponent's Shooting phase, just after
+        an enemy unit has selected its targets. TARGET: One SMOKE unit from
+        your army that was selected as the target of one or more of the
+        attacking unit's attacks. EFFECT: Until the end of the phase, all
+        models in that unit have the Benefit of Cover and the Stealth
+        ability."
+
+        Trigger: the opponent's Shooting phase, just after an enemy unit has
+        selected `shoot_target` as the target of one or more attacks.
+        `defending_army` may spend 1 Command Point so that, until the end of
+        the phase, all models in the targeted [SMOKE] unit have the Benefit
+        of Cover and the Stealth ability. Cited as `simulator.smokescreen`.
+
+        Structurally identical to `_maybe_go_to_ground` (the only real-rule
+        differences are the eligibility keyword and the granted effect), so
+        this reuses the same command-point/once-per-phase machinery and the
+        same worth-protecting AI-heuristic shape.
+
+        Gate unset (or "0") -> no-op: no Command Point spent, no flag set, no
+        random draws, so the OFF path is byte-identical to the baseline.
+        """
+        if __import__("os").environ.get("SWEG_SMOKESCREEN", "1") == "0":
+            return
+        if shoot_target is None or not getattr(shoot_target, "is_alive", False):
+            return
+        # Already smoked this phase (the buff persists), or not a [SMOKE]
+        # carrier, or not worth a Command Point -> nothing to do.
+        if getattr(shoot_target, "smokescreen_active", False):
+            return
+        if (shoot_target.profile.faction, shoot_target.profile.name) not in self._SMOKE_UNITS:
+            return
+        if defending_army.command_points < self._SMOKESCREEN_CP_COST:
+            return
+        # Worth-protecting gate, representation-correct: a multi-model squad
+        # must still field _SMOKESCREEN_MIN_MODELS alive models; a
+        # single-model unit must have real wounds. Do not spend a Command
+        # Point on a near-dead remnant.
+        squad_id = getattr(shoot_target, "squad_id", -1)
+        if squad_id >= 0:
+            alive_models = sum(
+                1 for m in defending_army.units
+                if getattr(m, "squad_id", -1) == squad_id and m.is_alive
+            )
+            if alive_models < self._SMOKESCREEN_MIN_MODELS:
+                return
+        elif shoot_target.current_health < self._SMOKESCREEN_MIN_SOLO_HEALTH:
+            return
+
+        # Only react to genuinely threatening fire (a real player holds the
+        # Command Point against a stray shot).
+        if attacker is None:
+            return
+        threat = self._ranged_expected_wounds(attacker.profile, shoot_target)
+        if threat < self._SMOKESCREEN_THREAT_FRACTION * shoot_target.current_health:
+            return
+
+        # Pay 1 Command Point and set the buff on the whole targeted unit
+        # (every model sharing its squad id). The flag grants the Stealth -1
+        # to hit at the Stealth branch in Unit.attack and the Benefit of
+        # Cover at the cover application in _do_shoot; it clears with the
+        # other per-round transient flags.
+        defending_army.command_points -= self._SMOKESCREEN_CP_COST
+        squad_id = getattr(shoot_target, "squad_id", -1)
+        if squad_id >= 0:
+            for m in defending_army.units:
+                if getattr(m, "squad_id", -1) == squad_id and m.is_alive:
+                    m.smokescreen_active = True
+        else:
+            shoot_target.smokescreen_active = True
+
+    def _ik_defender_screening_active(self, defending_army: Army, shoot_target) -> bool:
+        """Knight Defender "Selfless Protector" (10e Imperial Knights
+        datasheet ability, env-gated SWEG_IK_DEFENDER_COVER).
+
+        Printed rule (BSData, `Imperium - Imperial Knights - Library.cat.gz`,
+        inline Abilities profile id af51-9630-82a3-172d on the Knight
+        Defender's own selectionEntry, verified verbatim): "Each time a
+        ranged attack is allocated to an Imperial Knights model from your
+        army, if that model is not fully visible to every model in the
+        attacking unit because of this Knight Defender model, that model has
+        the Benefit of Cover and a 4+ invulnerable save against that attack."
+        No radius is printed anywhere in the ability — it is a line-of-sight
+        screening ability (gated on the Knight Defender's silhouette actually
+        blocking the attacker's view), not a fixed-range aura.
+
+        APPROXIMATION, same shape as `_try_stalwart_protector`'s "CLEAN
+        MAPPING (with approximate eligibility)": the sim has no per-third-
+        party line-of-sight-obstruction geometry (only attacker-to-target
+        line of sight is modelled), so the true "screened specifically by
+        the Knight Defender" condition cannot be evaluated. Proxy: any
+        ranged attack against an alive IMPERIAL KNIGHTS model, other than
+        the Knight Defender itself, in an army that also fields an alive
+        Knight Defender, is treated as screened. Even-handed by
+        construction (Imperial Knights keyword + alive-Knight-Defender-
+        presence only, no other faction awareness); over-credits games where
+        the Knight Defender is not actually positioned to block the
+        specific attacker's view. Cited as
+        `simulator.ik_defender_selfless_protector`.
+
+        Gate unset (or "0") -> always False: no flag set, no behaviour
+        change, so the OFF path is byte-identical to the baseline.
+        """
+        if __import__("os").environ.get("SWEG_IK_DEFENDER_COVER", "1") == "0":
+            return False
+        if shoot_target is None or not getattr(shoot_target, "is_alive", False):
+            return False
+        tp = shoot_target.profile
+        if tp.faction != "Imperial Knights" or tp.name == "Knight Defender":
+            return False
+        return any(
+            u.is_alive and u.profile.faction == "Imperial Knights"
+            and u.profile.name == "Knight Defender"
+            for u in defending_army.units
+        )
+
     def _fire_overwatch(self, defending_army: Army, enemy_unit) -> None:
         """Fire Overwatch (10e universal core stratagem, env-gated
         SWEG_OVERWATCH).
@@ -14593,6 +15955,137 @@ class Battle:
                 victim=target, victim_army=self.a if defending_army is self.b else self.b,
             )
             self._maybe_apply_deadly_demise(target)
+
+    # -----------------------------------------------------------------------
+    # Multi-unit melee CAGING (gate SWEG_MELEE_CAGING) — charge coordination
+    # -----------------------------------------------------------------------
+    # The faithful counter to the durability wall the sim otherwise cannot
+    # express. Real players who can neither out-shoot nor crack a durable gun
+    # platform (a Knight, a Toughness-10+/15-Wound+ brick) WRAP it with two or
+    # more cheap melee units so it cannot Fall Back and freely re-target next
+    # turn, trading bodies for the platform's UPTIME (the durables' win channel,
+    # per the ranged-hold kill-switch counterfactual: Chaos Knights 87.5 -> 65.0
+    # when uptime is removed). This half forms the wrap: when a durable brick is
+    # within charge reach of TWO OR MORE friendly melee-capable units in the same
+    # Charge phase, coordinate their charges onto it (rather than the default
+    # scatter to crackable chaff), landing each charger on the side opposite the
+    # chargers already on it so the fall-back exits are covered. The fall-back
+    # block itself lives in code/strategy.py pick_move_intent (a caged brick
+    # returns HOLD instead of FALL_BACK). A caged VEHICLE/MONSTER still shoots the
+    # cage at the Big Guns Never Tire -1 (already modelled in _do_shoot) — caging
+    # does not silence the platform, it forces it to fight the cage instead of
+    # re-targeting freely and blocks the fall-back-reposition. Faction-neutral,
+    # default-off, byte-identical off. Cited simulator.melee_caging.
+    @staticmethod
+    def _melee_caging_enabled() -> bool:
+        """SWEG_MELEE_CAGING gate. DEFAULT-OFF: the whole caging path is a no-op
+        and byte-identical unless the variable is exactly "1"."""
+        return os.environ.get("SWEG_MELEE_CAGING", "0") == "1"
+
+    @staticmethod
+    def _is_caging_brick(profile) -> bool:
+        """Durable platform worth caging — the SAME 'brick' definition the
+        antitank-advance-discipline block uses (Toughness >= 10 OR 15+ starting
+        Wounds), reused verbatim so the counterplay targets exactly the durable
+        platforms the durability wall rewards."""
+        if profile is None:
+            return False
+        return (getattr(profile, "toughness", 0) or 0) >= 10 or (
+            getattr(profile, "health", 0) or 0) >= 15
+
+    def _cage_charge_target(self, attacker, attacker_army, defender_army):
+        """CAGING charge coordination (gate SWEG_MELEE_CAGING). If a durable
+        enemy brick is within THIS charger's declaration range (base-edge, 1"..12")
+        AND within charge reach of at least TWO melee-capable friendly units
+        (including the attacker), return `(brick, dist)` to redirect this charger
+        onto it — where `dist` is the 2D6 requirement computed the same way
+        pick_charge_target does. Otherwise None.
+
+        Only ever consulted when the attacker already WANTS to charge (the
+        `_wants_to_charge` gate ran earlier in `_do_charge`) and pick_charge_target
+        already returned a live target, so redirecting the target never pulls a
+        non-charging unit off an objective it could claim — it only changes WHICH
+        enemy an already-committed charger goes into (the nomination lever's
+        -5.37 rejection precedent: never divert a marker-claimer). 'Melee-capable'
+        reuses `_wants_to_charge` (melee output dominates ranged), the sim's own
+        would-this-unit-charge predicate. Ties between eligible bricks break to
+        the nearest (most reachable). Deterministic, no RNG."""
+        base_edge = os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1"
+        best = None
+        best_gap = None
+        for brick in defender_army.alive_units:
+            if getattr(brick, "embarked_in", None) is not None:
+                continue
+            if not self._is_caging_brick(brick.profile):
+                continue
+            gap = _er_gap_units(attacker, brick)
+            if gap <= 1.0 or gap > 12.0:
+                continue   # not in this charger's declaration range (base-edge)
+            n = 0
+            for u in attacker_army.alive_units:
+                if getattr(u, "embarked_in", None) is not None:
+                    continue
+                if not self._wants_to_charge(u):
+                    continue
+                g = _er_gap_units(u, brick)
+                if 1.0 < g <= 12.0:
+                    n += 1
+                    if n >= 2:
+                        break
+            if n < 2:
+                continue
+            if best_gap is None or gap < best_gap:
+                best_gap = gap
+                best = brick
+        if best is None:
+            return None
+        dist = max(0.0, best_gap - 1.0) if base_edge else best_gap
+        return best, dist
+
+    def _cage_charge_end(self, attacker, target, occupied):
+        """CAGING wrap placement (gate SWEG_MELEE_CAGING; base-edge geometry).
+        Return `(end_position, bearing)` for a charger whose 2D6 already succeeded
+        against a cage brick, placing its base edge within 1" of the brick's base
+        edge on the side FARTHEST from the bearings already taken by cage chargers
+        on this brick (`occupied`, radians). The first cage charger (empty
+        `occupied`) defers to the standard base-edge placement (its natural
+        approach); each later charger opens the widest angular gap it can find a
+        collision-legal spot in — so two chargers land ~180 deg apart (opposing
+        sides, the wrap) and further ones fill the remaining arcs.
+
+        Pure deterministic geometry: fixed 10-degree candidate ring, no RNG, so
+        the gate-on arm draws no extra random numbers. A successful charge is
+        never cancelled by a placement failure (10e has no such clause): if no
+        legal wrap spot exists, fall back to the standard base-edge placement."""
+        tx, ty = target.position
+        if not occupied:
+            pos = self._charge_baseedge_end(attacker, target)
+            return pos, math.atan2(pos[1] - ty, pos[0] - tx)
+        a_rad = _bc_model_radius_in(attacker.profile)
+        t_rad = _bc_model_radius_in(target.profile)
+        center_dist = 1.0 + a_rad + t_rad
+        kw = self._collision_kwargs(attacker, allow_engagement=True)
+        # Candidate bearings every 10 degrees, ordered by DESCENDING minimum
+        # angular distance from every occupied bearing (widest gap first), with a
+        # deterministic tie-break on the bearing value itself.
+        cands = []
+        for deg in range(0, 360, 10):
+            ang = math.radians(float(deg))
+            sep = min(_angular_gap(ang, o) for o in occupied)
+            cands.append((-sep, ang))
+        cands.sort()
+        for _neg_sep, ang in cands:
+            cx = tx + math.cos(ang) * center_dist
+            cy = ty + math.sin(ang) * center_dist
+            cand = (cx, cy)
+            if self.map.is_blocked(cand):
+                continue
+            if not kw or _collision_pos_legal(
+                    cand, kw["mover_radius"], kw["occupants"], kw["mover_fly"]):
+                return cand, ang
+        # No legal wrap spot anywhere: never cancel the charge — standard placement.
+        pos = self._charge_baseedge_end(attacker, target)
+        return pos, math.atan2(pos[1] - ty, pos[0] - tx)
 
     def _charge_baseedge_end(self, attacker, target):
         """Base-edge charge-end placement (env-gate SWEG_CHARGE_BASEEDGE, wave 240
@@ -14741,6 +16234,23 @@ class Battle:
         target, dist = pick_charge_target(attacker, defender_army)
         if target is None:
             return
+
+        # Multi-unit melee CAGING (gate SWEG_MELEE_CAGING, default-off): this
+        # charger already WANTS to charge and pick_charge_target already gave it a
+        # live target. If a durable enemy brick is within its reach AND within
+        # reach of >= 2 melee-capable friendlies, redirect it onto the brick so
+        # the field COORDINATES its charges into a wrap instead of trickling one
+        # unit per round onto it (and scattering the rest to crackable chaff). The
+        # wrap placement below (`_cage_charge_end`) then lands it opposite the
+        # chargers already on the brick. Off path byte-identical (gate is the
+        # first short-circuit); redirecting an already-committed charger never
+        # pulls a marker-claimer off its objective (see `_cage_charge_target`).
+        _is_cage_charge = False
+        if self._melee_caging_enabled():
+            _cage = self._cage_charge_target(attacker, attacker_army, defender_army)
+            if _cage is not None:
+                target, dist = _cage
+                _is_cage_charge = True
 
         # CHARGE-DISCIPLINE (piloting heuristic, gated SWEG_CHARGE_DISCIPLINE,
         # default-off): a unit should not declare a charge into a target it
@@ -14901,7 +16411,21 @@ class Battle:
         # must be emitted as a UnitMoved so the replay viewer never sees a
         # silent position change — applied inside BOTH placement branches.
         _charge_old_pos = attacker.position
-        if os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1":
+        if _is_cage_charge and os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1":
+            # CAGING wrap placement (SWEG_MELEE_CAGING): land opposite the cage
+            # chargers already on this brick so the fall-back exits are covered.
+            _occupied = self._cage_bearings.setdefault(target.uid, [])
+            new_pos, _cage_bearing = self._cage_charge_end(
+                attacker, target, _occupied)
+            if not self.map.is_blocked(new_pos):
+                attacker.position = new_pos
+                _occupied.append(_cage_bearing)
+                self._emit(UnitMoved(
+                    unit_uid=attacker.uid,
+                    from_pos=_charge_old_pos,
+                    to_pos=new_pos,
+                ))
+        elif os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1":
             new_pos = self._charge_baseedge_end(attacker, target)
             if not self.map.is_blocked(new_pos):
                 attacker.position = new_pos
@@ -15307,6 +16831,14 @@ class Battle:
                     target_keywords=e.profile.unit_keywords or (),
                 )
                 and can_target_for_ranged(mk, e, alive_enemies)
+                # Reciprocal Big Guns Never Tire (gated SWEG_BGNT_RECIPROCAL): a
+                # Markerlight is a ranged weapon, so it cannot mark an enemy
+                # pinned in melee by a friendly unit unless that enemy is a
+                # MONSTER/VEHICLE. OFF path keeps the legacy candidate set.
+                and (
+                    os.environ.get("SWEG_BGNT_RECIPROCAL", "1") == "0"
+                    or _reciprocal_ranged_legal(e, army.alive_units, mk)
+                )
             ]
             if not candidates:
                 continue
@@ -15353,6 +16885,13 @@ class Battle:
                             target_keywords=e.profile.unit_keywords or (),
                         )
                         and can_target_for_ranged(mk, e, alive_enemies)
+                        # Reciprocal Big Guns Never Tire (gated
+                        # SWEG_BGNT_RECIPROCAL): same targeting-legality gate as
+                        # the hit-roll marked set above.
+                        and (
+                            os.environ.get("SWEG_BGNT_RECIPROCAL", "1") == "0"
+                            or _reciprocal_ranged_legal(e, army.alive_units, mk)
+                        )
                     ):
                         los_marked.add(e.uid)
             army.guided_los_enemy_uids = los_marked

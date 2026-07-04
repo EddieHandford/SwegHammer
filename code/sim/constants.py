@@ -61,6 +61,19 @@ DELIVERY_STATS: dict = {}
 # free / pistol / big-gun-penalty / engagement-blocked. SWEG_SHOOTLOSS_INSTR. Read-only.
 SHOOTLOSS_STATS: dict = {}
 
+# RECIPROCAL-BLOCK instrument — per-faction footprint of the reciprocal
+# shooting-into-engagement filter (SWEG_BGNT_RECIPROCAL) on a shooting
+# activation's legal-target pool: how often the filter empties the pool (a
+# fully lost activation), how often it drops the gun's single best target and
+# forces a lower-expected-wounds shot (a focus-fire downgrade), and the summed
+# expected wounds surrendered to those downgrades. Sizes how much of a faction's
+# under-pole the reciprocal rule can own via blocked shooting. Populated only
+# when SWEG_RECIP_INSTR is set; scripts/diag_recip_block.py resets + reads it.
+# Read-only. Keys per faction:
+#   reaching_filter, had_target, lost_all, partial_retarget, targets_dropped,
+#   downgraded_shot, downgrade_ew_lost.
+RECIP_INSTR_STATS: dict = {}
+
 # STRANDING instrument (structural re-model Step 2, wave-93 drill re-run) —
 # per-faction summed Objective Control within the control radius (three inches)
 # versus within twice the control radius (six inches) of every marker, at each

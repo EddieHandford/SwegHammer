@@ -202,6 +202,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # data/rule_citations.d/core_damage_allocation.json.
     "simulator.mortal_wound_spillover",
     "simulator.big_guns_never_tire",
+    # Reciprocal half of Big Guns Never Tire / shooting-into-engagement (audit
+    # C divergence 1, gated SWEG_BGNT_RECIPROCAL). A target within Engagement
+    # Range of a friendly unit OTHER than the attacker cannot be shot unless it
+    # is a MONSTER/VEHICLE (then at -1 to Hit, Pistols exempt); Blast weapons
+    # have no carve-out and cannot target a unit engaged with ANY friendly unit
+    # including the attacker's own. Cited in
+    # data/rule_citations.d/core_big_guns_reciprocal.json.
+    "simulator.big_guns_reciprocal",
+    "simulator.blast_engagement_restriction",
     "simulator.cover_light",
     "simulator.cover_heavy",
     "simulator.deep_strike",
@@ -315,16 +324,36 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Virulent Vectorium 2 CP "Disgustingly Resilient" stratagem is cited
     # separately under `Stratagem.Disgustingly Resilient`.
     # Death Guard army rule (10e). Nurgle's Gift / Contagions of Nurgle —
-    # every DG model projects a 3" aura that subjects enemy units within
-    # it to the active Contagion (radius gated to 3" per modern Nurgle's
-    # Gift / Afflicted rule; older index rule was 6"). APPROXIMATION:
-    # SwegHammer retains the older 3-round escalating shape: round 1 -1 T
-    # (via +1 to wound in Unit.attack), round 2 -1 Ld (battleshock in
-    # _run_round), round 3+ -1 to hit on enemy attackers near a DG model
-    # (Unit.attack). Faction-gated on the DG aura source; never debuffs
-    # DG units themselves; the round-3+ -1 to hit doesn't compound with
-    # other -1-to-hit modifiers (10e cap).
+    # every DG model projects an aura that subjects enemy units within
+    # Contagion Range to the active Contagion. DURA-AUDIT-D1: the range
+    # escalates 3"/6"/9" by battle round (`_contagion_range_for_round`,
+    # SWEG_DG_CONTAGION_ESCALATION gate) instead of a flat 3". This key now
+    # covers only the SWEG_DG_CHOSEN_PLAGUE=0 legacy fallback shape (round 2
+    # -1 Ld, round 3+ -1 to hit); the default-ON live behaviour is the
+    # chosen-Plague mechanic, see `simulator.dg_chosen_plague`. Faction-gated
+    # on the DG aura source; never debuffs DG units themselves; the -1 to
+    # hit doesn't compound with other -1-to-hit modifiers (10e cap).
     "simulator.contagions_of_nurgle",
+    # Death Guard army rule (10e). Nurgle's Gift / Afflicted -- the
+    # always-on -1 Toughness half of the rule (DURA-AUDIT-D2): every enemy
+    # unit within the round's Contagion Range of a DG model has its
+    # Toughness characteristic reduced by 1 for the purposes of any attack
+    # against it, every round, from round 1, regardless of which Plague was
+    # chosen. Folded into `_effective_toughness` in Unit.attack before the
+    # faithful S-vs-T wound chart is consulted. SWEG_DG_AFFLICTED_TOUGHNESS
+    # gate, default ON.
+    "simulator.dg_afflicted_toughness",
+    # Death Guard army rule (10e). Nurgle's Gift / Afflicted -- the chosen-
+    # Plague mechanic (DURA-AUDIT-D3): the Death Guard player picks ONE
+    # Plague (Skullsquirm Blight / Rattlejoint Ague / Scabrous Soulrot) at
+    # Declare Battle Formations, active from round 1 for the whole battle.
+    # `Battle._choose_dg_plague` is a documented artificial-intelligence
+    # heuristic (not a codex rule) that picks by opponent composition;
+    # the three effects themselves (attacker-side -1 to hit, defender Save
+    # characteristic -1, defender Move/Leadership/Objective-Control -1) are
+    # implemented strictly per print across Unit.attack, `effective_move`,
+    # and `Battle._effective_oc`. SWEG_DG_CHOSEN_PLAGUE gate, default ON.
+    "simulator.dg_chosen_plague",
     # Chaos Daemons army rule (10e). Shadow of Chaos — enemy units within
     # the Shadow of Chaos take Battle-shock at -1 AND, on a failed test,
     # suffer D3 mortal wounds. APPROXIMATION: the canonical zone-based
@@ -606,6 +635,22 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # one model and drops the Hekhtur slot. Cited in
     # data/rule_citations.d/imperial_knights.json.
     "simulator.ik_canis_single",
+    # SWEG_IK_INVULN_RANGED_ONLY_BATCH2. Durability fidelity wave, audit B,
+    # divergence 1: five Imperial Knight chassis (Knight Destrier, Acastus
+    # Knight Asterius, Acastus Knight Porphyrion, Cerastus Knight Castigator,
+    # Knight Defender) share the identical shared BSData Ion Shield infoLink
+    # shape already corrected for twelve sibling chassis via the
+    # invuln_ranged_only override key, but never received the correction, so
+    # they kept a phantom melee invulnerable save. code/bsdata/loader.py.
+    # Cited in data/rule_citations.d/imperial_knights.json.
+    "simulator.ik_invuln_ranged_only_batch2",
+    # SWEG_IK_ACHERON_INVULN. Durability fidelity wave, audit B, divergence 2:
+    # the Imperial Cerastus Knight Acheron's Ion Shield ability is authored in
+    # BSData under a profile named after the unit itself rather than
+    # "Invulnerable Save", so the mapper's Shape 3 name-prefix filter never
+    # matches it and the unit carried no invulnerable save at all.
+    # code/bsdata/loader.py. Cited in data/rule_citations.d/imperial_knights.json.
+    "simulator.ik_acheron_invuln",
     # SWEG_R5_SECOND_LAST. Chapter Approved 2025-26 round-5 going-second
     # primary-scoring timing (score at end of turn, not Command phase).
     # Battle._run_round_vanilla_turns. Cited in
@@ -1049,6 +1094,23 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # _suppress_advance block in code/simulator.py _do_move. Cited in
     # data/rule_citations.d/adepta_sororitas.json.
     "simulator.soror_ranged_hold",
+    # SWEG_TYRANIDS_RANGED_HOLD (default-OFF screening gate, 2026-07-03). AI
+    # piloting heuristic (same as simulator.am_advance_discipline /
+    # ck_ranged_hold / votann_ranged_hold / tsons_ranged_hold /
+    # soror_ranged_hold, Tyranids-scoped): the faction's dedicated fire
+    # platforms (Tyrannofex, Exocrine, Hive Guard, Hive Tyrant, Zoanthropes and
+    # the other MONSTERS) hold and shoot instead of Advancing and forfeiting
+    # their Shooting phase, while the swarm — Termagants, Hormagaunts, Ripper
+    # Swarms, Gargoyles, Genestealers, the Trygon and every melee Prime/Lictor —
+    # stays free to Advance onto objectives (roster-filter audit:
+    # scripts/diag_tyranids_filter.py holds 20 MONSTER/fire-platform units, 0
+    # swarm units). Derived from watched pilot-observation (Exocrine and
+    # Tyrannofex Advanced their opening rounds firing nothing across Imperial
+    # Knights / Orks / Necrons games; the Exocrine died versus Necrons having
+    # never shot). Seventh entry point _ad_tyranids on the shared
+    # _suppress_advance block in code/simulator.py _do_move. Cited in
+    # data/rule_citations.d/tyranids.json.
+    "simulator.tyranids_ranged_hold",
     # SWEG_STAGING (default-off, byte-identical off). The faction-neutral
     # closing-side counterpart of the ranged-hold family: a unit whose commit
     # would deliver it EXPOSED into a significant enemy threat envelope while it
@@ -1102,6 +1164,25 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # / SWEG_GSC_ANTITANK_HOLD — bank the built-for faction's lift where the
     # faction-neutral gate washes. Documented in the same citation; no new key.
     "simulator.antitank_advance_discipline",
+    # SWEG_MELEE_CAGING (default-off, faction-neutral, byte-identical off). The
+    # coordinated multi-unit melee caging counterplay — the faithful counter to
+    # the durability wall the single-point-per-model geometry cannot otherwise
+    # express. Two coupled pieces behind one gate: (1) charge coordination + wrap
+    # placement (Battle._do_charge / _cage_charge_target / _cage_charge_end,
+    # code/simulator.py) redirects two or more already-committed melee chargers
+    # onto one durable brick (Toughness 10+ or 15+ starting Wounds — the same
+    # brick definition simulator.antitank_advance_discipline uses) and lands each
+    # on the side opposite the chargers already on it (the wrap); (2) the
+    # fall-back block (pick_move_intent, code/strategy.py) makes a caged brick
+    # return HOLD instead of FALL_BACK, so it stays engaged and shoots only the
+    # cage at the Big Guns Never Tire -1 rather than repositioning to re-target
+    # freely. The fall-back-block half is grounded in the verbatim 10e Fall Back
+    # surround rule; the charge-coordination half is an artificial-intelligence
+    # piloting heuristic (the simulator.staging_discipline class). The
+    # opposing-sides / >= 120-degree cage test is the documented geometric
+    # approximation the point geometry supports. Cited in
+    # data/rule_citations.d/melee_caging.json.
+    "simulator.melee_caging",
     "unit.necrodermis",
     # Wave 181 — CA-2025-26 Tactical-track flat kill card VP values.
     # When a TACTICAL-track army (SWEG_TAC_DECK path) draws one of these three
@@ -1112,6 +1193,53 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.secondary_assassination_tactical",
     "simulator.secondary_bring_it_down_tactical",
     "simulator.secondary_cull_the_horde_tactical",
+    # Durability fidelity wave, audit C divergence 2 (2026-07-03, env-gated
+    # SWEG_TACDECK_BIG_GAME, default ON) — Bring It Down and Assassination
+    # are Tactical-capable Fixed kill cards in the printed CA-2025-26
+    # Secondary Mission deck, not Fixed-exclusive; adds them to
+    # secondaries.TACTICAL_DECK_POOL so the wave-181 Tactical scoring above
+    # (previously unreachable) actually runs. `=0` restores the pre-fix pool
+    # byte-identically. See data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.tactical_deck_big_game",
+    # Secondary-economy audit fix wave (docs/_SEC_ECONOMY_AUDIT.md), D1 —
+    # Tactical card-shedding (env-gated SWEG_TAC_SHEDDING, default ON). Restores
+    # the three printed shedding mechanisms the simulator omitted so its 2-card
+    # Tactical hand ossified: (a) the per-card "When Drawn" redraw clause at draw
+    # time, (b) the end-of-turn voluntary discard folded to default-on with the
+    # achievability heuristic (cited under simulator.tactical_voluntary_discard),
+    # and (c) the New Orders core stratagem. `=0` restores the blind deal /
+    # achieve-only discard byte-identically. See
+    # data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.tactical_when_drawn_redraw",
+    "simulator.new_orders_stratagem",
+    # Secondary-economy audit fix wave, D2 — action assignment gated on the HELD
+    # hand (env-gated SWEG_ACTIONS_HAND_GATED, default ON). A Tactical army's
+    # chosen_secondaries is the whole drawable pool, so the Cleanse / Sabotage
+    # assignment step forgo shooting to perform actions for cards the army does
+    # not hold and can never score; this gates assignment on tactical_hand. `=0`
+    # restores the legacy chosen_secondaries membership byte-for-byte. See
+    # data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.actions_hand_gated",
+    # Secondary-economy audit fix wave, D3 — the full printed 19-card Tactical
+    # deck (env-gated SWEG_TACDECK_FULL, default ON). Completes the drawable pool
+    # from 12 to the printed 19 cards: folds in the three action cards
+    # (Establish Locus / Recover Assets / A Tempting Target) previously behind
+    # SWEG_ACTION_ECONOMY, restores the unreachable Cull the Horde Tactical card,
+    # and implements the three absent cards (Marked for Death, Overwhelming Force,
+    # Display of Might). `=0` restores the pre-fix 12-card pool byte-for-byte. See
+    # data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.tactical_deck_full",
+    "simulator.secondary_marked_for_death",
+    "simulator.secondary_overwhelming_force",
+    "simulator.secondary_display_of_might",
+    # Secondary-economy audit fix wave, D5 — the printed 5-card Fixed pool
+    # (env-gated SWEG_FIXED_POOL_FULL, default ON). Adds No Prisoners and Cleanse
+    # as legal Fixed picks and prevents the degenerate double-Cull the audit
+    # flagged (two distinct picks). Carries an open, verbatim caveat on whether
+    # the target tournament banned No Prisoners as a Fixed pick. `=0` restores the
+    # pre-fix 3-card picker byte-for-byte. See
+    # data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.fixed_pool_full",
     # Wave 249 — 10e core end-of-battle win condition (env-gated SWEG_TABLING_VP,
     # default OFF). When ON, the three survivor-count short-circuits in
     # Battle._decide_winner are skipped; every game (including one-sided tablings)
@@ -1182,6 +1310,59 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # nominee (per-army _persistent_nom_uid / _focusfire_target_uid channels, set
     # only on that army's own turn). Documented in the same citation; no new key.
     "simulator.persistent_nomination",
+    # Rotate Ion Shields (Imperial Knights Household, 1 CP, Wargear
+    # Stratagem, durability fidelity wave audit B fix B2, env-gated
+    # SWEG_IK_ROTATE_IONS, default ON per the Custodes-batch precedent for
+    # verified real rules). Battle._maybe_rotate_ion_shields, hooked at the
+    # target-selection point in Battle._do_shoot right after Go To Ground:
+    # the defender spends 1 Command Point so the targeted IMPERIAL KNIGHTS
+    # unit gets a 4+ invulnerable save until the end of the phase (routed
+    # through the existing transient_invuln_4 slot, once per phase via the
+    # rotate_ion_shields_used_this_phase flag on Army). Shares its mechanism
+    # (Battle._maybe_ion_shield_stratagem) with Chaos Knights' Diabolic
+    # Bulwark below. See data/rule_citations.d/imperial_knights.json.
+    "simulator.ik_rotate_ion_shields",
+    # Diabolic Bulwark (Chaos Knights Infernal Lance detachment, 1 CP,
+    # Wargear Stratagem, durability fidelity wave audit B fix B2, env-gated
+    # SWEG_CK_DIABOLIC_BULWARK, default ON). Prints byte-identical WHEN/
+    # TARGET/EFFECT text to Imperial Knights' Rotate Ion Shields above
+    # (only the faction keyword differs) and shares its mechanism
+    # (Battle._maybe_ion_shield_stratagem). Battle._maybe_diabolic_bulwark,
+    # hooked at the target-selection point in Battle._do_shoot right after
+    # Rotate Ion Shields. See data/rule_citations.d/chaos_knights.json.
+    "simulator.ck_diabolic_bulwark",
+    # Durability fidelity wave, audit B fix 1 (2026-07-03). The 10e universal
+    # core "Smokescreen" Wargear Stratagem (1 command point, opponent's
+    # Shooting phase, just after target selection): a targeted [SMOKE] unit
+    # gains the Benefit of Cover and the Stealth ability until end of phase.
+    # Env-gated SWEG_SMOKESCREEN (default on). Reuses the Go To Ground
+    # command-point/cover/hit-modifier machinery. See
+    # data/rule_citations.d/core_smokescreen.json.
+    "simulator.smokescreen",
+    # Durability fidelity wave, audit B fix 2 (2026-07-03). Myphitic
+    # Blight-hauler datasheet ability "Tank Hunters": ranged attacks against
+    # a MONSTER or VEHICLE target get +1 to the Hit roll and +1 to the Wound
+    # roll. Env-gated SWEG_DG_TANK_HUNTERS (default on). Follows the
+    # weapon-and-target-conditional shape of
+    # simulator.custodes_advanced_firepower. See
+    # data/rule_citations.d/death_guard.json.
+    "simulator.dg_tank_hunters",
+    # Durability fidelity wave, audit B fix 3 (2026-07-03). Knight Defender
+    # datasheet ability "Selfless Protector": a screened friendly Imperial
+    # Knights model gets the Benefit of Cover and a 4+ invulnerable save
+    # against a ranged attack. Env-gated SWEG_IK_DEFENDER_COVER (default on).
+    # Bracketed per-attack (not per-round) around the existing cover/invuln
+    # plumbing, same shape as Go To Ground / Smokescreen. See
+    # data/rule_citations.d/imperial_knights.json.
+    "simulator.ik_defender_selfless_protector",
+    # Secondary-economy audit fix D4 (2026-07-03,
+    # docs/_SEC_ECONOMY_AUDIT.md). The core-rules Command phase grants BOTH
+    # players 1CP at the start of EACH of the two Command phases per battle
+    # round (2CP/round/player), not once per round. Fixed in
+    # `stratagems.award_command_phase_cp`, called from `Battle._run_round`.
+    # Env-gated SWEG_CP_PER_COMMAND_PHASE (default on). See
+    # data/rule_citations.d/core_command_points.json.
+    "simulator.command_phase_cp",
 )
 
 

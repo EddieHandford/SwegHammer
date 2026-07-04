@@ -193,6 +193,36 @@ def _contagion_round_for(unit: "Unit") -> int:
     return int(cur_round) if cur_round > 0 else 0
 
 
+# DURA-AUDIT-D1: Contagion Range escalation. BSData catalog verbatim
+# (cross-checked https://wahapedia.ru/wh40k10ed/factions/death-guard/):
+#   "CONTAGION RANGE
+#    1st Battle Round: Contagion Range = 3"
+#    2nd Battle Round: Contagion Range = 6"
+#    3rd Battle Round Onwards: Contagion Range = 9""
+# Before this fix every caller of `_is_near_enemy_dg_model` passed a fixed
+# radius of 3" regardless of round (docs/_DURA_AUDIT_D_DEATHGUARD.md
+# divergence D1 — simulator strictly weaker than print in rounds 2+). This
+# helper is the single source of truth for the escalating radius; every
+# caller below now derives its radius from the live battle round instead of
+# hard-coding 3.0. Cited as `simulator.contagions_of_nurgle`.
+def _contagion_range_for_round(round_num: int) -> float:
+    """Death Guard Contagion Range (inches) for `round_num`, per the printed
+    escalating schedule. `round_num <= 1` (including the "no battle" 0
+    sentinel `_contagion_round_for` returns) is treated as round 1 (3").
+
+    Env-gated `SWEG_DG_CONTAGION_ESCALATION` (default ON; "0" kill-switch
+    restores the pre-fix fixed 3" radius every round, byte-identical to the
+    code this helper replaced).
+    """
+    if os.environ.get("SWEG_DG_CONTAGION_ESCALATION", "1") == "0":
+        return 3.0
+    if round_num <= 1:
+        return 3.0
+    if round_num == 2:
+        return 6.0
+    return 9.0
+
+
 def _is_near_enemy_dg_model(unit: "Unit", radius: float = 6.0) -> bool:
     """True iff any DEATH GUARD model from the army opposing `unit` is within
     `radius` inches of `unit.position`. The aura is projected by every DG
@@ -229,6 +259,49 @@ def _is_near_enemy_dg_model(unit: "Unit", radius: float = 6.0) -> bool:
         if dx * dx + dy * dy <= r2:
             return True
     return False
+
+
+# DURA-AUDIT-D3: the "select one of the Plagues below" Declare Battle
+# Formations choice. BSData/Wahapedia verbatim (Nurgle's Gift / Afflicted):
+#   "During the Declare Battle Formations step, select one of the Plagues
+#    below. Until the end of the battle, while an enemy unit is Afflicted,
+#    ... that unit has the effect of your chosen Plague.
+#    Skullsquirm Blight -- Each time a model in this unit makes an attack,
+#      subtract 1 from the Hit roll.
+#    Rattlejoint Ague -- Worsen the Save characteristic of models in this
+#      unit by 1.
+#    Scabrous Soulrot -- Worsen the Move, Leadership and Objective Control
+#      characteristics of models in this unit by 1 (this rule can only
+#      worsen a model's Objective Control characteristic to a minimum of 1)."
+# The choice itself is seeded once per battle by `Battle._choose_dg_plague`
+# (an artificial-intelligence heuristic -- see that method's docstring for
+# the reasoning -- NOT a codex rule) and cached on `army.dg_chosen_plague`.
+# This helper is the read-side lookup every plague-effect consumer uses.
+# Cited as `simulator.dg_chosen_plague`.
+def _dg_chosen_plague_for(unit: "Unit") -> Optional[str]:
+    """Return the Death Guard chosen-Plague name ("Skullsquirm Blight" /
+    "Rattlejoint Ague" / "Scabrous Soulrot") active against `unit`, or None
+    when the opposing side has no Death Guard army (or the battle has not
+    seeded a choice yet -- should not happen once `Battle.run` has started).
+
+    Mirrors `_is_near_enemy_dg_model`'s own-army/opposing-army resolution
+    exactly, so the two helpers always agree on which side is Death Guard.
+    """
+    own_army = getattr(unit, "army_ref", None)
+    if own_army is None:
+        return None
+    battle = getattr(own_army, "_battle_ref", None)
+    if battle is None:
+        return None
+    if own_army is getattr(battle, "a", None):
+        opposing = getattr(battle, "b", None)
+    elif own_army is getattr(battle, "b", None):
+        opposing = getattr(battle, "a", None)
+    else:
+        return None
+    if opposing is None:
+        return None
+    return getattr(opposing, "dg_chosen_plague", None)
 
 
 def _doctrina_battleline_proximity_met(unit: "Unit") -> bool:
@@ -971,6 +1044,16 @@ class Unit:
     __slots__ = (
         "profile", "_current_health", "in_cover", "in_heavy_cover", "uid", "position",
         "army_ref",
+        # Knight Defender "Selfless Protector" (Imperial Knights datasheet
+        # ability, env-gated SWEG_IK_DEFENDER_COVER). Bracketed around a
+        # single ranged attack resolution exactly like `in_cover` /
+        # `in_heavy_cover` above (set immediately before the attack, restored
+        # immediately after) rather than cleared per-round: the real ability
+        # has no duration or Command Point cost, it simply re-applies "each
+        # time a ranged attack is allocated" to an eligible target. See
+        # Battle._ik_defender_screening_active / Battle._do_shoot. Cited as
+        # `simulator.ik_defender_selfless_protector`.
+        "ik_defender_cover_active",
         # SQUAD-ACTIVATION (Lever 1, P1): stable per-squad id assigned at army-
         # build time. All model-Units of one instantiated codex squad share an
         # id (distinct even for two squads of the same datasheet). -1 = unassigned
@@ -985,6 +1068,14 @@ class Unit:
         # legacy / shared-profile units. Cited as `simulator.per_model_loadouts`.
         "squad_profile_ref",
         "moved_this_round", "on_objective", "shooting_in_engagement",
+        # RECIPROCAL BIG GUNS NEVER TIRE (gated SWEG_BGNT_RECIPROCAL). Set per
+        # shooting activation by Battle._do_shoot: True when this ranged
+        # activation targets an enemy MONSTER/VEHICLE that is within Engagement
+        # Range of a friendly unit OTHER than the attacker's own unit, in which
+        # case each non-Pistol attack takes -1 to Hit (the "shooting into
+        # another unit's engagement" reciprocal clause). Cited as
+        # `simulator.big_guns_reciprocal`.
+        "shooting_at_engaged_brick",
         # Pariah Nexus action state (wave 74). Set to an action name (e.g.
         # "cleanse") by Battle._assign_cleanse_actions when the unit performs a
         # 10e action this round; while set, _do_shoot and _do_charge refuse to
@@ -1021,7 +1112,14 @@ class Unit:
         #   transient_plus_one_to_wound_shooting — Twist of Fate. Attacker buff:
         #       +1 to wound on ranged attacks made by this unit for the round.
         #   transient_invuln_4 — Glamour of Tzeentch. Defender buff: target gets
-        #       a transient 4++ invulnerable save for the round.
+        #       a transient 4++ invulnerable save for the round. Also reused by
+        #       Imperial Knights' Rotate Ion Shields (Battle._maybe_rotate_ion_
+        #       shields, env-gated SWEG_IK_ROTATE_IONS) and Chaos Knights'
+        #       Diabolic Bulwark (Battle._maybe_diabolic_bulwark, env-gated
+        #       SWEG_CK_DIABOLIC_BULWARK) — both print the identical "until
+        #       the end of the phase, models in your unit have a 4+
+        #       invulnerable save" effect, so they share this slot rather than
+        #       each carrying their own.
         # Plague Company (Death Guard):
         #   transient_minus_one_damage_taken — Disgustingly Resilient. Defender
         #       buff: each per-shot damage reduced by 1 (floor 1) for the round.
@@ -1143,6 +1241,15 @@ class Unit:
         # cleared per round with the other transient stratagem flags. Cited as
         # `simulator.go_to_ground`.
         "go_to_ground_active",
+        # Smokescreen (10e core Wargear Stratagem, 1CP, env-gated
+        # SWEG_SMOKESCREEN). Defender buff: a targeted [SMOKE] unit gains the
+        # Benefit of Cover AND the Stealth ability until the end of the
+        # opponent's Shooting phase. Set by Battle._maybe_smokescreen, read at
+        # the cover application (+1 save) and the Stealth hit-modifier branch
+        # (-1 to hit, composed with profile.stealth via OR), cleared per round
+        # with the other transient stratagem flags. Cited as
+        # `simulator.smokescreen`.
+        "smokescreen_active",
         # Skysplinter Assault (Drukhari detachment) — Rain of Cruelty. Set
         # True on a DRUKHARI unit when it disembarks from a TRANSPORT this
         # turn while the army's detachment is Skysplinter Assault. Persists
@@ -1273,6 +1380,11 @@ class Unit:
         # the in_cover flag. The flag is retained for compatibility with
         # call-sites that still toggle it. Restored to False after shot.
         self.in_heavy_cover: bool = False
+        # Knight Defender "Selfless Protector". Set immediately before, and
+        # restored immediately after, a single ranged attack resolution in
+        # Battle._do_shoot (same bracketing pattern as in_cover/
+        # in_heavy_cover above). See Battle._ik_defender_screening_active.
+        self.ik_defender_cover_active: bool = False
         self.uid: str = ""                              # assigned by Battle at start
         self.position: tuple = (0.0, 0.0)               # (x, y) in inches
         # Back-reference to owning army (set by Army.add_unit). Lets
@@ -1309,6 +1421,12 @@ class Unit:
         # is firing while inside an enemy's engagement range (Big Guns
         # Never Tire). Triggers a -1 to hit modifier per 10e core rules.
         self.shooting_in_engagement: bool = False
+        # Reciprocal Big Guns Never Tire (gated SWEG_BGNT_RECIPROCAL): set by
+        # Battle._do_shoot when this activation fires at an enemy MONSTER/VEHICLE
+        # that is pinned in melee by a friendly unit other than the attacker's
+        # own unit — each non-Pistol attack then takes -1 to Hit. Default False;
+        # reset every activation. Off path leaves it permanently False.
+        self.shooting_at_engaged_brick: bool = False
         # Transient stratagem flags. Cleared every round by Battle._run_round
         # before the new round's stratagems are decided. Documented on the
         # __slots__ tuple above; default False on construction.
@@ -1372,6 +1490,10 @@ class Unit:
         # Go To Ground (10e core stratagem). 6++ invuln + Benefit of Cover on a
         # targeted INFANTRY unit until end of the opponent's Shooting phase.
         self.go_to_ground_active: bool = False
+        # Smokescreen (10e core Wargear Stratagem). Benefit of Cover + Stealth
+        # on a targeted [SMOKE] unit until end of the opponent's Shooting
+        # phase. See simulator._maybe_smokescreen.
+        self.smokescreen_active: bool = False
         # Skysplinter Assault (Drukhari detachment) Rain of Cruelty:
         # disembark-turn LANCE on melee weapons + IGNORES COVER on ranged
         # weapons. Set in `simulator._disembark` when the disembarking
@@ -2398,6 +2520,42 @@ class Unit:
             # closest to the GUO. host_keys narrows the eligible defenders.
             if tgt_buffs["plus_one_toughness"]:
                 _effective_toughness += 1
+            # ---- DURA-AUDIT-D2: Death Guard Contagions of Nurgle -- Afflicted
+            # -1 Toughness. BSData/Wahapedia verbatim (Nurgle's Gift /
+            # Afflicted): "while an enemy unit is Afflicted, subtract 1 from
+            # the Toughness characteristic of models in that unit." An enemy
+            # unit is Afflicted whenever it is within Contagion Range of one
+            # or more Death Guard units -- always-on, every round, from round
+            # 1 (unlike the chosen-Plague effects, which are gated on which
+            # single Plague the Death Guard player picked; see divergence D3).
+            # This is a CHARACTERISTIC change (like the Great Unclean One +1 T
+            # buff just above), not a wound-roll modifier, so it is folded
+            # into the base Toughness here rather than through the separate
+            # +/-1 modifier-cap system a few lines below -- it benefits
+            # WHICHEVER army is attacking the Afflicted unit, not just Death
+            # Guard's own attacks (an offensive buff for Death Guard, so its
+            # prior absence made the simulator's Death Guard weaker on
+            # offence, never more durable). `target` is the defender here, so
+            # this reuses `_is_near_enemy_dg_model(target, ...)` -- the mirror
+            # of the attacker-side check the hit-roll debuff below performs on
+            # `self`. Death Guard's own units are excluded (the aura never
+            # debuffs the models that project it). No other code path applies
+            # a Toughness debuff for this rule (the legacy launch-index Round
+            # 1 Virulent Rot -1 T branch was removed at iter-4 and has no
+            # live successor), so there is no double-application risk.
+            # Env-gated SWEG_DG_AFFLICTED_TOUGHNESS, default ON; "0" restores
+            # the pre-fix behaviour (no Toughness debuff from Contagions of
+            # Nurgle at all), byte-identical kill switch. Cited as
+            # `simulator.dg_afflicted_toughness`.
+            if (
+                os.environ.get("SWEG_DG_AFFLICTED_TOUGHNESS", "1") != "0"
+                and (target.profile.faction or "") != "Death Guard"
+                and _is_near_enemy_dg_model(
+                    target,
+                    radius=_contagion_range_for_round(_contagion_round_for(target)),
+                )
+            ):
+                _effective_toughness -= 1
             wound_p = wound_probability(strength, _effective_toughness)
             wound_target = _prob_to_target(wound_p)
 
@@ -2498,6 +2656,31 @@ class Unit:
                     and (__import__("os").environ.get("SWEG_CSM_ABILITIES", "1") != "0"
                          or __import__("os").environ.get("SWEG_DG_CONTAGION_MELEE_WOUND", "1") != "0")):
                 wound_mod_delta += 1
+
+            # ---- Death Guard Myphitic Blight-hauler "Tank Hunters" (10e
+            # datasheet ability, BSData Chaos - Death Guard.cat.gz inline
+            # Abilities profile id e47-254c-cdf9-7c5e, verified verbatim):
+            # "In your Shooting phase, each time a model in this unit makes
+            # an attack that targets a Monster or Vehicle unit, add 1 to the
+            # Hit roll and add 1 to the Wound roll." Ranged-only (mode !=
+            # "melee", matching "In your Shooting phase"); name-gated since
+            # this ability is unique to the Blight-hauler among Death Guard
+            # datasheets. Follows the weapon-and-target-conditional shape of
+            # the Adeptus Custodes Caladius Grav-tank "Advanced Firepower"
+            # gate above (`p` is the per-weapon profile inside the
+            # multi-weapon firing loop, safe under per-model promotion),
+            # minus the weapon condition — Tank Hunters applies to every
+            # weapon the model fires, not just one. Gated
+            # SWEG_DG_TANK_HUNTERS (default-on; `=0` is the byte-identical
+            # kill-switch). Cited `simulator.dg_tank_hunters`.
+            if (mode != "melee" and p.faction == "Death Guard"
+                    and p.name == "Myphitic Blight-hauler"
+                    and __import__("os").environ.get(
+                        "SWEG_DG_TANK_HUNTERS", "1") != "0"):
+                _th_kws = set(target.profile.unit_keywords or ())
+                if "MONSTER" in _th_kws or "VEHICLE" in _th_kws:
+                    hit_mod_delta += 1
+                    wound_mod_delta += 1
 
             # ---- Adeptus Custodes Auric Champions — Assemblage of Might (10e
             # detachment rule, gated SWEG_CUSTODES_ASSEMBLAGE_OF_MIGHT). "each time
@@ -3267,6 +3450,21 @@ class Unit:
             if mode != "melee" and self.shooting_in_engagement:
                 hit_mod_delta -= 1
 
+            # ---- Big Guns Never Tire, RECIPROCAL clause (gated
+            # SWEG_BGNT_RECIPROCAL, flag set in Battle._do_shoot): a ranged
+            # attack against an enemy MONSTER/VEHICLE that is within Engagement
+            # Range of a friendly unit other than the attacker takes -1 to Hit,
+            # unless the attack is a Pistol (the Pistol exemption and the
+            # MONSTER/VEHICLE gate are resolved at the target-selection site,
+            # which only sets `shooting_at_engaged_brick` for a non-Pistol
+            # attacker firing at a qualifying engaged target). Composes with the
+            # attacker's own in-engagement -1 above through the ±1 modifier cap
+            # below: when both fire the net collapses to a single -1, matching
+            # the printed interaction (the core "-1 or +1" cap governs both
+            # clauses jointly). Cited as `simulator.big_guns_reciprocal`.
+            if mode != "melee" and self.shooting_at_engaged_brick:
+                hit_mod_delta -= 1
+
             # ---- Indirect Fire: -1 to hit when target is not visible. Ranged only.
             if indirect_fire_attack:
                 hit_mod_delta -= 1
@@ -3316,7 +3514,15 @@ class Unit:
 
             # ---- Stealth keyword: shooters take -1 to hit against the target.
             # Melee is unaffected (Stealth is a ranged defence).
-            if mode != "melee" and target.profile.stealth:
+            # Smokescreen (10e core Wargear Stratagem, env-gated
+            # SWEG_SMOKESCREEN): grants the targeted [SMOKE] unit the Stealth
+            # ability until end of the opponent's Shooting phase, composed via
+            # OR with the datasheet's own (permanent) Stealth. Cited as
+            # `simulator.smokescreen`.
+            if mode != "melee" and (
+                target.profile.stealth
+                or getattr(target, "smokescreen_active", False)
+            ):
                 hit_mod_delta -= 1
 
             # ---- DAEMONS-DIAG-9: Daemon Prince "Prince of Darkness" aura —
@@ -3329,20 +3535,41 @@ class Unit:
             if mode != "melee" and tgt_buffs.get("grants_stealth_aura"):
                 hit_mod_delta -= 1
 
-            # ---- Death Guard Contagions of Nurgle — Round 3+ Fulminating Plague:
-            # an enemy unit (the ATTACKER here) within 3" of any DG model takes
-            # -1 to its Hit rolls. We gate on `self` (the attacker) being near a
-            # DG model on the opposing side, and on the attacker NOT being a DG
-            # model itself (the aura debuffs *enemy* units). The ±1 cap below
-            # subsumes the old "skip if already capped" gate — adding -1 here
-            # when the delta is already -1 is harmless because the clamp
-            # collapses the net to -1 anyway. Radius gated to 3" per the modern
-            # Nurgle's Gift / Afflicted rule (Wahapedia). Cited as
-            # `simulator.contagions_of_nurgle`.
+            # ---- Death Guard Contagions of Nurgle — chosen-Plague Skullsquirm
+            # Blight: an enemy unit (the ATTACKER here) that is Afflicted takes
+            # -1 to its own Hit rolls. BSData/Wahapedia verbatim: "Skullsquirm
+            # Blight — Each time a model in this unit makes an attack, subtract
+            # 1 from the Hit roll." We gate on `self` (the attacker) being near
+            # a DG model on the opposing side, on the attacker NOT being a DG
+            # model itself (the aura debuffs *enemy* units), and — DURA-AUDIT-D3
+            # — on the opposing Death Guard army having chosen Skullsquirm
+            # Blight at Declare Battle Formations. The ±1 cap below subsumes
+            # the old "skip if already capped" gate — adding -1 here when the
+            # delta is already -1 is harmless because the clamp collapses the
+            # net to -1 anyway. DURA-AUDIT-D1: the radius escalates by round
+            # (3"/6"/9") via `_contagion_range_for_round` instead of a fixed
+            # 3" — see that helper's docstring for the
+            # SWEG_DG_CONTAGION_ESCALATION gate. Env-gated
+            # SWEG_DG_CHOSEN_PLAGUE, default ON: when ON, the effect is active
+            # from ROUND 1 (matching the printed "Until the end of the battle"
+            # duration) rather than the pre-fix round-3-onward gate; when OFF,
+            # restores the exact pre-fix round>=3 gate with no plague-choice
+            # concept, so the all-three-gates-off combination reproduces the
+            # original code exactly. Cited as `simulator.dg_chosen_plague`
+            # (and legacy `simulator.contagions_of_nurgle` for the OFF path).
+            _dg_round_for_hit = _contagion_round_for(self)
+            if os.environ.get("SWEG_DG_CHOSEN_PLAGUE", "1") != "0":
+                _skullsquirm_active = (
+                    _dg_chosen_plague_for(self) == "Skullsquirm Blight"
+                )
+            else:
+                _skullsquirm_active = _dg_round_for_hit >= 3
             if (
-                _contagion_round_for(self) >= 3
+                _skullsquirm_active
                 and p.faction != "Death Guard"
-                and _is_near_enemy_dg_model(self, radius=3.0)
+                and _is_near_enemy_dg_model(
+                    self, radius=_contagion_range_for_round(_dg_round_for_hit)
+                )
             ):
                 hit_mod_delta -= 1
 
@@ -3444,7 +3671,32 @@ class Unit:
                         _frac = float(_anti_fractions.get(kw, 1.0) or 1.0)
                         _anti_applicable.append((int(thresh), _frac))
 
-            save_after_ap = target.profile.save - ap
+            # ---- DURA-AUDIT-D3: Death Guard Contagions of Nurgle -- chosen-
+            # Plague Rattlejoint Ague. BSData/Wahapedia verbatim: "Rattlejoint
+            # Ague — Worsen the Save characteristic of models in this unit by
+            # 1." A CHARACTERISTIC change (like the Afflicted -1 Toughness
+            # fix, not a Save-roll modifier), so it is folded into the base
+            # Save here, before AP and cover are applied, rather than through
+            # the separate ±1 Save-roll-modifier cap further below. Fires
+            # whenever `target` is Afflicted (enemy of a Death Guard army,
+            # within the round's escalating Contagion Range) AND that Death
+            # Guard army chose Rattlejoint Ague at Declare Battle Formations.
+            # Env-gated SWEG_DG_CHOSEN_PLAGUE, default ON; "0" restores legacy
+            # behaviour (Rattlejoint Ague's save-worsening was never modelled
+            # pre-fix — divergence D1's audit note). Cited as
+            # `simulator.dg_chosen_plague`.
+            _effective_save_base = target.profile.save
+            if (
+                os.environ.get("SWEG_DG_CHOSEN_PLAGUE", "1") != "0"
+                and (target.profile.faction or "") != "Death Guard"
+                and _dg_chosen_plague_for(target) == "Rattlejoint Ague"
+                and _is_near_enemy_dg_model(
+                    target,
+                    radius=_contagion_range_for_round(_contagion_round_for(target)),
+                )
+            ):
+                _effective_save_base += 1
+            save_after_ap = _effective_save_base - ap
             # Precision: a ranged shot at a CHARACTER target pierces concealment —
             # cover does not improve the save. Same effect as Ignores Cover, but
             # gated on the target's keywords.
@@ -3472,9 +3724,11 @@ class Unit:
             cover_blocked_by_ap0_exception = (
                 # `ap` is the attack's Armour Penetration as a non-positive
                 # int (0, -1, -2, …); ap == 0 is the AP0 case. The model's
-                # base Save characteristic is target.profile.save (3 means
-                # 3+; a lower number is a better save).
-                ap == 0 and target.profile.save <= 3
+                # base Save characteristic is `_effective_save_base` (3 means
+                # 3+; a lower number is a better save) -- reads the
+                # Rattlejoint-Ague-worsened value when that Plague is active,
+                # since the rule worsens the Save CHARACTERISTIC itself.
+                ap == 0 and _effective_save_base <= 3
             )
             # Recon Element "Masters of Camouflage" (gated SWEG_AM_RECON, default-off
             # -> byte-identical). Detachment rule: "Astra Militarum Walker and
@@ -3567,6 +3821,16 @@ class Unit:
             # rule. Cited as `simulator.go_to_ground`.
             if getattr(target, "go_to_ground_active", False) and invuln > 6:
                 invuln = 6
+            # Knight Defender "Selfless Protector" (10e datasheet ability,
+            # env-gated SWEG_IK_DEFENDER_COVER) — 4+ invuln on the screened
+            # ranged-attack target, bracketed per-attack (not a per-round
+            # transient) by Battle._do_shoot via ik_defender_cover_active.
+            # The accompanying Benefit of Cover (+1 save) is applied via the
+            # same in_cover flag as Go To Ground / Smokescreen. Same "only
+            # override if better" rule. Cited as
+            # `simulator.ik_defender_selfless_protector`.
+            if getattr(target, "ik_defender_cover_active", False) and invuln > 4:
+                invuln = 4
             effective_save = min(save_after_ap, invuln) if invuln <= 6 else save_after_ap
             save_target = effective_save  # 7 = no save
 

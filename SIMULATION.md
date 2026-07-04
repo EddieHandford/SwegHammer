@@ -123,6 +123,45 @@ normal (excess-lost) allocation above. **Deadly Demise** hits each *unit* within
 takes its X mortal wounds a single time. **Blast** likewise counts the models in
 the *targeted unit* (by `squad_id`), not every same-name model in the army.
 
+### Shooting into engagements — the reciprocal Big Guns Never Tire rule
+
+Two directions of the same core rule are modelled. The *attacker's own*
+engagement was already handled: a unit within Engagement Range of an enemy
+normally cannot shoot, except Pistols (fire freely) and MONSTER/VEHICLE units
+(Big Guns Never Tire — they shoot at −1 to Hit and may only target enemies they
+are themselves engaged with). The *reciprocal* direction (gate
+`SWEG_BGNT_RECIPROCAL`, default-ON; `=0` restores the prior pipeline
+byte-for-byte) closes the other half in `Battle._do_shoot`: an enemy unit within
+Engagement Range of a friendly unit *other than the attacker* cannot be selected
+as a ranged target **unless it is a MONSTER or VEHICLE**, in which case the shot
+is permitted but each non-Pistol attack takes −1 to Hit (set on the firing model
+as `shooting_at_engaged_brick`, read in `Unit.attack`). That −1 composes with
+the attacker's own in-engagement −1 under the ±1 hit-modifier cap, so the two
+never stack past −1. **Blast** weapons get no carve-out at all — they can never
+target a unit within Engagement Range of *any* friendly unit, including the
+attacker's own. The candidate list is filtered before every target scorer, so
+the focus-fire and target-economics pickers only ever score legal targets; the
+split-fire planner (`_plan_squad_fire`) and the T'au Markerlight emission apply
+the same gate. One deliberate consequence, faithful to the printed rule: a melee
+army that pins an enemy now *protects* that enemy from its own guns. Cited as
+`simulator.big_guns_reciprocal` and `simulator.blast_engagement_restriction`.
+
+A read-only instrument (`SWEG_RECIP_INSTR`, default-off, byte-identical when
+unset) sizes how much of a faction under-pole this reciprocal filter can own via
+blocked shooting. When set, `Battle._record_reciprocal_block` tallies per faction
+how often the filter empties a shooting activation's legal-target pool (a fully
+lost activation) versus merely drops the gun's single best target for a
+lower-expected-wounds shot (a focus-fire downgrade), plus the summed expected
+wounds surrendered. `scripts/diag_recip_block.py` resets and reads it.
+Measured footprint on Astra Militarum (the frame's biggest under-pole): fully
+lost activations are near zero (≤0.2 per game), downgrades ≤1.5 per game, ≤1.4
+expected wounds surrendered per game, and *exactly zero* against a gunline
+opponent that never engages the screens — a negligible mechanical cost. The
+matching win-rate counterfactual needs no code: running the evaluation with
+`SWEG_BGNT_RECIPROCAL=0` and pairing against the standing anchor moves Astra
+Militarum's aggregate win rate by only +0.24 points, so the reciprocal rule owns
+essentially none of that faction's −14 under-pole.
+
 ### Charge-Path Legality (screening)
 
 A charging unit may not pass within Engagement Range of any enemy unit it did
