@@ -1741,6 +1741,10 @@
       },
       "notes": "AK-2: Beast Snagga Boyz wield Beast Snagga Klaws with [ANTI-MONSTER 4+] and [ANTI-VEHICLE 4+] (BSData 'Orks.cat.gz' profile name='Beast Snagga klaw' typeName='Melee Weapons' Keywords='Anti-Monster 4+, Anti-Vehicle 4+'). Squad of ten with one or two big-choppa special models causes the klaw to fall below 50% basket weight in the mapper. Source: https://wahapedia.ru/wh40k10ed/factions/orks/#Beast-Snagga-Boyz"
     },
+    "orks_ghazghkull_thraka": {
+      "invuln_save": 4,
+      "notes": "DATA-FIX (2026-07-04, surfaced by the Orks list-composition build): the mapper emitted invuln_save=2 (2+) for Ghazghkull, but his real 10e save is a 2+ ARMOUR save with a 4+ INVULNERABLE save ('Iron Gob'). The 2+ was the armour value leaking into the invuln field, overstating his durability. Corrected to the canonical 4+ invulnerable. Source: https://wahapedia.ru/wh40k10ed/factions/orks/#Ghazghkull-Thraka ; BSData cache Orks.cat.gz Ghazghkull invulnerable 4+."
+    },
     "orks_kill_rig": {
       "anti_keywords": {
         "MONSTER": 2,
