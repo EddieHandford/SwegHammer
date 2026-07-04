@@ -1704,6 +1704,65 @@ def _effective_template(
         template["chaos_knights_library_chaos_cerastus_knight_atrapos"] = 1
         template["chaos_knights_library_knight_despoiler"] = 2
 
+    # SWEG_TSONS_MAGNUS (2026-07-04) — Thousand Sons Magnus the Red
+    # centerpiece. Default OFF (screening gate; adopt default-on only after
+    # the orchestrator's N=80 screen). List-realism correction, NOT win-rate
+    # tuning — the metric direction is accepted whatever it is.
+    #
+    # WHY: the Thousand Sons template (Rubricae Phalanx) intentionally
+    # excluded Magnus on STALE 1000-point-budget logic ("435pt would crowd
+    # out the army at 1000pt"; "random_fill picks him up at 2000pt"). But the
+    # production eval budget is 2000pt, and Magnus is BARRED from random_fill
+    # by the MONSTER / EPIC HERO cap (a template_count of 0 caps his fills at
+    # 0), so he was fielded in 0% of builds — the sim fought the Death Guard
+    # brick (Toughness-12, 2+/4++) without its single hardest anti-brick tool
+    # (Gaze of Magnus: 3D3 shots, Strength-11, AP-2, Damage-3, Devastating
+    # Wounds, Psychic; + Blade of Magnus melee, Strength-16 AP-3).
+    #
+    # SOURCED — real May/2026 competitive 2000-point Thousand Sons run Magnus
+    # as a common centerpiece (a genuine ~50/50 split with Ahriman-led Rubric
+    # spam, NOT universal — documented honestly), including within the
+    # Rubricae Phalanx detachment this template names:
+    #   - Broadsword Wargaming (March 2026): UNDEFEATED Rubricae Phalanx =
+    #     Rubric Marines + Scarab Occult Terminators + Predators + Magnus the
+    #     Red (Magnus enables 2 Rituals/turn). Cited in Grimhammer Tactics
+    #     "Top 10 Competitive Warhammer 40K Lists March 2026".
+    #   - Las Vegas Open 2026, Nick Hodson 5-1: Magnus + Mutalith Vortex Beast
+    #     + Ahriman + Rubric spam + Cultists + Tzaangor Enlightened
+    #     (warphammer40k.com "For the Changer of Ways" LVO report) — the sim's
+    #     template shape plus Magnus.
+    #   - Grand Coven Magnus builds placed 3rd/6th/8th at Feb-Apr 2026 events
+    #     (Goonhammer Competitive Innovations).
+    # MECHANISM: seed Magnus into the template (count=1). He is the most
+    # expensive template EPIC HERO (435pt vs Ahriman 100pt), so the existing
+    # iter24-D2 EPIC HERO anchor guarantee in `_instantiate_template`
+    # force-seeds him as the centerpiece at ~100% of 2000-point builds
+    # (Thousand Sons is not a MENU faction, so the wave-244 leader-stack
+    # anchor trigger fires whenever the flagship epic hero is unseeded) —
+    # the same mechanism that seeds Death Guard Mortarion and World Eaters
+    # Khârn. This over-represents relative to the real ~50% split (the sim
+    # carries ONE representative build, per the project's one-representative-
+    # build convention, so the Magnus-centerpiece variant is modelled), which
+    # gives a clean anti-brick signal and matches the sourced undefeated
+    # Rubricae Phalanx + Magnus list. Random_fill's EPIC HERO cap is
+    # unchanged. The RUBRICAE-keyword affinity that tilts the detachment
+    # picker toward Rubricae Phalanx is PRESERVED — Scarab Occult Terminators
+    # and Rubric Marines are still seeded (Magnus is added, nothing dropped),
+    # so the picker stays Rubricae Phalanx (verified in the N=20 probe).
+    # Guarded per CLAUDE.md rule 13 (fail loud on missing data): if the
+    # override/catalogue key ever stops resolving, raise instead of silently
+    # dropping the centerpiece from a would-be-default-on template.
+    if os.environ.get("SWEG_TSONS_MAGNUS") == "1" and fac == "Thousand Sons":
+        if "thousand_sons_magnus_the_red" not in UNIT_CATALOG:
+            raise KeyError(
+                "archetypes._effective_template: SWEG_TSONS_MAGNUS expects "
+                "'thousand_sons_magnus_the_red' to resolve in UNIT_CATALOG "
+                "but it is missing — check for a regression that dropped the "
+                "datasheet from the catalogue or a typo'd key."
+            )
+        template = dict(template)
+        template["thousand_sons_magnus_the_red"] = 1
+
     return template
 
 
