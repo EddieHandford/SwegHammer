@@ -1794,7 +1794,14 @@ def _effective_template(
     # Guarded per CLAUDE.md rule 13 (fail loud on missing data): if any added
     # key ever stops resolving in UNIT_CATALOG, raise instead of silently
     # shrinking the would-be-default-on template.
-    if os.environ.get("SWEG_ORKS_REALISM") == "1" and fac == "Orks":
+    # ADOPTED default-on 2026-07-04 (`=0` kill-switch). N=80 Orks-scoped screen
+    # vs sc56a: Orks 31.8 -> 36.6 (+4.86 toward real 45.3), gated 3.37 -> 3.08;
+    # the mobile matchups the manual pilot flagged all rise (Aeldari, T'au,
+    # Votann, Necrons), the durability-floor cells stay flat (Death Guard,
+    # Thousand Sons). The sim's Kan-wall was mis-composed vs the real mobile War
+    # Horde (sourced tournament lists run Ghazghkull + transports, zero Killa
+    # Kans). Supersedes the flat SWEG_ORKS_GHAZGHKULL (Ghazghkull folded in here).
+    if os.environ.get("SWEG_ORKS_REALISM", "1") != "0" and fac == "Orks":
         _orks_add = {
             "orks_ghazghkull_thraka": 1,
             "orks_beastboss": 1,
