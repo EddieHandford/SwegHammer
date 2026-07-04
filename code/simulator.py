@@ -11185,6 +11185,66 @@ class Battle:
 
         army.battle_focus_tokens += base_tokens
 
+    def _settle_ec_pact_points(self) -> None:
+        """Emperor's Children Coterie of the Conceited — end-of-round Pact-point
+        accrual (Slaanesh's Due).
+
+        Real rule (BSData v10.6.0, verbatim): "At the start of the battle round,
+        if your WARLORD is on the battlefield, you must pledge a number to
+        Slaanesh representing how many enemy units will be destroyed this battle
+        round. At the end of the battle round, if the number of enemy units
+        destroyed this battle round is greater than or equal to your pledge, you
+        gain a number of Pact points equal to your pledge. Otherwise, you do not
+        gain any Pact points this battle round and your WARLORD model suffers D3
+        mortal wounds."
+
+        MODELLING. The pledge is a piloting decision, so a competent pilot is
+        idealised: at the start of their turn a strong player reads the board,
+        pledges a number up to the units they will reliably destroy this round,
+        and meets it — banking a number of Pact points equal to that pledge.
+        SwegHammer collapses this to "gain one Pact point per enemy unit
+        destroyed this round" (the accrual equals the met pledge for a pilot
+        who pledges to their realised output). This is the accrual a
+        tournament-calibre pilot achieves, which is the right reference for
+        calibrating against tournament win rates. Accrual is gated on the
+        army's Warlord still being alive on the battlefield (the rule's
+        "if your WARLORD is on the battlefield" condition), checked at
+        end-of-round as a one-hook approximation of the start-of-round check.
+
+        HONEST OMISSIONS (documented, not hidden): (1) the pledge is idealised
+        as always met, so (2) the D3-mortal-wounds-on-a-missed-pledge downside
+        is not fired — a competent pilot pledges conservatively (down to 0)
+        precisely to avoid it, so simulating frequent self-inflicted Warlord
+        damage would model incompetent play. The Pact counter is uncapped; the
+        attack bonuses themselves cap at the 7+ tier.
+
+        Enemy units destroyed this round come from `_units_destroyed_this_round`
+        (the same round-start-snapshot diff Purge the Foe and the Pariah Nexus
+        secondaries use). No RNG is drawn, and the loop skips every non-Coterie
+        army, so the off path (Emperor's Children with no detachment, or any
+        other faction) is byte-identical. Cited as
+        `simulator.ec_coterie_pact_points`.
+        """
+        a_killed, b_killed = self._units_destroyed_this_round()
+        for army, killed in ((self.a, a_killed), (self.b, b_killed)):
+            det = army.resolve_detachment()
+            if not det or not getattr(det, "coterie_pact_points", False):
+                continue
+            if killed <= 0:
+                continue
+            # Warlord must be on the battlefield to pledge (and so to gain Pact
+            # points). `warlord_uid` stably caches the first CHARACTER (the
+            # designated Warlord); check that specific model is still alive.
+            wl_uid = army.warlord_uid
+            wl_alive = wl_uid is not None and any(
+                id(u) == wl_uid and u.is_alive for u in army.units
+            )
+            if not wl_alive:
+                continue
+            army.ec_pact_points = (
+                int(getattr(army, "ec_pact_points", 0) or 0) + int(killed)
+            )
+
     def _run_round(self, round_num: int) -> None:
         if self.verbose:
             print(f"\n--- Round {round_num} ---")
@@ -11947,6 +12007,14 @@ class Battle:
         # Cited as `simulator.reinforcements_stratagem`.
         self._try_reinforcements(self.a, round_num)
         self._try_reinforcements(self.b, round_num)
+
+        # Emperor's Children Coterie of the Conceited — Slaanesh's Due
+        # Pact-point accrual (end of the battle round). Placed AFTER end-of-
+        # round revivals (healing / cult-ambush / reinforcements) so a revived
+        # enemy unit is not counted as "destroyed this battle round". No-op /
+        # no RNG draw for any army whose detachment is not Coterie of the
+        # Conceited (byte-identical off path). See `_settle_ec_pact_points`.
+        self._settle_ec_pact_points()
 
         if round_num > 1 and self.rules.cp_catchup_bonus:
             self._award_cp(self.a, self.b)

@@ -3992,6 +3992,38 @@ class Unit:
                 if getattr(_det_hb, "hearthband_methodical_annihilation", False):
                     att_reroll_wound_ones = True
 
+            # ---- Emperor's Children Coterie of the Conceited — Slaanesh's Due
+            # (detachment rule, gated SWEG_EC_DETACHMENT default OFF). BSData
+            # v10.6.0 verbatim: EMPEROR'S CHILDREN units gain cumulative bonuses
+            # by the army's running Pact-point total (tracked on the army by the
+            # Battle hook `_settle_ec_pact_points`):
+            #   1+: re-roll a Hit roll of 1 (this block).
+            #   3+: re-roll a Wound roll of 1 (this block).
+            #   5+: melee weapons gain [LETHAL HITS] and [SUSTAINED HITS 1]
+            #       (the `_ec_pact` reads in the lethal / sustained blocks below).
+            #   7+: a Critical Hit is scored on an unmodified Hit roll of 5+
+            #       (the `_ec_pact` reads in the crit-threshold block below).
+            # `_ec_pact` is computed here (before every consuming site) and is 0
+            # for any non-EC attacker / any EC army whose detachment is not
+            # Coterie of the Conceited (gate off), so the whole feature is inert
+            # unless the pact tracker is live. The 1+ / 3+ re-roll grants sit
+            # BEFORE the overwatch guard below so overwatch (nat-6-only) still
+            # correctly suppresses the Hit re-roll. Cited as
+            # `COTERIE_OF_THE_CONCEITED.coterie_pact_points` and
+            # `simulator.ec_coterie_pact_points`.
+            _ec_pact = 0
+            if (p.faction or "") == "Emperor's Children" and own_army is not None:
+                try:
+                    _det_ec = own_army.resolve_detachment()
+                except Exception:
+                    _det_ec = None
+                if getattr(_det_ec, "coterie_pact_points", False):
+                    _ec_pact = int(getattr(own_army, "ec_pact_points", 0) or 0)
+            if _ec_pact >= 1:
+                att_reroll_hit_ones = True
+            if _ec_pact >= 3:
+                att_reroll_wound_ones = True
+
             # ---- Adeptus Astartes Oath of Moment (army rule, 10e). When the
             # attacker is a Marine (any chapter) AND its army has declared
             # this round's oath target on this defender's uid, every attack
@@ -4240,6 +4272,16 @@ class Unit:
             # gates the aura to the led unit. Cited as
             # LeaderAbility.Warrior-Forged Leadership.
             if mode == "melee" and att_buffs.get("lethal_hits_melee"):
+                effective_lethal_hits = True
+            # Emperor's Children Coterie of the Conceited — Slaanesh's Due 5+
+            # Pact-point tier: "Melee weapons equipped by models in this unit
+            # have the [LETHAL HITS] and [SUSTAINED HITS 1] abilities." The
+            # [LETHAL HITS] half is applied here (melee only); the [SUSTAINED
+            # HITS 1] half is added to `effective_sustained_hits` in the melee
+            # sustained block below. `_ec_pact` computed in the re-roll block
+            # above (0 unless the Coterie Pact tracker is live). Cited as
+            # `COTERIE_OF_THE_CONCEITED.coterie_pact_points`.
+            if mode == "melee" and _ec_pact >= 5:
                 effective_lethal_hits = True
             # Adeptus Custodes Martial Ka'tah — RENDAX [LETHAL HITS] stance (10e
             # datasheet ability, BSData shared rule id e348-7090-3aff-ee2c). Each
@@ -4604,6 +4646,15 @@ class Unit:
                             and getattr(_det, "faction", None) == p.faction):
                         effective_sustained_hits += 1
 
+            # Emperor's Children Coterie of the Conceited — Slaanesh's Due 5+
+            # Pact-point tier: melee weapons gain [SUSTAINED HITS 1] (the
+            # [LETHAL HITS] half is applied in the lethal block above). Composes
+            # additively with any per-weapon melee sustained, matching the
+            # WAR_HORDE convention. `_ec_pact` computed in the re-roll block
+            # above. Cited as `COTERIE_OF_THE_CONCEITED.coterie_pact_points`.
+            if mode == "melee" and _ec_pact >= 5:
+                effective_sustained_hits += 1
+
             # ---- World Eaters Blessings of Khorne (10e army rule) — Martial
             # Excellence grants army-wide melee SUSTAINED HITS 1 for the
             # battle round. Gate: mode == "melee" AND attacker faction ==
@@ -4683,6 +4734,22 @@ class Unit:
             # True without new plumbing. Gate: mode=="melee" AND the
             # attacker's detachment carries `melee_crit_on_5_plus_hits=True`.
             melee_crit_threshold = 6   # canonical 10e: nat 6 to-hit = Critical Hit
+            # Ranged crit-to-hit threshold — default 6. `>= 6` is identical to
+            # `== 6` for a d6, so the ranged crit path is byte-identical unless
+            # a rule lowers this. Emperor's Children Coterie of the Conceited's
+            # 7+ Pact-point tier is the only source that lowers it (to 5).
+            ranged_crit_threshold = 6
+            # Emperor's Children Coterie of the Conceited — Slaanesh's Due 7+
+            # Pact-point tier: "a Critical Hit is scored on an unmodified Hit
+            # roll of 5+" — applies to every attack the unit makes, so BOTH the
+            # melee and ranged crit thresholds drop to 5. `_ec_pact` computed in
+            # the re-roll block above (0 unless the Coterie Pact tracker is
+            # live). Placed before the Custodes melee block so an EC attacker's
+            # threshold is not re-touched (EC never carries melee_crit_on_5_plus
+            # _hits). Cited as `COTERIE_OF_THE_CONCEITED.coterie_pact_points`.
+            if _ec_pact >= 7:
+                melee_crit_threshold = 5
+                ranged_crit_threshold = 5
             if mode == "melee":
                 _own_army = getattr(self, "army_ref", None)
                 if _own_army is not None:
@@ -5000,7 +5067,10 @@ class Unit:
                     elif indirect_fire_attack:
                         crit_hit = False
                     else:
-                        crit_hit = (unmodified_roll == 6)
+                        # Default ranged_crit_threshold is 6, so `>= 6` is
+                        # byte-identical to the legacy `== 6`; only Emperor's
+                        # Children Coterie 7+ lowers it to 5.
+                        crit_hit = (unmodified_roll >= ranged_crit_threshold)
                 n_hits = 1 + (effective_sustained_hits if crit_hit else 0)
 
                 for hit_i in range(n_hits):

@@ -912,10 +912,14 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "Emperor's Children": {
-        # No detachment registered in code/detachments.py for Emperor's
-        # Children; calling out the placeholder name so future iterations
-        # can wire it. The army_builder falls through pick_detachment_for_army
-        # to the no-detachment path which is fine for archetype seeding.
+        # EC-COTERIE-V1: Coterie of the Conceited (Slaanesh's Due) is now the
+        # registered Emperor's Children detachment, gated SWEG_EC_DETACHMENT
+        # (default OFF). With the gate on, the army_builder's
+        # pick_detachment_for_army resolves it deterministically (sole entry);
+        # with the gate off, Emperor's Children still falls through to the
+        # no-detachment path (byte-identical to before). The "Slaaneshi Excess"
+        # key below is a SwegHammer archetype-seed label (the list shape), NOT a
+        # detachment name — the real detachment is Coterie of the Conceited.
         "Slaaneshi Excess": {
             # BATTLELINE: Infractors + Tormentors are the EC BATTLELINE
             # pair; supplemented by Noise Marines (flagship dakka) and

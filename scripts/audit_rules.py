@@ -154,6 +154,17 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # `simulator.hearthband_methodical_annihilation` in
     # data/rule_citations.d/votann.json.
     ("hearthband_methodical_annihilation", False),
+    # Emperor's Children Coterie of the Conceited — Slaanesh's Due (EC-COTERIE-
+    # V1). A single flag driving the whole escalating Pact-point economy: the
+    # Battle hook `_ec_pledge_pact_points` / `_settle_ec_pact_points` tracks the
+    # running Pact total and Unit.attack reads it to grant the four cumulative
+    # attack bonuses (re-roll Hit 1s / re-roll Wound 1s / melee [LETHAL HITS] +
+    # [SUSTAINED HITS 1] / Critical Hit on unmodified 5+). Gated
+    # SWEG_EC_DETACHMENT (default OFF). Cited as
+    # `COTERIE_OF_THE_CONCEITED.coterie_pact_points` and
+    # `simulator.ec_coterie_pact_points` in
+    # data/rule_citations.d/emperors_children.json.
+    ("coterie_pact_points", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
@@ -776,6 +787,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Gate SWEG_EC_DAEMONETTE_FF suppresses it for Emperor's Children Daemonettes.
     # Cited in data/rule_citations.d/emperors_children.json.
     "simulator.ec_daemonette_fights_first",
+    # EC-COTERIE-V1 — Emperor's Children Coterie of the Conceited detachment
+    # rule "Slaanesh's Due". The bespoke Pact-point tracker: the Battle hook
+    # `_settle_ec_pact_points` (end-of-round accrual of one Pact point per enemy
+    # unit destroyed while the Warlord lives — the competent-pledge
+    # idealisation). Unit.attack reads the running Pact total to grant the four
+    # cumulative attack bonuses. Gated SWEG_EC_DETACHMENT (default OFF). Cited
+    # in data/rule_citations.d/emperors_children.json (this simulator gate plus
+    # the detachment-flag key COTERIE_OF_THE_CONCEITED.coterie_pact_points).
+    "simulator.ec_coterie_pact_points",
     # Two-card hand cap for the legacy-union secondary fallback (env-gated
     # SWEG_SECONDARY_HANDCAP, default OFF; recovered 2026-06-29 from git 58acc4b).
     # When ON, Battle._score_secondaries_deck caps the round total at the two

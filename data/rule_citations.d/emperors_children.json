@@ -10,6 +10,24 @@
     "scope": "keyword-gated"
   },
 
+  "COTERIE_OF_THE_CONCEITED.coterie_pact_points": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Chaos%20-%20Emperor's%20Children.cat",
+    "rule_name": "Slaanesh's Due (Coterie of the Conceited detachment rule)",
+    "quoted_text": "At the start of the battle round, if your WARLORD is on the battlefield, you must pledge a number to Slaanesh representing how many enemy units will be destroyed this battle round. At the end of the battle round, if the number of enemy units destroyed this battle round is greater than or equal to your pledge, you gain a number of Pact points equal to your pledge. Otherwise, you do not gain any Pact points this battle round and your WARLORD model suffers D3 mortal wounds. EMPEROR'S CHILDREN units from your army gain a bonus depending on how many Pact points you have gained during the battle, as shown below (these are all cumulative). 1+: Each time a model in this unit makes an attack, re-roll a Hit roll of 1. 3+: Each time a model in this unit makes an attack, re-roll a Wound roll of 1. 5+: Melee weapons equipped by models in this unit have the [Lethal Hits] and [Sustained Hits 1] abilities. 7+: Each time a model in this unit makes an attack, a Critical Hit is scored on an unmodified Hit roll of 5+.",
+    "trigger": "The attacker is an EMPEROR'S CHILDREN model whose army's resolved detachment is Coterie of the Conceited (gated SWEG_EC_DETACHMENT, default OFF). The four bonuses activate cumulatively once the army's running Pact-point total (tracked by the simulator across the battle) reaches 1 / 3 / 5 / 7.",
+    "effect": "Cumulative army-wide attack bonuses keyed to the Pact-point total: 1+ re-roll a Hit roll of 1 (att_reroll_hit_ones); 3+ re-roll a Wound roll of 1 (att_reroll_wound_ones); 5+ melee weapons gain [Lethal Hits] and [Sustained Hits 1] (effective_lethal_hits + effective_sustained_hits, melee only); 7+ a Critical Hit is scored on an unmodified Hit roll of 5+ (melee and ranged crit-to-hit threshold lowered to 5). The detachment flag is the entry point; the running Pact total and the pledge economy are resolved by the Battle hook cited as simulator.ec_coterie_pact_points.",
+    "scope": "army-wide"
+  },
+
+  "simulator.ec_coterie_pact_points": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Chaos%20-%20Emperor's%20Children.cat",
+    "rule_name": "Slaanesh's Due — Pact-point pledge economy (simulator hook)",
+    "quoted_text": "At the start of the battle round, if your WARLORD is on the battlefield, you must pledge a number to Slaanesh representing how many enemy units will be destroyed this battle round. At the end of the battle round, if the number of enemy units destroyed this battle round is greater than or equal to your pledge, you gain a number of Pact points equal to your pledge. Otherwise, you do not gain any Pact points this battle round and your WARLORD model suffers D3 mortal wounds.",
+    "trigger": "End of each battle round for a Coterie of the Conceited army whose Warlord is still alive on the battlefield: the number of enemy units destroyed this round (Battle._units_destroyed_this_round, the same round-start-snapshot diff Purge the Foe and the Pariah Nexus secondaries use) is added to the army's running Pact-point total.",
+    "effect": "APPROXIMATION. The player-chosen pledge is idealised as competent play: a strong pilot reads the board at the start of their turn, pledges up to the units they will reliably destroy this round, and meets it, banking Pact points equal to that pledge. SwegHammer collapses this to gaining one Pact point per enemy unit destroyed this round (the accrual a met, realised-output pledge yields), gated on the Warlord being alive on the battlefield (the rule's 'if your WARLORD is on the battlefield'). Counter is uncapped; the attack bonuses cap at the 7+ tier. HONEST OMISSIONS: the pledge is idealised as always met, so the D3-mortal-wounds-on-a-missed-pledge downside is not fired (a competent pilot pledges conservatively, down to 0, to avoid it); modelling frequent self-inflicted Warlord damage would model incompetent play. Any once-per-battle enhancement/stratagem interactions are not modelled. Off path (SWEG_EC_DETACHMENT='0') draws no RNG and is byte-identical.",
+    "scope": "phase-gated"
+  },
+
   "simulator.ec_ranged_hold": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/",
     "rule_name": "Advancing (10e Core Rules) + [ASSAULT] weapon ability — Emperor's Children gunline piloting heuristic",

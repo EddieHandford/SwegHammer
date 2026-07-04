@@ -39,7 +39,7 @@ Legend: ✅ FULL · ⚠️ PARTIAL · ⛔ STUB · ❌ MISSING.
 | Dark Angels | ❌ Grim Resolve missing | ❌ no detachment | ❌ 0/6 | ❌ 0 | 0 | ❌ | 19 |
 | Space Wolves | ❌ no army rule | ❌ no detachment | ❌ 0/6 | ❌ 0 | 0 | ❌ | 39 |
 | Deathwatch | ❌ Mission Tactics missing | ❌ no detachment | ❌ 0/6 | ❌ 0 | 0 | ❌ | 9 |
-| Emperor's Children | ❌ Slaanesh/Noise rules missing | ❌ no detachment | ❌ 0/6 | ❌ 0 | 0 | ❌ | 26 |
+| Emperor's Children (Coterie of the Conceited) | ❌ Slaanesh/Noise rules missing | ⚠️ `coterie_pact_points` = Slaanesh's Due Pact-point tracker (four cumulative tiers, verbatim-cited); pledge idealised as competent play + D3 mortal-wound downside omitted (APPROX); gated `SWEG_EC_DETACHMENT` default-OFF | ⛔ 0/6 | ❌ 0 | 0 | ❌ | 26 |
 | Imperial Fists / Iron Hands / Salamanders / Raven Guard / White Scars / Ultramarines | ❌ (fall back to Gladius via Adeptus Astartes — chapter trait missing) | ❌ no chapter detachment | ❌ | ❌ | varies | ❌ | 3/2/2/2/2/16 |
 | Ynnari | ❌ | ❌ | ❌ | ❌ | 0 | ❌ | 3 |
 | Chaos Titans | ❌ | ❌ | ❌ | ❌ | 0 | ❌ | 4 |

@@ -153,7 +153,7 @@ equal points implies equal expected battlefield score. See
 | `code/archetypes.py` | Curated per-faction tournament list templates (opt-in via `use_archetype=True`) |
 | `code/balancer.py` | Monte Carlo bisection to hit 50% win rate vs a baseline; writes `data/calibrated_points.json` |
 | `code/equilibrium.py` | Analytic equilibrium solver — Phases 1 (shoot) / 2 (+melee) / 3 (defensive audit) / 4 (tactical utility) / 5 (meta-weight) / 6 (Nash mixed-strategy) |
-| `code/detachments.py` | Army-wide passive Detachment rules (~25 detachments, 2 per major faction) |
+| `code/detachments.py` | Army-wide passive Detachment rules (~26 detachments, 2 per major faction) |
 | `code/enhancements.py` | Warlord enhancement upgrades (Champion of Humanity, Arcane Vortex, etc.) |
 | `code/leaders.py` | Per-CHARACTER LeaderAbility registry + aura wiring |
 | `code/stratagems.py` | Universal + faction-specific stratagems + CP economy |
