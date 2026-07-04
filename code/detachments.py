@@ -2121,7 +2121,12 @@ _VOTANN_HEARTHBAND_ON: bool = os.environ.get("SWEG_VOTANN_HEARTHBAND", "0") == "
 # as it did before this detachment existed — byte-identical no-detachment
 # path). When True, both resolve to "coterie_of_the_conceited". See
 # COTERIE_OF_THE_CONCEITED notes above for the rule text.
-_EC_DETACHMENT_ON: bool = os.environ.get("SWEG_EC_DETACHMENT", "0") == "1"
+# ADOPTED default-on 2026-07-04 (`=0` kill-switch). N=80 Emperor's-Children-
+# scoped screen vs sc55a: Emperor's Children 42.0 -> 45.3 (+3.34 toward real
+# 53.3), gated 3.51 -> 3.37, Death Guard flat — the missing-detachment fix (the
+# faction ran NO detachment). Closes a third of the -11.3 under-pole; the
+# remainder is Emperor's Children's wider list composition (audit pending).
+_EC_DETACHMENT_ON: bool = os.environ.get("SWEG_EC_DETACHMENT", "1") != "0"
 
 # Default detachment per faction (used when Army.detachment is None and a
 # faction is known). Picks a sensible competitive default; user can override.
