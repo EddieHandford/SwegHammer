@@ -3699,26 +3699,31 @@ class Battle:
 
     # ------------------------------------------------------------------
     # Challenger cards (Chapter Approved 2025-26 trailing-player catch-up).
-    # Env-gated SWEG_CHALLENGER_CARDS. DEFAULT-ON since wave 252 (commit
-    # bc9159d adopted it as a production default); SWEG_CHALLENGER_CARDS=0 is
-    # the kill-switch and is byte-identical (no draw, no scoring, no RNG).
-    # FIDELITY CAVEAT: the competitive Chapter Approved Tournament Companion
-    # (the ruleset the May 2026 Warp Friends calibration aggregate is drawn
-    # from) EXCLUDES challenger cards, so the faithful competitive default is
-    # arguably OFF; the wave-252 metric gain is a win-rate-spread compression
-    # from an out-of-reference catch-up dial. See the citation's note.
-    # See data/rule_citations.d/core_challenger_cards.json#simulator.challenger_cards.
+    # Env-gated SWEG_CHALLENGER_CARDS. REVERTED TO DEFAULT-OFF 2026-07-04 (was
+    # default-on wave 252 -> sc53a; commit bc9159d adopted it on the OLD
+    # compensated scale). WHY REVERTED, on both grounds: (1) FIDELITY — the
+    # competitive Chapter Approved Tournament Companion, the ruleset the May 2026
+    # Warp Friends calibration aggregate is drawn from, EXPLICITLY EXCLUDES
+    # challenger cards ("we have not included ... the Challenger cards"), so the
+    # real target games were played WITHOUT them; modelling them is an
+    # out-of-reference catch-up dial that trips EVAL_PROTOCOL rule 9. (2) METRIC
+    # — on the now-faithful frame the wave-252 gain has inverted: removing
+    # challenger improves gated MAE (Adeptus Astartes 52->47 onto its real 47,
+    # the Genestealer Cults under-pole eases). `=1` re-enables the (verified,
+    # byte-identical-on) mechanic for anyone calibrating against a challenger-
+    # legal format. See data/rule_citations.d/core_challenger_cards.json.
     # ------------------------------------------------------------------
 
     _CHALLENGER_GAP: int = 6        # trail by this many VP to be eligible
     _CHALLENGER_LIFETIME_CAP: int = 12   # 12 VP printed lifetime cap per side
 
     def _challenger_enabled(self) -> bool:
-        """Chapter Approved 2025-26 challenger cards. Read EXACTLY the documented
-        gate. The default is ON (adopted wave 252); ONLY an explicit "0"
-        disables the mechanic, in which case there is no draw, no scoring and no
-        RNG consumed (byte-identical OFF path)."""
-        return __import__("os").environ.get("SWEG_CHALLENGER_CARDS", "1") != "0"
+        """Chapter Approved 2025-26 challenger cards, REVERTED to DEFAULT-OFF
+        2026-07-04 (out-of-reference for the competitive Warp Friends target +
+        metric-negative on the faithful frame). Only an explicit "1" enables the
+        mechanic; unset/"0" is the byte-identical off path (no draw, no scoring,
+        no RNG consumed)."""
+        return __import__("os").environ.get("SWEG_CHALLENGER_CARDS", "0") == "1"
 
     def _decide_challenger_draw(self, round_num: int) -> None:
         """At the start of a battle round, if one side trails by >= 6 victory

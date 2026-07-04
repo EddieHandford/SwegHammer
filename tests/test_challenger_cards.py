@@ -238,14 +238,26 @@ class LifetimeCapTests(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class OffPathTests(unittest.TestCase):
-    def test_default_unset_is_enabled(self):
-        # Gate UNSET → the DEFAULT is ON (adopted wave 252), so the trailing
-        # side draws. (Only an explicit "0" is the inert kill-switch.)
+    def test_default_unset_is_disabled(self):
+        # Gate UNSET → the DEFAULT is OFF (reverted 2026-07-04: out-of-reference
+        # for the competitive Warp Friends target + metric-negative on the
+        # faithful frame), so the trailing side does NOT draw. Only an explicit
+        # "1" enables the mechanism.
         with _Gate(None):
             battle, obj = _battle_one_nml_objective()
             _a_controls(battle, obj)
             battle._a_vp = 0
-            battle._b_vp = 30   # A trails by 30 → A draws by default.
+            battle._b_vp = 30   # A trails by 30 but the default is off → no draw.
+            battle._decide_challenger_draw(round_num=2)
+            self.assertIsNone(battle._challenger_card_this_round)
+
+    def test_explicit_on_enables(self):
+        # Gate explicitly "1" → the trailing side draws (mechanic verified).
+        with _Gate("1"):
+            battle, obj = _battle_one_nml_objective()
+            _a_controls(battle, obj)
+            battle._a_vp = 0
+            battle._b_vp = 30   # A trails by 30 → A draws when enabled.
             battle._decide_challenger_draw(round_num=2)
             self.assertIsNotNone(battle._challenger_card_this_round)
             side, _card = battle._challenger_card_this_round
