@@ -1708,6 +1708,114 @@ def _effective_template(
         template["chaos_knights_library_chaos_cerastus_knight_atrapos"] = 1
         template["chaos_knights_library_knight_despoiler"] = 2
 
+    # SWEG_ORKS_REALISM (2026-07-04) — Orks War Horde template reshape to the
+    # real 2026 competitive MOBILE list. Default OFF (screening gate; adopt
+    # default-on only after the orchestrator's N=80 screen). List-composition
+    # correction, NOT win-rate tuning — the metric direction is accepted
+    # whatever it is.
+    #
+    # WHY: the Orks `Waaagh!` template fields Boyz x2, Meganobz, Warboss in
+    # Mega Armour, Killa Kans, Tankbustas, Nobz, Deffkoptas — a STATIC
+    # Killa-Kan-wall list with ZERO epic heroes and ZERO mobility. The
+    # owner-directed manual pilot (`scripts/pilot_manual` vs Aeldari, the
+    # 13-percent worst matchup) traced the -13.4 under-pole (sim 31.9 vs real
+    # 45.3) to a LIST MIS-COMPOSITION, not a play-quality floor (no tactic —
+    # focus / contest / kite — recovers it; the DECISION_LEDGER WAAAGH-timing
+    # and melee-caging rejections stand). Reading the losses found the real
+    # cause has three faces, all explained by the same gap:
+    #   (1) LOSS SHAPE = LATE-GAME OBJECTIVE FADE. Orks lead rounds 1-2 then
+    #       get overtaken 3-5 as the mobile opponent (Aeldari / T'au) re-
+    #       contests markers behind them — a close SCORING loss (49-55), not
+    #       an attrition wipe. Orks' worst matchups are ALL the mobile / shooty
+    #       armies (Aeldari, Thousand Sons, T'au, Votann, Sororitas); they BEAT
+    #       the other horde (Tyranids).
+    #   (2) 9 Killa Kans in 100 percent of builds, watched sitting INERT at
+    #       "HELD @99in-off" the whole game — the wrong units.
+    #   (3) Ghazghkull-alone screened FLAT (`SWEG_ORKS_GHAZGHKULL`, one durable
+    #       body) because the list's missing piece is MOBILITY, not a brick.
+    # A static Kan wall has no way to re-contest the objectives it cedes in the
+    # late game — the exact mechanism of the loss shape.
+    #
+    # SOURCED — real May/2026 competitive 2000-point Orks are a MOBILE War
+    # Horde built around Ghazghkull + a transport / fast-unit package, and run
+    # NO Killa Kans (a Kan wall is absent from every competitive list checked):
+    #   - Rose City Rampage 1st place, Jonathan Sebert (Orks, War Horde):
+    #     Ghazghkull Thraka + 2x Beastboss + Big Mek + Warboss + Zodgrod
+    #     Wortsnagga; 2x Beast Snagga Boyz + 2x Gretchin (battleline); 3x Trukk
+    #     + 1x Battlewagon (transports); Breaka Boyz + Meganobz + Flash Gitz +
+    #     Stormboyz + Tankbustas. ZERO Killa Kans.
+    #     https://spikeybits.com/warhammer-40k/rose-city-rampage-top-40k-tournament-army-lists/
+    #   - Bolter and Chainsword "2,000 Point Tournament War Horde List" (user
+    #     'dees'): Ghazghkull (Warlord) + Boss Snikrot + Beastboss + 2x Warboss;
+    #     2x Beast Snagga Boyz + 2x Boyz (battleline); 6x Meganobz + 2x Nobz +
+    #     2x Stormboyz; 4x Trukk. ZERO Killa Kans, a fully MECHANISED core.
+    #     https://bolterandchainsword.com/topic/382953-2000-point-tournament-war-horde-list/
+    #   - Tom Godfrey (rank-1 UK Orks, 2nd at an April 2026 Grand Tournament):
+    #     mechanised melee War Horde — Ghaz + Big Mek + 20 Boyz brick, Snikrot,
+    #     Zodgrod, Trukks carrying Beast Snaggas / Breaka Boyz / Flash Gitz /
+    #     Tankbustas. https://www.uktc.events/post/warboss-tom
+    #   - Tabletop Battles "Detachment Focus: War Horde" (updated 2025-12-30):
+    #     War Horde is "currently the preferred way to run the faction
+    #     competitively", "the only [detachment] where Ghazghkull is a must-
+    #     take"; Ghaz "rides in a Battlewagon with an 'Ard case or joins a unit
+    #     of Boyz and Nobz"; Squighog Boyz / Stormboyz named as the fast pieces.
+    #     https://www.tabletopbattles.com/detachment-focus-war-horde/
+    #
+    # THE RESHAPE (models the sourced-list SHAPE; does NOT invent units — every
+    # key is a real War Horde unit that appears in the sourced lists):
+    #   - DROP orks_killa_kans (the named phantom: 100-percent presence, watched
+    #     inert, absent from every sourced competitive list). Deffkoptas kept —
+    #     they are at least a fast (move 12) unit and not the diagnosed problem;
+    #     dropping only the clear phantom matches the WE / DG _REALISM precedent
+    #     (drop the phantom, add the real pillars).
+    #   - ADD the transport / mobility package: 3x Trukk + 1x Battlewagon (the
+    #     mechanised core of every sourced list) + 2x Stormboyz (move 12, the
+    #     universal fast on-foot re-contest unit). Trukks are the highest count
+    #     so they seed first in the (-count, -cost) walk; each TRANSPORT auto-
+    #     embarks the highest-score infantry pre-game (`simulator._embark_
+    #     pregame_passengers`, faction-agnostic), giving the ridden Boyz / Beast
+    #     Snagga / Nobz a +6" pre-move and a disembark-to-contest — the sim DOES
+    #     model transports (embark / disembark cycle wired since EMBARK-V1), so
+    #     the mobility is genuinely represented, not a proxy.
+    #   - ADD the mobile battleline: 2x Beast Snagga Boyz (universal in the
+    #     sourced lists — 'Ard as Nails + Feel No Pain durable objective-holders)
+    #     led by a Beastboss (the Beast Snagga leader in every sourced list).
+    #   - KEEP the real core the template already had: Boyz x2, Meganobz, Nobz,
+    #     Tankbustas, Warboss in Mega Armour (all appear in the sourced lists).
+    #   - FOLD IN the centerpiece: orks_ghazghkull_thraka (count=1). This
+    #     SUPERSEDES the separate `SWEG_ORKS_GHAZGHKULL` gate (kept in the
+    #     codebase as the isolated-centerpiece decomposition, which screened
+    #     flat because Ghaz alone is not the missing mobility) — this reshape is
+    #     the full real list. Ghaz is the sole template EPIC HERO (Beastboss /
+    #     Warboss are not EPIC HERO), so the `_instantiate_template` epic-hero
+    #     anchor guarantee force-seeds him as the centerpiece ~100 percent (the
+    #     Mortarion / Khârn / Magnus mechanism); the two gates set the same
+    #     count=1 so running both is idempotent.
+    # Guarded per CLAUDE.md rule 13 (fail loud on missing data): if any added
+    # key ever stops resolving in UNIT_CATALOG, raise instead of silently
+    # shrinking the would-be-default-on template.
+    if os.environ.get("SWEG_ORKS_REALISM") == "1" and fac == "Orks":
+        _orks_add = {
+            "orks_ghazghkull_thraka": 1,
+            "orks_beastboss": 1,
+            "orks_beast_snagga_boyz": 2,
+            "orks_trukk": 3,
+            "orks_battlewagon": 1,
+            "orks_stormboyz": 2,
+        }
+        for _ork_key in _orks_add:
+            if _ork_key not in UNIT_CATALOG:
+                raise KeyError(
+                    "archetypes._effective_template: SWEG_ORKS_REALISM expects "
+                    f"'{_ork_key}' to resolve in UNIT_CATALOG but it is missing "
+                    "— check for a regression that dropped the datasheet from "
+                    "the catalogue or a typo'd key."
+                )
+        template = {
+            k: v for k, v in template.items() if k != "orks_killa_kans"
+        }
+        template.update(_orks_add)
+
     # SWEG_ASTARTES_BATTLELINE (2026-07-04) — Adeptus Astartes broadened
     # objective-holding battleline. Default OFF. List-composition correction,
     # NOT win-rate tuning — the metric direction is accepted whatever it is.
