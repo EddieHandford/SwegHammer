@@ -2264,6 +2264,102 @@ def _is_caging_brick(profile) -> bool:
         getattr(profile, "health", 0) or 0) >= 15
 
 
+# ---------------------------------------------------------------------------
+# Melee hold-objective (SWEG_MELEE_HOLD_OBJECTIVE) — score what you hold
+# ---------------------------------------------------------------------------
+# A late-game "score what you hold" hold, not a charge-target redirect and not a
+# blanket charge-block. BOARD-READ EVIDENCE (docs/PILOT_PROTOCOL.md, the Chaos
+# Daemons pilot, scripts/diag_pilot_am_vs_ik 2 "Chaos Daemons" "Death Guard"):
+# a Khorne melee force, tied on primary at the end of round 4 while CONTROLLING
+# objectives, threw the DECISIVE round 5 by walking the whole melee force
+# (Bloodcrushers / Flesh Hounds / Bloodmaster) OFF the markers it controlled to
+# make a futile charge into a Toughness-12 Plagueburst Crawler for ZERO damage —
+# surrendering the primary it was scoring for a brick it could not crack. A human
+# keeping those units standing on the objectives wins the tied game.
+#
+# Two move sites in pick_move_intent send a melee-committing unit toward its best
+# melee target with no exception for "I currently control the marker I am standing
+# on and the only target is a brick I cannot hurt": the MELEE early-exit (role
+# "MELEE" — e.g. Karanak) and the DUAL engage block (role "DUAL" — the actual
+# misplay units: Bloodcrushers / Flesh Hounds / Bloodmaster all classify DUAL, a
+# melee body with a token ranged profile, NOT strict MELEE). This lever adds
+# exactly one exception at BOTH sites, and ONLY that: in the SCORING rounds (4 and
+# 5, where the primary is decisive), a unit that CURRENTLY CONTROLS the objective
+# it is standing on (its army's Objective Control there strictly exceeds the
+# enemy's, so leaving surrenders or reduces the control that is scoring primary VP)
+# does NOT vacate that marker to charge a durable BRICK it cannot meaningfully
+# damage (_is_caging_brick — Toughness >= 10 or 15+ Wounds — AND its one round of
+# melee deals under _MELEE_HOLD_MIN_CRACK_WOUNDS wounds via _kill_potential_wounds).
+# It HOLDS the marker (stationary — control retention guaranteed) and scores.
+#
+# The existing on-objective hold-check above only holds the MARGINAL holder (the
+# unit whose departure would flip the marker); this lever catches the REDUNDANT
+# holder the misplay exploits — the doubled-up melee body whose army keeps control
+# without it, which the marginal check waves off to go charge, and which then walks
+# the primary away for nothing.
+#
+# Four non-negotiable narrowings, each with a decisive rejection precedent:
+#  1. HOLD, not redirect: the unit is KEPT SCORING on a marker it controls — the
+#     value is the retained primary VP, not a declined charge. This is NOT the
+#     charge-target redirect that screened SWEG_ELITE_ANTIBRICK at -7.63, and NOT
+#     the blanket charge-block that screened SWEG_AM_CHARGE_DISCIPLINE at -2.41
+#     (a no-damage charge still tied a threat + contested ground THERE; here the
+#     unit forfeits controlled scoring ground to make the futile charge).
+#  2. Never a unit that controls nothing: a unit off-objective (or on a marker its
+#     army does not control) charges/advances normally.
+#  3. Never a winnable fight: the caller supplies the target it would ACTUALLY move
+#     onto (the best pick over its own in-reach candidate set); if that is crackable
+#     (not a brick, or the unit can meaningfully hurt it) the unit charges as normal.
+#     Only the futile-brick + controlled-objective + scoring-round combination holds.
+#  4. Never outside rounds 4-5: early game the unit still commits forward.
+# Faction-neutral (the misplay class is general — verified firing for Khorne
+# Bloodcrushers / Flesh Hounds standing on controlled markers against Knight and
+# Plagueburst-Crawler bricks). Default-off, byte-identical off: the gate is the
+# first short-circuit in _should_melee_hold_objective, so both move sites return
+# their usual ENGAGE intent when unset. Cited simulator.melee_hold_objective (an AI
+# piloting heuristic composed with the already-cited core Objective Control rule —
+# no novel rules claim).
+_MELEE_HOLD_MIN_CRACK_WOUNDS = 1.0
+
+
+def _melee_hold_objective_enabled() -> bool:
+    """SWEG_MELEE_HOLD_OBJECTIVE gate. DEFAULT-OFF: unset or '0' is the
+    byte-identical kill-switch; the whole hold is skipped and the melee move
+    decision returns its usual ENGAGE intent."""
+    return os.environ.get("SWEG_MELEE_HOLD_OBJECTIVE", "0") == "1"
+
+
+def _should_melee_hold_objective(
+    unit, best_target, cur_round: int, own_oc: int,
+    unit_on_obj_ids, our_oc: Dict, their_oc: Dict,
+) -> bool:
+    """SWEG_MELEE_HOLD_OBJECTIVE predicate (shared by the MELEE early-exit and
+    the DUAL engage block — the two move sites where a melee-committing unit
+    would leave to charge). True iff this unit should HOLD the objective it
+    controls rather than vacate it to charge `best_target`. See the block
+    header for the board-read evidence and the four narrowings.
+
+    Gate-first, so with the gate unset every caller returns its usual ENGAGE
+    intent (byte-identical off). `best_target` is the enemy the CALLER would
+    otherwise move onto — the caller supplies its own best pick, so a crackable
+    target that outscored the brick was never a brick here and the unit engages
+    it normally (guard 3: never stop a winnable fight)."""
+    if not _melee_hold_objective_enabled():
+        return False
+    if cur_round not in (4, 5):                     # guard 4: scoring rounds only
+        return False
+    if own_oc <= 0:                                 # guard 2: must carry OC ...
+        return False
+    if not any(our_oc[oid] > their_oc[oid]          # ... and CONTROL a marker it
+               for oid in unit_on_obj_ids):         #     stands on (leaving reduces it)
+        return False
+    if not _is_caging_brick(best_target.profile):   # guard 3: a durable brick ...
+        return False
+    return _kill_potential_wounds(                  # ... it cannot meaningfully crack
+        _score_profile(unit), _score_profile(best_target)
+    ) < _MELEE_HOLD_MIN_CRACK_WOUNDS
+
+
 def _cage_angular_gap(a: float, b: float) -> float:
     """Absolute smallest angle (radians, in [0, pi]) between two bearings."""
     d = (a - b) % (2.0 * math.pi)
@@ -3587,10 +3683,21 @@ def pick_move_intent(
     # `objs` or `nearest_enemy`, so we skip both the objectives scoring
     # loop and the nearest-enemy scan entirely.
     if role == "MELEE" and enemy_alive:
-        return max(
+        best_target = max(
             enemy_alive,
             key=lambda e: _plan_target_score(_melee_target_score(unit, e), e),
-        ).position, _ENGAGE_INTENT
+        )
+        # SWEG_MELEE_HOLD_OBJECTIVE (default-off): score what you hold — in the
+        # decisive scoring rounds a MELEE unit that CONTROLS the objective it
+        # stands on holds it (stationary, control-retention guaranteed) rather
+        # than vacate to charge a brick it cannot crack. Gate-first inside the
+        # helper => byte-identical off. See the helper block header.
+        if _should_melee_hold_objective(
+            unit, best_target, cur_round, own_oc,
+            unit_on_obj_ids, _our_oc, _their_oc,
+        ):
+            return unit.position, _HOLD_INTENT
+        return best_target.position, _ENGAGE_INTENT
 
     # ----- 2. Score every objective; pick the most worth visiting -----
     # S2: late-round contests dominate — multiply base value by `round_weight`
@@ -3873,6 +3980,20 @@ def pick_move_intent(
                 key=lambda e: _plan_target_score(raw_scores[id(e)], e),
             )
             if raw_scores[id(best_melee)] > 0.1:
+                # SWEG_MELEE_HOLD_OBJECTIVE (default-off): the melee-primary
+                # DUAL misplay class — a Bloodcrusher / Flesh Hound / Bloodmaster
+                # controlling an objective walks off to charge a brick it cannot
+                # crack. Same score-what-you-hold hold as the MELEE early-exit,
+                # applied to the DUAL engage decision. `best_melee` is the target
+                # this unit would actually move onto (the max over in-reach
+                # viable enemies), so a crackable in-reach target that outscored
+                # the brick is engaged normally (guard 3). Gate-first =>
+                # byte-identical off.
+                if _should_melee_hold_objective(
+                    unit, best_melee, cur_round, own_oc,
+                    unit_on_obj_ids, _our_oc, _their_oc,
+                ):
+                    return unit.position, _HOLD_INTENT
                 return best_melee.position, _ENGAGE_INTENT
 
     # ----- 4. Pick objective target if one scored well; else engage enemy -----

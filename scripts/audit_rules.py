@@ -1221,6 +1221,23 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # approximation the point geometry supports. Cited in
     # data/rule_citations.d/melee_caging.json.
     "simulator.melee_caging",
+    # SWEG_MELEE_HOLD_OBJECTIVE (default-off, faction-neutral, byte-identical
+    # off). Score-what-you-hold late-game hold (pick_move_intent,
+    # code/strategy.py): in the scoring rounds (4 and 5), a MELEE unit that
+    # CURRENTLY CONTROLS the objective it stands on (its army's Objective
+    # Control there strictly exceeds the enemy's) does not vacate that marker
+    # to charge a durable brick (Toughness 10+ or 15+ Wounds, the same
+    # simulator.antitank_advance_discipline brick definition) it cannot
+    # meaningfully damage (under ~1 wound of melee via _kill_potential_wounds).
+    # It returns a stationary HOLD and keeps scoring the primary instead of
+    # surrendering it for a futile charge. An artificial-intelligence piloting
+    # heuristic composed with the already-cited core Objective Control rule —
+    # not a charge-target redirect (the rejected SWEG_ELITE_ANTIBRICK) and not
+    # a blanket charge-block (the rejected SWEG_AM_CHARGE_DISCIPLINE). The
+    # board-read evidence is the Chaos Daemons objective-abandonment misplay
+    # documented in docs/PILOT_PROTOCOL.md. Cited in
+    # data/rule_citations.d/melee_hold_objective.json.
+    "simulator.melee_hold_objective",
     "unit.necrodermis",
     # Wave 181 — CA-2025-26 Tactical-track flat kill card VP values.
     # When a TACTICAL-track army (SWEG_TAC_DECK path) draws one of these three
