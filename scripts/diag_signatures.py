@@ -100,6 +100,12 @@ class _GameRecord:
         # written back to BattleResult.)
         self.a_uncapped_total: int = 0
         self.b_uncapped_total: int = 0
+        # Challenger cards (Chapter Approved 2025-26 catch-up; env-gated
+        # SWEG_CHALLENGER_CARDS). Populated in main() from the run Battle:
+        # how many rounds drew a challenger card this game, and the lifetime
+        # challenger VP banked (a + b). Zero on the OFF path.
+        self.challenger_draws: int = 0
+        self.challenger_vp: int = 0
 
 
 def _parse_event_log(log: EventLog, result) -> _GameRecord:
@@ -264,6 +270,18 @@ def _compute_signatures(records: List[_GameRecord]) -> dict:
         else:
             round_means.append(None)
 
+    # --- Challenger cards (signature #8) --------------------------------
+    # Gate state is read here so the table reports whether the mechanic was
+    # actually enabled for this run (default-on since wave 252).
+    challenger_enabled = os.environ.get("SWEG_CHALLENGER_CARDS", "1") != "0"
+    total_challenger_draws = sum(r.challenger_draws for r in records)
+    games_with_draw = sum(1 for r in records if r.challenger_draws > 0)
+    total_challenger_vp = sum(r.challenger_vp for r in records)
+    # Two player-games per game; challenger VP is per-player when averaged.
+    mean_challenger_vp_per_player = (
+        total_challenger_vp / (2 * n_games) if n_games else None
+    )
+
     return {
         "n_games": n_games,
         "mean_primary_per_player": statistics.mean(all_primary) if all_primary else None,
@@ -283,6 +301,13 @@ def _compute_signatures(records: List[_GameRecord]) -> dict:
             if margin_list else None
         ),
         "vp_margin_sample_size": len(margin_list),
+        "challenger_enabled": challenger_enabled,
+        "challenger_total_draws": total_challenger_draws,
+        "challenger_games_with_draw": games_with_draw,
+        "challenger_games_with_draw_fraction": (
+            games_with_draw / n_games if n_games else None
+        ),
+        "challenger_mean_vp_per_player": mean_challenger_vp_per_player,
     }
 
 
@@ -373,10 +398,22 @@ def _print_table(sigs: dict) -> None:
 
     print()
     print("# 8  Challenger-card trigger rate")
-    print("     Sim:  NOT MODELLED — the sim has no challenger-card mechanic.")
-    print("           The Chapter Approved 2025-26 challenger-card rule (available")
-    print("           to a player trailing by >= 6 VP at the start of a battle round,")
-    print("           max 12 VP total) is not implemented in code/simulator.py.")
+    if not sigs["challenger_enabled"]:
+        print("     Sim:  MODELLED but DISABLED for this run (SWEG_CHALLENGER_CARDS=0).")
+        print("           The mechanic exists in code/simulator.py")
+        print("           (_decide_challenger_draw / _score_challenger_card); it was")
+        print("           gated off for this measurement.")
+    else:
+        print(f"     Sim:  MODELLED and ENABLED. Games with >=1 challenger draw: "
+              f"{_pct(sigs['challenger_games_with_draw_fraction'])} "
+              f"({sigs['challenger_games_with_draw']}/{sigs['n_games']}); "
+              f"{sigs['challenger_total_draws']} draws total; "
+              f"mean challenger VP/player/game "
+              f"{_fmt(sigs['challenger_mean_vp_per_player'], '.2f')}.")
+        print("           Trailing side (>= 6 VP behind) draws one extra Tactical")
+        print("           achievement card at round start; lifetime cap 12 VP.")
+        print("           NOTE: excluded from the competitive Tournament Companion")
+        print("           the calibration reference is drawn from (fidelity caveat).")
     print(f"     Real: {_REAL['challenger_cards']}")
 
     print()
@@ -422,8 +459,23 @@ def main() -> None:
             b_army = build_faction_random_army("B", b_fac, 2000, rng=rng_b, use_archetype=True)
             log = EventLog()
             map_ = _pick_rotation_map(seed)
-            result = Battle(a_army, b_army, subscribers=[log], map_=map_).run()
+            battle = Battle(a_army, b_army, subscribers=[log], map_=map_)
+            # Signature #8: count challenger-card draws by wrapping the
+            # round-start decision (no behaviour change, no RNG). The wrapper
+            # increments a per-game counter whenever a card is actually drawn.
+            _draw_state = {"n": 0}
+            _orig_draw = battle._decide_challenger_draw
+
+            def _counting_draw(rnd, _orig=_orig_draw, _st=_draw_state, _b=battle):
+                _orig(rnd)
+                if _b._challenger_card_this_round is not None:
+                    _st["n"] += 1
+
+            battle._decide_challenger_draw = _counting_draw  # type: ignore[assignment]
+            result = battle.run()
             rec = _parse_event_log(log, result)
+            rec.challenger_draws = _draw_state["n"]
+            rec.challenger_vp = battle._a_challenger_vp + battle._b_challenger_vp
             records.append(rec)
             winner_label = result.winner if result.winner else "Draw"
             # Show capped VP (primary cap 50, secondary cap 40) — the actual
@@ -459,8 +511,8 @@ def main() -> None:
     print("    #5 per-round primary cap fraction")
     print("    #6 per-round primary trajectory")
     print("    #7 victory-point margin distribution")
-    print("  NOT MEASURABLE — missing from event stream or sim:")
-    print("    #8 challenger-card trigger rate  (mechanic not implemented in the sim)")
+    print("    #8 challenger-card trigger rate  (measured from the run Battle;")
+    print("       mechanic modelled + default-on since wave 252)")
 
 
 if __name__ == "__main__":

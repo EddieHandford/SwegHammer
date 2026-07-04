@@ -3699,17 +3699,25 @@ class Battle:
 
     # ------------------------------------------------------------------
     # Challenger cards (Chapter Approved 2025-26 trailing-player catch-up).
-    # Env-gated SWEG_CHALLENGER_CARDS; default OFF byte-identical.
+    # Env-gated SWEG_CHALLENGER_CARDS. DEFAULT-ON since wave 252 (commit
+    # bc9159d adopted it as a production default); SWEG_CHALLENGER_CARDS=0 is
+    # the kill-switch and is byte-identical (no draw, no scoring, no RNG).
+    # FIDELITY CAVEAT: the competitive Chapter Approved Tournament Companion
+    # (the ruleset the May 2026 Warp Friends calibration aggregate is drawn
+    # from) EXCLUDES challenger cards, so the faithful competitive default is
+    # arguably OFF; the wave-252 metric gain is a win-rate-spread compression
+    # from an out-of-reference catch-up dial. See the citation's note.
     # See data/rule_citations.d/core_challenger_cards.json#simulator.challenger_cards.
     # ------------------------------------------------------------------
 
     _CHALLENGER_GAP: int = 6        # trail by this many VP to be eligible
-    _CHALLENGER_LIFETIME_CAP: int = 12   # ~12 VP practical lifetime cap per side
+    _CHALLENGER_LIFETIME_CAP: int = 12   # 12 VP printed lifetime cap per side
 
     def _challenger_enabled(self) -> bool:
         """Chapter Approved 2025-26 challenger cards. Read EXACTLY the documented
-        gate so OFF is unambiguous. Unset/anything-but-"1" → the mechanic is
-        inert: no draw, no scoring, no RNG consumed (byte-identical OFF path)."""
+        gate. The default is ON (adopted wave 252); ONLY an explicit "0"
+        disables the mechanic, in which case there is no draw, no scoring and no
+        RNG consumed (byte-identical OFF path)."""
         return __import__("os").environ.get("SWEG_CHALLENGER_CARDS", "1") != "0"
 
     def _decide_challenger_draw(self, round_num: int) -> None:
