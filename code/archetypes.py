@@ -1044,7 +1044,11 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "chaos_daemons_library_the_masque_of_slaanesh": 1,
             "chaos_daemons_library_daemon_prince_of_chaos": 1,
         },
-        # SWEG_DAEMONS_BELAKOR (2026-07-02, default OFF) — Be'lakor-anchored
+        # SWEG_DAEMONS_BELAKOR (2026-07-02; ⚠ NOW DEFAULT-ON — the gate reads
+        # default "1" at the filter sites (code ~2177/2617); this "default OFF"
+        # phrasing is STALE, corrected 2026-07-04 during the Daemons manual
+        # pilot: the Scintillating Legion variant IS already in the rotation
+        # (~20 percent of builds). `=0` is the kill-switch.) — Be'lakor-anchored
         # multi-god "Scintillating Legion" fifth sub-archetype. The four
         # mono-god templates above rotate uniformly (25% each) and cover the
         # "one Greater Daemon of one god" shape, but the real 2026
