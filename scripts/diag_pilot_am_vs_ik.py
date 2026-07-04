@@ -18,12 +18,22 @@ from code.events import (
 )
 from code.simulator import Battle
 from code.renderer import aggregate_activations, render_frame
-from scripts.evaluate_vs_meta import _pick_rotation_map
+from scripts.evaluate_vs_meta import (
+    _pick_rotation_map, _pick_primary_mission, FACTIONS,
+)
 
 SEED = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 A_FAC = sys.argv[2] if len(sys.argv) > 2 else "Astra Militarum"
 B_FAC = sys.argv[3] if len(sys.argv) > 3 else "Imperial Knights"
 TAG = (A_FAC.split()[0] + "_v_" + B_FAC.split()[0]).lower()
+
+# Reproduce the EXACT eval game for (A_FAC vs B_FAC, seed SEED) rather than a
+# random one: match evaluate_vs_meta's pair_seed packing so the global RNG (dice)
+# and primary mission are identical to the eval. Without this the play dice are
+# unseeded and every render of "seed N" is a different game — board-reads then
+# disagree run-to-run, which the pilot protocol's round-by-round reading needs.
+_fac_idx = {f: i for i, f in enumerate(FACTIONS)}
+PAIR_SEED = (_fac_idx[A_FAC] * 1000 + _fac_idx[B_FAC]) * 100 + SEED
 
 
 def _near_obj(pos, objs):
@@ -36,11 +46,13 @@ def _near_obj(pos, objs):
 
 
 def main() -> None:
+    random.seed(PAIR_SEED)
     a = build_faction_random_army("A", A_FAC, 2000, rng=random.Random(SEED), use_archetype=True)
     b = build_faction_random_army("B", B_FAC, 2000, rng=random.Random(SEED + 10000), use_archetype=True)
     log = EventLog()
     map_ = _pick_rotation_map(SEED)
-    Battle(a, b, subscribers=[log], map_=map_).run()
+    primary = _pick_primary_mission(PAIR_SEED)
+    Battle(a, b, subscribers=[log], map_=map_, primary_mission=primary).run()
     ev = log.events
     objs = map_.objectives
 
