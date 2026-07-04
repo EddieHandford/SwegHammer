@@ -1752,7 +1752,13 @@ def _effective_template(
     # Guarded per CLAUDE.md rule 13 (fail loud on missing data): if the
     # override/catalogue key ever stops resolving, raise instead of silently
     # dropping the centerpiece from a would-be-default-on template.
-    if os.environ.get("SWEG_TSONS_MAGNUS") == "1" and fac == "Thousand Sons":
+    # ADOPTED default-on 2026-07-04 (`=0` kill-switch). N=80 Thousand-Sons-scoped
+    # screen vs sc54a: Thousand Sons 46.3 -> 53.0 (+6.70, landing on real 53.9),
+    # gated 3.60 -> 3.51, and Death Guard deflates -1.02 toward real (the crater
+    # was a LIST gap, not a durability floor — Magnus is the missing anti-brick
+    # tool; the Death-Guard-vs-Thousand-Sons cell collapses 90 -> 52.5). Sourced:
+    # real 2026 competitive Thousand Sons run Magnus as a common centerpiece.
+    if os.environ.get("SWEG_TSONS_MAGNUS", "1") != "0" and fac == "Thousand Sons":
         if "thousand_sons_magnus_the_red" not in UNIT_CATALOG:
             raise KeyError(
                 "archetypes._effective_template: SWEG_TSONS_MAGNUS expects "
