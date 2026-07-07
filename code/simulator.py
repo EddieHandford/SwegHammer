@@ -652,9 +652,13 @@ class Battle:
     def run(self) -> BattleResult:
         # Battle Focus tokens (Aeldari ASURYANI army rule, 10e). The token
         # pool is now granted PER BATTLE ROUND in _run_round, not once here.
-        # Tokens accumulate (additive carryover — the Wahapedia rule says
-        # "you receive" per round; it does not say unspent tokens are discarded,
-        # so we carry over). Amounts are battle-size-dependent (see
+        # By default the grant is additive across rounds (legacy behaviour).
+        # CORRECTED CITATION: Wahapedia states verbatim "At the end of the
+        # battle round, all unspent Battle Focus tokens are lost" — under the
+        # default-off gate `SWEG_AELDARI_BF_DISCARD`, `_run_round` zeroes each
+        # army's pool at the end of every round so it does not carry over (see
+        # `_grant_battle_focus_tokens` and the end-of-round reset in
+        # `_run_round`). Amounts are battle-size-dependent (see
         # _grant_battle_focus_tokens). Army.battle_focus_tokens starts at 0
         # (set in Army.__init__) and is never written here; the first grant
         # fires at the start of Round 1 in _run_round.
@@ -11159,10 +11163,19 @@ class Battle:
         "At the start of the battle round, you receive 1 additional Battle Focus
         token."
 
-        Tokens are ADDITIVE — "you receive" is accumulation language; the rule
-        text does not say unspent tokens are discarded at round end, so carryover
-        is preserved. Only armies containing at least one ASURYANI unit receive
-        tokens (the rule is faction-wide, not detachment-gated for the base grant).
+        Tokens ADD onto the existing pool here at the grant site (this method
+        only ever increments). CORRECTION (this comment previously claimed the
+        rule text "does not say" unspent tokens are discarded — that was
+        WRONG. Wahapedia states it verbatim: "At the end of the battle round,
+        all unspent Battle Focus tokens are lost." Under the default-off gate
+        `SWEG_AELDARI_BF_DISCARD`, `_run_round` zeroes each army's
+        `battle_focus_tokens` at the end of the round (after this method's
+        next-round grant would otherwise stack on top of leftover tokens),
+        making the pool round-scoped as the rule requires. Gate off (legacy,
+        current default) preserves the additive carryover this method always
+        produced. Only armies containing at least one ASURYANI unit receive
+        tokens (the rule is faction-wide, not detachment-gated for the base
+        grant). Cited as `simulator.battle_focus`.
 
         Battle size is derived from army.starting_points, which is set before the
         round loop by Battle.run. If starting_points is 0 (unset), this raises
@@ -11294,10 +11307,15 @@ class Battle:
             self._displace.end_round()
 
         # Battle Focus tokens (Aeldari ASURYANI army rule, 10e). Grant is per
-        # battle round ("at the start of the battle round") and is ADDITIVE —
-        # the Wahapedia rule says "you receive"; it does not say unspent tokens
-        # are discarded, so carryover is preserved. The base grant is derived
-        # from battle size via army.starting_points (see
+        # battle round ("at the start of the battle round"); by default the
+        # pool ADDS onto whatever is left from the previous round (legacy
+        # behaviour). Wahapedia also states, verbatim: "At the end of the
+        # battle round, all unspent Battle Focus tokens are lost." — under
+        # the default-off gate `SWEG_AELDARI_BF_DISCARD`, the end of this
+        # method (`_run_round`, see the reset just before `_run_round_...`
+        # returns) zeroes the pool each round so this grant is the round's
+        # only tokens, matching the codex. The base grant is derived from
+        # battle size via army.starting_points (see
         # _battle_focus_tokens_for_army). Warhost Martial Grace adds a further
         # +1 per round on top. Cited as `simulator.battle_focus` and
         # `WARHOST.martial_grace`.
@@ -12065,6 +12083,23 @@ class Battle:
         if round_num > 1 and self.rules.cp_catchup_bonus:
             self._award_cp(self.a, self.b)
             self._award_cp(self.b, self.a)
+
+        # Battle Focus tokens (Aeldari ASURYANI army rule, 10e) —
+        # SWEG_AELDARI_BF_DISCARD. Wahapedia
+        # (https://wahapedia.ru/wh40k10ed/factions/aeldari/#Battle-Focus):
+        # "At the end of the battle round, all unspent Battle Focus tokens
+        # are lost." The base grant path (`_grant_battle_focus_tokens`,
+        # and the comment in `run()` above it) treats the tokens as additive
+        # carryover on the claim that the rule text "does not say" tokens are
+        # discarded — that claim is WRONG, the quoted sentence above says so
+        # verbatim. Under this gate, zero each army's battle_focus_tokens at
+        # the end of the round, here, before the next round's grant (fired at
+        # the top of the next `_run_round` call). Byte-identical off (the
+        # gate is only read here; the additive accumulation at the grant site
+        # is untouched either way). Cited as `simulator.battle_focus`.
+        if os.environ.get("SWEG_AELDARI_BF_DISCARD", "0") == "1":
+            self.a.battle_focus_tokens = 0
+            self.b.battle_focus_tokens = 0
 
     # ------------------------------------------------------------------
     # Round body — alternating (SwegHammer) vs turn-based (vanilla 10e)
@@ -13688,10 +13723,13 @@ class Battle:
             # Fate die per model per round. Block if this squad has already
             # spent a Fate die on advance this round.
             # task #28 squad_id re-key: use squad_id as the set key when >= 0.
+            # SWEG_AELDARI_FATE_FAITHFUL (default off): `fate_budget_key`
+            # collapses this to one army-wide key instead of per-squad — see
+            # `Army.fate_budget_key` for the rule citation and rationale.
             # Cited as `simulator.strands_of_fate`.
             and attacker_army.unit_budget_available(
                 "fate_advance",
-                (lambda _sid, _nm: _sid if _sid >= 0 else _nm)(
+                attacker_army.fate_budget_key(
                     getattr(attacker, "squad_id", -1), attacker.profile.name
                 ),
             )
@@ -13701,10 +13739,8 @@ class Battle:
                 sub = attacker_army.pop_fate_die_meeting(int(need))
                 if sub is not None:
                     advance_d6 = sub
-                    _fate_adv_key = (
-                        getattr(attacker, "squad_id", -1)
-                        if getattr(attacker, "squad_id", -1) >= 0
-                        else attacker.profile.name
+                    _fate_adv_key = attacker_army.fate_budget_key(
+                        getattr(attacker, "squad_id", -1), attacker.profile.name
                     )
                     attacker_army.mark_unit_budget("fate_advance", _fate_adv_key)
         move_distance = normal_move + advance_d6
@@ -16609,7 +16645,10 @@ class Battle:
         # found none, the roll stays failed for every member.
         # Key: squad_id (int, when >= 0) or profile name (str) — identical to
         # the fate_advance / fate_hit / fate_save keying (task #28 re-key).
-        _fate_chg_key = sid if sid >= 0 else attacker.profile.name
+        # SWEG_AELDARI_FATE_FAITHFUL (default off): `fate_budget_key` collapses
+        # this to one army-wide key instead of per-squad — see
+        # `Army.fate_budget_key` for the rule citation and rationale.
+        _fate_chg_key = attacker_army.fate_budget_key(sid, attacker.profile.name)
         if (
             roll < dist
             and attacker.profile.faction == "Aeldari"

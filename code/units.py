@@ -4972,12 +4972,19 @@ class Unit:
                             # where the codex allows only 1. Block if this squad
                             # has already spent a Fate die on a Hit roll this round.
                             # task #28 squad_id re-key: key on squad_id when >= 0.
+                            # SWEG_AELDARI_FATE_FAITHFUL (default off):
+                            # `fate_budget_key` collapses this to one army-wide
+                            # key instead of per-squad — see
+                            # `Army.fate_budget_key` for the rule citation.
                             # Cited as `simulator.strands_of_fate`.
                             # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
                             and hasattr(own_army, "unit_budget_available")
+                            and hasattr(own_army, "fate_budget_key")
                             and own_army.unit_budget_available(
                                 "fate_hit",
-                                (getattr(self, "squad_id", -1) if getattr(self, "squad_id", -1) >= 0 else p.name),
+                                own_army.fate_budget_key(
+                                    getattr(self, "squad_id", -1), p.name
+                                ),
                             )
                         ):
                             # AI-5: gate spending by stakes. Only treat the
@@ -4991,10 +4998,8 @@ class Unit:
                             if sub is not None:
                                 roll = sub
                                 if hasattr(own_army, "mark_unit_budget"):
-                                    _fate_hit_key = (
-                                        getattr(self, "squad_id", -1)
-                                        if getattr(self, "squad_id", -1) >= 0
-                                        else p.name
+                                    _fate_hit_key = own_army.fate_budget_key(
+                                        getattr(self, "squad_id", -1), p.name
                                     )
                                     own_army.mark_unit_budget("fate_hit", _fate_hit_key)
                     # Adepta Sororitas Acts of Faith — Miracle Dice
@@ -5357,11 +5362,18 @@ class Unit:
                                 # Fate die on their individual save rolls, draining
                                 # up to 10 dice where the codex allows only 1.
                                 # task #28 squad_id re-key: key on squad_id when >= 0.
+                                # SWEG_AELDARI_FATE_FAITHFUL (default off):
+                                # `fate_budget_key` collapses this to one
+                                # army-wide key instead of per-squad — see
+                                # `Army.fate_budget_key` for the rule citation.
                                 # Cited as `simulator.strands_of_fate`.
                                 and hasattr(tgt_army, "unit_budget_available")
+                                and hasattr(tgt_army, "fate_budget_key")
                                 and tgt_army.unit_budget_available(
                                     "fate_save",
-                                    (getattr(target, "squad_id", -1) if getattr(target, "squad_id", -1) >= 0 else target.profile.name),
+                                    tgt_army.fate_budget_key(
+                                        getattr(target, "squad_id", -1), target.profile.name
+                                    ),
                                 )
                             ):
                                 # AI-5: defensive saves are high-stakes when
@@ -5378,10 +5390,8 @@ class Unit:
                                 if sub is not None:
                                     sroll = sub
                                     if hasattr(tgt_army, "mark_unit_budget"):
-                                        _fate_save_key = (
-                                            getattr(target, "squad_id", -1)
-                                            if getattr(target, "squad_id", -1) >= 0
-                                            else target.profile.name
+                                        _fate_save_key = tgt_army.fate_budget_key(
+                                            getattr(target, "squad_id", -1), target.profile.name
                                         )
                                         tgt_army.mark_unit_budget("fate_save", _fate_save_key)
                         # Adepta Sororitas Acts of Faith — defensive Miracle
