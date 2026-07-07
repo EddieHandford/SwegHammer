@@ -1711,9 +1711,12 @@ def _effective_template(
     # List-composition only — no `rule_citations.json` entry needed (these
     # are army-shape flags, not rule-bearing flags; same scoping as
     # SWEG_EC_REALISM and the Orks / Imperial Knights reshapes above).
-    # Screening convention: default OFF (`=1` to enable), unlike the
-    # already-adopted SWEG_EC_REALISM default-on above.
-    if os.environ.get("SWEG_EC_LIST2", "0") == "1" and fac == "Emperor's Children":
+    # ADOPTED default-on 2026-07-08 (`=0` kill-switch): fidelity-first — a
+    # verified real-list correction adopts regardless of metric direction;
+    # screens MEASURED vs sc57a were mildly positive anyway (N=20 +0.89,
+    # N=40 +2.18, N=80 +0.76 non-decisive; gated MAE 3.08 -> 3.01 at the
+    # N=80 promotion arm). Anchor promoted to sc58a from the N=80 ON cells.
+    if os.environ.get("SWEG_EC_LIST2", "1") != "0" and fac == "Emperor's Children":
         template = {
             k: v for k, v in template.items()
             if k != "emperor_s_children_sorcerer"
