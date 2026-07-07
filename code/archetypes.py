@@ -1683,6 +1683,70 @@ def _effective_template(
         template["emperor_s_children_noise_marines"] = 2
         template["emperor_s_children_defiler"] = 2
 
+    # SWEG_EC_LIST2 (2026-07-07) — Emperor's Children list realism 2.
+    # Emperor's Children is under-pole (sim 45.2 vs real 53.3). A second
+    # sourced audit of six Coterie of the Conceited lists, layered on top
+    # of SWEG_EC_REALISM above, found:
+    #   - A SECOND winged Daemon Prince of Slaanesh in every list that
+    #     specifies counts: Falco La Orden 7-0 La Voz Open ("two winged
+    #     daemon princes"), Rheine GT 20-0 May 2026 (3x), Goonhammer "Crab
+    #     Battle pt.1" (2026-05-06), gmpwt.blog (2025-10-26). Template
+    #     count=1 can never realize this — `_random_fill`'s wrecker cap
+    #     bounds MONSTER/EPIC HERO copies at `template_count`, so the
+    #     second Prince is structurally unreachable today.
+    #   - 3x Infractors, not 2x (Kyle Sams Battle For The Capital 2026 2nd
+    #     place; gmpwt) — every count-specified sourced list runs 3.
+    #   - 2x Chaos Rhino, not 1x (Kyle Sams 2x; gmpwt 2x) — "Infractors in
+    #     Rhinos" is the lists' stated delivery mechanism, so the
+    #     transport count should track the squad count.
+    #   - 1x Tormentors, not 2x — both count-specified lists run exactly 1.
+    #   - The Sorcerer appears in ZERO of the six sourced lists — the same
+    #     zero-appearance bar that dropped Fulgrim / Keeper of Secrets /
+    #     Daemonettes under SWEG_EC_REALISM above.
+    # Sources: tabletopbattles.com/detachment-focus-coterie-of-the-conceited/,
+    # spikeybits.com/battle-for-the-capital-gt-2026-army-lists-sisters-run-it-back/,
+    # gmpwt.blog/2025/10/26/ec-coterie-vs-ba-angelic-inheritors/,
+    # goonhammer.com/40k-competitive-innovations-in-10th-crab-battle-pt-1,
+    # bestcoastpairings.com Second City Games Anniversary GT June 2026.
+    # List-composition only — no `rule_citations.json` entry needed (these
+    # are army-shape flags, not rule-bearing flags; same scoping as
+    # SWEG_EC_REALISM and the Orks / Imperial Knights reshapes above).
+    # Screening convention: default OFF (`=1` to enable), unlike the
+    # already-adopted SWEG_EC_REALISM default-on above.
+    if os.environ.get("SWEG_EC_LIST2", "0") == "1" and fac == "Emperor's Children":
+        template = {
+            k: v for k, v in template.items()
+            if k != "emperor_s_children_sorcerer"
+        }
+        template["emperor_s_children_daemon_prince_of_slaanesh_with_wings"] = 2
+        template["emperor_s_children_infractors"] = 3
+        template["emperor_s_children_chaos_rhino"] = 2
+        template["emperor_s_children_tormentors"] = 1
+
+        # Seeding-order fix (same gate, same audit). Lord Exultant
+        # (count=3, unchanged here — SWEG_EC_REALISM already sets it)
+        # sits late in the "Slaaneshi Excess" dict (~line 923-947); the
+        # audit measured it realizing only ~1.9 avg copies against its
+        # count=3 intent across built armies. Reorder the effective
+        # template so Lord Exultant seeds immediately after Infractors —
+        # gated so the OFF path's dict and iteration order are untouched
+        # (the shared base dict at line 923 is not edited).
+        _le_key = "emperor_s_children_lord_exultant"
+        if _le_key in template:
+            _le_count = template[_le_key]
+            _reordered: Dict[str, int] = {}
+            for k, v in template.items():
+                if k == _le_key:
+                    continue
+                _reordered[k] = v
+                if k == "emperor_s_children_infractors":
+                    _reordered[_le_key] = _le_count
+            if _le_key not in _reordered:
+                # Infractors absent (shouldn't happen for this template) —
+                # keep Lord Exultant rather than silently drop it.
+                _reordered[_le_key] = _le_count
+            template = _reordered
+
     # SWEG_IK_REALISM (2026-07-02) — Imperial Knights. Sourced (audit
     # agent: CaptainCon 2026 1st place ran Cerastus Atrapos + Cerastus
     # Lancer + Knight Defender + Armigers; ZERO sourced lists ran Canis
