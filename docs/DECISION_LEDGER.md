@@ -27,6 +27,9 @@ Triple-checked (5-agent run `wf_85cc5a6e`, code verified at `868f9a4`):
 
 ---
 
+## ⚠ FRAME-BIAS FINDING (2026-07-07) — check `scripts/diag_frame.py` before trusting any pole
+The standing metric reads army-A cells only, and per-faction A/B positional bias runs to ±5 points: on sc57a the gated MAE is 3.08 (A-frame) vs **2.61 (symmetrized)**, and the entire Chaos Daemons pole (5.19) is frame artifact (sym 0.23) while AM (→15.9) and Aeldari (→6.4) are REAL and understated. MEASURED, N=36,960 anchor games. Consequences: the going-second lever family's rejections are confounded (re-screen under the sym lens); the A/B positional asymmetry itself is a Stage-1 fidelity bug (real 40k has no board-side dependence) and is an open root-cause target; frame adoption is an owner decision (re-anchor). See `docs/PROTOCOL_REVIEW_2026-07.md` and `docs/LEVER_PROTOCOL.md` §6.
+
 ## LANDED (kept; gate flag default-on unless noted)
 - Collision + no-overlap + ruin-walls-block-non-`INFANTRY` + pathfind-around — `SWEG_COLLISION` / `SWEG_PATHFIND` / `SWEG_OCCGRID`, wave 211. Fixed the Imperial Knights over-pole representation root (72.8 → 49.4 %, in band). See [[project-physical-board-control-avenue2]].
 - Per-attack-type conditional invulnerable saves — `SWEG_COND_INVULN`, wave 217 (Task #92). Wyches 4+ melee / 6+ ranged, Ion Shield ranged-only. KEEP on fidelity-first; metric-neutral. See [[project-conditional-invuln-single-value-gap]].

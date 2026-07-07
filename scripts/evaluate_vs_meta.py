@@ -725,6 +725,34 @@ def main() -> None:
     args = p.parse_args()
     if args.seed_start + args.battles > 100:
         raise SystemExit("--seed-start + --battles must be <= 100 (pair_seed packing).")
+    # EVAL-LOCK (protocol review 2026-07-07): the eval protocol mandates SERIAL
+    # evaluations — parallel runs have repeatedly clobbered each other's logs
+    # and produced confounded screens (two background agents once wrote the
+    # same scratch path). Pure I/O guard before any work starts: no RNG, no
+    # effect on results. Refuses only when the lock's pid is CONFIRMED alive;
+    # a stale lock (dead pid, or unreadable) is replaced silently. Override
+    # with SWEG_EVAL_FORCE=1 if a lock is wrongly held.
+    import atexit
+    import pathlib
+    _lock = pathlib.Path("data/_eval.lock")
+    if _lock.exists() and os.environ.get("SWEG_EVAL_FORCE") != "1":
+        _other_alive = False
+        _other_pid = None
+        try:
+            _other_pid = int(_lock.read_text().split()[0])
+            os.kill(_other_pid, 0)
+            _other_alive = True
+        except (OSError, ValueError, IndexError):
+            _other_alive = False
+        if _other_alive:
+            raise SystemExit(
+                f"another evaluate_vs_meta run (pid {_other_pid}) holds "
+                f"data/_eval.lock — the eval protocol is SERIAL evals only "
+                f"(docs/EVAL_PROTOCOL.md / docs/LEVER_PROTOCOL.md §5). Wait for "
+                f"it, or set SWEG_EVAL_FORCE=1 if the lock is wrongly held."
+            )
+    _lock.write_text(str(os.getpid()))
+    atexit.register(lambda: _lock.unlink(missing_ok=True))
     scope_factions = None
     if args.factions:
         scope_factions = {f.strip() for f in args.factions.split(",") if f.strip()}

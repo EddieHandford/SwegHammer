@@ -36,6 +36,16 @@ touching code.
 > Thousand Sons Magnus gap, the Ork mobility reshape, and a Chaos Daemons
 > objective-abandonment misplay, each of which was real Stage-1 headroom.
 
+> **Before proposing, building, or screening ANY lever, read
+> [`docs/LEVER_PROTOCOL.md`](docs/LEVER_PROTOCOL.md)** — the family pre-flight
+> (look the proposal up in the settled-verdict table and state the mechanism
+> difference, or don't build it), instrument-before-build, MEASURED-vs-ESTIMATE
+> tagging, minimum-N verdict rules, and the measurement-frame caveat: the
+> standing metric reads army-A cells only and carries per-faction positional
+> bias up to ±5 points — check `scripts/diag_frame.py`'s symmetrized column
+> before declaring any pole real. Evaluations are serial-only, now enforced by
+> a lock (`data/_eval.lock`).
+
 > **To keep a long session from forgetting these standing rules as context
 > fills (the context-management playbook — what survives a compaction, how the
 > hooks re-inject state, why hard rules belong in hooks not prose), see
