@@ -11903,6 +11903,39 @@ class Battle:
                     for obj in self.map.objectives
                 )
 
+        # Cadia Stands! (SWEG_AM_CADIA_STANDS, default-off -> byte-identical off):
+        # a Cadian Shock Troops squad led by a Cadian Command Squad officer, while
+        # on an objective its own army CONTROLS, gains Benefit of Cover against
+        # ranged attacks. Precomputed once per round here (cheap) so the per-attack
+        # save path (code/units.py) only reads the `_cadia_stands_active` flag.
+        # When the gate is unset the attribute is never written and the save path
+        # reads it via getattr(..., False), so the OFF path is byte-identical.
+        # Real rule (Wahapedia, Cadian Command Squad "Cadia Stands!"): "While this
+        # unit contains an OFFICER, each time a ranged attack targets this unit, if
+        # this unit is within range of an objective marker you control, models in
+        # this unit have the Benefit of Cover against that attack." The led-by test
+        # (a Cadian Command Squad within its 6" aura) is the simulator's proximity
+        # proxy for the Leader attachment, matching leaders.in_range_leaders; the
+        # controlled-objective test uses the round-start control snapshot. Cited as
+        # `simulator.cadia_stands`.
+        if os.environ.get("SWEG_AM_CADIA_STANDS", "0") == "1":
+            from .leaders import in_range_leaders as _cadia_irl
+            _cadia_ctrl = self._obj_controller_at_round_start
+            for army in (self.a, self.b):
+                _cadia_own_tag = "a" if army is self.a else "b"
+                for u in army.units:
+                    _cadia_active = False
+                    if u.is_alive and (u.profile.name or "") == "Cadian Shock Troops":
+                        if any((ldr.profile.name or "") == "Cadian Command Squad"
+                               for ldr in _cadia_irl(u)):
+                            for _cadia_i, _cadia_obj in enumerate(self.map.objectives):
+                                if (_distance(u.position, (_cadia_obj.x, _cadia_obj.y))
+                                        <= _cadia_obj.control_radius
+                                        and _cadia_ctrl.get(_cadia_i) == _cadia_own_tag):
+                                    _cadia_active = True
+                                    break
+                    u._cadia_stands_active = _cadia_active
+
         # Battleshock phase already ran before the stratagem dispatcher
         # (task #168 — stratagems can't target battleshocked units, so the
         # test must populate `_battleshocked_this_round` first). See

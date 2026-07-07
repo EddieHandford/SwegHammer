@@ -1068,6 +1068,10 @@ class Unit:
         # legacy / shared-profile units. Cited as `simulator.per_model_loadouts`.
         "squad_profile_ref",
         "moved_this_round", "on_objective", "shooting_in_engagement",
+        # Cadia Stands! per-round flag (SWEG_AM_CADIA_STANDS): set True in
+        # simulator.py round-setup when a led Cadian Shock Troops squad is on an
+        # objective its army controls; read on the save path for Benefit of Cover.
+        "_cadia_stands_active",
         # RECIPROCAL BIG GUNS NEVER TIRE (gated SWEG_BGNT_RECIPROCAL). Set per
         # shooting activation by Battle._do_shoot: True when this ranged
         # activation targets an enemy MONSTER/VEHICLE that is within Engagement
@@ -1417,6 +1421,10 @@ class Unit:
         # Unit.attack() to gate detachment buffs like Awakened Dynasty's
         # objective_holder_bonus_to_wound.
         self.on_objective: bool = False
+        # Cadia Stands! per-round cover flag (default False; only set True in
+        # simulator.py round-setup when SWEG_AM_CADIA_STANDS=1). Byte-identical
+        # off: stays False when the gate is unset.
+        self._cadia_stands_active: bool = False
         # Toggled by Battle._do_shoot: True if this VEHICLE/MONSTER unit
         # is firing while inside an enemy's engagement range (Big Guns
         # Never Tire). Triggers a -1 to hit modifier per 10e core rules.
@@ -3749,9 +3757,19 @@ class Unit:
                      or "WALKER" in (target.profile.unit_keywords or ()))
                 and __import__("os").environ.get("SWEG_AM_RECON", "0") == "1"
             )
+            # Cadia Stands! (SWEG_AM_CADIA_STANDS): a Cadian Shock Troops squad led
+            # by its Cadian Command Squad officer, while on an objective its army
+            # CONTROLS, has Benefit of Cover against ranged attacks. The
+            # `_cadia_stands_active` per-round flag is precomputed in simulator.py
+            # round-setup (the led + controlled-objective test); it is only ever
+            # written when the gate is ON, so getattr(..., False) keeps the OFF
+            # path byte-identical. Ranged-only via the `mode != "melee"` gate.
+            # Cited as `simulator.cadia_stands`.
+            _cadia_cover = getattr(target, "_cadia_stands_active", False)
             if (
                 mode != "melee"
-                and (target.in_cover or indirect_fire_attack or _recon_cover)
+                and (target.in_cover or indirect_fire_attack or _recon_cover
+                     or _cadia_cover)
                 and not ignore_cover
                 and not precision_pierces_cover
                 and not cover_blocked_by_ap0_exception
