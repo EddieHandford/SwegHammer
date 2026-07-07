@@ -13935,6 +13935,56 @@ class Battle:
             self._TARGET_ECONOMICS_CAP - self._TARGET_ECONOMICS_FLOOR
         )
 
+    # Chase-VP target-priority multipliers (simulator.vp_chase_targeting).
+    _VP_BRING_IT_DOWN_MULT: float = 1.8   # kill a MONSTER/VEHICLE -> Bring It Down
+    _VP_DENY_HOLDER_MULT: float = 1.4     # kill a unit ON an objective -> deny primary
+    _VP_FINISH_MULT: float = 2.0          # finish a near-dead whole unit -> No Prisoners
+
+    def _vp_yield_bonus(self, attacker, target) -> float:
+        """`simulator.vp_chase_targeting` (env-gated SWEG_AM_CHASE_VP, default
+        OFF, Astra-Militarum-scoped). A "play to score" ranged target-priority
+        multiplier the base picker lacks: the `min()` key below composes threat,
+        health, screen/synapse/oath biases and the target-economics kill-fraction
+        (can-I-hurt-it), but NOTHING keys on the VICTORY POINTS a kill banks.
+        Real players shoot for the secondaries their firepower feeds — and the
+        game-shape instrument found AM scores only ~9 secondary VP/game (real
+        killy AM ~25-35) because it clears models without finishing units or
+        killing the enemy's monsters/vehicles. This term boosts a candidate whose
+        DESTRUCTION scores, mirroring the real Pariah Nexus secondaries:
+          * Bring It Down  — the target is a MONSTER/VEHICLE (2-6 VP/kill),
+          * No Prisoners   — finishing a near-dead WHOLE unit (2 VP/unit),
+          * objective-denial — the target sits on an objective (removing it
+            protects AM's primary), using the precomputed `on_objective` flag.
+        Composed multiplicatively with the existing chain (it TILTS the picker,
+        it does not replace it — so survival-critical threat/economics terms
+        still weigh, unlike a hard target override). AM-SCOPED because a faction-
+        neutral target bias washes on closed-matrix symmetry (the rejected
+        SWEG_TAU_GUIDED_TARGET_BIAS lesson): AM is the faction whose win
+        condition IS secondary-from-kills, so the scoped lift banks without
+        feeding every shooting army the same play. Returns 1.0 (byte-identical
+        denominator) when the gate is off or the attacker is not AM. Cited as
+        `simulator.vp_chase_targeting`."""
+        if os.environ.get("SWEG_AM_CHASE_VP", "0") != "1":
+            return 1.0
+        if (attacker.profile.faction or "") != "Astra Militarum":
+            return 1.0
+        mult = 1.0
+        kw = set(target.profile.unit_keywords or ())
+        if kw & {"MONSTER", "VEHICLE"}:
+            mult *= self._VP_BRING_IT_DOWN_MULT
+        if getattr(target, "on_objective", False):
+            mult *= self._VP_DENY_HOLDER_MULT
+        # No Prisoners: boost as the target's whole unit nears destruction.
+        darmy = getattr(target, "army_ref", None)
+        if darmy is not None:
+            sid = getattr(target, "squad_id", -1)
+            squad_hp = sum(
+                max(0.0, u.current_health) for u in darmy.alive_units
+                if getattr(u, "squad_id", -2) == sid
+            )
+            mult *= 1.0 + (self._VP_FINISH_MULT - 1.0) / (1.0 + squad_hp / 5.0)
+        return mult
+
     # Focus-fire completion range for the "finish the wounded" bonus below.
     # 1.0 (no bonus) at full health, rising to this cap as the candidate
     # approaches zero health. Chosen to comfortably outscore the existing
@@ -15048,6 +15098,7 @@ class Battle:
                     * self._threat_priority_bonus(attacker, u)
                     * self._target_economics_bonus(attacker, u)
                     * self._focus_fire_bonus(attacker, u)
+                    * self._vp_yield_bonus(attacker, u)
                 ),
             )
 
