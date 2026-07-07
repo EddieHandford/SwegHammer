@@ -63,6 +63,18 @@ chase-VP), which exercised every protocol end to end.
    **Shipped: a serial-eval lock in `evaluate_vs_meta`** (`data/_eval.lock`,
    refuses while a live run holds it, `SWEG_EVAL_FORCE=1` override, tested
    both paths). Worktree GC and the branch-19 split remain queued below.
+   *Post-incident hardening (2026-07-08):* the lock's first version used
+   `os.kill(pid, 0)`, which raises `SystemError` (not `OSError`) on this
+   Windows CPython — every eval CRASHED on contact with a lock file instead
+   of refusing, and stopping a background agent kills its shell but NOT its
+   eval process tree, which left two orphan pools (~68 zombie workers)
+   holding locks. Fixed: `OpenProcess` via ctypes on Windows, broad except,
+   plus a 2-hour mtime staleness override; both paths re-tested live. New
+   standing rules: stopping an agent that owns an eval means checking for
+   its orphaned process tree (`wmic process where "commandline like
+   '%spawn_main%' and commandline like '%Python311%'"`) — and NEVER
+   `taskkill` all python.exe blind: the owner's ComfyUI / Open WebUI stack
+   runs python on this box. Verify command lines before killing anything.
 6. **Ad-hoc instruments, rewritten every session.** The per-opponent profile
    was hand-written at least three times; orders-utilization, objective-
    presence and kill-conversion instruments lived in throwaway `python -c`

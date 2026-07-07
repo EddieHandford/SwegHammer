@@ -734,15 +734,31 @@ def main() -> None:
     # with SWEG_EVAL_FORCE=1 if a lock is wrongly held.
     import atexit
     import pathlib
+    import time
     _lock = pathlib.Path("data/_eval.lock")
     if _lock.exists() and os.environ.get("SWEG_EVAL_FORCE") != "1":
+        # Aliveness probe. os.kill(pid, 0) is UNRELIABLE on Windows CPython —
+        # it can raise SystemError ("<class 'OSError'> returned a result with
+        # an exception set") for both live and dead pids, which crashed a whole
+        # screening chain on 2026-07-08. Use OpenProcess via ctypes on Windows
+        # (PROCESS_QUERY_LIMITED_INFORMATION), os.kill elsewhere; ANY probe
+        # failure means "cannot confirm alive". A lock older than 2 hours is
+        # treated as stale regardless (hard-killed runs never fire atexit).
         _other_alive = False
         _other_pid = None
         try:
             _other_pid = int(_lock.read_text().split()[0])
-            os.kill(_other_pid, 0)
-            _other_alive = True
-        except (OSError, ValueError, IndexError):
+            if time.time() - _lock.stat().st_mtime < 7200:
+                if os.name == "nt":
+                    import ctypes
+                    _h = ctypes.windll.kernel32.OpenProcess(0x1000, False, _other_pid)
+                    if _h:
+                        ctypes.windll.kernel32.CloseHandle(_h)
+                        _other_alive = True
+                else:
+                    os.kill(_other_pid, 0)
+                    _other_alive = True
+        except Exception:
             _other_alive = False
         if _other_alive:
             raise SystemExit(
