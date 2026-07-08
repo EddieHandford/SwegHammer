@@ -37,7 +37,7 @@ from code.maps import (
     maps_fitting,
 )
 from code.renderer import (
-    aggregate_activations, event_description, frame_description, render_frame,
+    aggregate_activations, render_frame, round_overview,
 )
 from code.simulator import Battle, BattleResult
 from code.units import UNIT_CATALOG as _RAW_CATALOG, UnitProfile, balanced_catalog, save_probability
@@ -314,6 +314,132 @@ def _composition_from_random(
     name_to_key = {UNIT_CATALOG[k].name: k for k in UNIT_CATALOG if UNIT_CATALOG[k].faction == faction}
     counts = Counter(u.profile.name for u in army.units)
     return [(name_to_key[n], c) for n, c in counts.most_common() if n in name_to_key]
+
+# ---------------------------------------------------------------------------
+# Fair-budget resolver (dashboard only)
+# ---------------------------------------------------------------------------
+# Chunky factions (Knights, big single-model units) cannot field a list close
+# to a low points budget, so the two sides end up fighting at very different
+# fielded points — a meaningless matchup (the "400 vs 500" the points-remaining
+# line exposed). These helpers escalate the budget until both sides field
+# within 5% of each other in expectation (up to the mode's slider max), so the
+# app can warn-and-adjust, or mark the pairing N/A when even the max can't
+# balance it. This lives in app.py ONLY: it must never touch the shared
+# build_faction_random_army the calibration evaluation depends on — changing
+# that would stale every anchor.
+
+# Escalation targets 5% (the user's fairness bar); but a matchup already
+# within `_FAIR_ACCEPT` at the requested budget is left alone, so a near-fair
+# game (e.g. 340 vs 360 pts) is not blown up to a 4x budget just to shave the
+# last couple of percent — coarse whole-squad quantization makes a hard 5%
+# line escalate absurdly for near-misses.
+_FAIR_TOL = 0.05      # escalation target: get both sides within this
+_FAIR_ACCEPT = 0.08   # requested budget accepted as-is if already this close
+
+
+@st.cache_data(show_spinner=False, max_entries=128)
+def _fvf_fair_budget(a_faction, b_faction, requested, slider_max, size_policy,
+                     step=100, samples=10):
+    """Escalate a Faction-vs-Faction budget until both factions field within
+    `_FAIR_TOL` of each other in expectation (accepting the requested budget
+    outright when already within `_FAIR_ACCEPT`). Random fills fluctuate, so
+    the test is on the mean fielded points over `samples` draws per candidate
+    budget. Returns a status dict (status in OK / ADJUSTED / NA)."""
+    def mean_fielded(fac, budget):
+        total = 0.0
+        for s in range(samples):
+            army = build_faction_random_army(
+                "probe", fac, budget,
+                rng=random.Random(s * 1009 + budget), size_policy=size_policy,
+            )
+            total += sum(u.profile.points_cost for u in army.units)
+        return total / samples
+
+    def gap_at(budget):
+        fa, fb = mean_fielded(a_faction, budget), mean_fielded(b_faction, budget)
+        hi = max(fa, fb)
+        return fa, fb, (abs(fa - fb) / hi if hi > 0 else 1.0)
+
+    return _resolve(gap_at, int(requested), slider_max, step)
+
+
+def _preset_fair_budget(cost_a, size_a, cost_b, size_b, requested, slider_max,
+                        step=50):
+    """Deterministic fair-budget escalation for a homogeneous preset matchup.
+    Each side fills whole squads (squad cost = per-model cost x squad size),
+    honest floor — a side that cannot afford one squad fields zero and forces
+    escalation. Same status-dict shape as `_fvf_fair_budget`."""
+    ga = max(1e-9, cost_a * max(1, size_a))
+    gb = max(1e-9, cost_b * max(1, size_b))
+
+    def gap_at(budget):
+        fa, fb = (budget // ga) * ga, (budget // gb) * gb
+        hi = max(fa, fb)
+        return fa, fb, (abs(fa - fb) / hi if hi > 0 else 1.0)
+
+    return _resolve(gap_at, int(requested), slider_max, step)
+
+
+def _resolve(gap_at, requested, slider_max, step):
+    """Shared escalate/accept/N-A loop over a `gap_at(budget) -> (a, b, gap)`
+    probe. Accepts the requested budget when already within `_FAIR_ACCEPT`;
+    otherwise escalates in `step` increments to the first budget within
+    `_FAIR_TOL`; returns N/A if the cap is reached without one.
+
+    `a_field` / `b_field` / `gap` describe the EFFECTIVE budget (the one the
+    battle runs at); `req_a` / `req_b` / `req_gap` snapshot the requested
+    budget so the warning can honestly say how lopsided the original ask was."""
+    ra, rb, rgap = gap_at(requested)   # what the requested budget would field
+    base = {"requested": requested, "slider_max": slider_max,
+            "req_a": ra, "req_b": rb, "req_gap": rgap}
+    if max(ra, rb) > 0 and rgap <= _FAIR_ACCEPT:
+        return {**base, "status": "OK", "effective": requested,
+                "a_field": ra, "b_field": rb, "gap": rgap}
+    best_gap = rgap
+    b = requested + step
+    while b <= slider_max:
+        fa, fb, gap = gap_at(b)
+        best_gap = min(best_gap, gap)
+        if max(fa, fb) > 0 and gap <= _FAIR_TOL:
+            return {**base, "status": "ADJUSTED", "effective": b,
+                    "a_field": fa, "b_field": fb, "gap": gap}
+        b += step
+    # Cap reached without a fair budget — report the requested-budget fields.
+    return {**base, "status": "NA", "effective": requested,
+            "a_field": ra, "b_field": rb, "gap": best_gap}
+
+
+def _render_fair_banner(fair) -> None:
+    """Render the fairness warning / N-A error in the main area."""
+    if not fair:
+        return
+    s = fair["status"]
+    if s == "ADJUSTED":
+        st.warning(
+            f"⚖️ **Budget raised from {fair['requested']:.0f} to "
+            f"{fair['effective']:.0f} pts.** At {fair['requested']:.0f} pts the two "
+            f"sides fielded {fair['req_a']:.0f} vs {fair['req_b']:.0f} pts "
+            f"({fair['req_gap'] * 100:.0f}% apart) — too lopsided. At "
+            f"{fair['effective']:.0f} pts they field {fair['a_field']:.0f} vs "
+            f"{fair['b_field']:.0f} pts (within 5%), so the battle below runs at "
+            f"{fair['effective']:.0f}."
+        )
+    elif s == "NA":
+        st.error(
+            f"🚫 **N/A — no fair match at {fair['requested']:.0f} pts.** These "
+            f"factions still field {fair['a_field']:.0f} vs {fair['b_field']:.0f} "
+            f"pts ({fair['req_gap'] * 100:.0f}% apart) and cannot be brought within "
+            f"5% even after raising the budget to the {fair['slider_max']:.0f}-pt "
+            f"cap. Pick a higher budget or a less lopsided matchup — the simulation "
+            f"is disabled for this pairing."
+        )
+    elif s == "CUSTOM_WARN":
+        st.warning(
+            f"⚖️ The two custom lists are {fair['gap'] * 100:.0f}% apart "
+            f"({fair['a_field']:.0f} vs {fair['b_field']:.0f} pts, more than 5%). "
+            f"The battle still runs, but the result reflects that points mismatch — "
+            f"even the lists up for a fair test."
+        )
 
 # ---------------------------------------------------------------------------
 # Preset battle definitions
@@ -1563,6 +1689,51 @@ with st.sidebar:
         profile_a = UNIT_CATALOG[next((k for k, n, *_ in a_comp if n > 0), a_comp[0][0])] if a_comp else None
         profile_b = UNIT_CATALOG[next((k for k, n, *_ in b_comp if n > 0), b_comp[0][0])] if b_comp else None
 
+    # ---- Fair-budget resolution (dashboard-only escalate / warn / N-A) ------
+    # Resolve BEFORE the map picker so an escalated budget also drives map
+    # sizing. `_fair` carries the status for the main-area banner; `_run_blocked`
+    # disables the Run button on an N/A pairing.
+    _fair = None
+    _run_blocked = False
+    if mode == "Faction vs Faction (random)":
+        _fair = _fvf_fair_budget(a_faction, b_faction, int(points), 3000, size_policy)
+    elif mode == "Preset Battle":
+        _fair = _preset_fair_budget(
+            profile_a.points_cost, max(1, profile_a.max_models),
+            profile_b.points_cost, max(1, profile_b.max_models),
+            int(points), 2000,
+        )
+    else:  # Custom Battle — hand-built lists; warn on imbalance, never escalate
+        _af = _composition_total_points(a_comp)
+        _bf = _composition_total_points(b_comp)
+        _hi = max(_af, _bf)
+        _gap = abs(_af - _bf) / _hi if _hi > 0 else 0.0
+        _fair = {
+            "status": "OK" if _gap <= _FAIR_TOL else "CUSTOM_WARN",
+            "requested": int(points), "effective": int(points),
+            "a_field": _af, "b_field": _bf, "gap": _gap, "slider_max": 0,
+        }
+
+    if _fair["status"] == "ADJUSTED":
+        _eff = int(_fair["effective"])
+        points = float(_eff)
+        if mode == "Faction vs Faction (random)":
+            budget = _eff
+            # Resample the preview armies at the adjusted budget.
+            _samp = abs(hash((a_faction, b_faction, _eff, size_policy,
+                              st.session_state.get("fvf_reroll_n", 0)))) & 0xFFFF
+            a_comp = _composition_from_random(a_faction, _eff, size_policy, _samp)
+            b_comp = _composition_from_random(b_faction, _eff, size_policy, _samp + 1)
+            profile_a = UNIT_CATALOG[next((k for k, n, *_ in a_comp if n > 0), a_comp[0][0])] if a_comp else None
+            profile_b = UNIT_CATALOG[next((k for k, n, *_ in b_comp if n > 0), b_comp[0][0])] if b_comp else None
+        elif mode == "Preset Battle":
+            _sa = max(1, profile_a.max_models)
+            _sb = max(1, profile_b.max_models)
+            a_comp = [(a_comp[0][0], max(1, int(_eff // (profile_a.points_cost * _sa))), _sa)]
+            b_comp = [(b_comp[0][0], max(1, int(_eff // (profile_b.points_cost * _sb))), _sb)]
+    elif _fair["status"] == "NA":
+        _run_blocked = True
+
     st.divider()
     st.subheader("Battlefield")
     # Points to drive map sizing: prefer the points slider in preset/FvF modes,
@@ -1608,10 +1779,17 @@ with st.sidebar:
 
     st.divider()
     n_battles = st.slider("Simulations", 1, 1000, 100, step=1)
-    show_points_curve = st.checkbox("Show win% vs points curve", value=True)
+    # Default OFF: the points-curve sweep re-runs the simulation across a
+    # whole budget ladder and dominates total run time when enabled.
+    show_points_curve = st.checkbox("Show win% vs points curve", value=False)
 
     st.divider()
-    run = st.button("▶  Run Simulation", use_container_width=True, type="primary")
+    run = st.button(
+        "▶  Run Simulation", use_container_width=True, type="primary",
+        disabled=_run_blocked,
+    )
+    if _run_blocked:
+        st.caption("⚠️ Run disabled — this pairing is N/A (see the main panel).")
 
 # ---------------------------------------------------------------------------
 # Faction colours — re-bound each Streamlit run; chart funcs read globally
@@ -1631,6 +1809,9 @@ army_a_preview = _build_army_from_composition(a_name, a_comp, in_cover=a_cover)
 army_b_preview = _build_army_from_composition(b_name, b_comp, in_cover=b_cover)
 
 st.title("⚔️ SwegHammer Battle Simulator")
+
+# Fairness banner: escalated-budget warning, N/A block, or custom-list imbalance.
+_render_fair_banner(_fair)
 
 
 def _ability_glyphs(p: UnitProfile) -> str:
@@ -1727,7 +1908,8 @@ if run:
     _spec_a = None
     _spec_b = None
     if mode == "Faction vs Faction (random)":
-        budget = st.session_state.get("fvf_budget", 1000)
+        # `budget` already holds the fair-resolved effective value (it may
+        # exceed the slider setting when escalated for fairness above).
         size_policy = st.session_state.get("fvf_size_policy", "max")
         factory_a = lambda: build_faction_random_army(
             a_name, a_faction, budget, in_cover=a_cover, size_policy=size_policy,
@@ -1741,7 +1923,11 @@ if run:
         _spec_a = _army_spec_from_composition(a_name, a_comp, in_cover=a_cover)
         _spec_b = _army_spec_from_composition(b_name, b_comp, in_cover=b_cover)
 
-    _battle_bar = st.progress(0, text=f"Running battles… 0 / {n_battles:,}")
+    # All transient run-progress UI renders in the SIDEBAR, not the main
+    # area: st.tabs has no key, so its identity is position-derived, and any
+    # extra main-area element rendered above it during the run rerun resets
+    # the user's selected tab back to Home when the run finishes.
+    _battle_bar = st.sidebar.progress(0, text=f"Running battles… 0 / {n_battles:,}")
     def _battle_progress(done: int, total: int) -> None:
         _battle_bar.progress(done / total, text=f"Running battles… {done:,} / {total:,}")
 
@@ -1788,7 +1974,7 @@ if run:
     best_log = None
     best_result = None
     best_score = float("inf")
-    with st.spinner("Capturing representative replay…"):
+    with st.sidebar, st.spinner("Capturing representative replay…"):
         for _ in range(5):
             log = EventLog()
             res = Battle(
@@ -1826,20 +2012,26 @@ if run:
         "replay_colour_a": COL_A,
         "replay_colour_b": COL_B,
     })
-    # Pre-render EVERY replay frame inside the existing spinner. The slider
-    # then just indexes a list of PNG bytes — zero matplotlib / Streamlit
-    # rerun cost per scrub tick. ~22 KB × N frames stays well under the
-    # session_state size budget.
-    if replay_frames:
-        _replay_bar = st.progress(0, text="Rendering replay frames…")
-        st.session_state["replay_pngs"] = []
-        for _fi in range(len(replay_frames)):
-            st.session_state["replay_pngs"].append(_render_frame_png(replay_id, _fi))
-            _replay_bar.progress((_fi + 1) / len(replay_frames),
-                                 text=f"Rendering replay frames… {_fi + 1} / {len(replay_frames)}")
+    # The replay is a per-round overview, not a per-activation scrubber, so
+    # only one board snapshot per battle round is rendered — the end-of-round
+    # state. This replaces the old render-every-frame loop that dominated the
+    # post-simulation wait.
+    replay_chapters = round_overview(log.events)
+    st.session_state["replay_overview"] = replay_chapters
+    st.session_state.pop("replay_pngs", None)   # legacy per-frame cache
+    chapter_pngs = []
+    if replay_chapters and replay_frames:
+        _replay_bar = st.sidebar.progress(0, text="Rendering round snapshots…")
+        for _ci, _ch in enumerate(replay_chapters):
+            _fi = next(
+                (i for i, (_s, _e) in enumerate(replay_frames) if _e >= _ch["end_tick"]),
+                len(replay_frames) - 1,
+            )
+            chapter_pngs.append(_render_frame_png(replay_id, _fi))
+            _replay_bar.progress((_ci + 1) / len(replay_chapters),
+                                 text=f"Rendering round snapshots… {_ci + 1} / {len(replay_chapters)}")
         _replay_bar.empty()
-    else:
-        st.session_state["replay_pngs"] = []
+    st.session_state["replay_chapter_pngs"] = chapter_pngs
 
     # Pre-compute the points-curve data here too if the toggle is on.
     # Otherwise the Statistics tab re-runs ~2200 simulations on every
@@ -1848,7 +2040,7 @@ if run:
     if show_points_curve and profile_a and profile_b:
         point_values = list(range(100, 601, 50))
         a_rates_p, b_rates_p, draw_rates_p = [], [], []
-        _curve_bar = st.progress(0, text="Sweeping point budgets…")
+        _curve_bar = st.sidebar.progress(0, text="Sweeping point budgets…")
         for _ci, pts in enumerate(point_values):
             _curve_bar.progress(
                 (_ci + 1) / len(point_values),
@@ -2083,6 +2275,11 @@ with tab_stats:
                 )
 
 # --- Replay tab ---
+# One chapter per battle round: squad-level summary lines (net moves, who
+# shot whom, charges, melee, losses, objective scoring) beside a snapshot of
+# the board as it stood at the end of that round. The old per-activation
+# frame scrubber is gone — the raw event stream is model-by-model and far
+# too granular to watch.
 with tab_replay:
     if "replay_events" not in st.session_state:
         st.info(
@@ -2091,58 +2288,43 @@ with tab_replay:
         )
     else:
         events = st.session_state["replay_events"]
-        map_ = st.session_state["replay_map"]
-        total = len(events)
 
-        if total == 0:
+        if len(events) == 0:
             st.warning("No events recorded.")
         else:
-            # Frames are pre-computed once at run time (see the run handler
-            # above) and stored in session state — avoids the O(N) aggregate
-            # walk on every slider tick.
+            chapters = st.session_state.get("replay_overview")
+            if chapters is None:
+                chapters = round_overview(events)
+            chapter_pngs = st.session_state.get("replay_chapter_pngs") or []
             frames = st.session_state.get("replay_frames") or aggregate_activations(events)
-            total_frames = len(frames)
 
-            frame_idx = st.slider(
-                "Frame (drag to scrub through the battle)",
-                min_value=0,
-                max_value=max(0, total_frames - 1),
-                value=0,
-                key="replay_tick",
+            st.caption(
+                "Round-by-round overview of one recorded battle — each squad's "
+                "net move, shooting, charges, melee and losses, with the board "
+                "as it stood at the end of the round."
             )
-
-            col_map, col_log = st.columns([3, 2])
-
-            with col_map:
-                # Replay PNGs are pre-rendered at run time into a list —
-                # scrubbing is a Python list index, no rendering work.
-                pngs = st.session_state.get("replay_pngs") or []
-                if pngs:
-                    st.image(pngs[frame_idx], use_container_width=True)
-                else:
-                    png = _render_frame_png(
-                        st.session_state["replay_id"], frame_idx,
-                    )
-                    st.image(png, use_container_width=True)
-
-            with col_log:
-                st.markdown("**Current activation**")
-                st.code(
-                    frame_description(events, frames[frame_idx]),
-                    language=None,
-                )
-
-                st.markdown("**Recent activations**")
-                start_frame = max(0, frame_idx - 6)
-                recent_blocks = [
-                    frame_description(events, frames[i])
-                    for i in range(start_frame, frame_idx + 1)
-                ]
-                st.text("\n".join(recent_blocks))
-
-                st.caption(
-                    f"{total_frames} frames  ·  {total} raw events total"
-                )
+            for _ci, _ch in enumerate(chapters):
+                with st.expander(_ch["title"], expanded=True):
+                    col_map, col_log = st.columns([2, 3])
+                    with col_map:
+                        if _ci < len(chapter_pngs):
+                            st.image(chapter_pngs[_ci], use_container_width=True)
+                        elif frames:
+                            # Session predates the pre-rendered snapshots —
+                            # render this round's end state on demand.
+                            _fi = next(
+                                (i for i, (_s, _e) in enumerate(frames) if _e >= _ch["end_tick"]),
+                                len(frames) - 1,
+                            )
+                            st.image(
+                                _render_frame_png(st.session_state["replay_id"], _fi),
+                                use_container_width=True,
+                            )
+                    with col_log:
+                        if _ch["lines"]:
+                            st.markdown("\n".join(f"- {ln}" for ln in _ch["lines"]))
+                        else:
+                            st.markdown("*Nothing notable this round.*")
 
 # ---------------------------------------------------------------------------
 # Efficiency tab — Lanchester score vs points cost scatter

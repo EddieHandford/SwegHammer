@@ -39,6 +39,14 @@ class InitialUnit:
     base_diameter_mm: int = 32
     base_width_mm: int = 32
     base_length_mm: int = 32
+    # The simulator models a codex squad as one Unit per model, all sharing a
+    # squad_id (-1 = lone model). Carried in the snapshot so replay views can
+    # aggregate per squad instead of per model. Defaulted for legacy logs.
+    squad_id: int = -1
+    # Per-model points cost, so the replay overview can report each side's
+    # points remaining after every round. 0.0 on legacy logs suppresses the
+    # points-remaining line rather than mis-reporting it.
+    points_cost: float = 0.0
 
 
 @dataclass(frozen=True)
