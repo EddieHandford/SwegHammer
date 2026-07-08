@@ -121,6 +121,13 @@ get no special ordering. Low impact.
   defender fights in their own turn (no within-phase alternation). Documented.
 - **Pile In / Consolidate / "which models fight":** the one-Unit-per-model
   representation collapses the 2″-of-a-friendly-in-ER clause; 3″ moves are correct.
+  Squad *grouping* is faithful, though: every model shares a squad_id, so
+  per-unit economies fire once per squad (one Advance/charge roll, battle-shock
+  by surviving model count, Blast by target model count, once-per-unit
+  stratagems). The Streamlit app's preset, Faction-vs-Faction, and army-list
+  battles all field full squads (max-size by default for presets), so they are
+  no longer amplified by the legacy one-model-per-instance build that fielded
+  each model as its own unit.
 - **Transport capacity** hardcoded at 12; **Firing Deck** uses the passenger's
   ballistic skill not the transport's; only pre-game embark modelled.
 - **Look Out Sir** omits the "Wounds ≤ 9" gate (no current datasheet exceeds it →

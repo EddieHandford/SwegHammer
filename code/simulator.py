@@ -815,6 +815,8 @@ class Battle:
                     base_diameter_mm=u.profile.base_diameter_mm,
                     base_width_mm=u.profile.base_width_mm,
                     base_length_mm=u.profile.base_length_mm,
+                    squad_id=getattr(u, "squad_id", -1),
+                    points_cost=u.profile.points_cost,
                 ))
             for u in self._reserves.get(army.name, []):
                 snapshot.append(InitialUnit(
@@ -826,6 +828,8 @@ class Battle:
                     base_diameter_mm=u.profile.base_diameter_mm,
                     base_width_mm=u.profile.base_width_mm,
                     base_length_mm=u.profile.base_length_mm,
+                    squad_id=getattr(u, "squad_id", -1),
+                    points_cost=u.profile.points_cost,
                 ))
         self._emit(BattleStarted(
             army_a_name=self.a.name,
@@ -13089,6 +13093,34 @@ class Battle:
             if _stage is not None:
                 target_pos, _stage_suppress = _stage
 
+        # SWEG_KITING (AI piloting heuristic — BUILT + HELD default-off by
+        # owner ruling 2026-07-07, demoted the same day it was adopted,
+        # pending a proper N=80 screen; `=1` is the opt-in for watching
+        # realistic play in replays; off path byte-identical): the retreating
+        # counterpart of the ranged-hold family. A shooting unit with a
+        # melee-superior enemy inside likely charge reach — where the
+        # fight-phase trade estimate says the enemy WINS — steps back just
+        # enough to restore the stand-off gap, so the charge needs a long
+        # roll next round while the guns keep firing (kiting). Never fires
+        # for objective play (CAPTURE / STEAL / sitting on a marker — holding
+        # scores), for chaff/screens, when BEHIND on victory points (contest,
+        # don't retreat), or once engaged (Fall Back covers that); the
+        # destination replaces the move plan as a REPOSITION, and the Advance
+        # is suppressed below because kiting exists to keep the Shooting
+        # phase. The held sibling SWEG_KITE_MOVE (code/strategy.py,
+        # default-off) read +1.12 at N=80 via the durability over-reward —
+        # that precedent motivated the demotion; these four rails are what
+        # the old lever lacked, and the screen (DECISION_LEDGER open lever)
+        # decides whether they are enough. Do not turn both kite levers on
+        # together. AI piloting heuristic — no rule_citations entry required.
+        if (os.environ.get("SWEG_KITING", "0") == "1"
+                and intent in ("ENGAGE", "REPOSITION", "HOLD")):
+            _kite_to = self._kiting_target(attacker, attacker_army, defender_army)
+            if _kite_to is not None:
+                target_pos = _kite_to
+                intent = "REPOSITION"
+                _stage_suppress = True
+
         # Fall Back (10e core). Units already locked in melee that the
         # strategy layer wants to disengage move up to M" toward the picked
         # destination, then take a Desperate Escape test (1D6 per model;
@@ -16171,6 +16203,168 @@ class Battle:
         # never cancel a successful charge — fall back to the legacy placement.
         return legacy_pos
 
+    # ------------------------------------------------------------------
+    # SWEG_CHARGE_TRADE / SWEG_KITING — fight-phase trade assessment
+    # (AI piloting heuristics, both default-off, byte-identical off)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _melee_trade_estimate(attacker, target, target_army: Army,
+                              n_attackers: float = 1.0):
+        """Expected fight-phase points trade if `attacker` charges `target`.
+
+        Returns (gain_points, loss_points): the points value of enemy models
+        the attacker's first-strike swing expects to destroy, versus the
+        points value the counter-swing expects to take back. The counter
+        counts the target plus its squad-mates within pile-in reach (3", the
+        10e pile-in move), capped at 4 (roughly what fits in base contact),
+        and discounts counter-attackers the first strike removes — chargers
+        fight first. `n_attackers` scales the first strike for a squad
+        charging as one wave (the kiting threat test — a lone Boy loses this
+        trade, the mob wins it); the per-model charge veto passes 1. Uses the
+        same per-model attack math as the fight phase itself. AI piloting
+        heuristic, not a rules claim.
+        """
+        from .strategy import _unsaved_fraction
+        from .units import wound_probability
+        ap, tp = attacker.profile, target.profile
+        t_iv = tp.invuln_save_melee if tp.invuln_save_melee <= 6 else tp.invuln_save
+        a_iv = ap.invuln_save_melee if ap.invuln_save_melee <= 6 else ap.invuln_save
+        my_hit = n_attackers * (
+            ap.melee_attacks * ap.melee_hit_probability
+            * wound_probability(ap.melee_strength, tp.toughness)
+            * _unsaved_fraction(tp.save, t_iv, ap.melee_ap)
+            * (ap.melee_damage_per_shot or 1.0))
+        their_hit = (tp.melee_attacks * tp.melee_hit_probability
+                     * wound_probability(tp.melee_strength, ap.toughness)
+                     * _unsaved_fraction(ap.save, a_iv, tp.melee_ap)
+                     * (tp.melee_damage_per_shot or 1.0))
+        # Counter-attackers: the target and its squad-mates in pile-in reach.
+        n_counter = 1
+        n_squad_alive = 1
+        sid = getattr(target, "squad_id", -1)
+        if sid >= 0:
+            for e in target_army.alive_units:
+                if e is target or getattr(e, "squad_id", -1) != sid:
+                    continue
+                n_squad_alive += 1
+                if (n_counter < 4
+                        and _distance(target.position, e.position) <= 3.0):
+                    n_counter += 1
+        # Models the first strike removes (damage spills to squad-mates in
+        # the one-Unit-per-model representation), capped at the squad.
+        removed = min(my_hit / max(tp.health or 1.0, 0.5), float(n_squad_alive))
+        return_dmg = their_hit * max(0.0, n_counter - removed)
+        gain_pts = removed * (tp.points_cost or 0.0)
+        loss_pts = (min(return_dmg, attacker.current_health)
+                    / max(ap.health or 1.0, 0.5) * (ap.points_cost or 0.0))
+        return gain_pts, loss_pts
+
+    def _kiting_target(self, attacker, attacker_army: Army,
+                       defender_army: Army):
+        """SWEG_KITING: destination directly away from a losing melee threat,
+        or None to stay on the normal move plan.
+
+        A real player facing a melee-superior enemy inside next-turn charge
+        reach does not stand still (or walk in): they shoot and step back so
+        the charge needs a long roll — kiting. Fires only for a unit with
+        real shooting to preserve (ranged damage per activation >= 1.0 and
+        range >= 12"), never for chaff/screens (their job is to stand in the
+        way), never off an objective marker (holding scores; the ranged-hold
+        family's lesson), and never once already engaged (Fall Back covers
+        that). The threat test reuses _melee_trade_estimate from the ENEMY's
+        side: only run from fights the enemy expects to win on points.
+        """
+        from .strategy import _is_chaff_unit
+        p = attacker.profile
+        ranged_dpa = max(1, p.attacks) * p.hit_probability * p.per_shot_damage
+        if ranged_dpa < 1.0 or (p.range_inches or 0.0) < 12.0:
+            return None
+        if _is_chaff_unit(attacker):
+            return None
+        # A player behind on the scoreboard cannot afford to trade board
+        # control for attrition — kiting is a winning-position (or even-
+        # position) play. Behind on victory points: stand and contest. This
+        # rail is what stops the retreat spiral (the first cut retreated all
+        # game, ceded every marker, and lost games it was winning on kills).
+        my_vp, their_vp = ((self._a_vp, self._b_vp)
+                           if attacker_army is self.a
+                           else (self._b_vp, self._a_vp))
+        if my_vp < their_vp:
+            return None
+        for obj in (self.map.objectives or ()):
+            if (_distance(attacker.position, (obj.x, obj.y))
+                    <= obj.control_radius):
+                return None
+        threat = None
+        threat_d = None
+        for e in defender_army.alive_units:
+            ep = e.profile
+            e_melee = (ep.melee_attacks * ep.melee_hit_probability
+                       * (ep.melee_damage_per_shot or 1.0))
+            e_ranged = max(1, ep.attacks) * ep.hit_probability * ep.per_shot_damage
+            if e_melee <= max(e_ranged, 1.0):
+                continue    # not a melee-committed unit — no kite trigger
+            d = _distance(attacker.position, e.position)
+            if d <= 1.0:
+                return None     # engaged — Fall Back handles disengagement
+            # Kite only inside LIKELY charge reach (their Move + the 2D6
+            # median of 7, plus 1" engagement) — not the theoretical Move+12
+            # maximum. Standing at an 8-11" gap and shooting IS the kite; a
+            # unit that flees threats 17" away just cedes the board (the
+            # first cut of this lever did exactly that and cratered its own
+            # side's win rate).
+            if d > effective_move(e) + 8.0:
+                continue
+            # A squad charges as one wave: scale the threat's first strike by
+            # its alive squad-mates close enough (6") to charge alongside it.
+            n_wave = 1
+            _esid = getattr(e, "squad_id", -1)
+            if _esid >= 0:
+                for m in defender_army.alive_units:
+                    if (m is not e
+                            and getattr(m, "squad_id", -1) == _esid
+                            and _distance(e.position, m.position) <= 6.0):
+                        n_wave += 1
+                        if n_wave >= 10:
+                            break
+            gain, loss = self._melee_trade_estimate(
+                e, attacker, attacker_army, n_attackers=float(n_wave))
+            if gain <= loss:
+                continue    # a fight we win or break even — stand and shoot
+            # Kiting only pays if the guns being preserved can actually hurt
+            # the pursuer — backing away from something you cannot wound just
+            # donates ground.
+            from .strategy import _unsaved_fraction
+            from .units import wound_probability
+            _e_iv = (ep.invuln_save_ranged if ep.invuln_save_ranged <= 6
+                     else ep.invuln_save)
+            _exp_shoot = (p.attacks * p.hit_probability
+                          * wound_probability(p.strength, ep.toughness)
+                          * _unsaved_fraction(ep.save, _e_iv, p.ap)
+                          * (p.weapon_damage_per_shot or 1.0))
+            if _exp_shoot < 0.5:
+                continue
+            if threat_d is None or d < threat_d:
+                threat, threat_d = e, d
+        if threat is None:
+            return None
+        ax, ay = attacker.position
+        dx, dy = ax - threat.position[0], ay - threat.position[1]
+        norm = math.hypot(dx, dy)
+        if norm < 1e-6:
+            return None
+        # Step back just enough to restore the gap past the threat's likely
+        # charge reach — maintain the stand-off, don't rout. A full-move
+        # retreat every turn abandons the objectives the guns are supposed
+        # to be defending.
+        desired_gap = float(effective_move(threat)) + 8.5
+        step = min(float(effective_move(attacker)), max(0.0, desired_gap - norm))
+        if step < 0.5:
+            return None
+        # _move_toward clamps to map bounds, so an off-board aim point is safe.
+        return (ax + dx / norm * step, ay + dy / norm * step)
+
     def _do_charge(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         """2D6 charge vs the best target ≤12". On success, move into 1" engagement.
 
@@ -16300,6 +16494,40 @@ class Battle:
                 )
                 if _is_character or not _is_chaff_unit(attacker):
                     return
+
+        # CHARGE-TRADE assessment (piloting heuristic, gated SWEG_CHARGE_TRADE
+        # — ADOPTED default-on 2026-07-07 by owner ruling, realism-first;
+        # `=0` is the byte-identical kill-switch, motion-proof fingerprint
+        # 34972a49… reproduces the pre-adoption frame; UNSCREENED at N=80,
+        # the standing anchor predates it): a real player asks "if I charge,
+        # do I come out of the fight phase on top?" before committing. The
+        # charge-discipline block above only vetoes charges that deal NO
+        # damage; this one vetoes charges that deal damage but LOSE the trade —
+        # the Intercessors-charge-Boyz misplay, where a shooting-capable unit
+        # feeds itself to a melee-superior blob (the blob's pile-in counter
+        # outweighs the first strike). Scope rails: only a MELEE-superior
+        # target can veto (charging a shooter still ties up its guns, which is
+        # the point of charging it — and the AM revert taught us no-damage
+        # charges can still buy engagement value, so the bar for vetoing is a
+        # clearly losing points trade, not a mediocre one); cage charges are
+        # exempt (coordinated wraps accept bad per-model trades); cheap chaff
+        # tarpits are exempt (same exception as charge-discipline).
+        # AI piloting heuristic — no rule_citations entry required.
+        if (os.environ.get("SWEG_CHARGE_TRADE", "1") != "0"
+                and not _is_cage_charge):
+            _tp = target.profile
+            _t_melee = (_tp.melee_attacks * _tp.melee_hit_probability
+                        * (_tp.melee_damage_per_shot or 1.0))
+            _t_ranged = (max(1, _tp.attacks) * _tp.hit_probability
+                         * _tp.per_shot_damage)
+            if _t_melee > max(_t_ranged, 1.0):
+                _gain, _loss = self._melee_trade_estimate(
+                    attacker, target, defender_army)
+                if _gain < 0.75 * _loss:
+                    from .strategy import _is_chaff_unit
+                    if ("CHARACTER" in (attacker.profile.unit_keywords or ())
+                            or not _is_chaff_unit(attacker)):
+                        return
 
         # Fire Overwatch (10e core stratagem, env-gated SWEG_OVERWATCH). The
         # charge has now been DECLARED (a valid charge target exists) but has
