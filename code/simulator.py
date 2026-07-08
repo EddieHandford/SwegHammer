@@ -543,6 +543,14 @@ class Battle:
         # in-progress Terraform Action target (mirrors _burn_targets).
         self._terraformed_owner: dict = {}
         self._terraform_targets: dict = {}
+        # Supply Drop primary (gated SWEG_PRIMARY_DECK_FULL / SWEG_SUPPLY_DROP):
+        # the two No Man's Land objectives (excluding the exact board-centre
+        # marker) designated Alpha/Omega at battle start — Alpha razed at the
+        # start of round 4, Omega at the start of round 5, reusing
+        # `_razed_objectives`. None until `_assign_supply_drop_targets` runs;
+        # () if the map has no eligible No Man's Land marker. Cited
+        # simulator.primary_supply_drop.
+        self._supply_drop_alpha_omega: Optional[tuple] = None
         # Stratagem book-keeping. Each army keeps a set of stratagem names
         # already fired this battle (used for once_per_battle stratagems —
         # the four universals are not once-per-battle but the field is here
@@ -1379,6 +1387,13 @@ class Battle:
         # primaries, several of which (Purge the Foe, Scorched Earth) penalise
         # static holding. Cited simulator.primary_mission_rotation.
         mission = getattr(self, "primary_mission", "take_and_hold") or "take_and_hold"
+        # Supply Drop (gated SWEG_PRIMARY_DECK_FULL): designate Alpha/Omega and
+        # raze whichever of them is due BEFORE the objective loop below, so this
+        # round's control/scoring pass already reflects the removal. No-op unless
+        # mission == "supply_drop". Cited simulator.primary_supply_drop.
+        if mission == "supply_drop":
+            self._assign_supply_drop_targets()
+            self._resolve_supply_drop_removals()
         a_th_award = 0
         b_th_award = 0
         a_controls = 0
@@ -1387,6 +1402,19 @@ class Battle:
         # controlled-marker counts separately (per-side).
         a_controls_nml = 0
         b_controls_nml = 0
+        # SWEG_PRIMARY_DECK_FULL additions: per-side counters for the five
+        # previously-unmodelled CA-2025-26 primaries (Linchpin, Burden of Trust,
+        # Unexploded Ordnance, Hidden Supplies, Supply Drop reuses a_controls_nml
+        # above). Cheap to always compute; only read by their own mission branch.
+        # Cited simulator.primary_linchpin / primary_burden_of_trust /
+        # primary_unexploded_ordnance / primary_hidden_supplies in
+        # data/rule_citations.d/primary_missions.json.
+        a_controls_nondz = 0
+        b_controls_nondz = 0
+        a_home_ctrl = False
+        b_home_ctrl = False
+        a_uo_vp = 0
+        b_uo_vp = 0
 
         # Board-control instrument (avenue-2 Stage 0) — read-only, gated. Snapshots
         # OC-packing / footprint-overlap / big-model-in-ruin at settled positions.
@@ -1497,10 +1525,42 @@ class Battle:
                 a_controls += 1
                 if self._obj_in_nml(obj):
                     a_controls_nml += 1
+                # Linchpin / Burden of Trust / Hidden Supplies (SWEG_PRIMARY_DECK_
+                # FULL): "the objective marker in their deployment zone" and
+                # "not within their deployment zone" both key off _obj_in_own_dz.
+                if self._obj_in_own_dz(obj, own_is_army_a=True):
+                    a_home_ctrl = True
+                else:
+                    a_controls_nondz += 1
             elif scorer == self.b.name:
                 b_controls += 1
                 if self._obj_in_nml(obj):
                     b_controls_nml += 1
+                if self._obj_in_own_dz(obj, own_is_army_a=False):
+                    b_home_ctrl = True
+                else:
+                    b_controls_nondz += 1
+            # Unexploded Ordnance (SWEG_PRIMARY_DECK_FULL): every No Man's Land
+            # marker is a Hazard marker, VP banded by distance to the OPPONENT's
+            # deployment zone edge. The 8VP "wholly within opponent's deployment
+            # zone" band needs the Move Hazard Action (repositioning the marker up
+            # to 6" per turn), which is NOT modelled — a No Man's Land marker's
+            # fixed position can never reach that zone, so only the 5VP/2VP bands
+            # are reachable here (a disclosed partial). Cited
+            # simulator.primary_unexploded_ordnance.
+            if mission == "unexploded_ordnance" and self._obj_in_nml(obj):
+                if scorer == self.a.name:
+                    _d = (self.map.height - self.map.deployment_width) - obj.y
+                    if _d <= 6:
+                        a_uo_vp += 5
+                    elif _d <= 12:
+                        a_uo_vp += 2
+                elif scorer == self.b.name:
+                    _d = obj.y - self.map.deployment_width
+                    if _d <= 6:
+                        b_uo_vp += 5
+                    elif _d <= 12:
+                        b_uo_vp += 2
             _award = scorer if (only_for is None or scorer == only_for) else None
             if _award == self.a.name:
                 a_th_award += obj.vp_per_round
@@ -1610,6 +1670,115 @@ class Battle:
                 self._a_vp += min(5 * a_controls_nml, 15)
             if only_for is None or only_for == self.b.name:
                 self._b_vp += min(5 * b_controls_nml, 15)
+        elif mission == "linchpin":
+            # Linchpin (Chapter Approved 2025-26, SWEG_PRIMARY_DECK_FULL): "If the
+            # player whose turn it is does not control the objective marker in
+            # their deployment zone, they score 3VP for each objective marker they
+            # control. OR If [they do] control the objective marker in their
+            # deployment zone, they score 3VP for controlling that objective
+            # marker, and 5VP for each other objective marker they control (up to
+            # 15VP per turn)." Verbatim text has NO cap on the first branch. On our
+            # maps at most one objective ever sits in a side's own deployment zone
+            # (a_home_ctrl computed in the loop above via _obj_in_own_dz); on the 3
+            # of 5 rotation maps with zero home markers, a_home_ctrl is always
+            # False and the flat 3VP-per-marker branch applies unconditionally,
+            # matching the real card. Cited simulator.primary_linchpin.
+            if only_for is None or only_for == self.a.name:
+                if a_home_ctrl:
+                    self._a_vp += min(3 + 5 * (a_controls - 1), 15)
+                else:
+                    self._a_vp += 3 * a_controls
+            if only_for is None or only_for == self.b.name:
+                if b_home_ctrl:
+                    self._b_vp += min(3 + 5 * (b_controls - 1), 15)
+                else:
+                    self._b_vp += 3 * b_controls
+        elif mission == "burden_of_trust":
+            # Burden of Trust (Chapter Approved 2025-26, SWEG_PRIMARY_DECK_FULL):
+            # "The player whose turn it is scores 4VP for each objective marker
+            # they control that is not within their deployment zone." Verbatim
+            # text has NO cap on this clause (the only CA-2025-26 primary hold
+            # clause without a stated per-round ceiling). a_controls_nondz /
+            # b_controls_nondz are the per-side controlled-and-outside-own-DZ
+            # counts from the loop above.
+            #
+            # PARTIAL, disclosed: the card's second scoring clause ("The opponent
+            # of the player whose turn it is scores 2VP for each of their units...
+            # that are within range of and guarding an objective marker they
+            # control") needs true per-player-turn granularity (a unit is
+            # nominated to guard at one player's Command phase and scores at the
+            # OTHER player's end of turn) that this round-batched scorer does not
+            # have, and is NOT modelled — the same documented-gap pattern as The
+            # Ritual's un-modelled Action above. Cited
+            # simulator.primary_burden_of_trust.
+            if only_for is None or only_for == self.a.name:
+                self._a_vp += 4 * a_controls_nondz
+            if only_for is None or only_for == self.b.name:
+                self._b_vp += 4 * b_controls_nondz
+        elif mission == "unexploded_ordnance":
+            # Unexploded Ordnance (Chapter Approved 2025-26, SWEG_PRIMARY_DECK_
+            # FULL): a_uo_vp / b_uo_vp accumulate the 5VP/2VP Hazard-proximity
+            # bands per marker in the loop above (see the comment there for the
+            # disclosed Move-Hazard-Action gap — the 8VP band is unreachable
+            # without it). Cited simulator.primary_unexploded_ordnance.
+            if only_for is None or only_for == self.a.name:
+                self._a_vp += a_uo_vp
+            if only_for is None or only_for == self.b.name:
+                self._b_vp += b_uo_vp
+        elif mission == "hidden_supplies":
+            # Hidden Supplies (Chapter Approved 2025-26, SWEG_PRIMARY_DECK_FULL):
+            # "5VP if they control one objective marker not within their
+            # deployment zone. 5VP if they control two objective markers not
+            # within their deployment zone. 5VP if they control more objective
+            # markers than their opponent controls." (cumulative). The third
+            # bullet is unqualified in the source text (unlike the first two), so
+            # — matching Purge the Foe's identically-unqualified "more objective
+            # markers than their opponent controls" clause — it reads off the
+            # ALL-objectives a_controls / b_controls totals, not the not-in-own-DZ
+            # subset. PARTIAL, disclosed: the mission's setup step (add a new
+            # objective marker in No Man's Land, first repositioning the centre
+            # marker toward a corner) is NOT modelled — the sim's per-map
+            # objective set is fixed, so this scores against the EXISTING marker
+            # set only, the same fixed-objective-set limitation as The Ritual's
+            # un-modelled Action. Cited simulator.primary_hidden_supplies.
+            if only_for is None or only_for == self.a.name:
+                a_hs = ((5 if a_controls_nondz >= 1 else 0)
+                        + (5 if a_controls_nondz >= 2 else 0)
+                        + (5 if a_controls > b_controls else 0))
+                self._a_vp += a_hs
+            if only_for is None or only_for == self.b.name:
+                b_hs = ((5 if b_controls_nondz >= 1 else 0)
+                        + (5 if b_controls_nondz >= 2 else 0)
+                        + (5 if b_controls > a_controls else 0))
+                self._b_vp += b_hs
+        elif mission == "supply_drop":
+            # Supply Drop (Chapter Approved 2025-26, SWEG_PRIMARY_DECK_FULL): "The
+            # player whose turn it is scores the following VP for each objective
+            # marker in No Man's Land that they control, depending on the current
+            # battle round: 5VP in the second and third battle rounds. 8VP in the
+            # fourth battle round. 15VP in the fifth battle round." This scores
+            # over ALL remaining (non-razed) No Man's Land markers, not just the
+            # Alpha/Omega pair — Alpha/Omega only decide which TWO markers get
+            # removed (`_resolve_supply_drop_removals`, called before the
+            # objective loop above) at the start of rounds 4 and 5 respectively;
+            # verbatim text has NO cap on the per-marker VP. a_controls_nml /
+            # b_controls_nml already exclude razed markers (the loop above skips
+            # `obj_idx in self._razed_objectives`). PARTIAL, disclosed: the real
+            # Alpha/Omega pick is RANDOM; `_assign_supply_drop_targets` picks the
+            # first two non-centre No Man's Land markers in map-definition order
+            # instead, to avoid perturbing the battle's deterministic random
+            # stream for games that never draw this mission. Cited
+            # simulator.primary_supply_drop.
+            if self._current_round >= 5:
+                _sd_per_marker = 15
+            elif self._current_round >= 4:
+                _sd_per_marker = 8
+            else:
+                _sd_per_marker = 5
+            if only_for is None or only_for == self.a.name:
+                self._a_vp += _sd_per_marker * a_controls_nml
+            if only_for is None or only_for == self.b.name:
+                self._b_vp += _sd_per_marker * b_controls_nml
         else:
             # take_and_hold (default, byte-identical to the legacy behaviour):
             # award the accumulated per-objective VP, then apply the 15 VP/round
@@ -3082,6 +3251,75 @@ class Battle:
                 # Fresh terraform overwrites the opponent's (a marker is terraformed
                 # by at most one side at a time).
                 self._terraformed_owner[idx] = owner
+
+    def _supply_drop_removal_enabled(self) -> bool:
+        """Supply Drop primary — the Alpha/Omega removal IS the mission (the
+        Scorched-Burn / Terraform pattern): active whenever the Supply Drop
+        primary mission is in play. SWEG_SUPPLY_DROP=0 disables the removal for
+        A/B isolation (leaving the escalating-VP hold scoring alone). Inert in
+        the default eval, which never draws a Supply Drop game unless
+        SWEG_PRIMARY_DECK_FULL is set. Cited simulator.primary_supply_drop."""
+        if getattr(self, "primary_mission", "take_and_hold") != "supply_drop":
+            return False
+        return __import__("os").environ.get("SWEG_SUPPLY_DROP", "1") not in ("0", "false", "")
+
+    def _assign_supply_drop_targets(self) -> None:
+        """Designate the Alpha/Omega markers once per battle: the two No Man's
+        Land objectives (excluding the exact board-centre marker) that will be
+        razed at the start of battle rounds 4 and 5 respectively. Real rule
+        (Supply Drop, Chapter Approved 2025-26): "Players randomly select two
+        different objective markers within No Man's Land that are not in the
+        centre of the battlefield; the first selected is the Alpha objective,
+        the second selected is the Omega objective."
+
+        APPROXIMATION (disclosed): the real selection is RANDOM. This picks the
+        first two eligible markers in `self.map.objectives` definition order
+        instead, so that drawing this mission never consumes from the battle's
+        seeded random stream — a new RNG draw here would perturb every
+        subsequent random decision in the SAME game (unit placement jitter,
+        hit/wound rolls, etc.), which would make even the OFF path only
+        conditionally byte-identical. Idempotent: no-op once already assigned.
+        Cited simulator.primary_supply_drop."""
+        if not self._supply_drop_removal_enabled():
+            return
+        if self._supply_drop_alpha_omega is not None:
+            return
+        cx = self.map.width / 2.0
+        cy = self.map.height / 2.0
+        candidates = [
+            idx for idx, obj in enumerate(self.map.objectives)
+            if self._obj_in_nml(obj)
+            and not (abs(obj.x - cx) < 1e-6 and abs(obj.y - cy) < 1e-6)
+        ]
+        if len(candidates) >= 2:
+            self._supply_drop_alpha_omega = (candidates[0], candidates[1])
+        elif len(candidates) == 1:
+            # Degenerate map with only one eligible marker — both labels point at
+            # it (it still razes on schedule; no invented second marker).
+            self._supply_drop_alpha_omega = (candidates[0], candidates[0])
+        else:
+            self._supply_drop_alpha_omega = ()
+
+    def _resolve_supply_drop_removals(self) -> None:
+        """Raze the Alpha marker at the start of battle round 4 and the Omega
+        marker at the start of battle round 5 — added to `_razed_objectives`,
+        the same permanent-removal bucket Scorched Earth's Burn uses (both mean
+        "gone from the battlefield for the rest of the game"). Called from
+        `_score_objectives` BEFORE the per-objective control loop, so the round
+        in which a marker is razed already excludes it from that same round's
+        control/scoring pass — matching "Start of the Fourth/Fifth Battle
+        Round" timing. Idempotent (adding an already-razed index is a no-op).
+        Cited simulator.primary_supply_drop."""
+        if not self._supply_drop_removal_enabled():
+            return
+        if not self._supply_drop_alpha_omega:
+            return
+        alpha = self._supply_drop_alpha_omega[0]
+        omega = self._supply_drop_alpha_omega[-1]
+        if self._current_round >= 4:
+            self._razed_objectives.add(alpha)
+        if self._current_round >= 5:
+            self._razed_objectives.add(omega)
 
     # ------------------------------------------------------------------
     # Wave 121 — AI-pursuit layer for held Tactical secondary cards

@@ -278,6 +278,33 @@ _PRIMARY_DECK = (
     "take_and_hold",   # Supply Drop           (not yet modelled)
 )
 
+# SWEG_PRIMARY_DECK_FULL (default-off): the FULL Chapter Approved 2025-26 deck —
+# all ten primaries drawn by their own real scoring rule. `Battle._score_objectives`
+# gains five more mission branches (linchpin, burden_of_trust,
+# unexploded_ordnance, hidden_supplies, supply_drop) alongside the three already
+# modelled above. Each of the five newly-modelled missions is a DISCLOSED
+# PARTIAL — see the per-mission code comments in code/simulator.py and the
+# citations in data/rule_citations.d/primary_missions.json for exactly which
+# real-card clause each one omits and why (mostly Actions that would need
+# dynamic marker creation / repositioning, out of scope for this build). Gated
+# behind SWEG_PRIMARY_DECK_FULL so the default eval (the partial _PRIMARY_DECK
+# above, unchanged) stays byte-identical; SWEG_PRIMARY_DECK must also resolve
+# truthy (its default "1") for either deck to be drawn at all — setting
+# SWEG_PRIMARY_DECK_FULL alone with SWEG_PRIMARY_DECK=0 still yields no primary
+# rotation. Cited simulator.primary_mission_rotation.
+_PRIMARY_DECK_FULL = (
+    "linchpin",             # Linchpin
+    "burden_of_trust",      # Burden of Trust
+    "take_and_hold",        # Take and Hold
+    "terraform",            # Terraform             (Action-on-marker, body-army bonus)
+    "purge_the_foe",        # Purge the Foe
+    "scorched_earth",       # Scorched Earth        (Burn Action displacement)
+    "unexploded_ordnance",  # Unexploded Ordnance   (Hazard-proximity bands)
+    "hidden_supplies",      # Hidden Supplies       (cumulative weighted hold)
+    "the_ritual",           # The Ritual            (No Man's Land-only hold pressure)
+    "supply_drop",          # Supply Drop           (Alpha/Omega escalating VP)
+)
+
 
 def _pick_primary_mission(pair_seed: int) -> Optional[str]:
     """Deterministic per-game primary draw from the CA-2025-26 deck.
@@ -306,13 +333,17 @@ def _pick_primary_mission(pair_seed: int) -> Optional[str]:
     # the legacy all-Take-and-Hold frame for an audit/A-B.
     if os.environ.get("SWEG_PRIMARY_DECK", "1") == "0":
         return None
+    # SWEG_PRIMARY_DECK_FULL (default-off, byte-identical off): draw from the
+    # full ten-real-card deck instead of the partial. See the deck's own
+    # docstring above for the fidelity/disclosure notes.
+    deck = _PRIMARY_DECK_FULL if os.environ.get("SWEG_PRIMARY_DECK_FULL") == "1" else _PRIMARY_DECK
     # pair_seed = (ai * 1000 + bi) * 100 + s, with s in 1..N (<100), faction
     # indices ai, bi < 100. Recover them to break the seed/map correlation.
     s = pair_seed % 100
     rest = pair_seed // 100
     bi = rest % 1000
     ai = rest // 1000
-    return _PRIMARY_DECK[(ai * 7 + bi * 3 + s) % len(_PRIMARY_DECK)]
+    return deck[(ai * 7 + bi * 3 + s) % len(deck)]
 
 
 def _run_battle_job(

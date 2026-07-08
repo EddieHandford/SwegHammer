@@ -775,6 +775,18 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Wave 203 (#87) — The Ritual primary: 5VP per No Man's Land marker controlled
     # (cap 15); home-zone markers score nothing (the_ritual branch of _score_objectives).
     "simulator.primary_the_ritual",
+    # SWEG_PRIMARY_DECK_FULL — the five remaining CA-2025-26 primaries, each a
+    # disclosed partial (see data/rule_citations.d/primary_missions.json for the
+    # exact omission per card): Linchpin (home-marker-gated 3VP/5VP), Burden of
+    # Trust (4VP/non-home marker, guard-VP clause not modelled), Unexploded
+    # Ordnance (Hazard-proximity bands, Move Hazard Action not modelled), Hidden
+    # Supplies (cumulative weighted hold, setup-step extra marker not modelled),
+    # Supply Drop (escalating VP with Alpha/Omega razing on a schedule).
+    "simulator.primary_linchpin",
+    "simulator.primary_burden_of_trust",
+    "simulator.primary_unexploded_ordnance",
+    "simulator.primary_hidden_supplies",
+    "simulator.primary_supply_drop",
     # 10e Imperial / Chaos Knights "Damaged: Wounds Remaining" datasheet ability,
     # both clauses. OC half: Battle._effective_oc (wave 85). Hit half: Unit.attack
     # hit_mod_delta -= 1 when on the Damaged bracket (wave 188). Registered here so
