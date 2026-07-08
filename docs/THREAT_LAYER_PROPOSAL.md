@@ -86,6 +86,41 @@ advance: the metric consequence is uncertain in sign (the durability wall has
 banked every play-quality improvement so far); the justification is fidelity
 of play, and the falsifier is the walked-into-it rate, not the headline.
 
+## Owner refinements (2026-07-09, second pass)
+
+**1. Kills edit the field mid-turn — and sequencing falls out.** The field is
+computed live at each activation from currently-alive enemies, so a unit shot
+dead earlier in the turn projects nothing by the time later units move — the
+"dangerous move becomes fine because we killed the projector first" case is
+automatic, not special-cased. Two deliberate couplings on top: (a) a
+planned-kill discount — a mover may price a destination against
+`T(p) − threat_E(p) · P(E dies to fire already allocated this turn)`, so
+moves can be planned into cells our own shooting is about to clear; (b) an
+"unlocks space" term for the SHOOT picker — a target's value gains the
+threat it projects over destinations our army wants this turn, which makes
+"kill the screen so the charge lane opens" an arithmetic consequence rather
+than a heuristic. The army-level activation plan already biases activation
+ORDER, giving the shoot-before-move sequencing a place to live.
+
+**2. Ranged threat does not cross line of sight — cover becomes emergent.**
+Gun projections are occluded by blocking terrain along the segment from the
+enemy to the evaluated cell (the map's terrain pieces carry wall geometry),
+so cells behind ruins carry only the melee gradient — and tolerance-driven
+movers HUG COVER as a consequence of the arithmetic, with no cover heuristic
+at all: the Orks open-ground march fixes itself by pathing through the
+occluded cells. HONEST CAVEAT, flagged deliberately: the sim's actual
+shooting RESOLUTION uses angle-independent positional cover
+(`cover_at(target.position)`, the audited symmetric ~46 percent tax) and has
+no true line-of-sight blocking — so the layer would plan with sharper
+geometry than the resolution enforces. That is acceptable for an AI
+evaluation layer (real players also plan with better geometry than they
+sometimes get), but it creates a documented asymmetry, and the real fix —
+line-of-sight-blocked shooting resolution — is a separate, large Stage-1
+rules-fidelity question in its own right (a major re-anchor event, sign
+uncertain, adjacent to open issue 52 on wall collision). Sequence: layer
+first with occlusion-aware planning; resolution line of sight as its own
+gated proposal afterwards if the owner wants it.
+
 ## Status
 
 PARKED pending: (a) the sc61a re-anchor on the merged codebase (nothing can
