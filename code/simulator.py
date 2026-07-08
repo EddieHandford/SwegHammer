@@ -5729,7 +5729,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, LIGHTNING_FAST_REACTIONS):
             return
-        if os.environ.get("SWEG_AELDARI_LFR_PHASE", "0") == "1":
+        if os.environ.get("SWEG_AELDARI_LFR_PHASE", "1") != "0"  # ADOPTED default-on 2026-07-09 (sc61a rider; =0 kill-switch):
             self._set_transient_squad(target, "transient_minus_one_to_hit_shooting")
             return
         self._set_transient_squad(target, "transient_plus_one_save")
@@ -5856,7 +5856,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, BLITZING_FIREPOWER):
             return
-        if os.environ.get("SWEG_AELDARI_BLITZ_RANGE", "0") == "1":
+        if os.environ.get("SWEG_AELDARI_BLITZ_RANGE", "1") != "0"  # ADOPTED default-on 2026-07-09 (sc61a rider; =0 kill-switch):
             if _distance(attacker.position, target.position) > 12.0:
                 return
         attacker.transient_sustained_hits += 1
