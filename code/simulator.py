@@ -159,6 +159,7 @@ from .sim.constants import (  # noqa: F401  (re-exported for the public surface)
     PATHFIND_STAGE0_STATS,
     REACH_STATS,
     STRAND_STATS,
+    TERRAIN_COLLISION_STATS,
     _PATHFIND_BIG_RADIUS_IN,
 )
 # Pure geometry helpers moved verbatim to code/sim/geometry.py (Stage A of
@@ -1977,17 +1978,33 @@ class Battle:
         moves keep ER (allow_engagement=False) — only a Charge may end within 1".
         Note C perf: only the gated path pays this O(models) cost; benchmark +
         spatial-bucket if the Stage-1 A/B wall-clock exceeds 1.5x. No RNG."""
+        # Terrain wall collision (Stage T2, gate SWEG_TERRAIN_COLLISION, default-off):
+        # a non-FLY, non-INFANTRY/BEAST mover may not tunnel through a Ruin/Impassable
+        # wall — code.sim.geometry._move_toward clamps it at the wall. FLY movers pass
+        # over terrain; INFANTRY / BEASTS move through ruin walls in 10e (they carry no
+        # terrain block). Computed independently of SWEG_COLLISION (model collision) so
+        # the wall clamp applies even on the SWEG_COLLISION=0 path below. Cited as
+        # `simulator.terrain_wall_collision`. (No stock map is IMPASSABLE today, so
+        # infantry are effectively unblocked; a future IMPASSABLE map would want them
+        # blocked by it, which this single boolean does not yet express.)
+        terrain_block = False
+        if __import__("os").environ.get("SWEG_TERRAIN_COLLISION") == "1":
+            _mkw = mover.profile.unit_keywords or ()
+            terrain_block = (
+                "FLY" not in _mkw and "INFANTRY" not in _mkw and "BEAST" not in _mkw
+            )
+        terrain_kw = {"terrain_block_ruins": True} if terrain_block else {}
         # Collision is DEFAULT-ON (user ruling 2026-06-07: no-overlap collision is the
         # production baseline); set SWEG_COLLISION=0 to A/B the legacy no-collision path.
         if __import__("os").environ.get("SWEG_COLLISION", "1") == "0":
-            return {}
+            return terrain_kw
         friendly = getattr(mover, "army_ref", None)
         if friendly is self.a:
             enemy = self.b
         elif friendly is self.b:
             enemy = self.a
         else:
-            return {}
+            return terrain_kw
         occ = []
         for u in friendly.alive_units:
             if u is mover:
@@ -2005,6 +2022,7 @@ class Battle:
             "mover_radius": _bc_model_radius_in(mover.profile),
             "occupants": occupants,
             "mover_fly": "FLY" in (mover.profile.unit_keywords or ()),
+            **terrain_kw,
         }
 
     def _oc_within(self, army, obj) -> int:

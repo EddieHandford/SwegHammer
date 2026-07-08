@@ -121,3 +121,14 @@ REACH_STATS: dict = {
 # (~38mm base). A 170mm Knight is ~3.3", infantry ~0.63" — the threshold cleanly
 # separates the big bases that crash their reach from the small bases that sidestep fine.
 _PATHFIND_BIG_RADIUS_IN = 1.5
+
+# TERRAIN-COLLISION instrument (terrain-realism Stage T2, gate SWEG_TERRAIN_COLLISION).
+# Counts, over the moves that RAN with terrain collision active (non-FLY, non-INFANTRY
+# movers when the gate is on), how many had their straight destination CLAMPED at a
+# Ruin/Impassable wall they would otherwise have tunnelled through, and how many
+# off-axis candidate destinations were REJECTED for crossing a wall. Mutated only on
+# the gated path (terrain_block_ruins=True in code.sim.geometry._move_toward), so the
+# default-off path leaves it at zero and is byte-identical. Read-only diagnostic.
+TERRAIN_COLLISION_STATS: dict = {
+    "considered": 0, "clamped": 0, "candidates_rejected": 0,
+}
