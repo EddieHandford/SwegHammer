@@ -2142,6 +2142,12 @@ def _instantiate_template(
       units are present) and filling the rest randomly keeps the overall
       cost-per-model close to the random baseline while still biasing list
       composition.
+
+    `SWEG_TEMPLATE_REALIZE` (default OFF): when on, the walk seeds one
+    copy of every template entry (breadth) before spending any remaining
+    seed-slice budget on duplicates up to template counts (depth), fixing
+    the tail-entry-realization lottery described where the gate is
+    consulted below. Byte-identical to the pre-existing walk when unset.
     """
     if not template or points_budget <= 0:
         return {}
@@ -2330,16 +2336,99 @@ def _instantiate_template(
             )
         return (-template.get(key, 0), -_squad_cost(key))
 
-    for key in sorted(template, key=sort_key):
-        if key in scaled:
-            # Already seeded by the mono-god anchor pre-pass.
-            continue
-        cost = _squad_cost(key)
-        if running + cost <= seed_budget:
-            scaled[key] = 1
-            running += cost
-        # else: skip — too expensive at this budget. Cheaper subsequent
-        # entries may still fit, so keep walking rather than break.
+    # SWEG_TEMPLATE_REALIZE (2026-07-08) — breadth-before-depth seed walk.
+    # Default OFF (`os.environ.get("SWEG_TEMPLATE_REALIZE", "0") == "1"`),
+    # byte-identical to the walk above when unset.
+    #
+    # FINDING (docs/DECISION_LEDGER.md "UNDER-POLE PILOT SWEEP", two
+    # independent full-protocol pilots, board-connected): the walk above
+    # spends `seed_budget` in (-count, -cost) priority order, so an
+    # expensive guaranteed spine exhausts the slice before the tail
+    # entries — sorted last because they are single-copy and/or cheap —
+    # ever seed. Those tail entries are then left entirely to the
+    # `_random_fill` lottery, and `SWEG_FILL_TEMPLATE_POOL` only prefers
+    # template names, it does not guarantee them, so a rarely-drawn tail
+    # entry realizes at 20-40% of builds instead of the template's
+    # intended 100%. MEASURED (this repo's own `_effective_template`
+    # output, N=20 @ 2000pt, same per-seed rng as `evaluate_vs_meta` slot
+    # A): Astra Militarum's Kasrkin/Tempestus Scions/Chimera/Death Korps
+    # of Krieg/Attilan Rough Riders/Cadian Heavy Weapons Squad each
+    # present in 4-8 of 20 builds while the count=2 Cadian Shock Troops
+    # spine is 20/20; Emperor's Children's `SWEG_EC_LIST2`-adopted second
+    # Daemon Prince of Slaanesh with Wings realizes a 0.85 mean (absent in
+    # 7 of 20 builds) and the second Chaos Rhino a 0.75 mean, despite both
+    # being explicit count=2 template entries. Genestealer Cults' cheaper,
+    # more numerous template realizes far more of its entries at 100% —
+    # the asymmetry is a fidelity defect in the seed walk, not a
+    # per-faction difference in how faithfully each archetype was sourced.
+    #
+    # FIX: when the gate is on, seed ONE copy of EVERY template entry
+    # first (breadth), THEN spend whatever seed-slice budget remains on
+    # duplicates up to each entry's template count (depth), in the SAME
+    # priority order the walk already used. This does not touch
+    # `SEED_FRACTION*`, the template counts, or the off-path walk — it
+    # only reorders WHEN each entry is allowed to compete for the seed
+    # slice: breadth-coverage always goes first, so a cheap tail entry
+    # can no longer be starved by an expensive spine's duplicates. The
+    # existing EPIC HERO / CHARACTER anchor guarantees below still run
+    # unchanged in both states; with the gate on they are typically
+    # already satisfied by the breadth pass (a template EPIC HERO or
+    # CHARACTER is itself a template entry) and so no-op, which is the
+    # "keep working unchanged" behaviour those guarantees are required to
+    # preserve — they still fire exactly as before if a future template
+    # ever contains a single-copy entry too expensive for the breadth
+    # pass's full-budget check (see below).
+    _template_realize = os.environ.get("SWEG_TEMPLATE_REALIZE", "0") == "1"
+
+    if _template_realize:
+        # Breadth pass — template dict order (not sorted), so coverage is
+        # unbiased by cost or count. An entry is skipped only if a single
+        # copy cannot fit inside the REMAINING TOTAL points budget (not
+        # just the seed slice) — list-fidelity coverage is worth spending
+        # past the seed fraction for, matching the overflow allowance the
+        # mono-god / EPIC HERO / CHARACTER anchors above and below already
+        # use. Skipping (not breaking) lets a cheaper later entry still
+        # fit.
+        for key in template:
+            if key in scaled:
+                # Already seeded by one of the anchor pre-passes above.
+                continue
+            cost = _squad_cost(key)
+            if running + cost <= points_budget:
+                scaled[key] = 1
+                running += cost
+            # else: skip — doesn't fit even at full army budget; try the
+            # next template entry.
+
+        # Depth pass — existing (-count, -cost[, character-tiebreak])
+        # priority order, spending only what remains of the seed-slice
+        # budget (not the full points budget) on additional copies up to
+        # each entry's template count. A cheap tail entry that only
+        # needed 1 copy (already satisfied above) is skipped here; an
+        # expensive spine entry with template count > 1 gets its
+        # duplicates first, same priority as the pre-fix walk.
+        for key in sorted(template, key=sort_key):
+            target = template.get(key, 0)
+            have = scaled.get(key, 0)
+            if have >= target:
+                continue
+            cost = _squad_cost(key)
+            while have < target and running + cost <= seed_budget:
+                have += 1
+                running += cost
+            if have:
+                scaled[key] = have
+    else:
+        for key in sorted(template, key=sort_key):
+            if key in scaled:
+                # Already seeded by the mono-god anchor pre-pass.
+                continue
+            cost = _squad_cost(key)
+            if running + cost <= seed_budget:
+                scaled[key] = 1
+                running += cost
+            # else: skip — too expensive at this budget. Cheaper subsequent
+            # entries may still fit, so keep walking rather than break.
 
     # iter24-D2 — EPIC HERO anchor guarantee. The (-count, -cost) walk
     # above leaves a template EPIC HERO unseeded when count=2 entries
