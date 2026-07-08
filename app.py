@@ -21,6 +21,7 @@ import streamlit as st
 
 from code.army import Army
 from code.army_builder import (
+    build_army_from_composition,
     build_army_from_list,
     build_faction_random_army,
     build_homogeneous_army,
@@ -280,25 +281,26 @@ def _composition_faction(comp) -> str:
 
 
 def _build_army_from_composition(name: str, comp, in_cover: bool = False) -> Army:
-    army = Army(name, in_cover=in_cover)
+    # Delegate to the shared builder so the in-process preview/replay army is
+    # byte-identical to what the parallel battle workers rebuild from the spec.
+    return build_army_from_composition(name, comp, in_cover=in_cover)
+
+
+def _army_spec_from_composition(
+    name: str, comp, in_cover: bool = False,
+) -> dict:
+    # Carry the composition rows (normalized to (key, num_squads,
+    # models_per_squad)) so workers rebuild REAL squads via
+    # build_army_from_composition — not a flat key list that collapses every
+    # squad to one model per unit. Tolerates 2- or 3-tuple rows.
+    rows: List[Tuple[str, int, int]] = []
     for unit_key, count, *rest in comp:
         count = max(0, int(count))
         if count == 0:
             continue
-        profile = UNIT_CATALOG[unit_key]
         size = max(1, int(rest[0]) if rest else 1)
-        for _ in range(count):
-            army.add_squad(profile, size)
-    return army
-
-
-def _army_spec_from_composition(
-    name: str, comp: List[Tuple[str, int]], in_cover: bool = False,
-) -> dict:
-    keys: List[str] = []
-    for unit_key, count in comp:
-        keys.extend([unit_key] * max(0, int(count)))
-    return {"name": name, "keys": keys, "in_cover": in_cover}
+        rows.append((unit_key, count, size))
+    return {"name": name, "comp": rows, "in_cover": in_cover}
 
 
 def _composition_from_random(
@@ -1385,11 +1387,18 @@ with st.sidebar:
         profile_a = UNIT_CATALOG[preset["a_key"]]
         profile_b = UNIT_CATALOG[preset["b_key"]]
         points = st.slider("Points per army", 100, 2000, preset["points"], step=50)
-        # Preset uses a homogeneous army filled to the points budget.
-        a_count = max(1, int(points // profile_a.points_cost))
-        b_count = max(1, int(points // profile_b.points_cost))
-        a_comp: List[Tuple[str, int]] = [(preset["a_key"], a_count)]
-        b_comp: List[Tuple[str, int]] = [(preset["b_key"], b_count)]
+        # Preset uses a homogeneous army of full max_models squads filled to the
+        # points budget. Emitting the (key, num_squads, models_per_squad) 3-tuple
+        # makes _build_army_from_composition give each squad one shared squad_id,
+        # so per-unit mechanics (one Advance roll per squad, battle-shock by model
+        # count, Blast, once-per-unit economies) fire correctly — rather than the
+        # legacy size-1 path that fielded one model per unit.
+        size_a = max(1, profile_a.max_models)
+        size_b = max(1, profile_b.max_models)
+        a_count = max(1, int(points // (profile_a.points_cost * size_a)))
+        b_count = max(1, int(points // (profile_b.points_cost * size_b)))
+        a_comp: List[Tuple[str, int, int]] = [(preset["a_key"], a_count, size_a)]
+        b_comp: List[Tuple[str, int, int]] = [(preset["b_key"], b_count, size_b)]
         a_faction = profile_a.faction
         b_faction = profile_b.faction
 
