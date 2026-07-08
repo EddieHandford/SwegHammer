@@ -81,6 +81,9 @@ ESTIMATE until re-measured.
 - Module form, serial, never `A && B &` (detaches the chain; evals die silently).
 - Every run logs to a UNIQUE `data/_<tag>.json` — two agents once clobbered the
   same scratch path and one "found" the other's output.
+- NEVER import `scripts.evaluate_vs_meta` (even for FACTIONS) in a shell without
+  `PYTHONHASHSEED=0` — its self-relaunch guard re-execs the module and silently
+  runs a FULL default evaluation, seizing the lock.
 - Sub-agents are read-only unless the brief says otherwise; a briefing states
   the exact gates and their defaults; worktree agents verify their base branch
   (CLAUDE.md rule 8).
