@@ -1130,9 +1130,20 @@ class Unit:
         #   transient_plus_one_to_wound_melee — Outbreak of Pestilence. Attacker
         #       buff: +1 to wound on melee attacks for the round.
         # Warhost (Aeldari, was "Battle Host" pre-#197):
-        #   transient_plus_one_save — Lightning-Fast Reactions (also reused by
-        #       Skyborne Sanctuary and Webway Tunnel as defensive proxies).
-        #       Defender buff: +1 to armour save (cap 2+) for the round.
+        #   transient_plus_one_save — Lightning-Fast Reactions LEGACY path
+        #       (SWEG_AELDARI_LFR_PHASE default OFF; also reused by Skyborne
+        #       Sanctuary and Webway Tunnel as defensive proxies, unaffected
+        #       by the gate). Defender buff: +1 to armour save (cap 2+) for
+        #       the round.
+        #   transient_minus_one_to_hit_shooting — Lightning-Fast Reactions
+        #       FIDELITY path (gate SWEG_AELDARI_LFR_PHASE == "1"). Defender
+        #       buff: -1 to incoming ranged Hit rolls for the round, composed
+        #       via OR at the same Stealth/Smokescreen site (Unit.attack,
+        #       ranged branch) and subsumed by the same ±1 hit-modifier cap
+        #       (never doubles). Matches the codex "-1 to Hit rolls" effect
+        #       in kind; being ranged-only also narrows the duration to the
+        #       opponent's Shooting phase, since it can never apply in the
+        #       Fight phase. Cited as `Stratagem.Lightning-Fast Reactions`.
         #   transient_reroll_hits_shooting — Fire and Fade. Attacker buff: failed
         #       hit rolls in shooting are re-rolled (once) for the round.
         #   transient_plus_one_to_hit_shooting — Blitzing Firepower (Warhost
@@ -1197,6 +1208,7 @@ class Unit:
         "transient_minus_one_damage_taken",
         "transient_plus_one_to_wound_melee",
         "transient_plus_one_save",
+        "transient_minus_one_to_hit_shooting",
         "transient_reroll_hits_shooting",
         "transient_assault_this_round",
         "transient_charge_after_advance",
@@ -1443,6 +1455,11 @@ class Unit:
         self.transient_minus_one_damage_taken: bool = False
         self.transient_plus_one_to_wound_melee: bool = False
         self.transient_plus_one_save: bool = False
+        # Lightning-Fast Reactions FIDELITY path (gate SWEG_AELDARI_LFR_PHASE
+        # == "1"): -1 to incoming ranged Hit rolls, read at the Stealth /
+        # Smokescreen OR-site in Unit.attack. Default False = no-op on the
+        # legacy (gate off) path, which still uses transient_plus_one_save.
+        self.transient_minus_one_to_hit_shooting: bool = False
         self.transient_reroll_hits_shooting: bool = False
         self.transient_assault_this_round: bool = False
         self.transient_charge_after_advance: bool = False
@@ -3527,9 +3544,18 @@ class Unit:
             # ability until end of the opponent's Shooting phase, composed via
             # OR with the datasheet's own (permanent) Stealth. Cited as
             # `simulator.smokescreen`.
+            # Lightning-Fast Reactions FIDELITY path (Warhost Aeldari stratagem,
+            # gate SWEG_AELDARI_LFR_PHASE == "1", `simulator._try_lightning_
+            # fast_reactions`): the codex effect is "subtract 1 from Hit rolls
+            # targeting your unit" — reusing this exact ranged-only -1-to-hit
+            # site (rather than the legacy `transient_plus_one_save` mis-map)
+            # both fixes the effect direction AND narrows the duration to the
+            # Shooting phase only, since this branch never fires for melee.
+            # Cited as `Stratagem.Lightning-Fast Reactions`.
             if mode != "melee" and (
                 target.profile.stealth
                 or getattr(target, "smokescreen_active", False)
+                or getattr(target, "transient_minus_one_to_hit_shooting", False)
             ):
                 hit_mod_delta -= 1
 

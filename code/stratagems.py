@@ -153,12 +153,20 @@ UNIVERSAL_STRATAGEMS: Tuple[Stratagem, ...] = (
 # from the Wahapedia stratagem list. The codex detachment name is "Warhost"
 # (the launch-index name "Battle Host" was renamed).
 
+# Effect identifier reflects both dispatch paths in
+# simulator._try_lightning_fast_reactions: "plus_one_save_for_round" is the
+# LEGACY default (SWEG_AELDARI_LFR_PHASE off, byte-identical); under the gate
+# ("== \"1\"") the dispatcher instead sets
+# minus_one_to_hit_shooting_for_round, the faithful-effect / narrowed-duration
+# fidelity path. See the dispatcher docstring and
+# data/rule_citations.d/stratagems.json for the residual approximation.
 LIGHTNING_FAST_REACTIONS = Stratagem(
     name="Lightning-Fast Reactions",
     cp_cost=1,
     phase="any",
     trigger="vulnerable_friendly_aeldari_unit",
-    effect="plus_one_save_for_round",
+    effect="plus_one_save_for_round (legacy, gate off) / "
+    "minus_one_to_hit_shooting_for_round (SWEG_AELDARI_LFR_PHASE == \"1\")",
 )
 
 FIRE_AND_FADE = Stratagem(

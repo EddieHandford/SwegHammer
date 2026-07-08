@@ -4728,6 +4728,13 @@ class Battle:
             u.transient_minus_one_damage_taken = False
             u.transient_plus_one_to_wound_melee = False
             u.transient_plus_one_save = False
+            # Lightning-Fast Reactions FIDELITY path (gate
+            # SWEG_AELDARI_LFR_PHASE): cleared with the other per-round
+            # stratagem flags, same caveat as go_to_ground_active /
+            # smokescreen_active above — the real "until end of the phase"
+            # duration is approximated as "until round end" because the sim
+            # only resets transient flags at round start.
+            u.transient_minus_one_to_hit_shooting = False
             u.transient_reroll_hits_shooting = False
             u.transient_assault_this_round = False
             u.transient_charge_after_advance = False
@@ -5665,9 +5672,47 @@ class Battle:
             self._set_transient_squad(candidate, "transient_reroll_wounds")
 
     def _try_lightning_fast_reactions(self, army: Army, opponent: Army) -> None:
-        """Lightning-Fast Reactions (Warhost): +1 save on the most
-        vulnerable AELDARI unit for the round. Wahapedia:
-        https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost"""
+        """Lightning-Fast Reactions (Warhost). Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost
+
+        Real rule (verbatim, data/rule_citations.d/stratagems.json): "USE
+        THIS STRATAGEM IN YOUR OPPONENT'S SHOOTING PHASE OR FIGHT PHASE,
+        JUST AFTER AN ENEMY UNIT HAS SELECTED ITS TARGETS. UNTIL THE END OF
+        THE PHASE, SUBTRACT 1 FROM HIT ROLLS TARGETING YOUR UNIT." — a
+        single-phase reactive -1-to-hit, usable in EITHER the opponent's
+        Shooting phase or their Fight phase.
+
+        LEGACY path (default; SWEG_AELDARI_LFR_PHASE unset or != "1"):
+        SwegHammer's stratagem dispatcher fires once at Command-phase start,
+        proactively, not reactively "just after an enemy unit has selected
+        its targets" — so the legacy code approximated with the WRONG effect
+        (+1 to the armour save instead of -1 to hit) held for the WHOLE
+        round instead of one phase, over-crediting both effect and duration.
+        Left byte-identical for the both-off validation; still used by the
+        Skyborne Sanctuary / Webway Tunnel proxies, which this gate does not
+        touch.
+
+        FIDELITY path (gate SWEG_AELDARI_LFR_PHASE == "1"): fixes both
+        problems as far as the sim's structure cleanly allows.
+        - EFFECT: sets `transient_minus_one_to_hit_shooting` instead of
+          `transient_plus_one_save` — read at the same ranged-only Stealth /
+          Smokescreen -1-to-hit site in `Unit.attack`, so the correct -1 to
+          Hit (not +1 save) is applied, subject to the same ±1 hit-modifier
+          cap as every other source (never doubles).
+        - DURATION: that site is ranged-only (`mode != "melee"`), so the
+          buff can only ever manifest against the opponent's Shooting phase
+          attacks — never Fight-phase attacks — which is the closest
+          faithful narrowing the sim's round-start (not per-phase-reactive)
+          dispatch structure allows.
+        RESIDUAL APPROXIMATION (documented, not fixed — see the citation
+        entry): the real stratagem can also be spent reactively in the Fight
+        phase for identical -1-to-hit protection there, which this path does
+        not model; and even the Shooting-phase coverage still spans the
+        whole round rather than clearing the instant that one phase ends,
+        because the sim only clears transient stratagem flags at round
+        start (same approximation already accepted for Go To Ground and
+        Smokescreen).
+        """
         target = self._most_vulnerable_unit(
             army, keyword="AELDARI", faction="Aeldari",
         )
@@ -5679,6 +5724,9 @@ class Battle:
         if not should_fire_stratagem(army, LIGHTNING_FAST_REACTIONS, ctx):
             return
         if not self._fire_stratagem(army, LIGHTNING_FAST_REACTIONS):
+            return
+        if os.environ.get("SWEG_AELDARI_LFR_PHASE", "0") == "1":
+            self._set_transient_squad(target, "transient_minus_one_to_hit_shooting")
             return
         self._set_transient_squad(target, "transient_plus_one_save")
 
