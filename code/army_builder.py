@@ -212,10 +212,20 @@ def build_homogeneous_army(
     profile: UnitProfile,
     points_budget: float,
     in_cover: bool = False,
+    squad_size: Optional[int] = None,
 ) -> Army:
     """
     Fill an army with as many copies of a single unit type as the budget allows.
     Used for clean unit-vs-unit comparison.
+
+    Squad size: by default each copy is a full max_models squad (one shared
+    squad_id), so the army fields real squads rather than the legacy
+    one-model-per-instance representation that mis-fired every per-unit mechanic
+    (battle-shock by model count, once-per-unit economies, Blast, coherency —
+    see docs/CORE_RULES_AUDIT.md on the one-Unit-per-model amplification). Pass
+    `squad_size=1` to recover the old per-model behaviour. If even one full-size
+    squad overshoots the budget, the size is shrunk toward 1 so a small budget
+    still fields something rather than returning an empty army.
 
     Detachment: if `profile.faction` is non-empty, the army's detachment is
     set to that faction's canonical default via `default_detachment_for_faction`.
@@ -225,10 +235,16 @@ def build_homogeneous_army(
     no-detachment baseline that earlier versions accidentally compared.
     """
     army = Army(name, in_cover=in_cover)
+    size = max(1, squad_size if squad_size is not None else (profile.max_models or 1))
+    # Shrink toward 1 if a full squad doesn't fit, so a tiny budget still fields
+    # at least one (smaller) squad instead of an empty army.
+    while size > 1 and profile.points_cost * size > points_budget:
+        size -= 1
+    squad_cost = profile.points_cost * size
     remaining = points_budget
-    while remaining >= profile.points_cost:
-        army.add_unit(profile)
-        remaining -= profile.points_cost
+    while squad_cost > 0 and remaining >= squad_cost:
+        army.add_squad(profile, size)
+        remaining -= squad_cost
     if profile.faction:
         army.detachment = default_detachment_for_faction(profile.faction)
     return army
@@ -282,6 +298,39 @@ def build_army_from_list(name: str, unit_keys: Sequence[str], in_cover: bool = F
     for key in unit_keys:
         profile = UNIT_CATALOG[key]
         army.add_unit(profile)
+    return army
+
+
+def build_army_from_composition(
+    name: str,
+    comp: Sequence,
+    in_cover: bool = False,
+) -> Army:
+    """
+    Build an army from composition rows so each squad keeps one shared
+    squad_id (real squads), rather than the legacy one-model-per-instance
+    representation that mis-fires per-unit mechanics (battle-shock by model
+    count, once-per-unit economies, Blast, coherency — see
+    docs/CORE_RULES_AUDIT.md on the one-Unit-per-model amplification).
+
+    Each row is ``(unit_key, num_squads)`` or
+    ``(unit_key, num_squads, models_per_squad)``. A missing models_per_squad
+    defaults to 1 (the legacy per-instance size); callers that want full
+    squads pass an explicit size in [min_models, max_models]. This is the
+    single source of truth shared by the app's preview/replay path and the
+    parallel battle workers (``code/sim_worker.py``), so both build identical
+    armies from the same spec.
+    """
+    army = Army(name, in_cover=in_cover)
+    for row in comp:
+        unit_key, count, *rest = row
+        count = max(0, int(count))
+        if count == 0:
+            continue
+        profile = UNIT_CATALOG[unit_key]
+        size = max(1, int(rest[0]) if rest else 1)
+        for _ in range(count):
+            army.add_squad(profile, size)
     return army
 
 

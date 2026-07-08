@@ -147,7 +147,7 @@ equal points implies equal expected battlefield score. See
 | `docs/CORE_RULES_AUDIT.md` | 10e core rules vs implementation coverage map |
 | `code/` | Python simulation engine |
 | `code/sim/` | Simulator package — modules extracted from `code/simulator.py` by pure code motion (constants, geometry so far), behaviour-identical; see [`docs/SIM_MODULARIZATION_PLAN.md`](docs/SIM_MODULARIZATION_PLAN.md) |
-| `app.py` | Streamlit dashboard — 6 tabs (Statistics, Watch a battle, Efficiency, Equilibrium, Compare to SwegHammer, Convergence) |
+| `app.py` | Streamlit dashboard — Player and Calibration views (Statistics, a round-by-round battle overview replay, Efficiency, Equilibrium, Compare, Convergence, Calibration, Equation Fit). Battle setup auto-resolves a **fair points budget**: chunky factions (Knights) cannot fill a low budget, so the two sides would fight at very different fielded points — the dashboard raises the budget until both field within 5% of each other (warning when adjusted) and marks the pairing N/A if even the slider maximum cannot balance it. This lives in `app.py` only and never touches the shared army builder the calibration evaluation depends on. |
 | `run.py` | Cross-platform launcher (`python run.py` for the GUI menu, `python run.py --cli` to skip it) |
 | `code/factions.py` | Codex → faction mapping + per-faction display colours; Marine umbrella detection |
 | `code/archetypes.py` | Curated per-faction tournament list templates (opt-in via `use_archetype=True`) |
