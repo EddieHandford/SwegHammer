@@ -5772,10 +5772,23 @@ class Battle:
         ability). ST-1: now routes through the proper
         `transient_sustained_hits` accumulator (additive on top of any
         per-weapon SUSTAINED HITS already on the profile, matching the
-        codex stacking rule). The 12" range gate and the 5+ Critical
-        Hit upgrade for weapons already carrying SUSTAINED HITS X are
-        still not modelled. Wahapedia:
-        https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost"""
+        codex stacking rule). The 5+ Critical Hit upgrade for weapons
+        already carrying SUSTAINED HITS X is still not modelled.
+
+        FIDELITY (gate SWEG_AELDARI_BLITZ_RANGE, default OFF): the real
+        [SUSTAINED HITS 1] grant only applies against targets within 12"
+        — the sim has never modelled that gate, and Aeldari is an
+        over-pole (sim ~50 vs real 41.5), so the un-gated grant is a
+        plausible over-model. Per the Necron Conquering Tyrant
+        half-range META-LESSON (docs/DECISION_LEDGER.md), do NOT gate the
+        stratagem's FIRING — that saves the command point for
+        reallocation to a stronger stratagem and goes wrong-direction.
+        This uses the same keep-the-CP-spend-drop-the-effect shape as
+        Fire and Fade instead: the stratagem still fires and spends its
+        command point exactly as today, and only the sustained-hits
+        grant is withheld when the picked target is beyond 12" of the
+        attacker. OFF path applies the grant unchanged → byte-identical.
+        Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost"""
         attacker = self._highest_dpa_unit(
             army, keyword="AELDARI", faction="Aeldari",
         )
@@ -5791,6 +5804,9 @@ class Battle:
             return
         if not self._fire_stratagem(army, BLITZING_FIREPOWER):
             return
+        if os.environ.get("SWEG_AELDARI_BLITZ_RANGE", "0") == "1":
+            if _distance(attacker.position, target.position) > 12.0:
+                return
         attacker.transient_sustained_hits += 1
 
     def _try_webway_tunnel(self, army: Army, opponent: Army) -> None:
