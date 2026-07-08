@@ -132,3 +132,14 @@ _PATHFIND_BIG_RADIUS_IN = 1.5
 TERRAIN_COLLISION_STATS: dict = {
     "considered": 0, "clamped": 0, "candidates_rejected": 0,
 }
+
+# TERRAIN-LINE-OF-SIGHT instrument (terrain-realism Stage T3, gate SWEG_TERRAIN_LOS).
+# Counts, when the gate routes the shooting / Fire Overwatch target-legality check
+# through the shared substrate code.sim.los.has_los, how many in-range enemy targets
+# were DENIED because a Ruin/Woods wall occludes them (checked = in-range targets
+# tested, denied = of those, occluded). Mutated only on the gated path; the default-off
+# path keeps its pre-existing Map.has_line_of_sight legality check unchanged and leaves
+# this at zero. Read-only diagnostic. NOTE: line-of-sight target LEGALITY is not new —
+# the baseline Map.has_line_of_sight check already denies occluded targets; the gate
+# routes the identical check through the substrate the T4 planner will share.
+TERRAIN_LOS_STATS: dict = {"checked": 0, "denied": 0}

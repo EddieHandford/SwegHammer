@@ -160,8 +160,10 @@ from .sim.constants import (  # noqa: F401  (re-exported for the public surface)
     REACH_STATS,
     STRAND_STATS,
     TERRAIN_COLLISION_STATS,
+    TERRAIN_LOS_STATS,
     _PATHFIND_BIG_RADIUS_IN,
 )
+from .sim import los
 # Pure geometry helpers moved verbatim to code/sim/geometry.py (Stage A of
 # docs/SIM_MODULARIZATION_PLAN.md). Re-imported here (after the constants they
 # depend on are bound above) so this module's public surface is unchanged:
@@ -14984,11 +14986,38 @@ class Battle:
         # Indirect Fire lets us target units we cannot see; otherwise LoS is
         # required. The has_los flag is plumbed into Unit.attack so it can
         # apply the -1 to hit when shooting blind.
+        #
+        # Terrain line of sight (Stage T3, gate SWEG_TERRAIN_LOS, default-off):
+        # line-of-sight target legality is NOT new — the baseline already filters
+        # targets by self.map.has_line_of_sight (it denies ~45% of candidate shots
+        # on a dense map). When the gate is set, the IDENTICAL check is routed
+        # through the shared substrate code.sim.los.has_los (which delegates to the
+        # same engine), so shooting resolution and the future threat-projection
+        # planner read one occlusion geometry, and an occlusion-denial instrument is
+        # populated. Indirect Fire is exempt (may target unseen units, per its rule).
+        # Cited as `simulator.terrain_los_gate`. Byte-identical off (the OFF branch
+        # below is the exact pre-existing list comprehension).
+        _use_terrain_los = __import__("os").environ.get("SWEG_TERRAIN_LOS") == "1"
         if attacker.profile.indirect_fire:
             candidates = [
                 u for u in targetable
                 if _distance(attacker.position, u.position) <= rng
             ]
+        elif _use_terrain_los:
+            attacker_kw = attacker.profile.unit_keywords or ()
+            candidates = []
+            for u in targetable:
+                if _distance(attacker.position, u.position) > rng:
+                    continue
+                TERRAIN_LOS_STATS["checked"] += 1
+                if los.has_los(
+                    attacker.position, u.position, self.map,
+                    attacker_keywords=attacker_kw,
+                    target_keywords=u.profile.unit_keywords or (),
+                ):
+                    candidates.append(u)
+                else:
+                    TERRAIN_LOS_STATS["denied"] += 1
         else:
             attacker_kw = attacker.profile.unit_keywords or ()
             candidates = [
@@ -16295,11 +16324,25 @@ class Battle:
             dist = _distance(unit.position, enemy_unit.position)
             if dist > 24.0:
                 continue
-            if not self.map.has_line_of_sight(
-                unit.position, enemy_unit.position,
-                attacker_keywords=p.unit_keywords or (),
-                target_keywords=enemy_unit.profile.unit_keywords or (),
-            ):
+            # Terrain line of sight (Stage T3): route the overwatcher's visibility
+            # check through the shared substrate when SWEG_TERRAIN_LOS is set (same
+            # result as Map.has_line_of_sight; byte-identical off). Cited as
+            # `simulator.terrain_los_gate`.
+            if __import__("os").environ.get("SWEG_TERRAIN_LOS") == "1":
+                _ov_vis = los.has_los(
+                    unit.position, enemy_unit.position, self.map,
+                    attacker_keywords=p.unit_keywords or (),
+                    target_keywords=enemy_unit.profile.unit_keywords or (),
+                )
+                if not _ov_vis:
+                    TERRAIN_LOS_STATS["denied"] += 1
+            else:
+                _ov_vis = self.map.has_line_of_sight(
+                    unit.position, enemy_unit.position,
+                    attacker_keywords=p.unit_keywords or (),
+                    target_keywords=enemy_unit.profile.unit_keywords or (),
+                )
+            if not _ov_vis:
                 continue
             # Expected wounds on a normal Shooting phase, scaled by the 1/6
             # overwatch hit rate (overwatch only hits on an unmodified 6). The
