@@ -1069,7 +1069,9 @@
     },
     "death_guard_great_unclean_one": {
       "invuln_save": 4,
-      "notes": "iter22 invuln long-tail sweep: Great Unclean One has 4++ invulnerable save (Daemonic) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink (Daemon-codex shared issue). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Great-Unclean-One"
+      "min_models": 1,
+      "max_models": 1,
+      "notes": "iter22 invuln long-tail sweep: Great Unclean One has 4++ invulnerable save (Daemonic) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink (Daemon-codex shared issue). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Great-Unclean-One | HEALTH-AGGREGATION AUDIT (issue 61): this codex's local XML offers the Great Unclean One's wargear as TWO independent mandatory choice groups ('Flail / Bileblade', 'Bilesword / Bell'); code/bsdata/mapper.py:extract_squad_size reads each (1,1) weapon-choice group as a model-count group and sums them to (2,2), so the sim fielded TWO permanent 20-wound models for 250 points (half real per-model cost). Wahapedia unit composition is verbatim '1 model', W 20 (https://wahapedia.ru/wh40k10ed/factions/death-guard/Great-Unclean-One) — confirmed by the sibling entry chaos_daemons_library_great_unclean_one (same unit via the shared Chaos Daemons Library catalogue), which parses correctly as (1,1) with no override needed. min_models/max_models pinned to 1 here to match. Same defect class already fixed for imperial_knights_library_canis_rex via SWEG_IK_CANIS_SINGLE in code/bsdata/loader.py. See scripts/diag_health_aggregation.py Class A for the full audit. Reachable by code/army_builder.py:_random_fill for any Death Guard army (profile.faction=='Death Guard' matches the fill-pool filter) — Death Guard is the standing #1 gated over-pole (docs/DECISION_LEDGER.md)."
     },
     "chaos_space_marines_abaddon_the_despoiler": {
       "invuln_save": 4,
@@ -2940,6 +2942,26 @@
       "secondary_devastating_wounds": false,
       "secondary_melta": 2,
       "notes": "AM-PUNISHER-PICKER-FIX (wave 229 + wave 236): BSData mapper EV-vs-baseline-Marine picker chose the 2-shot multi-melta (higher per-shot expected damage vs T4/3+ Marine) over the 20-shot Punisher gatling cannon (A20, S6, AP0, D1 — lower per-shot EV). This is a systematic picker-bias: the Punisher is the defining weapon of the Leman Russ Punisher and is listed first on the datasheet. Real profile verbatim from BSData Imperium - Astra Militarum - Library.cat.gz id=9995-ec2b-50ef-5e7f: Range 24\", A 20, BS 4+, S 6, AP 0, D 1. Sustained Hits 1 from infoLink (id=5c1b-7c51-66de-bd8f). Devastating Wounds is CONDITIONAL (Mow Down the Enemy ability: only vs non-Monsters and non-Vehicles) — kept False here as the simulator does not model conditional Devastating Wounds per target type. Multi-melta (hull) retained as secondary: A2, S9, AP-4, D1d6+2 (weapon_damage_per_shot = 3.5 mean), melta=2, range 18\"."
+    },
+    "space_wolves_wulfen_dreadnought": {
+      "min_models": 1,
+      "max_models": 1,
+      "notes": "HEALTH-AGGREGATION AUDIT (issue 61): BSData's single 'Wargear' selectionEntryGroup (min=2,max=2 — pick 2 of the weapon-arm options) is read by code/bsdata/mapper.py:extract_squad_size as a (2,2) model-count group, so the sim fielded TWO permanent 8-wound Dreadnoughts for 135 points. Wahapedia unit composition is verbatim '1 model', W 8 (https://wahapedia.ru/wh40k10ed/factions/space-marines/Wulfen-Dreadnought-1). model_loadouts independently confirms one real model's worth of gear (a single loadout entry, count=1.0). Same defect class as imperial_knights_library_canis_rex (SWEG_IK_CANIS_SINGLE, code/bsdata/loader.py) and death_guard_great_unclean_one, above. See scripts/diag_health_aggregation.py Class A."
+    },
+    "chaos_space_marines_decimator_legends": {
+      "min_models": 1,
+      "max_models": 1,
+      "notes": "HEALTH-AGGREGATION AUDIT (issue 61): same weapon-choice-group-summing mechanism as space_wolves_wulfen_dreadnought — code/bsdata/mapper.py:extract_squad_size reads two independent mandatory wargear-choice groups as a (2,2) model-count group, doubling the fielded model count for 165 points. Wahapedia unit composition is verbatim '1 model', W 12 (https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Decimator). model_loadouts confirms one real model's worth of gear. Legends unit — Wahapedia notes Legends are 'not recommended for competitive tournaments', so current fielded-frequency in this project's Warp Friends matched-play meta is expected to be near zero; fixed anyway for data correctness. See scripts/diag_health_aggregation.py Class A."
+    },
+    "aeldari_craftworlds_hornet_legends": {
+      "min_models": 1,
+      "max_models": 1,
+      "notes": "HEALTH-AGGREGATION AUDIT (issue 61): same weapon-choice-group-summing mechanism as space_wolves_wulfen_dreadnought — code/bsdata/mapper.py:extract_squad_size reads two independent mandatory wargear-choice groups as a (2,2) model-count group, doubling the fielded model count for 100 points. Wahapedia unit composition is verbatim '1 model', W 8 (https://wahapedia.ru/wh40k10ed/factions/aeldari/Hornet). model_loadouts confirms one real model's worth of gear. Legends unit — near-zero current fielded-frequency in this project's matched-play meta; fixed anyway for data correctness. See scripts/diag_health_aggregation.py Class A."
+    },
+    "t_au_empire_longstrike_legends": {
+      "min_models": 1,
+      "max_models": 1,
+      "notes": "HEALTH-AGGREGATION AUDIT (issue 61): same weapon-choice-group-summing mechanism as space_wolves_wulfen_dreadnought — code/bsdata/mapper.py:extract_squad_size reads two independent mandatory wargear-choice groups as a (2,2) model-count group, doubling the fielded model count for 140 points. Wahapedia unit composition is verbatim '1 model' (https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Longstrike). model_loadouts confirms one real model's worth of gear. Legends unit — near-zero current fielded-frequency in this project's matched-play meta; fixed anyway for data correctness. See scripts/diag_health_aggregation.py Class A."
     }
   }
 }
