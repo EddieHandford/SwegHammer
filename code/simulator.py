@@ -2553,6 +2553,11 @@ class Battle:
         already-known board / hand state, so the paired common-random-number
         evaluation's downstream RNG stream is untouched on the ON path
         relative to itself, and untouched at all on the OFF path."""
+        # SWEG_TAC_TRACK_LIVE (2026-07-08 dormancy-diagnosis wave) — see
+        # `_tac_track_live_enabled` below. Checked first so it is a pure
+        # additional OR: default-off, byte-identical to every path beneath it.
+        if self._tac_track_live_enabled():
+            return True
         # ARMY-SCOPED ENTRY POINT (`SWEG_AM_SECONDARY_PURSUIT`, ADOPTED
         # default-on — the flip was lost in a later merge and restored
         # 2026-07-03 after an agent caught the anchor-config mismatch)
@@ -2570,6 +2575,72 @@ class Battle:
             (army.units[0].profile.faction or "") == "Astra Militarum"
             and os.environ.get("SWEG_AM_SECONDARY_PURSUIT", "1") != "0"
         )
+
+    def _tac_track_live_enabled(self) -> bool:
+        """SWEG_TAC_TRACK_LIVE — dormancy fix, wiring only. DEFAULT-OFF: unset
+        / anything but "1" changes nothing (every path this touches is an
+        additional `if ...: return True` ahead of unchanged existing logic).
+
+        DIAGNOSIS (five-facet audit, 2026-07-08): `_choose_secondary_track` /
+        `_tac_deck_enabled` (`SWEG_TAC_DECK`, DEFAULT-ON since wave 210) already
+        run the real Pariah Nexus choice — each army picks FIXED or TACTICAL
+        from its own capability (spare chaff + roster breadth), and a TACTICAL
+        army is already dealt a genuine 2-card hand from the full 19-card deck
+        and re-drawn every Command phase. That half of the pipeline is NOT
+        dormant; a 3-battle instrumented check (Necrons, Orks, Tyranids,
+        Astra Militarum, T'au Empire) confirmed every capable army reaches the
+        TACTICAL track and holds real cards (e.g. a T'au Empire hand of
+        `engage_on_all_fronts` / `cleanse` / `establish_locus` /
+        `defend_stronghold` across five activations in one game).
+
+        What IS dormant fleet-wide is the movement/assignment layer that
+        would put a spare unit into the position a held card actually pays
+        for: `_assign_card_pursuit` (Behind Enemy Lines, Engage on All
+        Fronts, Cleanse, the five BOARD take-and-hold cards) and the
+        Establish Locus / Recover Assets / A Tempting Target positional
+        filters all read the SAME `_secondary_pursuit_enabled` gate, which
+        the wave-121/2026-07-03 Principle-2 ruling scoped to exactly one
+        faction by name (Astra Militarum, `SWEG_AM_SECONDARY_PURSUIT`
+        default-on) — every other army's activation reads gate=False. The
+        same 3-battle check caught this directly: a T'au Empire army held
+        `engage_on_all_fronts` / `cleanse` / `establish_locus` /
+        `defend_stronghold` with 30, 20, 12, 4 and 3 spare chaff units
+        available on its five activations, `_assign_card_pursuit` returned
+        early every time (gate=False), and zero units ever received a
+        `pursue_target`. Even Astra Militarum only clears the gate when its
+        random 2-card draw happens to be one of the ~7 cards
+        `_assign_card_pursuit` actually routes toward (the other ~12 drawable
+        cards, e.g. `marked_for_death` / `a_tempting_target`, are pure-kill or
+        handled by their own separately-gated assignment function) — 3 of 5
+        AM activations in the same check drew only non-routed cards and
+        produced zero assignments despite 14 / 2 / 1 spare chaff being ready.
+
+        This flag makes `_secondary_pursuit_enabled` return True for BOTH
+        armies whenever a real TACTICAL-track army holds a pursuable card —
+        it widens WHO the already-built, already-cited pursuit/positional
+        machinery runs for (from "Astra Militarum only" to "any army the real
+        Fixed-vs-Tactical choice put on the Tactical track"). It changes
+        nothing in `_choose_secondary_track` (the track-selection heuristic)
+        and nothing in any `code/secondaries.py` scorer — only the
+        assignment/movement wiring already cited at
+        `simulator.secondary_card_pursuit_ai` and `simulator.am_secondary_pursuit`.
+
+        HELD, not adopted. The isolated mechanism this composes was already
+        screened twice and found not to move the headline metric on its own:
+        wave 121-122's unscoped `SWEG_TAC_PURSUE` A/B did not raise Behind
+        Enemy Lines / Cleanse achieve rates (35%->34% / 27%->24%, unchanged)
+        and washed at N=80 (deck-only 3.62 -> deck+pursuit 3.60, -0.02); the
+        fully-composed `SWEG_SECONDARY_PURSUIT` package separately measured
+        Astra Militarum +5.17 but fed the already-over-credited durable
+        factions (Necrons +4.89, Chaos Daemons +5.80) when run unscoped. Per
+        `docs/LEVER_PROTOCOL.md`'s family table ("Faction-NEUTRAL piloting /
+        target bias" — washes or feeds the durable side; do not build
+        unscoped), this gate exists ONLY to produce the requested mechanism
+        numbers (tactical-track selection rate, pursue-assignment counts,
+        mean secondary victory points) under controlled, default-off
+        conditions — it must not flip to default-on without a fresh screen
+        and a stated escape from both settled reads above."""
+        return __import__("os").environ.get("SWEG_TAC_TRACK_LIVE", "0") == "1"
 
     # ------------------------------------------------------------------
     # PRINCIPLE-2 ARMY-SCOPED ENTRY POINTS FOR THE PINNED CAPSTONE LEVERS
