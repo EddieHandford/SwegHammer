@@ -70,6 +70,7 @@ def census_faction(faction: str, n: int):
 
     fingerprints = []
     squad_totals = collections.Counter()   # name -> total squads across all N
+    model_totals = collections.Counter()   # name -> total models across all N
     builds_present = collections.Counter()  # name -> builds with >=1 squad
 
     for s in range(n):
@@ -81,8 +82,9 @@ def census_faction(faction: str, n: int):
             (name, sq, mo) for name, (sq, mo) in per_name.items()
         )
         fingerprints.append(fp)
-        for name, (sq, _mo) in per_name.items():
+        for name, (sq, mo) in per_name.items():
             squad_totals[name] += sq
+            model_totals[name] += mo
             builds_present[name] += 1
 
     print("=" * 78)
@@ -95,10 +97,12 @@ def census_faction(faction: str, n: int):
         name = prof.name if prof is not None else f"<MISSING:{key}>"
         present = builds_present.get(name, 0)
         mean_sq = squad_totals.get(name, 0) / n
+        mean_mo = model_totals.get(name, 0) / n
         flag = "" if present >= (0.95 * n) else "  <-- UNDER 95%"
         print(
             f"    count={count}  present {present:2d}/{n}  "
-            f"mean_squads={mean_sq:5.2f}  {name}{flag}"
+            f"mean_squads={mean_sq:5.2f}  mean_models={mean_mo:6.2f}  "
+            f"{name}{flag}"
         )
     return fingerprints
 
