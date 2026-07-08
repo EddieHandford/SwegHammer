@@ -718,6 +718,19 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # code.map.Map.has_line_of_sight via attacker_keywords / target_keywords
     # threaded from the simulator's _do_shoot / _apply_firing_deck call sites.
     "terrain.ruin_infantry_los",
+    # Terrain-realism substrate (docs/TERRAIN_REALISM_PROPOSAL.md), code/sim/los.py.
+    # SWEG_TERRAIN_COLLISION (default-off): a non-FLY, non-INFANTRY move may not
+    # cross a RUIN/IMPASSABLE wall — it clamps at the wall (code.sim.los.wall_clamp)
+    # rather than tunnelling through it (open issue 52). INFANTRY/BEASTS move
+    # through ruin walls per the 10e Ruins movement rule. See
+    # data/rule_citations.d/terrain_realism.json.
+    "simulator.terrain_wall_collision",
+    # SWEG_TERRAIN_LOS (default-off): shooting target legality requires line of
+    # sight, routed through the shared substrate code.sim.los.has_los (delegates
+    # to Map.has_line_of_sight); Indirect Fire weapons are exempt. Byte-identical
+    # off (the pre-existing Map.has_line_of_sight legality check already applies).
+    # See data/rule_citations.d/terrain_realism.json.
+    "simulator.terrain_los_gate",
     # 10e core-rules cap: "Hit roll modifiers are cumulative, but the Hit
     # roll for an attack can never be modified by more than -1 or +1." Same
     # text for the Wound roll. Enforced in code/units.py Unit.attack by
