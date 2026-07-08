@@ -487,14 +487,37 @@ class Battle:
         # Drives the Heavy keyword (+1 to hit if attacker did NOT move).
         # Reset each round.
         self._did_move_this_round: set = set()
-        # UIDs of units that disembarked from a TRANSPORT this round (10e
-        # core: "If a unit disembarks from a Transport in your Movement
-        # phase, it cannot make a Normal, Advance or Fall Back move that
-        # turn. The unit is then treated as having moved a distance equal
-        # to its Move characteristic this turn."). The unit may still
-        # Shoot and Charge normally. Reset each round. Cited as
-        # `simulator.disembark`.
+        # UIDs of units that disembarked from a TRANSPORT this round. Real
+        # 10e core rule (Wahapedia, verbatim, re-verified 2026-07-08 — the
+        # OLD comment here paraphrased the "made a Normal move already"
+        # branch as if it were the ONLY branch, which was wrong): "Units
+        # that disembark from a TRANSPORT model that either Remained
+        # Stationary this phase or has not yet made a Normal, Advance or
+        # Fall Back move this phase can then act normally (make a Normal
+        # move, Advance, shoot, declare a charge, fight, etc.) ... Units
+        # that disembark from a TRANSPORT model that made a Normal move
+        # this phase count as having made a Normal move themselves; they
+        # cannot move further during this phase [and] cannot declare a
+        # charge in the same turn, but can otherwise act normally."
+        # SwegHammer's `_maybe_disembark_before_move` always fires BEFORE
+        # the transport's own move decision for that activation, so a
+        # voluntary disembark always lands in the FIRST branch (full acts)
+        # — see SWEG_TRANSPORT_PLAY in `_disembark`. Default OFF preserves
+        # the historical approximation (blanket movement lockout, no
+        # charge lockout) for byte-identical behaviour. Forced disembark
+        # (Destroyed Transport) is its own carve-out — always "counts as
+        # a Normal move ... cannot declare a charge" regardless of the
+        # flag; see `_forced_disembark_charge_locked_this_round` below and
+        # `simulator.destroyed_transport`. Reset each round. Cited as
+        # `simulator.disembark` / `simulator.transport_play_disembark_full_acts`.
         self._disembarked_this_round: set = set()
+        # SWEG_TRANSPORT_PLAY (default-off): UIDs force-disembarked from a
+        # DESTROYED transport this round, which per the real rule "cannot
+        # declare a charge this turn" regardless of movement timing (unlike
+        # a voluntary before-move disembark, which the fix above frees to
+        # charge normally). Read by `_do_charge`. Reset each round. Cited as
+        # `simulator.transport_play_disembark_full_acts`.
+        self._forced_disembark_charge_locked_this_round: set = set()
         # UIDs of units that have already fired their One Shot weapon this
         # battle. Once a uid is here, the unit may not shoot again.
         # Persists for the whole battle (NOT reset per round).
@@ -11697,6 +11720,8 @@ class Battle:
         self._did_move_this_round = set()
         # Reset disembark tracking: nothing has disembarked yet this round.
         self._disembarked_this_round = set()
+        # SWEG_TRANSPORT_PLAY: reset the forced-disembark charge lock too.
+        self._forced_disembark_charge_locked_this_round = set()
         # Displacement Stage-0 (observation-only): start each round with a clean local-
         # damage accumulator so a marker-tick's "out-fought" classification reflects only
         # the preceding battle round's fighting. No-op when the gate is off.
@@ -13598,15 +13623,20 @@ class Battle:
         if self._is_transport(attacker) and attacker.passengers:
             self._maybe_disembark_before_move(attacker, attacker_army, defender_army)
 
-        # Disembark lockout (10e core): "If a unit disembarks from a
-        # Transport in your Movement phase, it cannot make a Normal,
-        # Advance or Fall Back move that turn." Shoot and Charge are NOT
-        # blocked (handled separately via _do_shoot / _do_charge). Cited
-        # as `simulator.disembark`. The passenger was already placed
-        # within 3" of the transport and is treated as having moved its
-        # Move characteristic — `_did_move_this_round` / `moved_this_round`
-        # are set in `_disembark`, surfacing the move to the Heavy
-        # keyword check.
+        # Disembark movement lockout — DEFAULT (SWEG_TRANSPORT_PLAY unset/0):
+        # a historical approximation that blocks ANY further move the round a
+        # unit disembarks. The real rule only imposes that when the transport
+        # had ALREADY made its own Normal move before the disembark; since
+        # `_maybe_disembark_before_move` always fires before the transport's
+        # own move, the real rule actually grants this unit full acts
+        # (Normal move, Advance, shoot, charge, fight) instead — see
+        # `_disembark`, which under SWEG_TRANSPORT_PLAY=1 skips adding a
+        # voluntary (non-forced) disembark to `_disembarked_this_round`, so
+        # this early return is skipped and the move continues below. Forced
+        # disembark (Destroyed Transport) is unaffected by the flag — the
+        # real rule's own carve-out already caps it at "counts as a Normal
+        # move, cannot move further" regardless. Cited as `simulator.disembark`
+        # / `simulator.transport_play_disembark_full_acts`.
         if attacker.uid in self._disembarked_this_round:
             return
 
@@ -17117,6 +17147,14 @@ class Battle:
         # Embarked passengers cannot charge (10e core). Cited as `simulator.embark`.
         if getattr(attacker, "embarked_in", None) is not None:
             return
+        # SWEG_TRANSPORT_PLAY (default-off): a unit force-disembarked from a
+        # DESTROYED transport this round "cannot declare a charge this turn"
+        # (10e core, verbatim on Wahapedia) — a codex carve-out distinct from
+        # (and unaffected by) the voluntary-disembark-before-move fix in
+        # `_disembark`, which frees a voluntary disembark to charge normally.
+        # Cited as `simulator.transport_play_disembark_full_acts`.
+        if attacker.uid in self._forced_disembark_charge_locked_this_round:
+            return
         if not self._wants_to_charge(attacker):
             return
         # Advance lockout (10e core): a unit that Advanced this turn cannot
@@ -18289,19 +18327,30 @@ class Battle:
     # Transports (Embark / Disembark / Firing Deck / Destroyed Transport)
     # ------------------------------------------------------------------
     #
-    # 10e core rules (Wahapedia):
+    # 10e core rules (Wahapedia, https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#TRANSPORTS,
+    # re-verified verbatim 2026-07-08):
     #   * Embark: a unit within 3" of a friendly TRANSPORT at the end of a
     #     Normal/Advance/Fall Back move may embark. Once embarked, the unit
     #     does not act normally — it's tracked as a passenger on the transport.
-    #   * Disembark: at the start of any Movement phase a unit may disembark
-    #     from a transport that hasn't moved this turn; the disembarked unit
-    #     is placed wholly within 3" of the transport, then may move normally.
+    #   * Disembark: a unit embarked at the start of its army's Movement phase
+    #     may disembark, placed wholly within 3" of the transport and not
+    #     within Engagement Range of an enemy. If the transport Remained
+    #     Stationary or has not yet moved THIS phase, the disembarking unit
+    #     can then act fully normally (Normal move, Advance, shoot, charge,
+    #     fight). If the transport already made a Normal move this phase, the
+    #     disembarking unit counts as having made its own Normal move (cannot
+    #     move further, cannot charge) but can otherwise act normally. A unit
+    #     cannot disembark from a transport that Advanced or Fell Back.
     #   * Firing Deck X: a TRANSPORT with Firing Deck X may select up to X
-    #     embarked passenger models' weapons each Shooting phase and shoot
-    #     with them as if they were the transport's own weapons (transport's BS).
+    #     embarked passenger models (whose units haven't already shot this
+    #     phase) each Shooting phase; those models' weapons fire as if they
+    #     were the transport's own (transport's ballistic skill), and their
+    #     units then become ineligible to shoot for the rest of the phase.
     #   * Destroyed Transport: when a TRANSPORT is destroyed, before removing
-    #     it, each embarked unit disembarks wholly within 3". For each model
-    #     in the disembarking unit, roll 1D6; on a 1, that model is destroyed.
+    #     it, each embarked unit force-disembarks wholly within 3" (rolling
+    #     1D6 per model, 1 = that model's unit suffers a mortal wound), then
+    #     is Battle-shocked and counts as having made a Normal move this turn
+    #     with no charge — regardless of the transport's own move history.
     #
     # SwegHammer simplifications (first pass):
     #   - Transport capacity is hardcoded to 12 INFANTRY models (Rhino-tier).
@@ -18310,12 +18359,21 @@ class Battle:
     #   - No mid-game voluntary embark (would need a Movement-phase hook).
     #   - Disembark fires on (a) destroyed transport, (b) at the start of the
     #     transport's Movement sub-phase if the AI judges the passenger needs
-    #     to be off-board now (capture nearby objective, transport about to die).
+    #     to be off-board now (capture nearby objective, transport about to
+    #     die, or — SWEG_TRANSPORT_PLAY only — a shoot or charge opportunity
+    #     the ride would otherwise waste; see `_maybe_disembark_before_move`).
     #   - Firing Deck: when a transport shoots, up to firing_deck passengers
-    #     each fire ONE extra shot using the transport's hit_probability.
+    #     each fire ONE extra shot, approximated with the passenger's OWN
+    #     hit_probability rather than swapping in the transport's ballistic
+    #     skill (documented gap, see `_apply_firing_deck`).
     #   - Emergency disembark (placement >3" but ≤6" with mortal wounds on
     #     1-3" path) is NOT modelled — first pass just skips placement if
     #     blocked.
+    #   - Disembark-then-act timing: SWEG_TRANSPORT_PLAY=0 (default) keeps a
+    #     historical over-conservative approximation (blanket movement
+    #     lockout on ANY disembark, no charge lockout on a forced one).
+    #     SWEG_TRANSPORT_PLAY=1 corrects both per the verbatim rule above —
+    #     see `_disembark` and `_do_charge`. Byte-identical off.
 
     _TRANSPORT_CAPACITY = 12   # first-pass simplification — Rhino-tier
 
@@ -18493,19 +18551,48 @@ class Battle:
         passenger.embarked_in = None
         if passenger in transport.passengers:
             transport.passengers.remove(passenger)
-        # 10e core Disembark: "The unit is then treated as having moved a
-        # distance equal to its Move characteristic this turn" — surface
-        # to the Heavy keyword check. The unit cannot make a Normal,
-        # Advance or Fall Back move when its own activation arrives —
-        # tracked in `_disembarked_this_round` and enforced in `_do_move`.
-        # Voluntary disembark (forced=False) fires from the transport's
-        # own Movement sub-phase, so the lockout applies for the rest of
-        # this round. Forced disembark (transport destroyed) is also a
-        # disembark for rule purposes and the same lockout applies.
+        # 10e core Disembark — verbatim (Wahapedia, re-verified 2026-07-08):
+        # "Units that disembark from a TRANSPORT model that either Remained
+        # Stationary this phase or has not yet made a Normal, Advance or Fall
+        # Back move this phase can then act normally (make a Normal move,
+        # Advance, shoot, declare a charge, fight, etc.) ... Units that
+        # disembark from a TRANSPORT model that made a Normal move this phase
+        # count as having made a Normal move themselves; they cannot move
+        # further during this phase. Such a unit also cannot declare a
+        # charge in the same turn, but can otherwise act normally."
+        # SwegHammer's `_maybe_disembark_before_move` always calls `_disembark`
+        # BEFORE the transport's own move decision for that activation, so a
+        # VOLUNTARY disembark always satisfies the first branch (full acts) —
+        # under SWEG_TRANSPORT_PLAY=1 we therefore do NOT lock out the
+        # passenger's own move/charge below. Default OFF preserves the prior
+        # approximation (blanket movement lockout via `_disembarked_this_round`,
+        # read by `_do_move`) byte-identical.
+        #
+        # A FORCED disembark (Destroyed Transport) is the codex's OWN
+        # explicit carve-out regardless of timing — "that unit counts as
+        # having made a Normal move this turn, and cannot declare a charge
+        # this turn" — so it keeps the movement lockout AND (new, under the
+        # flag) also gets the charge lockout it was previously missing,
+        # tracked in `_forced_disembark_charge_locked_this_round` and read
+        # by `_do_charge`. Cited as `simulator.disembark` /
+        # `simulator.transport_play_disembark_full_acts`.
         # Wahapedia core rules: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#TRANSPORTS
-        self._did_move_this_round.add(passenger.uid)
-        passenger.moved_this_round = True
-        self._disembarked_this_round.add(passenger.uid)
+        _transport_play = os.environ.get("SWEG_TRANSPORT_PLAY", "0") == "1"
+        if _transport_play and not forced:
+            # Branch 1 (full acts): leave `_did_move_this_round` /
+            # `moved_this_round` / `_disembarked_this_round` untouched — the
+            # passenger has NOT moved yet this phase and remains free to
+            # make its own Normal/Advance move (if its `_do_move` activation
+            # slot for this round hasn't already elapsed — see the ordering
+            # caveat on `_maybe_disembark_before_move`), to shoot, and to
+            # charge, exactly as an on-foot unit would.
+            pass
+        else:
+            self._did_move_this_round.add(passenger.uid)
+            passenger.moved_this_round = True
+            self._disembarked_this_round.add(passenger.uid)
+            if _transport_play and forced:
+                self._forced_disembark_charge_locked_this_round.add(passenger.uid)
         # DRK-SKYSPLINTER-DISEMBARK: Rain of Cruelty — "Each time a DRUKHARI
         # unit disembarks from a TRANSPORT, until the end of the turn its
         # ranged weapons gain [IGNORES COVER] and its melee weapons gain
@@ -18586,17 +18673,65 @@ class Battle:
             if not passenger.is_alive:
                 self._emit(UnitKilled(unit_uid=passenger.uid))
 
+    # SWEG_TRANSPORT_PLAY disembark-intelligence radii. The disembark spiral
+    # search places a passenger up to 3" from the transport (10e core); the
+    # charge-reach figure mirrors `_do_charge`'s own "2D6 charge vs the best
+    # target <=12"" pick radius, so a unit is judged charge-capable on the
+    # same threshold the charge picker itself uses. Cited as
+    # `simulator.transport_play_disembark_intelligence`.
+    _TRANSPORT_PLAY_DISEMBARK_RADIUS = 3.0
+    _TRANSPORT_PLAY_CHARGE_REACH = 12.0
+
     def _maybe_disembark_before_move(
         self, transport: "Unit", army: Army, opponent: Army,
     ) -> None:
         """Voluntary disembark hook fired at the start of a TRANSPORT's
         Movement sub-phase (10e core).
 
-        Heuristic: disembark when EITHER
+        Base heuristic (always on, unconditional): disembark when EITHER
           (a) the transport currently sits within 6" of an objective marker —
               the passenger should grab it while the transport repositions; OR
           (b) the transport is below 50% HP — likely to die soon, so eject
               before Destroyed Transport mortals fire.
+
+        SWEG_TRANSPORT_PLAY (default-off) adds two more "the passenger's job
+        warrants disembarking" triggers, both real consequences of the fixed
+        disembark-timing rule in `_disembark` (a voluntary before-move
+        disembark gets full acts — shoot AND charge, per Wahapedia's "can
+        then act normally" branch):
+        Both new triggers are scoped to firing_deck<=0 transports ONLY — a
+        transport WITH a Firing Deck already gives its passenger a
+        guaranteed shot every Shooting phase without disembarking (the
+        pre-existing, always-on simulator.firing_deck mechanic), and
+        SwegHammer's one-passenger-per-transport pregame embark means once
+        this passenger disembarks the transport's Firing Deck permanently
+        has nobody left to select — so a bare shoot/charge chance must not
+        be allowed to cannibalise the guaranteed firing-deck output:
+          (c) SHOOT OPPORTUNITY — the transport has no Firing Deck, so an
+              embarked passenger can NEVER shoot while riding; if a live
+              enemy sits within the passenger's own weapon range (plus the
+              3" disembark placement), disembarking gives it a shot it
+              would otherwise never take.
+          (d) CHARGE OPPORTUNITY — same firing_deck<=0 scope; a live enemy
+              sits within charge-threat distance (3" disembark placement +
+              the passenger's Move + the standard 12" charge-pick radius) —
+              disembarking lets it declare a charge this same turn (embarked
+              passengers can never charge).
+        Both are additional OR conditions alongside (a)/(b); neither fires
+        with the flag off (byte-identical). Cited as `simulator.disembark`
+        (a)/(b) and `simulator.transport_play_disembark_intelligence` (c)/(d).
+
+        ORDERING CAVEAT (documented, not hidden — rule 13 discipline): the
+        activation loop calls `_do_move` once per unit per Movement phase in
+        `army.units` order. If a passenger's list position precedes its
+        transport's, the passenger's own `_do_move` call already returned
+        early (still embarked) before this hook disembarks it later in the
+        transport's activation — so the "full acts" movement continuation in
+        `_disembark` only actually grants a further move when the transport
+        is ordered at or before its passenger. The shoot/charge eligibility
+        this method exists to unlock does NOT depend on that ordering — both
+        `_do_shoot` and `_do_charge` run as their own later activations this
+        same round regardless of `army.units` order.
 
         Otherwise we keep the passenger embarked so they continue to ride
         toward an objective. Cited as `simulator.disembark`.
@@ -18614,7 +18749,45 @@ class Battle:
         )
         # (b) below half HP?
         damaged = transport.current_health < transport.profile.health / 2.0
-        if not near_obj and not damaged:
+        shoot_opportunity = False
+        charge_opportunity = False
+        if os.environ.get("SWEG_TRANSPORT_PLAY", "0") == "1":
+            firing_deck = getattr(transport.profile, "firing_deck", 0) or 0
+            # Both new triggers are scoped to firing_deck<=0 transports ONLY.
+            # A transport WITH a Firing Deck already gives its passenger a
+            # guaranteed shot every Shooting phase without disembarking (the
+            # pre-existing, always-on simulator.firing_deck mechanic) — a
+            # bare charge chance is not obviously worth trading that away
+            # for, and SwegHammer's one-passenger-per-transport pregame
+            # embark means once this passenger disembarks, the transport's
+            # Firing Deck permanently has nobody left to select. Restricting
+            # to firing_deck<=0 avoids the new heuristic cannibalising the
+            # already-working mechanic it must coexist with. See
+            # `simulator.transport_play_disembark_intelligence`.
+            if firing_deck <= 0:
+                alive_enemies = [
+                    e for e in opponent.alive_units
+                    if getattr(e, "embarked_in", None) is None
+                ]
+                if alive_enemies:
+                    passengers = transport.passengers
+                    shoot_reach = self._TRANSPORT_PLAY_DISEMBARK_RADIUS + max(
+                        p.profile.range_inches for p in passengers
+                    )
+                    shoot_opportunity = any(
+                        _distance(transport.position, e.position) <= shoot_reach
+                        for e in alive_enemies
+                    )
+                    charge_reach = (
+                        self._TRANSPORT_PLAY_DISEMBARK_RADIUS
+                        + max(p.profile.move for p in passengers)
+                        + self._TRANSPORT_PLAY_CHARGE_REACH
+                    )
+                    charge_opportunity = any(
+                        _distance(transport.position, e.position) <= charge_reach
+                        for e in alive_enemies
+                    )
+        if not (near_obj or damaged or shoot_opportunity or charge_opportunity):
             return
         # Disembark the best passenger (the one most likely to claim an obj
         # or pour fire downrange). First-pass: just disembark all of them.
@@ -18626,24 +18799,39 @@ class Battle:
         attacker_army: Army, defender_army: Army,
         alloc_next_fn=None,
     ) -> float:
-        """Firing Deck X (10e core).
+        """Firing Deck X (10e core, Wahapedia verbatim, re-verified 2026-07-08):
+        "Some TRANSPORT models have 'Firing Deck x' listed in their
+        abilities. Each time such a model is selected to shoot in the
+        Shooting phase, you can select up to 'x' models embarked within it
+        whose units have not already shot this phase. Then, for each of
+        those embarked models, you can select one ranged weapon that
+        embarked model is equipped with (excluding weapons with the [ONE
+        SHOT] ability). Until that TRANSPORT model has resolved all of its
+        attacks, it counts as being equipped with all of the weapons you
+        selected in this way, in addition to its other weapons. Until the
+        end of the phase, those selected models' units are not eligible to
+        shoot."
 
         When a TRANSPORT shoots, up to X embarked passenger models may fire
         their weapons as if they were the transport's. SwegHammer applies a
         simplified version: each of the first X passengers does a single
-        Unit.attack against the target using the passenger's own profile,
-        but inheriting the transport's hit_probability (per the codex's
-        "shoot with them as if they were the transport's weapons" wording).
+        Unit.attack against the target using the passenger's own profile.
 
         Returns total damage dealt by the firing-deck passengers (0 if no
         firing deck or no passengers). Cited as `simulator.firing_deck`.
 
         First-pass simplification: passenger attacks use the passenger's own
-        hit_probability rather than swapping in the transport's, because the
-        Unit.attack stochastic loop reads hit_probability off the passenger's
-        profile. The codex says "use the transport's BS"; in practice for
-        Marine transports that's BS3+ which matches the passenger's anyway.
-        Future task: thread a BS-override into Unit.attack.
+        hit_probability rather than the transport's ballistic skill, because
+        the Unit.attack stochastic loop reads hit_probability off the firing
+        profile and there is no BS-override plumbed through it. The codex
+        says the shots count as the TRANSPORT's own weapons (transport's
+        BS); in practice for Marine transports that's BS3+ which matches the
+        passenger's anyway. The "units have not already shot this phase" /
+        "not eligible to shoot" restriction is satisfied for free by
+        SwegHammer's activation model — an embarked passenger has no
+        activation of its own while embarked, so it can never have shot
+        before the transport's own Shooting-phase activation calls this
+        method. Future task: thread a BS-override into Unit.attack.
         """
         x = getattr(transport.profile, "firing_deck", 0) or 0
         if x <= 0:

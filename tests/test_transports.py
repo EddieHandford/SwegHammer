@@ -2,11 +2,13 @@
 / Destroyed Transport.
 
 Cited as `simulator.embark`, `simulator.disembark`, `simulator.firing_deck`,
-`simulator.destroyed_transport`.
+`simulator.destroyed_transport`, `simulator.transport_play_disembark_full_acts`,
+`simulator.transport_play_disembark_intelligence`.
 """
 
 from __future__ import annotations
 
+import os
 import unittest
 from unittest import mock
 
@@ -348,6 +350,208 @@ class FiringDeckTests(unittest.TestCase):
         firing_deck_damage = battle._apply_firing_deck(transport, victim, a, b)
         self.assertEqual(firing_deck_damage, 0.0)
         self.assertEqual(victim.current_health, hp_before)
+
+
+class TransportPlayFullActsTests(unittest.TestCase):
+    """SWEG_TRANSPORT_PLAY: disembark-then-act timing correction.
+
+    Real rule (Wahapedia, verbatim): a unit disembarking from a TRANSPORT
+    that "has not yet made a ... move this phase" (SwegHammer's only
+    voluntary ordering, since `_maybe_disembark_before_move` always fires
+    before the transport's own move) "can then act normally (make a Normal
+    move, Advance, shoot, declare a charge, fight, etc.)" — i.e. NOT movement-
+    locked. A FORCED disembark (Destroyed Transport) is the codex's own
+    carve-out and always "cannot declare a charge this turn" regardless.
+    """
+
+    def test_voluntary_disembark_not_movement_locked_when_flag_on(self):
+        battle, a, b, log = _new_battle()
+        a.add_unit(_transport_profile())
+        a.add_unit(_infantry_profile())
+        b.add_unit(_infantry_profile())
+        battle._assign_uids()
+        a.units[0].position = (10.0, 10.0)
+        a.units[1].position = (10.0, 10.0)
+        b.units[0].position = (40.0, 40.0)
+        battle._embark_pregame_passengers()
+        transport, passenger = a.units[0], a.units[1]
+        with mock.patch.dict(os.environ, {"SWEG_TRANSPORT_PLAY": "1"}):
+            battle._disembark(passenger, transport, forced=False)
+        self.assertNotIn(
+            passenger.uid, battle._disembarked_this_round,
+            "voluntary before-move disembark must NOT be movement-locked "
+            "under SWEG_TRANSPORT_PLAY",
+        )
+        self.assertNotIn(passenger.uid, battle._did_move_this_round)
+        self.assertFalse(passenger.moved_this_round)
+        self.assertNotIn(
+            passenger.uid, battle._forced_disembark_charge_locked_this_round,
+        )
+
+    def test_voluntary_disembark_still_movement_locked_when_flag_off(self):
+        """Default (gate unset): byte-identical to the pre-existing
+        approximation — blanket movement lockout, no charge lock."""
+        battle, a, b, log = _new_battle()
+        a.add_unit(_transport_profile())
+        a.add_unit(_infantry_profile())
+        b.add_unit(_infantry_profile())
+        battle._assign_uids()
+        a.units[0].position = (10.0, 10.0)
+        a.units[1].position = (10.0, 10.0)
+        b.units[0].position = (40.0, 40.0)
+        battle._embark_pregame_passengers()
+        transport, passenger = a.units[0], a.units[1]
+        battle._disembark(passenger, transport, forced=False)
+        self.assertIn(passenger.uid, battle._disembarked_this_round)
+        self.assertIn(passenger.uid, battle._did_move_this_round)
+        self.assertTrue(passenger.moved_this_round)
+        self.assertNotIn(
+            passenger.uid, battle._forced_disembark_charge_locked_this_round,
+        )
+
+    def test_forced_disembark_locks_charge_when_flag_on(self):
+        battle, a, b, log = _new_battle()
+        a.add_unit(_transport_profile())
+        a.add_unit(_infantry_profile())
+        b.add_unit(_infantry_profile())
+        battle._assign_uids()
+        a.units[0].position = (10.0, 10.0)
+        a.units[1].position = (10.0, 10.0)
+        b.units[0].position = (40.0, 40.0)
+        battle._embark_pregame_passengers()
+        transport, passenger = a.units[0], a.units[1]
+        with mock.patch.dict(os.environ, {"SWEG_TRANSPORT_PLAY": "1"}):
+            battle._disembark(passenger, transport, forced=True)
+        self.assertIn(
+            passenger.uid, battle._forced_disembark_charge_locked_this_round,
+            "forced (Destroyed Transport) disembark must lock out charging "
+            "this turn under SWEG_TRANSPORT_PLAY",
+        )
+        # Still movement-locked too (matches "counts as having made a
+        # Normal move ... cannot move further").
+        self.assertIn(passenger.uid, battle._disembarked_this_round)
+        # _do_charge bails out on the new lock before even consulting
+        # _wants_to_charge.
+        with mock.patch.object(
+            battle, "_wants_to_charge", side_effect=AssertionError("should not be called"),
+        ):
+            battle._do_charge(passenger, a, b)
+
+    def test_forced_disembark_no_charge_lock_when_flag_off(self):
+        battle, a, b, log = _new_battle()
+        a.add_unit(_transport_profile())
+        a.add_unit(_infantry_profile())
+        b.add_unit(_infantry_profile())
+        battle._assign_uids()
+        a.units[0].position = (10.0, 10.0)
+        a.units[1].position = (10.0, 10.0)
+        b.units[0].position = (40.0, 40.0)
+        battle._embark_pregame_passengers()
+        transport, passenger = a.units[0], a.units[1]
+        battle._disembark(passenger, transport, forced=True)
+        self.assertNotIn(
+            passenger.uid, battle._forced_disembark_charge_locked_this_round,
+        )
+
+
+class TransportPlayDisembarkIntelligenceTests(unittest.TestCase):
+    """SWEG_TRANSPORT_PLAY: disembark when the passenger has a job — a
+    shoot or charge opportunity a Firing-Deck-less, embarked-forever
+    passenger would otherwise never get. Additional OR triggers alongside
+    the always-on near-objective / damaged-transport heuristic.
+    """
+
+    def _clear_battle(self, firing_deck: int = 0, passenger=None):
+        battle, a, b, log = _new_battle()
+        a.add_unit(_transport_profile(firing_deck=firing_deck))
+        a.add_unit(passenger if passenger is not None else _infantry_profile())
+        battle._assign_uids()
+        # Far from every default-map objective (>6") and full HP, so the
+        # always-on (a)/(b) triggers stay silent and only the new (c)/(d)
+        # triggers under test can fire.
+        a.units[0].position = (0.0, 0.0)
+        a.units[1].position = (0.0, 0.0)
+        battle._embark_pregame_passengers()
+        self.assertIs(
+            a.units[1].embarked_in, a.units[0],
+            "test setup bug: passenger failed to embark",
+        )
+        return battle, a, b
+
+    def test_shoot_opportunity_disembarks_when_no_firing_deck(self):
+        battle, a, b = self._clear_battle(firing_deck=0)
+        b.add_unit(_infantry_profile())  # range_inches=24, move=6
+        battle._assign_uids()
+        # shoot_reach = 3 + 24 = 27; charge_reach = 3 + 6 + 12 = 21.
+        b.units[0].position = (25.0, 0.0)
+        transport, passenger = a.units[0], a.units[1]
+        with mock.patch.dict(os.environ, {"SWEG_TRANSPORT_PLAY": "1"}):
+            battle._maybe_disembark_before_move(transport, a, b)
+        self.assertIsNone(passenger.embarked_in, "shoot opportunity should disembark")
+
+    def test_shoot_opportunity_inert_when_flag_off(self):
+        battle, a, b = self._clear_battle(firing_deck=0)
+        b.add_unit(_infantry_profile())
+        battle._assign_uids()
+        b.units[0].position = (25.0, 0.0)
+        transport, passenger = a.units[0], a.units[1]
+        battle._maybe_disembark_before_move(transport, a, b)
+        self.assertIs(passenger.embarked_in, transport, "gate is off — no new trigger")
+
+    def test_charge_opportunity_disembarks_without_firing_deck(self):
+        """Isolates the CHARGE trigger from SHOOT: a melee-profile passenger
+        (range_inches=1, so shoot_reach=3+1=4 never reaches the enemy) on a
+        firing_deck=0 transport (both triggers require that) with the enemy
+        placed inside charge_reach (3 + move(8) + 12 = 23) but outside
+        shoot_reach."""
+        melee = UnitProfile(
+            name="Melee Trooper", faction="Adeptus Astartes",
+            health=2, damage=1, hit_probability=2 / 3,
+            ap=0, save=3, strength=4, toughness=4,
+            attacks=4, weapon_damage_per_shot=1.0, range_inches=1,
+            move=8.0, unit_keywords=("INFANTRY",),
+        )
+        battle, a, b = self._clear_battle(firing_deck=0, passenger=melee)
+        b.add_unit(_infantry_profile())
+        battle._assign_uids()
+        b.units[0].position = (15.0, 0.0)   # > shoot_reach(4), <= charge_reach(23)
+        transport, passenger = a.units[0], a.units[1]
+        with mock.patch.dict(os.environ, {"SWEG_TRANSPORT_PLAY": "1"}):
+            battle._maybe_disembark_before_move(transport, a, b)
+        self.assertIsNone(passenger.embarked_in, "charge opportunity should disembark")
+
+    def test_neither_trigger_fires_when_transport_has_firing_deck(self):
+        """A transport WITH a working Firing Deck (Chimera/Trukk/Rhino-style)
+        must keep its passenger aboard for the new heuristics — it already
+        has a guaranteed job (firing-deck shooting) every phase, and
+        SwegHammer's one-passenger-per-transport model means disembarking
+        would permanently empty the transport's Firing Deck for the rest of
+        the game. Enemy placed well within BOTH reach thresholds to prove
+        neither trigger overrides the firing_deck<=0 gate."""
+        battle, a, b = self._clear_battle(firing_deck=2)
+        b.add_unit(_infantry_profile())
+        battle._assign_uids()
+        b.units[0].position = (10.0, 0.0)
+        transport, passenger = a.units[0], a.units[1]
+        with mock.patch.dict(os.environ, {"SWEG_TRANSPORT_PLAY": "1"}):
+            battle._maybe_disembark_before_move(transport, a, b)
+        self.assertIs(
+            passenger.embarked_in, transport,
+            "a firing_deck>0 transport must not be cannibalised by the new triggers",
+        )
+
+    def test_no_disembark_when_enemy_out_of_both_reaches(self):
+        battle, a, b = self._clear_battle(firing_deck=0)
+        b.add_unit(_infantry_profile())
+        battle._assign_uids()
+        b.units[0].position = (43.0, 59.0)   # far corner of the default map
+        transport, passenger = a.units[0], a.units[1]
+        with mock.patch.dict(os.environ, {"SWEG_TRANSPORT_PLAY": "1"}):
+            battle._maybe_disembark_before_move(transport, a, b)
+        self.assertIs(
+            passenger.embarked_in, transport,
+            "no near-objective/damaged/shoot/charge reason to disembark",
+        )
 
 
 if __name__ == "__main__":
