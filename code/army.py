@@ -774,7 +774,7 @@ class Army:
         changes — the 6-die pool and every spend-decision heuristic are
         untouched). Cited as `simulator.strands_of_fate`.
         """
-        if os.environ.get("SWEG_AELDARI_FATE_FAITHFUL", "0") == "1":
+        if os.environ.get("SWEG_AELDARI_FATE_FAITHFUL", "1") != "0":  # ADOPTED default-on 2026-07-08 (sc59a rider; =0 kill-switch)
             return self._FATE_ARMY_WIDE_KEY
         return squad_id if squad_id >= 0 else profile_name
 

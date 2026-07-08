@@ -350,7 +350,10 @@ def _run_battle_job(
     # symmetrized estimator at source. Cited simulator.first_turn_rolloff
     # (deployment-zone leg). Frame change: adoption requires a full re-anchor.
     _swap = (
-        os.environ.get("SWEG_SIDE_ROLLOFF", "0") == "1"
+        # ADOPTED default-on 2026-07-08 (anchor sc59a, gated 2.85 A-frame /
+        # 2.62 symmetrized, all 22 factions' side bias within +/-1.7);
+        # SWEG_SIDE_ROLLOFF=0 is the byte-identical kill-switch.
+        os.environ.get("SWEG_SIDE_ROLLOFF", "1") != "0"
         and random.Random(pair_seed ^ 0x51DE).random() < 0.5
     )
     _slot_a_fac, _slot_b_fac = (b_fac, a_fac) if _swap else (a_fac, b_fac)

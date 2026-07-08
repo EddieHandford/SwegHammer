@@ -12113,7 +12113,7 @@ class Battle:
         # the top of the next `_run_round` call). Byte-identical off (the
         # gate is only read here; the additive accumulation at the grant site
         # is untouched either way). Cited as `simulator.battle_focus`.
-        if os.environ.get("SWEG_AELDARI_BF_DISCARD", "0") == "1":
+        if os.environ.get("SWEG_AELDARI_BF_DISCARD", "1") != "0":  # ADOPTED default-on 2026-07-08 (sc59a rider; =0 kill-switch)
             self.a.battle_focus_tokens = 0
             self.b.battle_focus_tokens = 0
 
