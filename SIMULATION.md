@@ -11,7 +11,15 @@ rendered as a watchable replay for a single battle. The replay reconstructs
 everything — positions, the running victory-point score, per-objective
 holders, scoring flashes, and end-of-round secondary points — purely from
 the event stream, so any simulator position change must emit a movement
-event or the replay silently drifts from the live game.
+event or the replay silently drifts from the live game. The dashboard
+presents that stream as a per-round overview (`round_overview` in
+`code/renderer.py`): the simulator models a codex squad as one unit per
+model, so the raw stream is model-by-model, and the overview aggregates
+it back up to squad granularity — each squad's net move, each
+attacker-squad to target-squad shooting / charge / melee pairing with
+total damage and models destroyed, arrivals, losses, the end-of-round
+objective scoring, and each side's points remaining on the table —
+beside one board snapshot per round.
 
 ## Role in the two-stage pipeline
 
@@ -204,6 +212,41 @@ Each battle round proceeds as follows:
 Attackers target the enemy unit with the **lowest current health** (focus-fire heuristic). This
 approximates optimal play and ensures units are eliminated rather than spread-damaged, producing
 cleaner attrition dynamics.
+
+### Charge trade assessment and kiting
+
+Two environment-gated piloting heuristics model how a real player weighs
+melee commitment:
+
+- **`SWEG_CHARGE_TRADE`** (adopted **default-on** by owner ruling on
+  2026-07-07; `=0` is the byte-identical kill-switch,
+  `scripts/sim_motion_proof.py` fingerprint match) — before declaring a
+  charge, estimate the fight-phase points trade
+  (`Battle._melee_trade_estimate`): the charger's first-strike damage into
+  the target versus the counter-swing from the target and its squad-mates
+  within pile-in reach. A charge into a melee-superior target that clearly
+  loses the trade is not declared — the "Intercessors charge Boyz" misplay.
+  Charges into shooters (tying up guns), coordinated cage charges, and cheap
+  tarpit chaff are exempt.
+- **`SWEG_KITING`** (built + **held default-off** pending a proper
+  eighty-battle screen; `SWEG_KITING=1` opts in, useful when watching
+  replays) — a shooting unit with a melee-superior enemy squad inside likely
+  charge reach (their Move plus the two-dice median), where the trade
+  estimate says the enemy wins the fight, steps back just far enough to
+  restore the stand-off gap and keeps shooting. It never kites off an
+  objective marker, never fires for chaff or screens, never fires when
+  behind on victory points (a player behind must contest, not retreat), and
+  only fires when its own shooting can meaningfully damage the pursuer. The
+  older sibling `SWEG_KITE_MOVE` screened +1.12 worse mean absolute error at
+  eighty battles per matchup; this lever's rails target exactly that failure
+  mode, and the screen recorded in the decision ledger's open levers decides
+  its default. Do not enable both kite levers together.
+
+Units that made a charge move fight in the **Fights First** step of the fight
+phase (cited `simulator.fights_first_chargers`, alongside the datasheet-level
+Fights First keyword, `simulator.fights_first_keyword`); the replay overview
+annotates melee lines with "(charged — fights first)" so the strike order is
+visible in a recap.
 
 ### Victory Conditions
 

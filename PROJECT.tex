@@ -354,6 +354,13 @@ on the line the unit traverses.
   \item \todo \either\ Segment-vs-impassable-terrain collision (only
     the destination is currently checked, so units can tunnel through
     walls).
+  \item \todo \either\ Screen the held kiting lever
+    (\texttt{SWEG\_KITING} -- shooters step back from melee-superior
+    threats to maintain the stand-off gap) at eighty battles per
+    matchup against a fresh anchor; adopt default-on if the read is a
+    wash, keep it held if decisively worse. Its companion, the
+    charge-trade veto (\texttt{SWEG\_CHARGE\_TRADE}), is already
+    adopted default-on by owner ruling (2026-07-07).
 \end{itemize}
 
 \subsection{Shooting phase}
@@ -557,7 +564,8 @@ the visualisation therefore cannot affect calibration numbers.
     stream, paints frames live.
   \item \done \eddie\ Matplotlib static-frame renderer
     (\texttt{code/renderer.py}) reconstructing world state from the
-    event stream; feeds the Streamlit replay slider page. Renders
+    event stream; feeds the Streamlit replay page (a per-round,
+    squad-level overview with one board snapshot per round). Renders
     advance / charge / melee / objective events with directional
     arrows, star bursts on hits, and gold rings around scoring
     objective markers.
