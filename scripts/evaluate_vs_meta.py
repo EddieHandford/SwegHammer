@@ -335,12 +335,31 @@ def _run_battle_job(
     """
     a_fac, b_fac, s, pair_seed, rules, use_archetype, price_overrides = args
     random.seed(pair_seed)
+    # SIDE ROLL-OFF (SWEG_SIDE_ROLLOFF, default-off -> byte-identical). The
+    # frame audit (docs/PROTOCOL_REVIEW_2026-07.md) measured per-faction
+    # army-A-vs-army-B positional bias up to +/-5 points, MAP-CONCENTRATED
+    # (all five rotation maps verified 180-degree symmetric in objectives AND
+    # terrain, so the bias is side-keyed game mechanics — deployment ordering,
+    # arrival scans — not geometry). Real 10e play rolls off for deployment
+    # zone choice, so a fixed faction->side assignment is itself unfaithful.
+    # With the gate on, a per-game coin flip (drawn from a SEPARATE Random
+    # keyed on pair_seed, so the global stream and the OFF path are untouched)
+    # exchanges which faction plays each slot, and the returned winner is
+    # re-oriented to a_fac's perspective — every cell's win rate becomes a
+    # both-sides average, which converges the A-frame onto the unbiased
+    # symmetrized estimator at source. Cited simulator.first_turn_rolloff
+    # (deployment-zone leg). Frame change: adoption requires a full re-anchor.
+    _swap = (
+        os.environ.get("SWEG_SIDE_ROLLOFF", "0") == "1"
+        and random.Random(pair_seed ^ 0x51DE).random() < 0.5
+    )
+    _slot_a_fac, _slot_b_fac = (b_fac, a_fac) if _swap else (a_fac, b_fac)
     a = build_faction_random_army(
-        "A", a_fac, 2000, rng=random.Random(s), use_archetype=use_archetype,
+        "A", _slot_a_fac, 2000, rng=random.Random(s), use_archetype=use_archetype,
         price_overrides=price_overrides,
     )
     b = build_faction_random_army(
-        "B", b_fac, 2000, rng=random.Random(s + 10000), use_archetype=use_archetype,
+        "B", _slot_b_fac, 2000, rng=random.Random(s + 10000), use_archetype=use_archetype,
         price_overrides=price_overrides,
     )
     if not a.units or not b.units:
@@ -349,7 +368,10 @@ def _run_battle_job(
     primary = _pick_primary_mission(pair_seed)
     r = Battle(a, b, map_=battle_map, rules=rules,
                primary_mission=primary).run()
-    return (a_fac, b_fac, s, r.winner)
+    _winner = r.winner
+    if _swap and _winner in ("A", "B"):
+        _winner = "B" if _winner == "A" else "A"
+    return (a_fac, b_fac, s, _winner)
 
 
 def _job_in_scope(a_fac: str, b_fac: str, scope: Optional[set]) -> bool:
