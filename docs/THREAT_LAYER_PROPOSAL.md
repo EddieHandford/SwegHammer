@@ -123,7 +123,26 @@ gated proposal afterwards if the owner wants it.
 
 ## Status
 
-PARKED pending: (a) the sc61a re-anchor on the merged codebase (nothing can
-screen until it exists), (b) an owner go for the Tier-3 build. Recorded here
-so the design survives session compaction; the ledger's candidates list
-points at this document.
+**Consumer 1 (charge scoring) BUILT 2026-07-09** — owner go given. The FIELD
+substrate plus consumer 1 (charge-target scoring) are implemented in
+`code/strategy.py` (`_charge_field_post_denominator` and the field helpers,
+`pick_charge_target`), gate `SWEG_THREAT_CHARGE` (default-off, byte-identical
+off), with a one-line map-pass hook in `code/simulator.py._do_charge` and the
+citation `simulator.threat_projection_charge` in
+`data/rule_citations.d/threat_layer.json` (audit green). v1 uses the
+cover-attenuation ranged form (no line-of-sight occlusion, per the caveat
+above). The walked-into-it falsifier ships as `scripts/diag_walked_into_it.py`.
+Validated (no evals): field math checked against hand computation; the
+two-Berzerker mechanism confirmed (gate off cannot tell the supported target
+from the isolated one, gate on penalises the supported target and re-picks the
+isolated one); across six charge-heavy battles the gate changed the chosen
+charge target 28 times in 248 decisions (11.3%); walked-into-it baselines
+recorded (World Eaters 0.224, T'au 0.214, Chaos Daemons 0.164 lethal-cell rate).
+NOT YET SCREENED — awaits the sc61a re-anchor before any `SWEG_THREAT_CHARGE=1`
+vs anchor evaluation.
+
+Consumers 2 (move-intent destinations) and 3 (reserve / deep-strike arrival
+placement) remain PARKED and OUT of scope: a parallel worktree owns the
+movement-resolution region. The owner's planned-kill discount (refinement 1a) is
+also deferred — fire-allocation state is not cleanly readable at charge time, so
+it is documented as consumer-2 work rather than forced here.

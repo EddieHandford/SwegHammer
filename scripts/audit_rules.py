@@ -1378,6 +1378,19 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # nominee (per-army _persistent_nom_uid / _focusfire_target_uid channels, set
     # only on that army's own turn). Documented in the same citation; no new key.
     "simulator.persistent_nomination",
+    # Threat-projection field, consumer 1 (2026-07-09 owner-originated design;
+    # docs/THREAT_LAYER_PROPOSAL.md) — charge-target scoring (env-gated
+    # SWEG_THREAT_CHARGE, default OFF). AI piloting heuristic in
+    # code/strategy.py pick_charge_target: replaces the target-only melee
+    # threat_against denominator with the post-fight threat FIELD at the charge
+    # destination (the target PLUS every other enemy whose Move + real 2D6
+    # charge reach bears on the cell, minus the target's own contribution
+    # weighted by the probability the fight kills it — the two-Berzerker case).
+    # Reuses the audited expected-wounds math (strategy._kill_potential_wounds,
+    # simulator._ranged_expected_wounds) and the audited save_probability cover
+    # tax; draws no new random number. Cited in
+    # data/rule_citations.d/threat_layer.json.
+    "simulator.threat_projection_charge",
     # Rotate Ion Shields (Imperial Knights Household, 1 CP, Wargear
     # Stratagem, durability fidelity wave audit B fix B2, env-gated
     # SWEG_IK_ROTATE_IONS, default ON per the Custodes-batch precedent for

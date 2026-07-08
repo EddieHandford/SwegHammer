@@ -1880,7 +1880,210 @@ def _is_tarpit_charge(attacker, target_unit, target_profile) -> bool:
         (target_unit.current_health or 0.0) >= _TARPIT_MIN_HP
 
 
-def pick_charge_target(attacker, enemy):
+# ===========================================================================
+# Threat-projection field  (owner-originated design; docs/THREAT_LAYER_PROPOSAL.md)
+# ===========================================================================
+# Per enemy unit E and evaluated position p, the incoming threat E projects onto
+# a friendly unit standing at p is
+#
+#     threat_E(p) = ranged_expected_wounds(E -> me at p) * in_range(E, p)
+#                                                        * cover_attenuation(p)
+#                 + melee_expected_wounds(E -> me)       * P_reach(E, p)
+#
+# summed over LIVING enemies into the incoming field T(p). `P_reach` prices E's
+# Move plus the real two-dice charge distribution; `in_range` is E's shooting
+# threat range (Move + weapon range). The ranged half is attenuated by the
+# EXISTING positional cover at p (the audited symmetric Benefit-of-Cover save
+# tax) — this is the v1 COVER-ATTENUATION form, NOT line-of-sight occlusion.
+# The proposal's honest caveat applies: the sim's shooting RESOLUTION uses
+# angle-independent positional cover and has no true line-of-sight blocking, so
+# the layer plans only with the geometry the resolution actually enforces;
+# real-occlusion planning is deferred to a separate gated rules-fidelity
+# proposal.
+#
+# All per-pair math REUSES the audited expected-wounds helpers
+# (`_kill_potential_wounds` here, `Battle._ranged_expected_wounds` in the
+# simulator) and the audited `save_probability` cover math — no new RNG is
+# introduced anywhere in the field.
+#
+# CONSUMER 1 (this file, `pick_charge_target`): charge-target scoring, gated
+# SWEG_THREAT_CHARGE. Consumers 2 (move-intent destinations) and 3 (reserve /
+# deep-strike arrival placement) are deliberately NOT built here.
+
+# Exact 2D6 "at least n" distribution (counts out of 36). The real charge roll —
+# used to price how reliably an ENEMY can REACH us at a position, not our own
+# charge difficulty (which keeps its coarse table in `pick_charge_target`).
+_TWO_D6_ATLEAST_36 = {
+    2: 36, 3: 35, 4: 33, 5: 30, 6: 26, 7: 21,
+    8: 15, 9: 10, 10: 6, 11: 3, 12: 1,
+}
+_THREAT_ENGAGE_RANGE = 1.0   # 10e engagement range (inches)
+
+# Shadow diagnostic counters for the mechanism check (SWEG_THREAT_CHARGE_DIAG).
+# In a gate-OFF battle they count, at every charge decision, how often the
+# field denominator would change the chosen target vs the legacy denominator —
+# with ZERO RNG divergence, because the battle still acts on the legacy score.
+_THREAT_CHARGE_DIAG = {"decisions": 0, "changes": 0}
+
+
+def reset_threat_charge_diag() -> None:
+    _THREAT_CHARGE_DIAG["decisions"] = 0
+    _THREAT_CHARGE_DIAG["changes"] = 0
+
+
+def _p_2d6_at_least(n: float) -> float:
+    """P(2D6 >= n) for a real-valued required distance n (the charge move an
+    enemy still needs after its Normal Move). 2D6 is integer, so the requirement
+    is met at ceil(n); always-make at n<=2, impossible above 12."""
+    k = int(math.ceil(n - 1e-9))
+    if k <= 2:
+        return 1.0
+    if k > 12:
+        return 0.0
+    return _TWO_D6_ATLEAST_36[k] / 36.0
+
+
+# Per-round projector cache — the staging-envelope precompute pattern
+# (simulator.py `_precompute_staging_envelope`). The per-enemy projection
+# parameters are stable while the enemy set AND their positions/health are
+# unchanged: within a single activation's candidate sweep, and across a whole
+# phase while nothing dies or moves. The key folds in position and health so the
+# field is recomputed LIVE the instant an enemy is shot dead or moved (owner
+# refinement #1: a projector killed earlier this turn projects nothing by the
+# time a later unit charges). Single slot; no unbounded growth.
+_threat_proj_cache: Dict[str, object] = {"sig": None, "projectors": None}
+
+
+def _threat_projectors(enemy_army):
+    """Cached list of (unit, score_profile, position, move, range, melee_capable,
+    ignores_cover) for every living enemy — the field's per-enemy parameters."""
+    alive = enemy_army.alive_units
+    sig = tuple(
+        (e.uid, round(e.position[0], 3), round(e.position[1], 3),
+         round(e.current_health, 3))
+        for e in alive
+    )
+    cache = _threat_proj_cache
+    if cache["sig"] == sig and cache["projectors"] is not None:
+        return cache["projectors"]
+    projectors = []
+    for e in alive:
+        ep = _score_profile(e)
+        projectors.append((
+            e, ep, e.position,
+            float(effective_move(e)),
+            float(getattr(ep, "range_inches", 0.0) or 0.0),
+            (getattr(ep, "melee_attacks", 0) or 0) > 0,
+            bool(getattr(ep, "ignores_cover", False)),
+        ))
+    cache["sig"] = sig
+    cache["projectors"] = projectors
+    return projectors
+
+
+def _cover_attenuation(me_unit, enemy_ap: int, map_, dest) -> float:
+    """Multiplicative reduction in expected RANGED wounds on `me_unit` from the
+    positional cover at `dest`, via the audited `save_probability` (Benefit of
+    Cover = +1 save pip, with the 10e INFANTRY 'cannot better 3+ vs AP0' cap).
+    Returns 1.0 when there is no map, no cover, or cover cannot help (a better
+    invulnerable save, or the save is negated regardless). Reuses the exact save
+    math the shooting resolution uses, so there is no divergence."""
+    if map_ is None:
+        return 1.0
+    from .map import TerrainType
+    cover = map_.cover_at(dest)
+    if cover not in (TerrainType.LIGHT_COVER, TerrainType.HEAVY_COVER,
+                     TerrainType.RUIN):
+        return 1.0
+    tp = me_unit.profile
+    is_inf = "INFANTRY" in (tp.unit_keywords or ())
+    invuln = getattr(tp, "invuln_save", 7) or 7
+    invuln_pass = save_probability(invuln) if invuln <= 6 else 0.0
+    open_pass = max(save_probability(tp.save, enemy_ap, in_cover=False,
+                                     is_infantry=is_inf), invuln_pass)
+    cover_pass = max(save_probability(tp.save, enemy_ap, in_cover=True,
+                                      is_infantry=is_inf), invuln_pass)
+    open_fail = max(0.0, 1.0 - open_pass)
+    cover_fail = max(0.0, 1.0 - cover_pass)
+    if open_fail <= 1e-12:
+        return 1.0
+    return cover_fail / open_fail
+
+
+def _charge_end_spot(attacker, target):
+    """The approximate cell the charger occupies after a successful charge into
+    `target`: on the approach line, base-edge gap 1" from the target. Mirrors the
+    SWEG_CHARGE_PATH end-spot geometry in `pick_charge_target`, computed
+    unconditionally so the field can price the destination regardless of that
+    gate's state."""
+    ax, ay = attacker.position
+    ex, ey = target.position
+    r_att = _bc_model_radius_in(attacker.profile)
+    r_tgt = _bc_model_radius_in(target.profile)
+    dx = ex - ax
+    dy = ey - ay
+    dist = (dx * dx + dy * dy) ** 0.5
+    if dist <= 1e-9:
+        return attacker.position
+    end_dist = r_att + r_tgt + 1.0
+    return (ex - (dx / dist) * end_dist, ey - (dy / dist) * end_dist)
+
+
+def _charge_field_post_denominator(attacker, target_unit, target_expected_wounds,
+                                   projectors, dest, map_) -> float:
+    """The post-fight threat-field denominator at a charge destination `dest`:
+
+        1 + T_post(dest) / effective_wounds(attacker)
+        T_post = T(dest) - threat_target(dest) * P(kill target this fight)
+
+    T sums every LIVING enemy's projected threat onto the charger standing at
+    `dest` — the target PLUS every OTHER enemy whose charge reach or guns bear on
+    the cell (the two-Berzerker case, priced exactly). Subtracting the target's
+    own contribution weighted by the kill probability encodes the owner's key
+    clause: reliably deleting an isolated target removes its contribution from
+    the field (cheap), whereas charging one of two mutually-supporting melee
+    squads leaves the second squad's reach in the denominator (expensive).
+
+    Normalised by the charger's remaining wounds because the reused
+    expected-wounds helpers already fold in its save/toughness, so the ratio
+    reads as 'fraction of the charger's remaining value forfeited by standing
+    there' — the proposal's derived, knob-free tolerance. No RNG."""
+    from .simulator import Battle          # lazy: avoid strategy<->simulator cycle
+    me_profile = _score_profile(attacker)
+    field = 0.0
+    threat_target_val = 0.0
+    for (e, ep, epos, emove, erange, melee_capable, ignores_cover) in projectors:
+        te = 0.0
+        d_ed = _dist(epos, dest)
+        # Ranged half — the enemy can Move then shoot, so its threat range is
+        # Move + weapon range; attenuated by our cover at the destination.
+        if erange > 0.0 and d_ed <= emove + erange:
+            rw = Battle._ranged_expected_wounds(ep, attacker)
+            if rw > 0.0:
+                atten = 1.0 if ignores_cover else _cover_attenuation(
+                    attacker, getattr(ep, "ap", 0) or 0, map_, dest)
+                te += rw * atten
+        # Melee half — expected wounds times the probability the enemy REACHES
+        # us (its Move plus the real 2D6 charge distribution). Skip the wound
+        # math when the enemy cannot reach (needed roll > 12 -> P_reach 0); that
+        # only prunes exact-zero contributions, so values are unchanged.
+        if melee_capable:
+            needed = d_ed - emove - _THREAT_ENGAGE_RANGE
+            if needed <= 12.0:
+                mw = _kill_potential_wounds(ep, me_profile)
+                if mw > 0.0:
+                    te += mw * _p_2d6_at_least(needed)
+        field += te
+        if e is target_unit:
+            threat_target_val = te
+    p_kill = min(1.0, target_expected_wounds / max(1.0, target_unit.current_health))
+    t_post = field - threat_target_val * p_kill
+    if t_post < 0.0:
+        t_post = 0.0
+    return 1.0 + t_post / max(1.0, attacker.current_health)
+
+
+def pick_charge_target(attacker, enemy, map_=None):
     """
     Pick the best enemy to charge from those within 12" range.
 
@@ -1946,6 +2149,19 @@ def pick_charge_target(attacker, enemy):
     # but the END SPOT check (part b) applies to all chargers.
     attacker_fly = "FLY" in (attacker.profile.unit_keywords or ())
     r_attacker = _bc_model_radius_in(attacker.profile) if charge_path else 0.0
+
+    # SWEG_THREAT_CHARGE (consumer 1) — swap the target-only `threat_against`
+    # denominator for the post-fight threat FIELD at the charge destination.
+    # SWEG_THREAT_CHARGE_DIAG (shadow counter) computes the field alternative
+    # WITHOUT acting on it, so a gate-OFF battle stays byte-identical while the
+    # mechanism check counts how often the gate would change the chosen target.
+    # Both default-off (`== "1"` reads); when neither is set nothing below runs
+    # and `_denom` stays exactly `1.0 + threat_against`.
+    use_threat_field = os.environ.get("SWEG_THREAT_CHARGE") == "1"
+    threat_diag = os.environ.get("SWEG_THREAT_CHARGE_DIAG") == "1"
+    projectors = (_threat_projectors(enemy)
+                  if (use_threat_field or threat_diag) else None)
+    candidates_field = [] if threat_diag else None
 
     candidates = []
     for e in alive_enemies:
@@ -2044,8 +2260,22 @@ def pick_charge_target(attacker, enemy):
         # docs/DISPLACEMENT_SUBSTRATE_PLAN.md §5 Stage 2.
         displace_contest_value = _displace_swarm_contest_value(
             attacker, e, tp, enemy, charge_p)
+        # Denominator selection. OFF path: `_denom` holds exactly the legacy
+        # `1.0 + threat_against`, so the score expression is byte-identical when
+        # the gate is unset. When SWEG_THREAT_CHARGE is on, `_denom` becomes the
+        # post-fight FIELD `1 + T_post/effective_wounds`; every existing bonus
+        # multiplier below is preserved unchanged.
+        _denom = 1.0 + threat_against
+        _field_denom = None
+        if use_threat_field or threat_diag:
+            _dest = _charge_end_spot(attacker, e)
+            _target_ew = _kill_potential_wounds(p, tp)
+            _field_denom = _charge_field_post_denominator(
+                attacker, e, _target_ew, projectors, _dest, map_)
+            if use_threat_field:
+                _denom = _field_denom
         score = (((kill_potential + 0.5 * ranged_value)
-                  / (1.0 + threat_against))
+                  / _denom)
                  * charge_p * gunline_bonus * support_bonus
                  * screen_bonus * synapse_bonus * tarpit_bonus
                  * we_glory_bonus * tyranids_tarpit_bonus
@@ -2053,6 +2283,14 @@ def pick_charge_target(attacker, enemy):
                  * drk_decisive_penalty
                  * drk_integrity_penalty
                  * knight_melee_bonus)
+        # Shadow field score (diag only, gate OFF): identical to `score` except
+        # for the denominator, so it differs by exactly the denominator ratio.
+        # It tracks `score` through every same-factor modification below (the
+        # won't-crack penalty multiply and the displace / pin adds are identical
+        # for both), giving a faithful field-vs-legacy argmax comparison.
+        if candidates_field is not None:
+            score_field = (score * (_denom / _field_denom)
+                           if _field_denom else score)
         # #C2 (iter 2) — "won't-crack" penalty. If expected wounds inflicted
         # this round is below 20% of target's current HP, heavily downweight
         # the charge. Stops light melee attacking T8+ bricks they can't dent
@@ -2068,12 +2306,17 @@ def pick_charge_target(attacker, enemy):
                 # shoot), added instead of the kill it cannot make. A melee brick
                 # has little ranged_value, so it yields a small pin value and is
                 # not tarpitted. Even-handed; AI heuristic on the cited pin rule.
-                score += _TARPIT_PIN_WEIGHT * ranged_value * charge_p
+                _pin = _TARPIT_PIN_WEIGHT * ranged_value * charge_p
+                score += _pin
+                if candidates_field is not None:
+                    score_field += _pin
             elif displace_contest_value <= 0.0:
                 # No Stage 2 contest charge available (gate OFF, target not a
                 # winnable durable marker-holder): apply the legacy won't-crack
                 # suppression unchanged. OFF path is byte-identical here.
                 score *= _WONT_CRACK_PENALTY
+                if candidates_field is not None:
+                    score_field *= _WONT_CRACK_PENALTY
             # else: Stage 2 fires — skip the won't-crack suppression; the contest
             # value is ADDED below (the contest, not the kill, is the value).
         # Displacement Stage 2 (SWEG_DISPLACE_SWARM): add the contest value when
@@ -2081,6 +2324,8 @@ def pick_charge_target(attacker, enemy):
         # path and for every non-qualifying candidate, so the OFF path is
         # byte-identical.
         score += displace_contest_value
+        if candidates_field is not None:
+            score_field += displace_contest_value
 
         # SWEG_CHARGE_PATH — charge-path legality filter (cited
         # `simulator.charge_path_non_target`). Pure geometry, zero RNG.
@@ -2138,10 +2383,21 @@ def pick_charge_target(attacker, enemy):
                 continue   # illegal path — skip, screen remains a valid candidate
 
         candidates.append((score, d, e))
+        if candidates_field is not None:
+            candidates_field.append((score_field, d, e))
 
     if not candidates:
         return None, None
     _, dist, target = max(candidates, key=lambda x: x[0])
+    # SWEG_THREAT_CHARGE_DIAG (gate OFF): record whether the field denominator
+    # would have picked a DIFFERENT target than the legacy one on this identical
+    # board. The battle still acts on `target` (the legacy pick), so no RNG
+    # diverges — the count is a clean measure of the gate's decision impact.
+    if candidates_field is not None:
+        _THREAT_CHARGE_DIAG["decisions"] += 1
+        _, _, field_target = max(candidates_field, key=lambda x: x[0])
+        if field_target is not target:
+            _THREAT_CHARGE_DIAG["changes"] += 1
     return target, dist
 
 

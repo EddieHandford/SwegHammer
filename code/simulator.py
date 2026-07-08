@@ -16843,7 +16843,10 @@ class Battle:
                 return
 
         from .strategy import pick_charge_target
-        target, dist = pick_charge_target(attacker, defender_army)
+        # Pass the map so the SWEG_THREAT_CHARGE field (consumer 1) can read the
+        # positional cover at candidate charge destinations. Ignored on the OFF
+        # path; cover attenuation is skipped when map_ is None.
+        target, dist = pick_charge_target(attacker, defender_army, self.map)
         if target is None:
             return
 
