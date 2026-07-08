@@ -2104,7 +2104,11 @@ def _effective_template(
     # Guarded per CLAUDE.md rule 13 (fail loud on missing data): if any
     # added key ever stops resolving in UNIT_CATALOG, raise rather than
     # silently field a truncated version of the sourced package.
-    if os.environ.get("SWEG_ORKS_LIST2") == "1" and fac == "Orks":
+    # ADOPTED default-on 2026-07-08 (anchor sc60a): N=80 scoped screen read
+    # Orks +5.03 DECISIVE toward real (37.6 -> 42.6 vs 45.3), gated mean
+    # absolute error 2.85 -> 2.61, with cross-cutting deflation of Death
+    # Guard / World Eaters / Chaos Daemons. `SWEG_ORKS_LIST2=0` kill-switch.
+    if os.environ.get("SWEG_ORKS_LIST2", "1") != "0" and fac == "Orks":
         _orks2_add = {
             "orks_boss_snikrot": 1,
             "orks_kommandos": 1,
