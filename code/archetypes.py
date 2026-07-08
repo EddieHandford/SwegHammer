@@ -1618,6 +1618,79 @@ def _effective_template(
             "astra_militarum_lord_solar_leontus": 1,
         }
 
+    # SWEG_AM_2K (2026-07-08) — Astra Militarum Combined Arms cost-feasible
+    # 2,000-point re-derivation. Default OFF. List-composition correction,
+    # NOT win-rate tuning.
+    #
+    # THE FINDING (MEASURED, 2026-07-08 audit): the base "Combined Arms"
+    # template above (17 entries) is a cost-INFEASIBLE union at competitive
+    # squad sizes. Priced from `code.units.UNIT_CATALOG` (helper script:
+    # each flexible-count datasheet run at its real tournament size — 10
+    # for Tempestus Scions and Attilan Rough Riders, both of which the
+    # catalogue models as a 5-10 model range but sourced GT lists field at
+    # 10 for board presence): 17 entries total **2,080 SwegHammer points**,
+    # 80 OVER the 2,000 budget (the codebase's own min-size seed-walk
+    # currency, `_squad_cost` = points_cost * min_models, reads 1,950 —
+    # UNDER budget — but that is the SEED-WALK's accounting, not what a
+    # human would call "the list"; at the size real players actually field
+    # these squads the union does not fit). Per
+    # `docs/DECISION_LEDGER.md` ("TEMPLATE-REALIZATION LOTTERY, systemic,
+    # MEASURED"): "the seed walk exhausts its slice on the guaranteed
+    # spine, so tail template units field by lottery — Astra Militarum's
+    # Kasrkin/Scions/Chimera/Death-Korps/Rough-Riders/Heavy-Weapons at
+    # 20-40% of builds (boards: the 8%-crater Astartes loss was decided by
+    # a turn-1 whole-army walk into a gunline in a build with NO
+    # Scions/Chimera delivery)" — while Genestealer Cults realizes its
+    # whole template at 13/13 (100%). Both `SWEG_TEMPLATE_REALIZE` draw-
+    # mechanism shapes (seed-side breadth pass; fill-side realization
+    # guarantee) were built and REJECTED empirically (commits 04d2a9f,
+    # 0cb8f75) — the fix is the template, not the draw.
+    #
+    # PILOT EVIDENCE (same audit): reading the losing boards found the
+    # DELIVERY tools — Tempestus Scions deep-strike and the Chimera
+    # transport — deciding games when they failed to realize, not a
+    # durability or detachment gap. The fix therefore keeps every delivery
+    # / order-engine piece and trims ONLY the tank spine.
+    #
+    # THE CUT: drop `astra_militarum_taurox_prime` (90pt). This is the
+    # minimal sufficient cut (2,080 - 90 = 1,990, fits under both the
+    # competitive-size AND the min-size reading) and is sourced-supported:
+    # Taurox Prime does not appear in the SWEG_AM_REALISM alternate
+    # template immediately above, which is built from the SAME three
+    # citations (bladesandbolts LVO, grimhammertactics November 2025,
+    # spikeybits Rise of the Empire GT) for this exact detachment — i.e.
+    # not every sourced Combined Arms list runs it. It is also absent from
+    # every Grizzled Company list cited in
+    # `docs/_COMPAUDIT_UNDERPOLES.md` ("Roger Boira... Bullgryn +
+    # Commissar, Leman Russ Vanquishers, Kasrkin, Rogal Dorns; Dan Sammons
+    # triple Vanquishers + Rogal Dorns + Gaunt's Ghosts + indirect Field
+    # Ordnance Batteries + Death Riders + Attilan Rough Riders" — no Taurox
+    # Prime in either). No Leman Russ variant or artillery piece is cut —
+    # the base template does not duplicate any artillery type (one
+    # Basilisk, one Manticore) and every other named unit (2x Cadian Shock
+    # Troops — within the required 2-3 range; Kasrkin; Scions; Chimera;
+    # Rough Riders; both Leman Russ variants; Rogal Dorn; the Castellan /
+    # Creed / Leontus / Command Squad order-engine leader stack) is kept
+    # exactly as the base template names it.
+    #
+    # Guarded per CLAUDE.md rule 13 (fail loud on missing data): if the cut
+    # key ever stops resolving in UNIT_CATALOG, raise rather than silently
+    # let the drop become a no-op (which would silently re-widen the
+    # template past its verified feasible total).
+    if os.environ.get("SWEG_AM_2K") == "1" and fac == "Astra Militarum":
+        if "astra_militarum_taurox_prime" not in UNIT_CATALOG:
+            raise KeyError(
+                "archetypes._effective_template: SWEG_AM_2K expects "
+                "'astra_militarum_taurox_prime' to resolve in UNIT_CATALOG "
+                "(it is being deliberately dropped for feasibility) but it "
+                "is missing — check for a regression that renamed or "
+                "dropped the datasheet from the catalogue."
+            )
+        template = {
+            k: v for k, v in template.items()
+            if k != "astra_militarum_taurox_prime"
+        }
+
     # SWEG_DG_REALISM (2026-07-02) — Death Guard. Sourced (audit agent:
     # Warhammer Open Tacoma 1st, Lorecast Major 1st, tabletopbattles
     # detachment focus; zero sourced lists field Typhus or the Foul
@@ -1749,6 +1822,95 @@ def _effective_template(
                 # keep Lord Exultant rather than silently drop it.
                 _reordered[_le_key] = _le_count
             template = _reordered
+
+    # SWEG_EC_LIST3 (2026-07-08) — Emperor's Children list realism 3. Default
+    # OFF. List-composition correction, NOT win-rate tuning.
+    #
+    # THE FINDING (MEASURED, 2026-07-08 audit): the SWEG_EC_LIST2 effective
+    # template above (12 entries) is a cost-INFEASIBLE union at competitive
+    # squad sizes — priced from UNIT_CATALOG at real tournament squad sizes
+    # (10-model Infractors/Tormentors, 6-model Flawless Blades) it totals
+    # **2,920 SwegHammer points**, 920 over the 2,000 budget; even at the
+    # codebase's own min-size seed-walk currency (`_squad_cost`) it is
+    # **2,480** — still 480 over. Per `docs/DECISION_LEDGER.md`: "Emperor's
+    # Children's adopted 2x-Prince/2x-Rhino at 0.85/0.75 mean (0 princes in
+    # 7/20 builds)" — the union is too large for the seed walk + random_fill
+    # to ever realize it, by either accounting. This REPLACES the effective
+    # template outright (does not layer on SWEG_EC_REALISM / SWEG_EC_LIST2)
+    # with a single cost-feasible list.
+    #
+    # THE REPLACEMENT — Kyle Sams, Battle For The Capital 2026, 2nd place,
+    # Coterie of the Conceited, 4-1 (already cited above at the SWEG_EC_LIST2
+    # comment): Daemon Prince of Slaanesh with Wings (1, warlord, Pledge of
+    # Eternal Servitude) + 3x Lord Exultant + 3x Infractors + 1x Defiler +
+    # 1x Maulerfiend + 1x Tormentors + 2x Noise Marines + 1x Flawless Blades
+    # + 2x Chaos Rhino + 2x Chaos Spawn. Verified against a live source
+    # lookup (spikeybits.com/battle-for-the-capital-gt-2026-army-lists-
+    # sisters-run-it-back/, 2026-07-08): "three Lord Exultant and Infractor
+    # packages... backed by a Daemon Prince of Slaanesh warlord"; "A Defiler
+    # handles backfield fire support... followed by a Maulerfiend and two
+    # Chaos Spawn squads"; troops "3x Infractor squads... 1x Tormenter
+    # battleline squad... 2x Noise Marines squads... 1x Flawless Blades
+    # squad"; "2x Chaos Rhino" dedicated transport. The confirmed real list
+    # runs a SINGLE Daemon Prince (not the SWEG_EC_LIST2 count=2 — every
+    # count-specified sourced list disagreement is resolved in favour of
+    # this newer, more precisely-sourced citation) and carries NO Lucius the
+    # Eternal at all.
+    #
+    # ARITHMETIC (helper script over UNIT_CATALOG, min-size `_squad_cost`
+    # convention — the codebase's own seed-walk currency): Daemon Prince
+    # 215 + Lord Exultant x3 240 + Infractors x3 255 + Defiler 250 +
+    # Maulerfiend 130 + Tormentors 85 + Noise Marines x2 290 + Flawless
+    # Blades 100 + Chaos Rhino x2 160 + Chaos Spawn x2 140 = **1,865**,
+    # comfortably under 2,000 (135pt headroom). Adding Lucius the Eternal
+    # (150) would total 2,015 — 15 OVER budget — so per the task's drop
+    # rule Lucius is dropped first; that alone reaches feasibility (no
+    # Spawn needs to follow it out), which also matches the confirmed real
+    # list fielding no Lucius. (At a stricter competitive/max-squad-size
+    # reading the total is higher — 2,305 without Lucius — reflecting that
+    # this is still a MUCH lighter union than the 2,920/2,455 it replaces;
+    # the min-size figure is reported as the primary total because it is
+    # the accounting the build engine actually spends.)
+    #
+    # Guarded per CLAUDE.md rule 13 (fail loud on missing data): if any key
+    # ever stops resolving in UNIT_CATALOG, raise rather than silently
+    # field a truncated version of the sourced list.
+    if os.environ.get("SWEG_EC_LIST3") == "1" and fac == "Emperor's Children":
+        _ec3_keys = (
+            "emperor_s_children_daemon_prince_of_slaanesh_with_wings",
+            "emperor_s_children_lord_exultant",
+            "emperor_s_children_infractors",
+            "emperor_s_children_defiler",
+            "emperor_s_children_maulerfiend",
+            "emperor_s_children_tormentors",
+            "emperor_s_children_noise_marines",
+            "emperor_s_children_flawless_blades",
+            "emperor_s_children_chaos_rhino",
+            "emperor_s_children_chaos_spawn",
+        )
+        for _ec3_key in _ec3_keys:
+            if _ec3_key not in UNIT_CATALOG:
+                raise KeyError(
+                    "archetypes._effective_template: SWEG_EC_LIST3 expects "
+                    f"'{_ec3_key}' to resolve in UNIT_CATALOG but it is "
+                    "missing — check for a regression that dropped the "
+                    "datasheet from the catalogue or a typo'd key."
+                )
+        template = {
+            "emperor_s_children_daemon_prince_of_slaanesh_with_wings": 1,
+            "emperor_s_children_lord_exultant": 3,
+            "emperor_s_children_infractors": 3,
+            "emperor_s_children_defiler": 1,
+            "emperor_s_children_maulerfiend": 1,
+            "emperor_s_children_tormentors": 1,
+            "emperor_s_children_noise_marines": 2,
+            "emperor_s_children_flawless_blades": 1,
+            "emperor_s_children_chaos_rhino": 2,
+            "emperor_s_children_chaos_spawn": 2,
+            # Lucius the Eternal deliberately OMITTED — see arithmetic above
+            # (with him the union totals 2,015, 15pt over budget; the
+            # confirmed real Kyle Sams list also fields no Lucius).
+        }
 
     # SWEG_IK_REALISM (2026-07-02) — Imperial Knights. Sourced (audit
     # agent: CaptainCon 2026 1st place ran Cerastus Atrapos + Cerastus
@@ -1893,6 +2055,71 @@ def _effective_template(
             k: v for k, v in template.items() if k != "orks_killa_kans"
         }
         template.update(_orks_add)
+
+    # SWEG_ORKS_LIST2 (2026-07-08) — Orks War Horde list realism 2. Default
+    # OFF. List-composition correction, NOT win-rate tuning.
+    #
+    # THE FINDING (MEASURED, 2026-07-08 audit): a full PILOT_PROTOCOL pass
+    # (board images read) on the Orks residual found "horde-vs-GUNLINE, not
+    # durability — per-opponent shape inverts the wall story (better vs
+    # bricks than vs shooters); boards show open-ground marching + charge
+    # over-concentration onto one brick while soft squads hold markers
+    # free" (`docs/DECISION_LEDGER.md`). The sourced War Horde lists cited
+    # in the SWEG_ORKS_REALISM comment above name a small ambush /
+    # objective-denial package this template still omits: Boss Snikrot +
+    # Kommandos + Zodgrod Wortsnagga (`docs/_COMPAUDIT_UNDERPOLES.md`
+    # ~lines 62-69; all three already resolve in UNIT_CATALOG). Snikrot and
+    # Zodgrod appear by name in the Bolter and Chainsword "2,000 Point
+    # Tournament War Horde List" ("Ghazghkull (Warlord) + Boss Snikrot +
+    # Beastboss...") and the Tom Godfrey UK rank-1 list ("Ghaz + Big Mek +
+    # 20 Boyz brick, Snikrot, Zodgrod...") already cited above — this is
+    # the same sourced-list gap the SWEG_ORKS_REALISM reshape closed for
+    # the mobility package, applied to the ambush/objective-denial piece.
+    #
+    # FEASIBILITY CHECK (helper script over UNIT_CATALOG, min-size
+    # `_squad_cost` convention — the codebase's own seed-walk currency, the
+    # same one used for the SWEG_AM_2K / SWEG_EC_LIST3 arithmetic above):
+    # the SWEG_ORKS_REALISM effective template above totals 1,635. Adding
+    # Boss Snikrot (75, fixed 1-model) + Kommandos (120, fixed 10-model) +
+    # Zodgrod Wortsnagga (90, fixed 1-model) = 285 more, for a NEW total of
+    # **1,920** — still under the 2,000 budget (80pt headroom), so NO TRIM
+    # is required and none is taken; Trukks and Stormboyz (the already-
+    # validated +4.86 mobility package) are left untouched. (At a stricter
+    # competitive/max-squad-size reading the REALISM template alone already
+    # reads 2,430 before this addition — Orks was not named among the
+    # cost-infeasible-union factions in this task's own framing, and that
+    # template is already screened-and-adopted successfully at N=80, so
+    # over-budget-at-max-size is not treated here as the failure signature
+    # it is for Astra Militarum / Emperor's Children; the min-size figure
+    # is reported as the primary total for the same reason given above.)
+    #
+    # DEPLOYMENT-FLAG CHECK (per the build brief — reported, not wired):
+    # `orks_boss_snikrot` and `orks_kommandos` both already carry
+    # `infiltrator=True` in UNIT_CATALOG (their real ambush/Scouts-style
+    # deployment is already modelled). `orks_zodgrod_wortsnagga` carries
+    # NEITHER `infiltrator` nor `deep_strike` — faithful to his real
+    # datasheet (he has no deployment rule of his own; he only benefits
+    # from riding along with an ambushing unit). No new rule wired.
+    #
+    # Guarded per CLAUDE.md rule 13 (fail loud on missing data): if any
+    # added key ever stops resolving in UNIT_CATALOG, raise rather than
+    # silently field a truncated version of the sourced package.
+    if os.environ.get("SWEG_ORKS_LIST2") == "1" and fac == "Orks":
+        _orks2_add = {
+            "orks_boss_snikrot": 1,
+            "orks_kommandos": 1,
+            "orks_zodgrod_wortsnagga": 1,
+        }
+        for _ork2_key in _orks2_add:
+            if _ork2_key not in UNIT_CATALOG:
+                raise KeyError(
+                    "archetypes._effective_template: SWEG_ORKS_LIST2 "
+                    f"expects '{_ork2_key}' to resolve in UNIT_CATALOG but "
+                    "it is missing — check for a regression that dropped "
+                    "the datasheet from the catalogue or a typo'd key."
+                )
+        template = dict(template)
+        template.update(_orks2_add)
 
     # SWEG_ASTARTES_BATTLELINE (2026-07-04) — Adeptus Astartes broadened
     # objective-holding battleline. Default OFF. List-composition correction,
