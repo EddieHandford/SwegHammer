@@ -1,8 +1,8 @@
 {
   "job_id": "identity_check",
-  "base_commit": "859be1e3e93f612b19abdfa33badc605d320f241",
-  "anchor_path": "data/_anchor_sc61a_n80_log.json",
-  "anchor_sha256": "056792b347ab8157b8ac0e39bab42dc2baa38d63c949f2f316ad96673491294d",
+  "base_commit": "1d542650cde61699272c4984a261aa2aa93a404b",
+  "anchor_path": "data/_anchor_sc62a_n80_log.json",
+  "anchor_sha256": "b5c66736ce6ac15ab2330b21ea26fd39f1418ef0522442517e3070702ada2dac",
   "env": {},
   "battles": 20,
   "factions": "Orks",
