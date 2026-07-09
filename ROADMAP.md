@@ -467,6 +467,33 @@ cost can be trusted for the grid-search target.
 
 ---
 
+## AI Lab — evolved strategy sandbox (exploratory, outside Goals A–D) 🧪
+
+A genetic algorithm evolves small, interpretable piloting knobs (charge
+aggression, engage range and threshold, hold-position bias, kiting
+stand-off) for one Intercessor Squad against a frozen baseline strain, over
+seeded five-model mirror duels. Champions that clearly beat the baseline —
+a fresh-seed confirmation batch whose Wilson 95 percent lower bound clears
+50 percent — are promoted to become the new baseline, forming a strain
+lineage recorded in `docs/ai_lab_lineage.csv`.
+
+**Explicitly outside the two-stage calibration pipeline**: it never touches
+`data/calibrated_points.json`, `data/equilibrium_points*.json`, or the
+tournament mean-absolute-error gate, and none of it models a Warhammer 40k
+rule (no rule-citation entries needed — same footing as the pre-existing
+`Battle._pilot_focus` test hook). The neutral genome reproduces production
+behaviour byte-for-byte, proven event-for-event by
+`tests/test_ai_lab_pilot_hooks.py`.
+
+Delivered: `code/ai_lab/` (genome, pilot layer, seeded duels,
+genetic-algorithm engine, persistence), `scripts/ai_lab_run.py` (headless
+runner), and the dashboard "AI Lab" tab (live fitness chart, champion
+versus baseline replay, lineage table). Deferred expansion genes (which
+enemy model to focus fire on, whom to charge, cover-seek radius) are
+catalogued in [`docs/AI_LAB_PLAN.md`](docs/AI_LAB_PLAN.md).
+
+---
+
 ## Foundation work (delivered) ✅
 
 The 2025–early-2026 phase-based work that built the substrate Goals A–D
