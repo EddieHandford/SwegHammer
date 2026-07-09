@@ -847,6 +847,15 @@ def main() -> None:
     # could both pass the exists() check and launch simultaneously, which
     # saturated the owner's box with two concurrent worker pools. O_EXCL
     # makes creation atomic; a loser gets FileExistsError and refuses.
+    # A dead holder's file must be REMOVED before the exclusive create can
+    # succeed — without this unlink, any hard-killed run wedged the lane
+    # permanently (found 2026-07-09 by the sc62a runner after 12 clean
+    # refusals against a dead pid).
+    if _lock.exists() and not _other_alive and os.environ.get("SWEG_EVAL_FORCE") != "1":
+        try:
+            _lock.unlink()
+        except OSError:
+            pass
     try:
         _fd = os.open(str(_lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         os.write(_fd, str(os.getpid()).encode())
