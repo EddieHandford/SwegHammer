@@ -35,6 +35,7 @@ from typing import Dict, Optional, Tuple
 from .detachments import effective_move
 from .map import _terrain_epoch
 from .roles import classify
+from .sim.constants import MAX_ROUNDS
 from .sim.geometry import _bc_model_radius_in, _charge_path_screen_gap, _er_gap
 from .units import _unflatten_model_loadouts, save_probability, wound_probability
 
@@ -2399,6 +2400,241 @@ def pick_charge_target(attacker, enemy, map_=None):
         if field_target is not target:
             _THREAT_CHARGE_DIAG["changes"] += 1
     return target, dist
+
+
+# ===========================================================================
+# THE VALUE FIELD (Layer A, docs/LAYERS_RESEARCH.md) — the multi-round dual of
+# the threat field, and the keystone the layer roadmap builds on.
+#
+# The threat field prices WHAT ARRIVES at a position (incoming damage). The value
+# field prices WHAT A POSITION IS WORTH over the rounds that remain: V(p) is the
+# expected victory-point yield of holding/contesting marker p, being
+#
+#     V(p) = marker_vp * control * contestability + secondary_positional_value
+#
+# where
+#   marker_vp     = obj.vp_per_round * scoring_rounds_remaining   (the primary
+#                   VP the marker pays per remaining scoring round, over the
+#                   horizon read from the battle-round counter),
+#   control       = 1.0 hold / 0.5 tie-and-deny / 0.2 contest-but-lose, from the
+#                   evaluating unit's PROSPECTIVE Objective Control at p vs the
+#                   enemy's (reuses the OC the scorer awards on),
+#   contestability= 1 - frac_at_risk, the probability the unit SURVIVES to
+#                   control the marker at the scoring step — this is where the
+#                   value field MULTIPLIES INTO the threat field: frac_at_risk is
+#                   the fraction of the unit forfeited standing at p, from the
+#                   incoming field T(p) (owner's "value the unit is unlikely to
+#                   survive to collect is worth less"), and
+#   secondary_positional_value = the cheap positional worth of a secondary card
+#                   the army ACTUALLY picked (Behind Enemy Lines forward zone) —
+#                   reuses pick_secondaries' army.chosen_secondaries, does NOT
+#                   rebuild any scorer.
+#
+# It COMPOSES ON the threat field: it reuses the cached per-enemy projectors
+# (_threat_projectors) and the SAME audited expected-wounds per-pair math to read
+# T(p) (via _threat_field_at, the generic sibling of the charge denominator). It
+# introduces NO new random number. Cited simulator.value_projection (an
+# AI-heuristic class, the target_economics shape — AI play-quality heuristic
+# built from the quoted primary-scoring and wound/save core math, not a new rule).
+#
+# CONSUMER (this file, pick_move_intent): move-intent destination pricing, gated
+# SWEG_VALUE_MOVE (default off, byte-identical off). Candidate objective
+# destinations are ranked by the threat-tolerance composition of
+# docs/THREAT_LAYER_PROPOSAL.md — job value vs body exposure priced together:
+#
+#     net(p) = V(p) - unit_future_value * frac_at_risk(p)
+#
+# The mission-override rule is preserved verbatim from the staging lesson: the
+# consumer only RE-ROUTES among claim/contest destinations (it changes WHICH
+# marker is chosen); it never freezes a claim into a hold (the genuine hold-check
+# runs earlier in pick_move_intent and is untouched).
+
+# Standard 10e Take-and-Hold primary award: 5 victory points per controlled
+# objective marker, per battle round. VP_PER_ROUND_REF is the reference marker
+# yield used to place a unit's OWN future value (its per-unit dual) on the same
+# victory-point axis as V(p) for the net-score composition.
+_VALUE_VP_PER_ROUND_REF = 5.0
+# Behind Enemy Lines forward-zone yield per remaining scoring round (the sim's
+# simplified Tactical pool pays a few victory points for a body in the enemy
+# deployment zone). Kept modest so the primary marker term dominates the ranking.
+_VALUE_BEL_VP_PER_ROUND = 2.0
+
+# Shadow diagnostic counters for the mechanism check (SWEG_VALUE_MOVE_DIAG): in a
+# gate-OFF battle, at every objective-destination decision, count how often the
+# value ranking WOULD re-route the unit to a different marker than the legacy
+# score — with ZERO RNG divergence, because the battle still acts on the legacy
+# pick. Mirrors the SWEG_THREAT_CHARGE_DIAG shadow counter exactly.
+_VALUE_MOVE_DIAG = {"decisions": 0, "changes": 0}
+
+
+def reset_value_move_diag() -> None:
+    _VALUE_MOVE_DIAG["decisions"] = 0
+    _VALUE_MOVE_DIAG["changes"] = 0
+
+
+def _value_scoring_rounds_remaining(cur_round: int) -> int:
+    """Number of primary-scoring battle rounds a unit moving NOW can still
+    influence, current round inclusive (the sim's end-of-round / next-Command-
+    phase primary scoring still pays after this Movement phase). 10e scores
+    primary every battle round; MAX_ROUNDS = 5. Monotone non-increasing across
+    the game (fewer rounds left -> a marker is worth less -> less threat tolerated
+    to reach it), which IS the multi-round horizon the value field exists to add.
+    Clamped to at least 1 while the game is live so a live marker never prices to
+    zero horizon."""
+    r = MAX_ROUNDS - cur_round + 1
+    if r < 1:
+        return 0 if cur_round > MAX_ROUNDS else 1
+    return r
+
+
+def _threat_field_at(me_unit, projectors, dest, map_) -> float:
+    """Raw incoming threat field T(dest): the expected wounds every LIVING enemy
+    projects onto `me_unit` standing at `dest`, summed. Reuses the threat-field
+    per-pair math EXACTLY as `_charge_field_post_denominator` builds it — the
+    ranged half (enemy Move + weapon range, attenuated by the positional cover at
+    the cell) plus the melee half (expected wounds times the real 2D6 reach
+    probability) — MINUS the charge-specific target subtraction. This is the
+    generic field the value consumer reads for contestability and exposure; no
+    RNG, no new geometry."""
+    from .simulator import Battle          # lazy: avoid strategy<->simulator cycle
+    me_profile = _score_profile(me_unit)
+    field = 0.0
+    for (e, ep, epos, emove, erange, melee_capable, ignores_cover) in projectors:
+        d_ed = _dist(epos, dest)
+        if erange > 0.0 and d_ed <= emove + erange:
+            rw = Battle._ranged_expected_wounds(ep, me_unit)
+            if rw > 0.0:
+                atten = 1.0 if ignores_cover else _cover_attenuation(
+                    me_unit, getattr(ep, "ap", 0) or 0, map_, dest)
+                field += rw * atten
+        if melee_capable:
+            needed = d_ed - emove - _THREAT_ENGAGE_RANGE
+            if needed <= 12.0:
+                mw = _kill_potential_wounds(ep, me_profile)
+                if mw > 0.0:
+                    field += mw * _p_2d6_at_least(needed)
+    return field
+
+
+def _value_secondary_positional(dest, own_is_army_a, map_, chosen_secondaries,
+                                scoring_rounds_remaining) -> float:
+    """Cheap secondary-card positional value at `dest`. Reuses the army's ALREADY
+    PICKED secondaries (pick_secondaries -> army.chosen_secondaries) and the
+    simulator's enemy-deployment-zone geometry (Army A deploys low-y, B high-y):
+    if the army brought Behind Enemy Lines, a destination inside the enemy
+    deployment zone carries a modest per-remaining-round victory-point value.
+    Engage on All Fronts is a whole-army table-spread condition, not a single-
+    position one, so it is deliberately NOT priced per destination here
+    (documented deferral — the machinery does not expose it cheaply at one cell)."""
+    if map_ is None or not chosen_secondaries:
+        return 0.0
+    if "behind_enemy_lines" not in chosen_secondaries:
+        return 0.0
+    dz = getattr(map_, "deployment_width", 0.0) or 0.0
+    h = getattr(map_, "height", 0.0) or 0.0
+    if dz <= 0.0 or h <= 0.0:
+        return 0.0
+    y = dest[1]
+    in_enemy_dz = (y >= h - dz) if own_is_army_a else (y <= dz)
+    if not in_enemy_dz:
+        return 0.0
+    return _VALUE_BEL_VP_PER_ROUND * scoring_rounds_remaining
+
+
+def value_projection(me_unit, obj, prospective_our_oc, their_oc, projectors,
+                     map_, scoring_rounds_remaining, own_is_army_a,
+                     chosen_secondaries):
+    """The value field V(p) for marker `obj`, evaluated for `me_unit` committing
+    to the marker centre. Returns (V, T, frac_at_risk):
+
+        marker_vp     = obj.vp_per_round * scoring_rounds_remaining
+        control       = 1.0 hold / 0.5 tie-and-deny / 0.2 contest-but-lose
+        T             = _threat_field_at(me_unit, centre)     [the threat field]
+        frac_at_risk  = min(1, T / remaining wounds)
+        contestability= 1 - frac_at_risk        (survive to score the marker)
+        V             = marker_vp * control * contestability
+                        + secondary positional value (Behind Enemy Lines)
+
+    Knob-free beyond the two documented reference constants; composes the marker
+    primary-scoring rule (obj.vp_per_round) with the threat field (T) and the
+    army's picked secondaries. No RNG. The marker CENTRE is used as the priced
+    cell (the unit ends within the control radius of it — the same marker-centre
+    proxy class as the charge end-spot)."""
+    centre = (obj.x, obj.y)
+    marker_vp = (getattr(obj, "vp_per_round", _VALUE_VP_PER_ROUND_REF)
+                 * scoring_rounds_remaining)
+    if prospective_our_oc > their_oc:
+        control = 1.0
+    elif prospective_our_oc == their_oc:
+        control = 0.5
+    else:
+        control = 0.2
+    t = _threat_field_at(me_unit, projectors, centre, map_)
+    frac_at_risk = min(1.0, t / max(1.0, me_unit.current_health))
+    contestability = 1.0 - frac_at_risk
+    v = marker_vp * control * contestability
+    v += _value_secondary_positional(centre, own_is_army_a, map_,
+                                      chosen_secondaries, scoring_rounds_remaining)
+    return v, t, frac_at_risk
+
+
+def value_net_score(me_unit, obj, prospective_our_oc, their_oc, projectors,
+                    map_, scoring_rounds_remaining, own_is_army_a,
+                    chosen_secondaries):
+    """The move consumer's ranking key for a candidate objective destination:
+
+        net(p) = V(p) - unit_future_value * frac_at_risk(p)
+
+    unit_future_value = VP_PER_ROUND_REF * scoring_rounds_remaining is the unit's
+    PER-UNIT DUAL — its own remaining victory-point worth on the same axis as V
+    (Layer A(c), which consolidates the resource/attrition budget: a body is worth
+    roughly one marker's remaining horizon). frac_at_risk is the fraction of that
+    value forfeited by exposing the body at p (from the threat field). Job value
+    vs body exposure, priced together — the threat-tolerance composition of
+    docs/THREAT_LAYER_PROPOSAL.md. The durability differentiation is EMERGENT:
+    frac_at_risk = T/remaining-wounds is tiny for a Knight (huge wound pool) and
+    large for a Termagant, so the exposure term naturally lets tough bodies commit
+    where fragile ones decline, with no per-faction knob."""
+    v, t, frac = value_projection(
+        me_unit, obj, prospective_our_oc, their_oc, projectors, map_,
+        scoring_rounds_remaining, own_is_army_a, chosen_secondaries)
+    unit_future_value = _VALUE_VP_PER_ROUND_REF * scoring_rounds_remaining
+    return v - unit_future_value * frac
+
+
+def value_top_marker_index(unit, friendly, enemy, map_):
+    """Read-only: the objective-marker index this unit's value field ranks highest
+    (the round-start prediction scripts/diag_value_realisation.py checks against
+    realized end-round control). Mirrors the SWEG_VALUE_MOVE consumer's net
+    ranking with no side effects and no RNG. Returns None when there are no
+    objectives. Used only by the falsifier instrument — never by the battle."""
+    objectives = getattr(map_, "objectives", None)
+    if not objectives:
+        return None
+    battle = getattr(friendly, "_battle_ref", None)
+    cur_round = getattr(battle, "_current_round", 0) if battle is not None else 0
+    if cur_round < 1:
+        cur_round = 1
+    srr = _value_scoring_rounds_remaining(cur_round)
+    own_is_a = battle is not None and friendly is getattr(battle, "a", None)
+    chosen = getattr(friendly, "chosen_secondaries", ()) or ()
+    projectors = _threat_projectors(enemy)
+    own_oc = unit.profile.oc or 0
+    f_alive = friendly.alive_units
+    e_alive = enemy.alive_units
+    best_i = None
+    best_net = None
+    for i, obj in enumerate(objectives):
+        our = _oc_on_objective(f_alive, obj)
+        their = _oc_on_objective(e_alive, obj)
+        on_it = _dist(unit.position, (obj.x, obj.y)) <= obj.control_radius
+        prospective = our + (own_oc if not on_it else 0)
+        net = value_net_score(unit, obj, prospective, their, projectors, map_,
+                              srr, own_is_a, chosen)
+        if best_net is None or net > best_net:
+            best_net = net
+            best_i = i
+    return best_i
 
 
 def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, float]]:

@@ -1403,6 +1403,18 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # tax; draws no new random number. Cited in
     # data/rule_citations.d/threat_layer.json.
     "simulator.threat_projection_charge",
+    # THE VALUE FIELD, Layer A of the decision-substrate roadmap (owner-ordered
+    # keystone; docs/LAYERS_RESEARCH.md), and its move-intent destination-pricing
+    # consumer (env-gated SWEG_VALUE_MOVE, default OFF). AI piloting heuristic in
+    # code/strategy.py (value_projection / value_net_score, consumed in
+    # pick_move_intent): ranks objective destinations by the multi-round value
+    # field V(p) net of the threat field's body exposure — marker primary VP over
+    # rounds remaining, discounted by the unit's survival to score, minus the
+    # fraction of the unit's own future value at risk standing there. Reuses the
+    # cached threat-field projectors (strategy._threat_projectors) and the audited
+    # expected-wounds math; draws no new random number; re-routes only (never
+    # freezes a claim/contest). Cited in data/rule_citations.d/value_layer.json.
+    "simulator.value_projection",
     # Rotate Ion Shields (Imperial Knights Household, 1 CP, Wargear
     # Stratagem, durability fidelity wave audit B fix B2, env-gated
     # SWEG_IK_ROTATE_IONS, default ON per the Custodes-batch precedent for
