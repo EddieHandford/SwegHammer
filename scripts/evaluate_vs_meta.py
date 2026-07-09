@@ -791,7 +791,20 @@ def main() -> None:
     import atexit
     import pathlib
     import time
-    _lock = pathlib.Path("data/_eval.lock")
+    # GLOBAL lock path (2026-07-09): a relative data/_eval.lock is PER-WORKTREE
+    # — agents screening from worktrees never saw the main tree's lock (nor it
+    # theirs), so "serial evals" silently never held across worktrees: the
+    # true mechanism of two box-saturation incidents. Anchor the lock at the
+    # git COMMON directory, shared by every worktree of this repository.
+    import subprocess as _lsp
+    try:
+        _common = _lsp.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            capture_output=True, text=True, timeout=15,
+        ).stdout.strip()
+        _lock = pathlib.Path(_common) / "sweg_eval.lock" if _common else pathlib.Path("data/_eval.lock")
+    except Exception:
+        _lock = pathlib.Path("data/_eval.lock")
     if _lock.exists() and os.environ.get("SWEG_EVAL_FORCE") != "1":
         # Aliveness probe. os.kill(pid, 0) is UNRELIABLE on Windows CPython —
         # it can raise SystemError ("<class 'OSError'> returned a result with
@@ -806,11 +819,17 @@ def main() -> None:
             _other_pid = int(_lock.read_text().split()[0])
             if time.time() - _lock.stat().st_mtime < 7200:
                 if os.name == "nt":
-                    import ctypes
-                    _h = ctypes.windll.kernel32.OpenProcess(0x1000, False, _other_pid)
-                    if _h:
-                        ctypes.windll.kernel32.CloseHandle(_h)
-                        _other_alive = True
+                    # Existence alone is not enough: a killed eval's pid can be
+                    # RECYCLED by an unrelated process within hours (bit us
+                    # 2026-07-09 — a dead eval's pid came back as a non-python
+                    # process and the lock refused for nothing). Require the
+                    # holder to actually be a python image.
+                    import subprocess as _sp
+                    _tl = _sp.run(
+                        ["tasklist", "/FI", f"PID eq {_other_pid}"],
+                        capture_output=True, text=True, timeout=30,
+                    ).stdout.lower()
+                    _other_alive = "python" in _tl
                 else:
                     os.kill(_other_pid, 0)
                     _other_alive = True
@@ -823,7 +842,29 @@ def main() -> None:
                 f"(docs/EVAL_PROTOCOL.md / docs/LEVER_PROTOCOL.md §5). Wait for "
                 f"it, or set SWEG_EVAL_FORCE=1 if the lock is wrongly held."
             )
-    _lock.write_text(str(os.getpid()))
+    # ATOMIC acquisition (2026-07-09): the previous exists-then-write pattern
+    # had a check-to-write race — two lock-waiters polling for a free lane
+    # could both pass the exists() check and launch simultaneously, which
+    # saturated the owner's box with two concurrent worker pools. O_EXCL
+    # makes creation atomic; a loser gets FileExistsError and refuses.
+    # A dead holder's file must be REMOVED before the exclusive create can
+    # succeed — without this unlink, any hard-killed run wedged the lane
+    # permanently (found 2026-07-09 by the sc62a runner after 12 clean
+    # refusals against a dead pid).
+    if _lock.exists() and not _other_alive and os.environ.get("SWEG_EVAL_FORCE") != "1":
+        try:
+            _lock.unlink()
+        except OSError:
+            pass
+    try:
+        _fd = os.open(str(_lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(_fd, str(os.getpid()).encode())
+        os.close(_fd)
+    except FileExistsError:
+        raise SystemExit(
+            "another evaluate_vs_meta run grabbed data/_eval.lock in the same "
+            "window (atomic acquisition) — serial evals only; retry shortly."
+        )
     atexit.register(lambda: _lock.unlink(missing_ok=True))
     scope_factions = None
     if args.factions:
