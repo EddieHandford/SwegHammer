@@ -823,7 +823,20 @@ def main() -> None:
                 f"(docs/EVAL_PROTOCOL.md / docs/LEVER_PROTOCOL.md §5). Wait for "
                 f"it, or set SWEG_EVAL_FORCE=1 if the lock is wrongly held."
             )
-    _lock.write_text(str(os.getpid()))
+    # ATOMIC acquisition (2026-07-09): the previous exists-then-write pattern
+    # had a check-to-write race — two lock-waiters polling for a free lane
+    # could both pass the exists() check and launch simultaneously, which
+    # saturated the owner's box with two concurrent worker pools. O_EXCL
+    # makes creation atomic; a loser gets FileExistsError and refuses.
+    try:
+        _fd = os.open(str(_lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(_fd, str(os.getpid()).encode())
+        os.close(_fd)
+    except FileExistsError:
+        raise SystemExit(
+            "another evaluate_vs_meta run grabbed data/_eval.lock in the same "
+            "window (atomic acquisition) — serial evals only; retry shortly."
+        )
     atexit.register(lambda: _lock.unlink(missing_ok=True))
     scope_factions = None
     if args.factions:

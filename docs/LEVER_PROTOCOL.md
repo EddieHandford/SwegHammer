@@ -88,7 +88,7 @@ ESTIMATE until re-measured.
   the exact gates and their defaults; worktree agents verify their base branch
   (CLAUDE.md rule 8).
 - **CPU budget (2026-07-09, after a 100 percent freeze of the owner's box):**
-  every evaluation runs with `SWEG_WORKERS=8` (half the 16-core box), and only
+  every evaluation runs with `SWEG_WORKERS=12` (the owner keeps 25 percent of the 16-core box), and only
   ONE compute lane runs at a time — agents must NOT run battle batteries or
   validation battle loops while an evaluation holds `data/_eval.lock`; treat
   the lock as covering ALL battle-running compute, not just evaluate_vs_meta.
