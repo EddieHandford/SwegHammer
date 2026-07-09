@@ -17306,7 +17306,15 @@ class Battle:
         # exempt (coordinated wraps accept bad per-model trades); cheap chaff
         # tarpits are exempt (same exception as charge-discipline).
         # AI piloting heuristic — no rule_citations entry required.
-        if (os.environ.get("SWEG_CHARGE_TRADE", "1") != "0"
+        # REJECTED-empirical 2026-07-09, flipped default-OFF (owner decision).
+        # This veto shipped default-on by owner ruling with no screen; the
+        # first paired measurement (kill-screen, full-frame N=20 vs sc61a)
+        # read gated mean absolute error 3.71 -> 3.19 (-0.52) WITHOUT it,
+        # with World Eaters -11.98 DECISIVE (57.4 -> 45.4, landing on its
+        # real 44.9) and Chaos Knights -5.02 DECISIVE toward real -- the
+        # settled faction-neutral family signature (feeds the durable side).
+        # `SWEG_CHARGE_TRADE=1` re-enables for study.
+        if (os.environ.get("SWEG_CHARGE_TRADE", "0") == "1"
                 and not _is_cage_charge):
             _tp = target.profile
             _t_melee = (_tp.melee_attacks * _tp.melee_hit_probability
