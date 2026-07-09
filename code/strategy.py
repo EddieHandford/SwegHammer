@@ -4282,7 +4282,42 @@ def pick_move_intent(
             new_objs.append((score, intent, obj, d))
         objs = new_objs
 
-    best = max(objs, key=lambda t: t[0]) if objs else None
+    # ----- SWEG_VALUE_MOVE (value-field destination pricing, Layer A consumer 2)
+    # Re-route the objective destination by the value field's net score
+    #   net(p) = V(p) - unit_future_value * frac_at_risk(p)
+    # instead of the legacy distance-weighted objective heuristic — reading BOTH
+    # the value field (marker worth over rounds remaining, discounted by survival)
+    # AND the threat field (body exposure). This never freezes a claim/contest: it
+    # ONLY changes WHICH marker is chosen (the legacy tuple, with its legacy score,
+    # is what flows downstream, so every intent / threshold / snap below is
+    # unchanged), and the genuine hold-check ran earlier and is untouched.
+    # SWEG_VALUE_MOVE_DIAG is a gate-OFF shadow counter: it computes the same
+    # re-route WITHOUT acting on it (byte-identical) and tallies destination
+    # changes for the mechanism check. Both default-off (== "1"); when neither is
+    # set, `best` is the legacy argmax, byte-for-byte.
+    _use_value_move = os.environ.get("SWEG_VALUE_MOVE") == "1"
+    _value_move_diag = os.environ.get("SWEG_VALUE_MOVE_DIAG") == "1"
+    if (_use_value_move or _value_move_diag) and objs:
+        _srr = _value_scoring_rounds_remaining(cur_round)
+        _own_is_a = battle is not None and friendly is getattr(battle, "a", None)
+        _chosen = getattr(friendly, "chosen_secondaries", ()) or ()
+        _vproj = _threat_projectors(enemy)
+        _net = [
+            value_net_score(
+                unit, _o,
+                _our_oc[id(_o)] + (own_oc if id(_o) not in unit_on_obj_ids else 0),
+                _their_oc[id(_o)], _vproj, map_, _srr, _own_is_a, _chosen)
+            for (_s, _i, _o, _d) in objs
+        ]
+        _idx_net = max(range(len(objs)), key=lambda k: _net[k])
+        _idx_legacy = max(range(len(objs)), key=lambda k: objs[k][0])
+        if _value_move_diag:
+            _VALUE_MOVE_DIAG["decisions"] += 1
+            if objs[_idx_net][2] is not objs[_idx_legacy][2]:
+                _VALUE_MOVE_DIAG["changes"] += 1
+        best = objs[_idx_net] if _use_value_move else objs[_idx_legacy]
+    else:
+        best = max(objs, key=lambda t: t[0]) if objs else None
 
     # ----- 3. Role bias: shooty / heavy stay put when in firing range -----
     nearest_enemy = None
