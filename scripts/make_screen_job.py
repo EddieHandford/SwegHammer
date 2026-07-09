@@ -53,7 +53,7 @@ def _git_head(repo_root: Path) -> str:
 
 def _git_is_dirty(repo_root: Path) -> bool:
     proc = subprocess.run(
-        ["git", "status", "--porcelain"], cwd=repo_root,
+        ["git", "status", "--porcelain", "--untracked-files=no"], cwd=repo_root,
         capture_output=True, text=True,
     )
     if proc.returncode != 0:
