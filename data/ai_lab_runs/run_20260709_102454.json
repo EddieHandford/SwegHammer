@@ -1,0 +1,464 @@
+{
+ "built_at": "2026-07-09T10:30:13",
+ "epochs": [
+  {
+   "baseline_genome": {
+    "advance_vs_hold_bias": 0.0,
+    "charge_aggression": 1.0,
+    "charge_range_buffer": 1.0,
+    "kite_hold_range": 0.0,
+    "melee_engage_score_min": 1.0
+   },
+   "epoch": 0,
+   "generations": [
+    {
+     "best_fitness": 0.51,
+     "best_genome": {
+      "advance_vs_hold_bias": 0.05525358872191597,
+      "charge_aggression": 1.0348446605360082,
+      "charge_range_buffer": 1.139627042391897,
+      "kite_hold_range": 0.0,
+      "melee_engage_score_min": 2.9699095203960066
+     },
+     "best_mean_margin": 0.3,
+     "best_win_rate": 0.45,
+     "generation": 0,
+     "mean_fitness": 0.299,
+     "mean_win_rate": 0.26666666666666666,
+     "timestamp": "2026-07-09T10:25:00"
+    },
+    {
+     "best_fitness": 0.67,
+     "best_genome": {
+      "advance_vs_hold_bias": 1.1832687921484972,
+      "charge_aggression": 0.8194138409175,
+      "charge_range_buffer": 0.8094303701194465,
+      "kite_hold_range": 0.0,
+      "melee_engage_score_min": 1.283527833988876
+     },
+     "best_mean_margin": 0.10000000000000002,
+     "best_win_rate": 0.65,
+     "generation": 1,
+     "mean_fitness": 0.6223333333333333,
+     "mean_win_rate": 0.5916666666666667,
+     "timestamp": "2026-07-09T10:25:03"
+    },
+    {
+     "best_fitness": 0.678,
+     "best_genome": {
+      "advance_vs_hold_bias": 0.29747266645578097,
+      "charge_aggression": 0.7306675812530181,
+      "charge_range_buffer": 0.9757422373846178,
+      "kite_hold_range": 1.4339712956569703,
+      "melee_engage_score_min": 2.376092093767316
+     },
+     "best_mean_margin": 0.13999999999999999,
+     "best_win_rate": 0.65,
+     "generation": 2,
+     "mean_fitness": 0.5086666666666667,
+     "mean_win_rate": 0.5,
+     "timestamp": "2026-07-09T10:25:19"
+    },
+    {
+     "best_fitness": 0.7020000000000001,
+     "best_genome": {
+      "advance_vs_hold_bias": 0.48079810951057894,
+      "charge_aggression": 0.7131280818765162,
+      "charge_range_buffer": 1.009320431239338,
+      "kite_hold_range": 0.64301785705314,
+      "melee_engage_score_min": 3.087674868772651
+     },
+     "best_mean_margin": 0.26,
+     "best_win_rate": 0.65,
+     "generation": 3,
+     "mean_fitness": 0.594,
+     "mean_win_rate": 0.6,
+     "timestamp": "2026-07-09T10:25:35"
+    }
+   ],
+   "promoted": {
+    "champion_genome": {
+     "advance_vs_hold_bias": 0.48079810951057894,
+     "charge_aggression": 0.7131280818765162,
+     "charge_range_buffer": 1.009320431239338,
+     "kite_hold_range": 0.64301785705314,
+     "melee_engage_score_min": 3.087674868772651
+    },
+    "confirmation_n": 500,
+    "confirmation_wilson_lower": 0.5111840329855069,
+    "confirmation_win_rate": 0.555,
+    "generations_to_promote": 4
+   }
+  },
+  {
+   "baseline_genome": {
+    "advance_vs_hold_bias": 0.48079810951057894,
+    "charge_aggression": 0.7131280818765162,
+    "charge_range_buffer": 1.009320431239338,
+    "kite_hold_range": 0.64301785705314,
+    "melee_engage_score_min": 3.087674868772651
+   },
+   "epoch": 1,
+   "generations": [
+    {
+     "best_fitness": 0.6599999999999999,
+     "best_genome": {
+      "advance_vs_hold_bias": 0.6193749503142904,
+      "charge_aggression": 1.0408405176009854,
+      "charge_range_buffer": 1.0056034027139722,
+      "kite_hold_range": 0.8241674542537731,
+      "melee_engage_score_min": 9.054608308508392
+     },
+     "best_mean_margin": 0.3,
+     "best_win_rate": 0.6,
+     "generation": 0,
+     "mean_fitness": 0.575,
+     "mean_win_rate": 0.525,
+     "timestamp": "2026-07-09T10:25:50"
+    },
+    {
+     "best_fitness": 0.71,
+     "best_genome": {
+      "advance_vs_hold_bias": 0.732045356685991,
+      "charge_aggression": 0.4118046797657848,
+      "charge_range_buffer": 0.983977361358262,
+      "kite_hold_range": 0.0,
+      "melee_engage_score_min": 4.415405632158908
+     },
+     "best_mean_margin": 0.3,
+     "best_win_rate": 0.65,
+     "generation": 1,
+     "mean_fitness": 0.3215,
+     "mean_win_rate": 0.33749999999999997,
+     "timestamp": "2026-07-09T10:26:06"
+    },
+    {
+     "best_fitness": 0.73,
+     "best_genome": {
+      "advance_vs_hold_bias": 1.28050440485448,
+      "charge_aggression": 0.9615941059116073,
+      "charge_range_buffer": 0.7806629057628806,
+      "kite_hold_range": 0.0,
+      "melee_engage_score_min": 7.686278380397662
+     },
+     "best_mean_margin": -0.1,
+     "best_win_rate": 0.75,
+     "generation": 2,
+     "mean_fitness": 0.5676666666666667,
+     "mean_win_rate": 0.5916666666666667,
+     "timestamp": "2026-07-09T10:26:21"
+    },
+    {
+     "best_fitness": 0.47000000000000003,
+     "best_genome": {
+      "advance_vs_hold_bias": 1.1567111848977638,
+      "charge_aggression": 0.840683392656318,
+      "charge_range_buffer": 0.8318291462687862,
+      "kite_hold_range": 0.40755891968234315,
+      "melee_engage_score_min": 1.4856947472261295
+     },
+     "best_mean_margin": 0.10000000000000002,
+     "best_win_rate": 0.45,
+     "generation": 3,
+     "mean_fitness": 0.38999999999999996,
+     "mean_win_rate": 0.3666666666666667,
+     "timestamp": "2026-07-09T10:26:37"
+    },
+    {
+     "best_fitness": 0.5559999999999999,
+     "best_genome": {
+      "advance_vs_hold_bias": 1.3674406143082503,
+      "charge_aggression": 0.8467169400696585,
+      "charge_range_buffer": 0.48176847239617815,
+      "kite_hold_range": 0.978451026978487,
+      "melee_engage_score_min": 2.0319545830907115
+     },
+     "best_mean_margin": -0.22000000000000003,
+     "best_win_rate": 0.6,
+     "generation": 4,
+     "mean_fitness": 0.37000000000000005,
+     "mean_win_rate": 0.4083333333333334,
+     "timestamp": "2026-07-09T10:26:40"
+    }
+   ],
+   "promoted": {
+    "champion_genome": {
+     "advance_vs_hold_bias": 1.3674406143082503,
+     "charge_aggression": 0.8467169400696585,
+     "charge_range_buffer": 0.48176847239617815,
+     "kite_hold_range": 0.978451026978487,
+     "melee_engage_score_min": 2.0319545830907115
+    },
+    "confirmation_n": 500,
+    "confirmation_wilson_lower": 0.509180455798832,
+    "confirmation_win_rate": 0.553,
+    "generations_to_promote": 5
+   }
+  },
+  {
+   "baseline_genome": {
+    "advance_vs_hold_bias": 1.3674406143082503,
+    "charge_aggression": 0.8467169400696585,
+    "charge_range_buffer": 0.48176847239617815,
+    "kite_hold_range": 0.978451026978487,
+    "melee_engage_score_min": 2.0319545830907115
+   },
+   "epoch": 2,
+   "generations": [
+    {
+     "best_fitness": 0.52,
+     "best_genome": {
+      "advance_vs_hold_bias": 1.683079090336374,
+      "charge_aggression": 0.683804031374905,
+      "charge_range_buffer": 0.460813786109009,
+      "kite_hold_range": 1.376113373686021,
+      "melee_engage_score_min": 0.2
+     },
+     "best_mean_margin": 0.10000000000000005,
+     "best_win_rate": 0.5,
+     "generation": 0,
+     "mean_fitness": 0.4286666666666667,
+     "mean_win_rate": 0.425,
+     "timestamp": "2026-07-09T10:26:56"
+    },
+    {
+     "best_fitness": 0.744,
+     "best_genome": {
+      "advance_vs_hold_bias": 2.0785247056911507,
+      "charge_aggression": 0.9772660184721016,
+      "charge_range_buffer": 0.4203826171623546,
+      "kite_hold_range": 2.5777930512447877,
+      "melee_engage_score_min": 2.765189084003313
+     },
+     "best_mean_margin": 0.22000000000000003,
+     "best_win_rate": 0.7,
+     "generation": 1,
+     "mean_fitness": 0.5885,
+     "mean_win_rate": 0.5625,
+     "timestamp": "2026-07-09T10:26:59"
+    },
+    {
+     "best_fitness": 0.25,
+     "best_genome": {
+      "advance_vs_hold_bias": 1.5480208816726533,
+      "charge_aggression": 1.095531312703849,
+      "charge_range_buffer": 0.5061773431322645,
+      "kite_hold_range": 2.940113693892084,
+      "melee_engage_score_min": 0.2
+     },
+     "best_mean_margin": 5.551115123125783e-17,
+     "best_win_rate": 0.25,
+     "generation": 2,
+     "mean_fitness": 0.20183333333333334,
+     "mean_win_rate": 0.2125,
+     "timestamp": "2026-07-09T10:27:15"
+    },
+    {
+     "best_fitness": 0.674,
+     "best_genome": {
+      "advance_vs_hold_bias": 1.2942143226169265,
+      "charge_aggression": 0.786789721767859,
+      "charge_range_buffer": 0.4,
+      "kite_hold_range": 2.1988122008159445,
+      "melee_engage_score_min": 4.645732410863526
+     },
+     "best_mean_margin": 0.11999999999999997,
+     "best_win_rate": 0.65,
+     "generation": 3,
+     "mean_fitness": 0.5596666666666666,
+     "mean_win_rate": 0.5416666666666666,
+     "timestamp": "2026-07-09T10:27:18"
+    },
+    {
+     "best_fitness": 0.6759999999999999,
+     "best_genome": {
+      "advance_vs_hold_bias": 2.057980658780184,
+      "charge_aggression": 0.9819801599067718,
+      "charge_range_buffer": 0.5111299486321008,
+      "kite_hold_range": 2.3101649244705937,
+      "melee_engage_score_min": 6.558989794400182
+     },
+     "best_mean_margin": -0.12000000000000002,
+     "best_win_rate": 0.7,
+     "generation": 4,
+     "mean_fitness": 0.5523333333333333,
+     "mean_win_rate": 0.5833333333333334,
+     "timestamp": "2026-07-09T10:27:33"
+    },
+    {
+     "best_fitness": 0.716,
+     "best_genome": {
+      "advance_vs_hold_bias": 1.1709356083694162,
+      "charge_aggression": 0.7606909764204431,
+      "charge_range_buffer": 0.4,
+      "kite_hold_range": 1.9535369098040267,
+      "melee_engage_score_min": 0.2
+     },
+     "best_mean_margin": 0.08000000000000002,
+     "best_win_rate": 0.7,
+     "generation": 5,
+     "mean_fitness": 0.6358333333333334,
+     "mean_win_rate": 0.6291666666666667,
+     "timestamp": "2026-07-09T10:27:49"
+    },
+    {
+     "best_fitness": 0.752,
+     "best_genome": {
+      "advance_vs_hold_bias": 2.1865147202332462,
+      "charge_aggression": 0.6757568979571305,
+      "charge_range_buffer": 0.4,
+      "kite_hold_range": 2.440617033879316,
+      "melee_engage_score_min": 5.790552569861243
+     },
+     "best_mean_margin": 0.26000000000000006,
+     "best_win_rate": 0.7,
+     "generation": 6,
+     "mean_fitness": 0.5811666666666667,
+     "mean_win_rate": 0.5458333333333333,
+     "timestamp": "2026-07-09T10:28:04"
+    },
+    {
+     "best_fitness": 0.774,
+     "best_genome": {
+      "advance_vs_hold_bias": -0.32476705010144874,
+      "charge_aggression": 0.9922594895989165,
+      "charge_range_buffer": 0.41922778772894986,
+      "kite_hold_range": 1.8497126272230213,
+      "melee_engage_score_min": 8.140087317568721
+     },
+     "best_mean_margin": 0.11999999999999997,
+     "best_win_rate": 0.75,
+     "generation": 7,
+     "mean_fitness": 0.6086666666666667,
+     "mean_win_rate": 0.6,
+     "timestamp": "2026-07-09T10:28:20"
+    },
+    {
+     "best_fitness": 0.782,
+     "best_genome": {
+      "advance_vs_hold_bias": -0.32476705010144874,
+      "charge_aggression": 0.9922594895989165,
+      "charge_range_buffer": 0.41922778772894986,
+      "kite_hold_range": 1.8497126272230213,
+      "melee_engage_score_min": 8.140087317568721
+     },
+     "best_mean_margin": 0.16,
+     "best_win_rate": 0.75,
+     "generation": 8,
+     "mean_fitness": 0.6816666666666666,
+     "mean_win_rate": 0.6833333333333332,
+     "timestamp": "2026-07-09T10:28:36"
+    },
+    {
+     "best_fitness": 0.756,
+     "best_genome": {
+      "advance_vs_hold_bias": 0.8279475896853183,
+      "charge_aggression": 1.3003790503058994,
+      "charge_range_buffer": 0.5357140511127919,
+      "kite_hold_range": 2.248296186986922,
+      "melee_engage_score_min": 3.9899086352510986
+     },
+     "best_mean_margin": 0.28,
+     "best_win_rate": 0.7,
+     "generation": 9,
+     "mean_fitness": 0.47100000000000003,
+     "mean_win_rate": 0.44999999999999996,
+     "timestamp": "2026-07-09T10:28:51"
+    },
+    {
+     "best_fitness": 0.8600000000000001,
+     "best_genome": {
+      "advance_vs_hold_bias": 1.266718052607869,
+      "charge_aggression": 0.9784241872832721,
+      "charge_range_buffer": 0.5233585807522617,
+      "kite_hold_range": 1.7556441119275674,
+      "melee_engage_score_min": 7.7711724860838425
+     },
+     "best_mean_margin": 0.3,
+     "best_win_rate": 0.8,
+     "generation": 10,
+     "mean_fitness": 0.7428333333333333,
+     "mean_win_rate": 0.7125,
+     "timestamp": "2026-07-09T10:29:07"
+    },
+    {
+     "best_fitness": 0.5860000000000001,
+     "best_genome": {
+      "advance_vs_hold_bias": 2.4590218264002774,
+      "charge_aggression": 0.814017175702051,
+      "charge_range_buffer": 0.7418681133228148,
+      "kite_hold_range": 1.985979241021628,
+      "melee_engage_score_min": 8.394636382741986
+     },
+     "best_mean_margin": 0.18000000000000005,
+     "best_win_rate": 0.55,
+     "generation": 11,
+     "mean_fitness": 0.48466666666666675,
+     "mean_win_rate": 0.45,
+     "timestamp": "2026-07-09T10:29:24"
+    },
+    {
+     "best_fitness": 0.612,
+     "best_genome": {
+      "advance_vs_hold_bias": 3.3802992571683466,
+      "charge_aggression": 0.9398561667220013,
+      "charge_range_buffer": 0.6550652650566265,
+      "kite_hold_range": 2.3627952167205457,
+      "melee_engage_score_min": 3.997590485561506
+     },
+     "best_mean_margin": 0.06000000000000001,
+     "best_win_rate": 0.6,
+     "generation": 12,
+     "mean_fitness": 0.4896666666666667,
+     "mean_win_rate": 0.5083333333333333,
+     "timestamp": "2026-07-09T10:29:40"
+    },
+    {
+     "best_fitness": 0.632,
+     "best_genome": {
+      "advance_vs_hold_bias": 2.428223324748098,
+      "charge_aggression": 0.9296257190412788,
+      "charge_range_buffer": 0.6016475881643994,
+      "kite_hold_range": 4.5127854899368085,
+      "melee_engage_score_min": 10.91242971715733
+     },
+     "best_mean_margin": 0.15999999999999998,
+     "best_win_rate": 0.6,
+     "generation": 13,
+     "mean_fitness": 0.5371666666666667,
+     "mean_win_rate": 0.5375,
+     "timestamp": "2026-07-09T10:29:57"
+    },
+    {
+     "best_fitness": 0.42000000000000004,
+     "best_genome": {
+      "advance_vs_hold_bias": 3.1159514704915985,
+      "charge_aggression": 1.1289714973150264,
+      "charge_range_buffer": 0.5376530435901251,
+      "kite_hold_range": 3.0468797396392415,
+      "melee_engage_score_min": 7.739513750398569
+     },
+     "best_mean_margin": 0.1,
+     "best_win_rate": 0.4,
+     "generation": 14,
+     "mean_fitness": 0.311,
+     "mean_win_rate": 0.3,
+     "timestamp": "2026-07-09T10:30:13"
+    }
+   ],
+   "promoted": null
+  }
+ ],
+ "params": {
+  "confirmation_n": 500,
+  "duels_per_genome": 10,
+  "elite_count": 2,
+  "generations_per_epoch": 15,
+  "max_epochs": 3,
+  "mutation_sigma_scale": 1.0,
+  "population_size": 12,
+  "promotion_threshold": 0.55,
+  "seed_base": 42
+ },
+ "run_id": "run_20260709_102454"
+}

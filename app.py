@@ -40,6 +40,21 @@ from code.renderer import (
     aggregate_activations, render_frame, round_overview,
 )
 from code.simulator import Battle, BattleResult
+# AI Lab — genetic-algorithm duel sandbox (exploratory, outside the two-stage
+# calibration pipeline; see docs/AI_LAB_PLAN.md).
+from code.ai_lab.duel import run_duel as ai_lab_run_duel
+from code.ai_lab.ga import (
+    evolve_lineage as ai_lab_evolve_lineage,
+    min_confirmation_n_for_threshold as ai_lab_min_confirmation_n,
+)
+from code.ai_lab.genome import (
+    NEUTRAL_GENOME as AI_LAB_NEUTRAL_GENOME,
+)
+from code.ai_lab.history import (
+    RunRecorder as AiLabRunRecorder,
+    append_lineage_row as ai_lab_append_lineage_row,
+    read_lineage as ai_lab_read_lineage,
+)
 from code.units import UNIT_CATALOG as _RAW_CATALOG, UnitProfile, balanced_catalog, save_probability
 from code.equilibrium import (
     compute_phase1 as compute_equilibrium_phase1,
@@ -230,6 +245,29 @@ def _render_frame_png(replay_id: int, frame_idx: int) -> bytes:
     img = render_frame(
         map_, events, frame_idx, frames=frames,
         colour_a=col_a, colour_b=col_b,
+    )
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+# AI Lab replay uses its own session-state keys (ai_lab_replay_*) so this
+# tab and "Watch a battle" cannot clobber each other's replays mid-session.
+# Both sides are the same unit in a mirror duel, so the colours are fixed
+# and side-coded rather than faction-derived: gold = evolving champion,
+# steel blue = frozen baseline.
+AI_LAB_CHAMPION_COLOUR = "#c9a84c"
+AI_LAB_BASELINE_COLOUR = "#5b7fa6"
+
+
+@st.cache_data(show_spinner=False, max_entries=100)
+def _ai_lab_frame_png(replay_id: int, frame_idx: int) -> bytes:
+    events = st.session_state["ai_lab_replay_events"]
+    map_ = st.session_state["ai_lab_replay_map"]
+    frames = st.session_state.get("ai_lab_replay_frames")
+    img = render_frame(
+        map_, events, frame_idx, frames=frames,
+        colour_a=AI_LAB_CHAMPION_COLOUR, colour_b=AI_LAB_BASELINE_COLOUR,
     )
     buf = BytesIO()
     img.save(buf, format="PNG")
@@ -2072,9 +2110,10 @@ if run:
 # than the empty Statistics tab.
 
 (tab_home, tab_stats, tab_replay, tab_efficiency, tab_equilibrium,
- tab_compare, tab_convergence, tab_calibration, tab_equation_fit) = st.tabs(
+ tab_compare, tab_convergence, tab_calibration, tab_equation_fit,
+ tab_ai_lab) = st.tabs(
     ["Home", "Statistics", "Watch a battle", "Efficiency", "Equilibrium",
-     "Compare", "Convergence", "Calibration", "Equation Fit"]
+     "Compare", "Convergence", "Calibration", "Equation Fit", "AI Lab"]
 )
 
 # --- Calibration Home tab ---
@@ -3312,6 +3351,560 @@ with tab_convergence:
         max_battles=int(_conv_max),
         tolerance_pct=float(_conv_tol),
     )
+
+
+# ---------------------------------------------------------------------------
+# AI Lab tab — genetic-algorithm duel sandbox (exploratory, outside the
+# two-stage calibration pipeline; see docs/AI_LAB_PLAN.md)
+# ---------------------------------------------------------------------------
+
+def _ai_lab_update_strains(payload, gen_no: int):
+    """Fold one generation's scored population into the strain registry.
+
+    A "strain" is one genome tracked across generations: elites carry over
+    value-identical (DuelGenome is a frozen dataclass, so dict-keyable), so
+    they CONTINUE their line; every crossover/mutation child is a new
+    strain whose line STARTS this generation. A strain whose genome no
+    longer appears in the population is marked dead — its line simply
+    stops on the chart, which is the survival story the strain chart tells.
+    Returns the strain id of this generation's best genome.
+    """
+    strains = st.session_state["ai_lab_strains"]
+    by_genome = st.session_state["ai_lab_strain_by_genome"]
+    present = set()
+    for genome, fitness in payload.scored:
+        sid = by_genome.get(genome)
+        if sid is None:
+            sid = st.session_state["ai_lab_strain_counter"]
+            st.session_state["ai_lab_strain_counter"] = sid + 1
+            by_genome[genome] = sid
+            strains[sid] = {"history": [], "alive": True, "genome": genome}
+        entry = strains[sid]
+        entry["alive"] = True
+        # Duplicate genomes in one population (rare: crossover of identical
+        # parents) collapse onto one strain; keep the first (best, since
+        # scored is sorted best-first) reading for the generation.
+        if not entry["history"] or entry["history"][-1][0] != gen_no:
+            entry["history"].append((gen_no, fitness.win_rate))
+        present.add(sid)
+    for sid, entry in strains.items():
+        if sid not in present:
+            entry["alive"] = False
+    return by_genome[payload.best_genome]
+
+
+def _ai_lab_strain_figure(strains, best_sid):
+    """One line per strain: x = generation, y = that strain's measured win
+    rate. A culled strain's line just stops (its last point is the last
+    generation it was alive); the current best strain is drawn in gold.
+    Legend is off — with a new strain born for every child each generation
+    it would be unreadable — so identity lives in the hover text instead,
+    including the strain's gene values.
+    """
+    fig = go.Figure()
+    for sid, entry in sorted(strains.items()):
+        xs = [g for g, _ in entry["history"]]
+        ys = [wr for _, wr in entry["history"]]
+        genes = entry["genome"].as_dict()
+        gene_text = (
+            f"aggression {genes['charge_aggression']:.2f} · "
+            f"buffer {genes['charge_range_buffer']:.2f} · "
+            f"engage-min {genes['melee_engage_score_min']:.2f} · "
+            f"advance {genes['advance_vs_hold_bias']:+.2f} · "
+            f"kite {genes['kite_hold_range']:.2f}"
+        )
+        is_best = sid == best_sid
+        if is_best:
+            colour, width, opacity = AI_LAB_CHAMPION_COLOUR, 3.0, 1.0
+        elif entry["alive"]:
+            colour, width, opacity = "#9aa5b1", 1.5, 0.85
+        else:
+            colour, width, opacity = "#4a4f57", 1.0, 0.55
+        fig.add_trace(go.Scatter(
+            x=xs, y=ys,
+            mode="lines" if len(xs) > 1 else "markers",
+            line=dict(color=colour, width=width),
+            marker=dict(color=colour, size=5),
+            opacity=opacity,
+            showlegend=False,
+            hovertemplate=(
+                f"strain {sid}{' — current best' if is_best else ''}"
+                f"{'' if entry['alive'] else ' — culled'}<br>"
+                "generation %{x}: win rate %{y:.2f}<br>"
+                f"{gene_text}<extra></extra>"
+            ),
+        ))
+    fig.add_hline(y=0.5, line_dash="dot", line_color="#3a3d45")
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="#0e1117",
+        plot_bgcolor="#1a1d23",
+        height=360,
+        margin=dict(l=10, r=10, t=10, b=10),
+        xaxis=dict(title="generation", gridcolor="#3a3d45", dtick=1),
+        yaxis=dict(title="win rate vs baseline", gridcolor="#3a3d45",
+                   range=[0.0, 1.0]),
+    )
+    return fig
+
+
+@st.fragment
+def _ai_lab_fragment() -> None:
+    """Live driver for the AI Lab evolution loop.
+
+    Same fragment streaming pattern as _convergence_fragment, but the chart
+    is a per-STRAIN survival plot rebuilt (in place, via the st.empty slot)
+    after every generation: every genome in the population gets its own
+    line, elites continue theirs across generations, and a culled genome's
+    line simply stops. One loop iteration here = one EVENT from the
+    evolve_lineage generator (a generation, a confirmation batch, or a
+    promotion) — so Stop responds between generations, not mid-generation.
+    Keep population x duels modest if you want a snappy Stop.
+    """
+    metrics_slot = st.empty()
+    st.markdown(
+        "**Every strain, every generation** — one line per genome; a line "
+        "that stops is a strain that was culled; gold is the current best.")
+    chart_slot = st.empty()
+    status_slot = st.empty()
+
+    rows = st.session_state["ai_lab_rows"]
+
+    def _render_chart():
+        strains = st.session_state["ai_lab_strains"]
+        if strains:
+            chart_slot.plotly_chart(
+                _ai_lab_strain_figure(
+                    strains, st.session_state.get("ai_lab_best_strain_id")),
+                use_container_width=True,
+            )
+
+    def _refresh_metrics():
+        with metrics_slot.container():
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Epoch", st.session_state["ai_lab_epoch"])
+            m2.metric("Generations", len(rows))
+            last_wr = rows[-1]["best_wr"] if rows else None
+            m3.metric("Best win rate",
+                      f"{last_wr:.1%}" if last_wr is not None else "—")
+            conf = st.session_state.get("ai_lab_last_confirmation")
+            m4.metric(
+                "Promotions", st.session_state["ai_lab_promotions"],
+                (f"last confirm: wr {conf['wr']:.1%}, "
+                 f"Wilson lower {conf['wilson']:.3f}") if conf else None,
+            )
+
+    _render_chart()
+    _refresh_metrics()
+    if st.session_state.get("ai_lab_status_note"):
+        if st.session_state.get("ai_lab_status_is_error"):
+            status_slot.error(st.session_state["ai_lab_status_note"])
+        else:
+            status_slot.info(st.session_state["ai_lab_status_note"])
+
+    if not st.session_state["ai_lab_running"]:
+        return
+    events = st.session_state.get("ai_lab_gen")
+    if events is None:
+        st.session_state["ai_lab_running"] = False
+        return
+
+    recorder = st.session_state["ai_lab_recorder"]
+    while st.session_state["ai_lab_running"]:
+        try:
+            kind, payload = next(events)
+        except StopIteration:
+            st.session_state["ai_lab_running"] = False
+            if not st.session_state.get("ai_lab_status_note"):
+                st.session_state["ai_lab_status_note"] = (
+                    "Run complete — maximum epochs reached.")
+            recorder.save()
+            break
+        except ValueError as exc:
+            # evolve_lineage validates promotion_threshold against
+            # confirmation_n before running any generations — a mismatch
+            # (e.g. confirmation_n too small for the threshold to be
+            # mathematically clearable) raises here on the first next().
+            # Surface it as a clear stop rather than a raw traceback.
+            st.session_state["ai_lab_running"] = False
+            st.session_state["ai_lab_status_note"] = f"Configuration error: {exc}"
+            st.session_state["ai_lab_status_is_error"] = True
+            recorder.save()
+            break
+        recorder.on_event(kind, payload, st.session_state["ai_lab_baseline"])
+        if kind == "generation":
+            st.session_state["ai_lab_gen_counter"] += 1
+            st.session_state["ai_lab_epoch"] = payload.epoch
+            st.session_state["ai_lab_best_genome"] = payload.best_genome
+            rows.append({
+                "gen_no": st.session_state["ai_lab_gen_counter"],
+                "best_wr": payload.best.win_rate,
+                "mean_wr": payload.mean_win_rate,
+                "best_fit": payload.best.fitness,
+            })
+            st.session_state["ai_lab_best_strain_id"] = _ai_lab_update_strains(
+                payload, st.session_state["ai_lab_gen_counter"])
+            _render_chart()
+            _refresh_metrics()
+        elif kind == "confirmation":
+            st.session_state["ai_lab_last_confirmation"] = {
+                "wr": payload.confirmation.win_rate,
+                "wilson": payload.wilson_lower,
+            }
+            _refresh_metrics()
+        elif kind == "promotion":
+            st.session_state["ai_lab_promotions"] += 1
+            st.session_state["ai_lab_baseline"] = payload.champion
+            if st.session_state.get("ai_lab_record_lineage"):
+                ai_lab_append_lineage_row(
+                    payload, label=st.session_state.get("ai_lab_label", ""))
+            recorder.save()
+            _refresh_metrics()
+        elif kind == "epoch_exhausted":
+            st.session_state["ai_lab_status_note"] = (
+                f"Epoch {payload} exhausted its generation budget without a "
+                "promotion — lineage ended. This can be a genuinely "
+                "inconclusive search (raise generations per epoch, "
+                "population, or duels per genome to search harder) rather "
+                "than a misconfiguration — unlike the confirmation_n / "
+                "promotion_threshold mismatch above, an exhausted epoch is "
+                "not itself an error.")
+            st.session_state["ai_lab_status_is_error"] = False
+            status_slot.info(st.session_state["ai_lab_status_note"])
+        time.sleep(0.01)
+
+
+with tab_ai_lab:
+    st.markdown("## AI Lab — evolve a duelling strain")
+    st.caption(
+        "A genetic algorithm evolves small, readable piloting knobs "
+        "(charge aggression, engage range, kiting, and so on) for one "
+        "Intercessor Squad against a frozen baseline strain, over seeded "
+        "5-model mirror duels. Champions that clearly beat the baseline "
+        "(confirmation batch + Wilson lower bound) are promoted to BE the "
+        "new baseline, forming a strain lineage. Exploratory sandbox — "
+        "entirely outside the Stage 1 / Stage 2 calibration pipeline. "
+        "Reproducibility note: launch with PYTHONHASHSEED=0 for exact "
+        "run-to-run identity, same as the calibration scripts."
+    )
+    with st.expander("What do these terms mean?", expanded=True):
+        st.markdown(
+            "- **Genome** — one candidate strategy: five numbers (charge "
+            "aggression, engage-range buffer, melee-commitment threshold, "
+            "hold-position bias, kiting stand-off) layered on top of the "
+            "normal simulator behaviour.\n"
+            "- **Population** — how many different genomes compete "
+            "side by side in one generation.\n"
+            "- **Generation** — one round of evolution: every genome in "
+            "the population fights the current baseline over *duels per "
+            "genome* seeded battles, the best-scoring genomes are kept or "
+            "bred together, and a mutated/crossed-over population is built "
+            "for the next round.\n"
+            "- **Epoch — the reign of one baseline strain.** An epoch runs "
+            "for up to *generations per epoch* generations, trying to "
+            "produce a champion that clearly beats the current baseline. "
+            "It ends one of two ways: a **promotion** (a champion passes "
+            "both checks below and BECOMES the new baseline — the next "
+            "epoch starts fresh against it), or the generation budget runs "
+            "out with no promotion, which **ends the run**. *Max epochs* "
+            "just caps how many promotions in a row this run will attempt.\n"
+            "- **Elites** — the top genomes each generation that are "
+            "carried into the next generation completely unchanged, so a "
+            "good strategy already found can't be mutated away by chance.\n"
+            "- **Confirmation batch** — once a generation's champion looks "
+            "like a winner on its (small, cheap) in-generation duels, it is "
+            "re-tested on a bigger batch of *fresh* dice it has never seen, "
+            "so a lucky streak can't sneak through to a promotion.\n"
+            "- **Wilson lower bound** — a statistics term for \"how "
+            "confident are we, in the worst realistic case, that this win "
+            "rate is real and not just noise.\" A promotion needs this "
+            "lower bound to clear 50%, on top of clearing the raw "
+            "promotion-threshold win rate — both a \"clearly better\" test "
+            "and a \"not just lucky\" test. This is exactly why "
+            "*confirmation duels* (in Advanced parameters) can't be too "
+            "small: at a small sample size, even a genuine winner's lower "
+            "bound can sit below 50% purely from sampling noise, making "
+            "promotion impossible however good the genome is. The "
+            "Advanced-parameters panel shows the minimum confirmation "
+            "duels needed for your chosen threshold, and Run refuses to "
+            "start below it.\n"
+            "- **Strain lineage** — the running list of every promoted "
+            "champion, oldest first, so you can trace how the strategy "
+            "evolved epoch over epoch (see the table at the bottom of this "
+            "tab).\n"
+            "- **Reading the chart** — every genome in the population gets "
+            "its own line, one point per generation showing the win rate "
+            "it measured that generation. Elites carry their line forward "
+            "unchanged; a newly bred genome starts a new line; **a line "
+            "that stops is a strain that was culled** (out-competed and "
+            "dropped from the population). Gold is the current best "
+            "strain; dim grey lines are dead ones. Hover any line to see "
+            "that strain's five gene values.\n"
+            "- **Squads move as one** — in AI Lab duels, BOTH sides' "
+            "squads pick a single shared walk target each round instead "
+            "of each model wandering to its own objective (the calibration "
+            "simulator's one-model-at-a-time representation allows scatter "
+            "that real Warhammer 40k unit coherency forbids). Applied "
+            "symmetrically to challenger and baseline alike, so neither "
+            "side is handicapped."
+        )
+
+    # ----- Parameters -----
+    _al1, _al2, _al3, _al4 = st.columns(4)
+    _al_pop = _al1.number_input(
+        "Population", min_value=4, max_value=60, value=12, step=1,
+        key="ai_lab_population",
+        help="Genomes per generation. Bigger explores more per generation "
+             "but each generation takes population x duels battles.")
+    _al_duels = _al2.number_input(
+        "Duels per genome", min_value=2, max_value=100, value=10, step=2,
+        key="ai_lab_duels",
+        help="Fitness sample size per genome per generation. All genomes "
+             "in a generation face the same seeded dice.")
+    _al_gens = _al3.number_input(
+        "Generations per epoch", min_value=1, max_value=200, value=15,
+        step=1, key="ai_lab_gens_per_epoch",
+        help="How many generations one epoch gets to produce a champion "
+             "that clearly beats the current baseline before giving up "
+             "and ending the run. See \"What do these terms mean?\" above.")
+    _al_epochs = _al4.number_input(
+        "Max epochs", min_value=1, max_value=20, value=3, step=1,
+        key="ai_lab_max_epochs",
+        help="Stop after this many successful promotions (new baseline "
+             "strains) in a row, even if the lineage could keep going.")
+    with st.expander("Advanced parameters"):
+        _av1, _av2, _av3, _av4 = st.columns(4)
+        _al_threshold = _av1.number_input(
+            "Promotion threshold", min_value=0.51, max_value=0.80,
+            value=0.55, step=0.01, key="ai_lab_threshold",
+            help="Champion win rate needed (cheap gate AND confirmation "
+                 "batch) to become the new baseline.")
+        _al_confirm_n = _av2.number_input(
+            "Confirmation duels", min_value=50, max_value=2000, value=500,
+            step=50, key="ai_lab_confirm_n",
+            help="Fresh-seed batch size for the promotion gate; the Wilson "
+                 "95% lower bound must clear 0.5. Must be large enough "
+                 "that a confirmation win rate sitting exactly at the "
+                 "promotion threshold can clear that bound — see the "
+                 "note below. Too small and promotion becomes "
+                 "mathematically impossible no matter how good the "
+                 "evolved genome is (this run refuses to start rather "
+                 "than silently exhaust every epoch).")
+        _al_min_confirm_n = ai_lab_min_confirmation_n(float(_al_threshold))
+        if int(_al_confirm_n) < _al_min_confirm_n:
+            _av2.error(
+                f"Needs ≥ {_al_min_confirm_n} at threshold "
+                f"{_al_threshold:.2f} — Run will refuse to start."
+            )
+        else:
+            _av2.caption(
+                f"Minimum for this threshold: {_al_min_confirm_n}."
+            )
+        _al_elite = _av3.number_input(
+            "Elites", min_value=1, max_value=6, value=2, step=1,
+            key="ai_lab_elite",
+            help="Top genomes carried into the next generation unchanged.")
+        _al_seed = _av4.number_input(
+            "Seed", min_value=0, max_value=10_000_000, value=42, step=1,
+            key="ai_lab_seed",
+            help="Seeds both the duel schedule and the genetic operators — "
+                 "same seed, same lineage.")
+        _al_sigma = st.slider(
+            "Mutation scale", min_value=0.2, max_value=3.0, value=1.0,
+            step=0.1, key="ai_lab_sigma",
+            help="Multiplier on every gene's mutation sigma.")
+        _al_record = st.checkbox(
+            "Record promotions to docs/ai_lab_lineage.csv", value=True,
+            key="ai_lab_record_lineage_box")
+        _al_label = st.text_input(
+            "Lineage label", value="", key="ai_lab_label_input",
+            help="Free-text tag written on this run's lineage rows.")
+
+    # ----- Session state -----
+    for _k, _v in (
+        ("ai_lab_running", False), ("ai_lab_rows", []),
+        ("ai_lab_gen", None), ("ai_lab_recorder", None),
+        ("ai_lab_baseline", AI_LAB_NEUTRAL_GENOME),
+        ("ai_lab_best_genome", None), ("ai_lab_last_confirmation", None),
+        ("ai_lab_promotions", 0), ("ai_lab_gen_counter", 0),
+        ("ai_lab_epoch", 0), ("ai_lab_status_note", ""),
+        ("ai_lab_status_is_error", False),
+        ("ai_lab_strains", {}), ("ai_lab_strain_by_genome", {}),
+        ("ai_lab_strain_counter", 0), ("ai_lab_best_strain_id", None),
+    ):
+        if _k not in st.session_state:
+            st.session_state[_k] = _v
+
+    _al_config_invalid = int(_al_confirm_n) < _al_min_confirm_n
+    _al_run, _al_stop, _al_reset, _ = st.columns([1, 1, 1, 4])
+    if _al_run.button("▶ Run", type="primary", key="ai_lab_run_btn",
+                      disabled=(st.session_state["ai_lab_running"]
+                                or _al_config_invalid)):
+        _params = {
+            "population_size": int(_al_pop),
+            "generations_per_epoch": int(_al_gens),
+            "duels_per_genome": int(_al_duels),
+            "max_epochs": int(_al_epochs),
+            "promotion_threshold": float(_al_threshold),
+            "confirmation_n": int(_al_confirm_n),
+            "elite_count": int(_al_elite),
+            "mutation_sigma_scale": float(_al_sigma),
+            "seed_base": int(_al_seed),
+        }
+        st.session_state.update({
+            "ai_lab_running": True,
+            "ai_lab_rows": [],
+            "ai_lab_gen_counter": 0,
+            "ai_lab_epoch": 0,
+            "ai_lab_promotions": 0,
+            "ai_lab_last_confirmation": None,
+            "ai_lab_best_genome": None,
+            "ai_lab_baseline": AI_LAB_NEUTRAL_GENOME,
+            "ai_lab_status_note": "",
+            "ai_lab_status_is_error": False,
+            "ai_lab_strains": {},
+            "ai_lab_strain_by_genome": {},
+            "ai_lab_strain_counter": 0,
+            "ai_lab_best_strain_id": None,
+            "ai_lab_record_lineage": bool(_al_record),
+            "ai_lab_label": _al_label,
+            "ai_lab_recorder": AiLabRunRecorder(_params),
+            "ai_lab_gen": ai_lab_evolve_lineage(
+                seed_base=int(_al_seed),
+                population_size=int(_al_pop),
+                generations_per_epoch=int(_al_gens),
+                duels_per_genome=int(_al_duels),
+                max_epochs=int(_al_epochs),
+                promotion_threshold=float(_al_threshold),
+                confirmation_n=int(_al_confirm_n),
+                elite_count=int(_al_elite),
+                mutation_sigma_scale=float(_al_sigma),
+            ),
+        })
+        st.rerun()
+    if _al_stop.button("■ Stop", key="ai_lab_stop_btn",
+                       disabled=not st.session_state["ai_lab_running"]):
+        st.session_state["ai_lab_running"] = False
+        if st.session_state.get("ai_lab_recorder") is not None:
+            st.session_state["ai_lab_recorder"].save()
+        st.rerun()
+    if _al_reset.button("Reset", key="ai_lab_reset_btn",
+                        disabled=st.session_state["ai_lab_running"]):
+        st.session_state.update({
+            "ai_lab_rows": [], "ai_lab_gen": None, "ai_lab_recorder": None,
+            "ai_lab_gen_counter": 0, "ai_lab_epoch": 0,
+            "ai_lab_promotions": 0, "ai_lab_last_confirmation": None,
+            "ai_lab_best_genome": None,
+            "ai_lab_baseline": AI_LAB_NEUTRAL_GENOME,
+            "ai_lab_status_note": "",
+            "ai_lab_status_is_error": False,
+            "ai_lab_strains": {},
+            "ai_lab_strain_by_genome": {},
+            "ai_lab_strain_counter": 0,
+            "ai_lab_best_strain_id": None,
+        })
+        st.rerun()
+
+    _ai_lab_fragment()
+
+    # ----- Champion genome readout -----
+    _al_best = st.session_state.get("ai_lab_best_genome")
+    if _al_best is not None:
+        st.markdown("### Current champion genome")
+        _al_base = st.session_state["ai_lab_baseline"]
+        _gene_rows = []
+        for _gname, _gval in _al_best.as_dict().items():
+            _gene_rows.append({
+                "gene": _gname,
+                "champion": round(_gval, 3),
+                "baseline": round(getattr(_al_base, _gname), 3),
+            })
+        st.dataframe(pd.DataFrame(_gene_rows), hide_index=True,
+                     use_container_width=True)
+
+    # ----- Champion vs baseline replay -----
+    st.markdown("### Watch the champion fight the baseline")
+    if _al_best is None:
+        st.info("Run at least one generation first — the replay pits the "
+                "latest champion genome against the current baseline strain.")
+    else:
+        if st.button("Capture replay (best of 5 duels)",
+                     key="ai_lab_replay_btn",
+                     disabled=st.session_state["ai_lab_running"]):
+            _al_baseline = st.session_state["ai_lab_baseline"]
+            # Modal-outcome pick, same idea as the Watch-a-battle capture:
+            # roll five seeded duels, keep the one whose result is most
+            # representative (matches the modal winner, survivors nearest
+            # the mean). Seed lane 999 keeps these clear of training seeds.
+            _cap = []
+            for _ri in range(5):
+                _log = EventLog()
+                _res = ai_lab_run_duel(
+                    _al_best, _al_baseline,
+                    seed=(999 * 100_000 + _ri) * 10_000,
+                    subscribers=[_log])
+                _cap.append((_res, _log))
+            _wins = [r.winner for r, _ in _cap]
+            _modal = max(set(_wins), key=_wins.count)
+            _mean_a = sum(r.a_survivors for r, _ in _cap) / len(_cap)
+            _mean_b = sum(r.b_survivors for r, _ in _cap) / len(_cap)
+
+            def _al_score(res):
+                penalty = 0.0 if res.winner == _modal else 1e6
+                return penalty + abs(res.a_survivors - _mean_a) \
+                    + abs(res.b_survivors - _mean_b)
+
+            _best_res, _best_log = min(_cap, key=lambda p: _al_score(p[0]))
+            st.session_state.update({
+                "ai_lab_replay_events": _best_log.events,
+                "ai_lab_replay_frames": aggregate_activations(_best_log.events),
+                "ai_lab_replay_map": DEFAULT_MAP,
+                "ai_lab_replay_id":
+                    st.session_state.get("ai_lab_replay_id", 0) + 1,
+                "ai_lab_replay_result": _best_res,
+            })
+        if "ai_lab_replay_events" in st.session_state:
+            _al_res = st.session_state["ai_lab_replay_result"]
+            _al_events = st.session_state["ai_lab_replay_events"]
+            _al_frames = st.session_state["ai_lab_replay_frames"]
+            st.caption(
+                f"Champion (gold, side A) vs baseline (steel blue, side B) — "
+                f"winner: {_al_res.winner_label()} in {_al_res.rounds} rounds. "
+                f"Victory points {_al_res.a_vp} : {_al_res.b_vp}, points "
+                f"remaining {_al_res.a_points_remaining:.0f} : "
+                f"{_al_res.b_points_remaining:.0f}.")
+            for _ci, _ch in enumerate(round_overview(_al_events)):
+                with st.expander(_ch["title"], expanded=(_ci == 0)):
+                    _col_map, _col_log = st.columns([2, 3])
+                    with _col_map:
+                        if _al_frames:
+                            _fi = next(
+                                (i for i, (_s, _e) in enumerate(_al_frames)
+                                 if _e >= _ch["end_tick"]),
+                                len(_al_frames) - 1,
+                            )
+                            st.image(
+                                _ai_lab_frame_png(
+                                    st.session_state["ai_lab_replay_id"], _fi),
+                                use_container_width=True,
+                            )
+                    with _col_log:
+                        if _ch["lines"]:
+                            st.markdown(
+                                "\n".join(f"- {ln}" for ln in _ch["lines"]))
+                        else:
+                            st.markdown("*Nothing notable this round.*")
+
+    # ----- Strain lineage -----
+    st.markdown("### Strain lineage")
+    _al_lineage = ai_lab_read_lineage()
+    if not _al_lineage:
+        st.caption("No promotions recorded yet — the lineage starts with "
+                   "the first champion that clearly beats the neutral "
+                   "baseline.")
+    else:
+        st.dataframe(pd.DataFrame(_al_lineage), hide_index=True,
+                     use_container_width=True)
 
 
 # ---------------------------------------------------------------------------

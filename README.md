@@ -147,7 +147,7 @@ equal points implies equal expected battlefield score. See
 | `docs/CORE_RULES_AUDIT.md` | 10e core rules vs implementation coverage map |
 | `code/` | Python simulation engine |
 | `code/sim/` | Simulator package — modules extracted from `code/simulator.py` by pure code motion (constants, geometry so far), behaviour-identical; see [`docs/SIM_MODULARIZATION_PLAN.md`](docs/SIM_MODULARIZATION_PLAN.md) |
-| `app.py` | Streamlit dashboard — Player and Calibration views (Statistics, a round-by-round battle overview replay, Efficiency, Equilibrium, Compare, Convergence, Calibration, Equation Fit). Battle setup auto-resolves a **fair points budget**: chunky factions (Knights) cannot fill a low budget, so the two sides would fight at very different fielded points — the dashboard raises the budget until both field within 5% of each other (warning when adjusted) and marks the pairing N/A if even the slider maximum cannot balance it. This lives in `app.py` only and never touches the shared army builder the calibration evaluation depends on. |
+| `app.py` | Streamlit dashboard — Player and Calibration views (Statistics, a round-by-round battle overview replay, Efficiency, Equilibrium, Compare, Convergence, Calibration, Equation Fit, AI Lab). Battle setup auto-resolves a **fair points budget**: chunky factions (Knights) cannot fill a low budget, so the two sides would fight at very different fielded points — the dashboard raises the budget until both field within 5% of each other (warning when adjusted) and marks the pairing N/A if even the slider maximum cannot balance it. This lives in `app.py` only and never touches the shared army builder the calibration evaluation depends on. |
 | `run.py` | Cross-platform launcher (`python run.py` for the GUI menu, `python run.py --cli` to skip it) |
 | `code/factions.py` | Codex → faction mapping + per-faction display colours; Marine umbrella detection |
 | `code/archetypes.py` | Curated per-faction tournament list templates (opt-in via `use_archetype=True`) |
@@ -159,6 +159,7 @@ equal points implies equal expected battlefield score. See
 | `code/stratagems.py` | Universal + faction-specific stratagems + CP economy |
 | `code/strategy.py` | Per-unit move intent — HOLD / CAPTURE / STEAL / ENGAGE / REPOSITION / FALL_BACK |
 | `code/roles.py` | Role classifier — SHOOTY / MELEE / DUAL / HORDE / HEAVY / SUPPORT |
+| `code/ai_lab/` | AI Lab — genetic-algorithm duel sandbox that evolves interpretable piloting knobs (charge aggression, engage range, kiting) for an Intercessor Squad against a frozen baseline strain, promoting clear winners into a strain lineage. Exploratory, entirely outside the two-stage calibration pipeline; see [`docs/AI_LAB_PLAN.md`](docs/AI_LAB_PLAN.md) |
 | `code/compare_view.py` | Streamlit tab: GW points vs all equilibrium phases with mispricing % |
 | `code/bsdata/` | BSData WH40k 10th-edition fetch / parse / map / load |
 | `code/bsdata/audit.py` | Diff successive `parsed.json` runs, flag unmapped codices and stat drift |
@@ -168,6 +169,7 @@ equal points implies equal expected battlefield score. See
 | `scripts/evaluate_vs_meta.py` | Sim-vs-real-meta matchup matrix; reports raw MAE + noise-gated MAE against the 4-week rolling Warp Friends aggregate in `data/warpfriends_rolling.json` |
 | `scripts/scrape_warpfriends.py` | Refresh `data/warpfriends_rolling.json` from the latest weekly posts at warpfriends.wordpress.com |
 | `scripts/sweg_balance_mc.py` | MC-driven per-faction balance pass on top win-rate residuals |
+| `scripts/ai_lab_run.py` | Headless AI Lab run — evolve duel piloting genomes and record the strain lineage (`docs/ai_lab_lineage.csv`, `data/ai_lab_runs/`) |
 | `scripts/cross_validate_pricing.py` | Compare Phase 5 equilibrium vs MC bisection signals |
 | `scripts/export_bsdata_csv.py` | Export UNIT_CATALOG to `data/units.csv` for spreadsheet inspection |
 | `data/bsdata/` | Pinned `.cat` cache and mapped `parsed.json` |
