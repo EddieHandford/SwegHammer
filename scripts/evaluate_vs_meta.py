@@ -806,11 +806,17 @@ def main() -> None:
             _other_pid = int(_lock.read_text().split()[0])
             if time.time() - _lock.stat().st_mtime < 7200:
                 if os.name == "nt":
-                    import ctypes
-                    _h = ctypes.windll.kernel32.OpenProcess(0x1000, False, _other_pid)
-                    if _h:
-                        ctypes.windll.kernel32.CloseHandle(_h)
-                        _other_alive = True
+                    # Existence alone is not enough: a killed eval's pid can be
+                    # RECYCLED by an unrelated process within hours (bit us
+                    # 2026-07-09 — a dead eval's pid came back as a non-python
+                    # process and the lock refused for nothing). Require the
+                    # holder to actually be a python image.
+                    import subprocess as _sp
+                    _tl = _sp.run(
+                        ["tasklist", "/FI", f"PID eq {_other_pid}"],
+                        capture_output=True, text=True, timeout=30,
+                    ).stdout.lower()
+                    _other_alive = "python" in _tl
                 else:
                     os.kill(_other_pid, 0)
                     _other_alive = True
