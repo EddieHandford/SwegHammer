@@ -13068,6 +13068,20 @@ class Battle:
             _phase_their_oc=_phase_their_oc,
             _phase_our_oc=_phase_our_oc,
         )
+        # PILOT move-intent hook — default-OFF / byte-identical in production
+        # (Battle._pilot_move is set only by code/ai_lab/pilot.attach for the
+        # genetic-algorithm sandbox; production never sets it -> getattr None ->
+        # branch skipped). The pilot sees the baseline decision and may return
+        # a replacement (target_pos, intent) or None to keep the baseline.
+        # Downstream processing (make-way spread, staging, kiting gates) applies
+        # to the overridden target exactly as it would to the baseline one.
+        _pm = getattr(self, "_pilot_move", None)
+        if _pm is not None:
+            _override = _pm(
+                self, attacker, attacker_army, defender_army, target_pos, intent,
+            )
+            if _override is not None:
+                target_pos, intent = _override
         # Avenue-2 Stage 2 make-way (distinct-slot spread): on an objective move,
         # redirect this model to its own slot in the marker's control ring so the
         # squad fans out under collision instead of stacking on the centre. No-op
@@ -16390,7 +16404,18 @@ class Battle:
         # Embarked passengers cannot charge (10e core). Cited as `simulator.embark`.
         if getattr(attacker, "embarked_in", None) is not None:
             return
-        if not self._wants_to_charge(attacker):
+        # PILOT charge-desire hook — default-OFF / byte-identical in production
+        # (Battle._pilot_charge is set only by code/ai_lab/pilot.attach for the
+        # genetic-algorithm sandbox; production never sets it -> getattr None ->
+        # branch skipped, _wants_to_charge decides as before). Same precedent as
+        # _pilot_focus below. The pilot returns True/False to override WHETHER
+        # this unit wants to charge, or None to defer to the baseline heuristic.
+        # Target choice (WHOM) stays with pick_charge_target either way.
+        _pc = getattr(self, "_pilot_charge", None)
+        _wants = _pc(self, attacker, attacker_army) if _pc is not None else None
+        if _wants is None:
+            _wants = self._wants_to_charge(attacker)
+        if not _wants:
             return
         # Advance lockout (10e core): a unit that Advanced this turn cannot
         # charge. Assault Doctrine (Gladius Task Force, R3+) explicitly lifts

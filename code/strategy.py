@@ -3252,6 +3252,55 @@ def _dedicated_indirect_artillery(profile) -> bool:
     return True
 
 
+def _dual_engage_target(
+    unit, enemy_alive, map_,
+    army_plan: Optional[str] = None,
+    counter_uid: Optional[str] = None,
+    threat_buffer: float = 12.0,
+    score_min: float = 0.1,
+):
+    """DUAL-role engage-target pick, extracted verbatim from pick_move_intent.
+
+    Returns the enemy unit worth closing on — one within charge-threat range
+    (own move + `threat_buffer` inches) whose raw _melee_target_score clears
+    `score_min` — or None to fall through to the objective-scoring logic.
+
+    The plan-aware tie-break (_plan_engage_bias, plus the COUNTER plan's 1.5x
+    on `counter_uid`) is reproduced here rather than taken as a callable so
+    that external callers (code/ai_lab/pilot.py, the genetic-algorithm
+    piloting layer) can rescale the two thresholds WITHOUT re-deriving the
+    ranking — their target choice stays identical to production whenever the
+    scales are neutral. Default arguments reproduce the pre-extraction
+    behaviour byte-for-byte; pick_move_intent calls this with its own
+    already-computed `counter_uid`.
+    """
+    move_dist = effective_move(unit)
+    threat_range = move_dist + threat_buffer
+    viable = [
+        e for e in enemy_alive
+        if _dist(unit.position, e.position) <= threat_range
+    ]
+    if not viable:
+        return None
+    # Pre-compute raw scores to avoid calling _melee_target_score twice for
+    # the winning target (once in max(), once for the threshold check).
+    raw_scores = {id(e): _melee_target_score(unit, e) for e in viable}
+
+    def _plan_score(base: float, target) -> float:
+        s = base * _plan_engage_bias(army_plan, unit, target, map_)
+        if counter_uid is not None and target.uid == counter_uid:
+            s *= 1.5
+        return s
+
+    best_melee = max(
+        viable,
+        key=lambda e: _plan_score(raw_scores[id(e)], e),
+    )
+    if raw_scores[id(best_melee)] > score_min:
+        return best_melee
+    return None
+
+
 def pick_move_intent(
     unit, friendly, enemy, map_, army_plan: Optional[str] = None,
     _phase_their_oc: Optional[Dict] = None,
@@ -3856,24 +3905,32 @@ def pick_move_intent(
     # next round (move + 12" threat), close on it; otherwise fall through
     # to objective logic. This is what real Intercessor / Boyz / similar
     # do — bias toward enemies with weak melee, not just the closest body.
+    # Body extracted to _dual_engage_target (pure code motion) so the
+    # AI-Lab pilot layer can rescale its thresholds without re-deriving
+    # the plan-aware ranking; defaults reproduce this branch byte-for-byte.
+    # `_ai_lab_dual_scales` is planted on the ARMY by code/ai_lab/pilot.attach
+    # (genetic-algorithm sandbox) — (threat_buffer_scale, score_min_scale).
+    # Production never sets it -> getattr None -> default thresholds, exactly
+    # the _pilot_focus attribute precedent. Scaling INSIDE the branch (rather
+    # than post-hoc in the pilot callable) is what lets a narrowed pick fall
+    # through to the objective logic below, just like a genuinely
+    # out-of-threat-range target would.
     if role == "DUAL" and enemy_alive:
-        move_dist = effective_move(unit)
-        threat_range = move_dist + 12.0
-        viable = [
-            e for e in enemy_alive
-            if _dist(unit.position, e.position) <= threat_range
-        ]
-        if viable:
-            # Pre-compute raw scores to avoid calling _melee_target_score
-            # twice for the winning target (once in max(), once for the 0.1
-            # threshold check).
-            raw_scores = {id(e): _melee_target_score(unit, e) for e in viable}
-            best_melee = max(
-                viable,
-                key=lambda e: _plan_target_score(raw_scores[id(e)], e),
+        _dual_scales = getattr(friendly, "_ai_lab_dual_scales", None)
+        if _dual_scales is None:
+            best_melee = _dual_engage_target(
+                unit, enemy_alive, map_,
+                army_plan=army_plan, counter_uid=counter_uid,
             )
-            if raw_scores[id(best_melee)] > 0.1:
-                return best_melee.position, _ENGAGE_INTENT
+        else:
+            best_melee = _dual_engage_target(
+                unit, enemy_alive, map_,
+                army_plan=army_plan, counter_uid=counter_uid,
+                threat_buffer=12.0 * _dual_scales[0],
+                score_min=0.1 * _dual_scales[1],
+            )
+        if best_melee is not None:
+            return best_melee.position, _ENGAGE_INTENT
 
     # ----- 4. Pick objective target if one scored well; else engage enemy -----
     if best is not None and best[0] > 0.2:

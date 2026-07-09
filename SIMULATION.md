@@ -248,6 +248,45 @@ Fights First keyword, `simulator.fights_first_keyword`); the replay overview
 annotates melee lines with "(charged — fights first)" so the strike order is
 visible in a recap.
 
+### Pilot hooks — external decision overrides
+
+Three attachment points let an external harness override the engine's
+decision heuristics without touching production behaviour. All follow the
+same pattern: an attribute production code never sets, consulted through
+`getattr(..., None)`, byte-identical when absent.
+
+- **`Battle._pilot_focus`** (the original, predating the AI Lab) —
+  consulted in `_do_shoot`; a callable that may force the attacker's
+  shoot-target choice. Built for the manual anti-Knight piloting
+  experiments recorded in `docs/PILOT_FINDINGS.md`.
+- **`Battle._pilot_charge`** — consulted in `_do_charge` just before
+  `_wants_to_charge`; returns True/False to override *whether* the unit
+  wants to charge, or None to defer to the baseline heuristic. Whom to
+  charge stays with `pick_charge_target` either way.
+- **`Battle._pilot_move`** — consulted in `_do_move` immediately after
+  `pick_move_intent`; sees the baseline `(target_pos, intent)` and may
+  return a replacement. Downstream move processing (make-way spread,
+  staging, the production kiting gates) applies to the override exactly as
+  it would to the baseline decision.
+
+A fourth, army-level hook — **`Army._ai_lab_dual_scales`** — is read inside
+`pick_move_intent`'s DUAL engage branch and rescales that branch's
+charge-threat buffer and acceptance threshold; scaling inside the branch is
+what lets a narrowed pick fall through to the objective logic naturally.
+
+The consumer of the charge/move/dual hooks is the **AI Lab** — the
+genetic-algorithm duel sandbox in `code/ai_lab/` (see
+[`docs/AI_LAB_PLAN.md`](docs/AI_LAB_PLAN.md)), which evolves interpretable
+piloting knobs against a frozen baseline strain. With the hooks in their
+inert regime (`pilot.attach(..., squad_move_as_unit=False)`) the neutral
+genome is proven byte-identical to an unhooked battle, event-for-event, by
+`tests/test_ai_lab_pilot_hooks.py`. AI Lab duels themselves run with
+`squad_move_as_unit=True`: every squad's walk intents are decided once per
+squad per round and shared across its models, on both sides symmetrically —
+a deliberate, fair divergence from the calibration simulator's per-model
+walks, closer to real 10e Unit Coherency, applied only inside the sandbox
+and never to calibration battles.
+
 ### Victory Conditions
 
 A battle ends when:
