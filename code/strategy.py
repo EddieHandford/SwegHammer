@@ -2637,6 +2637,151 @@ def value_top_marker_index(unit, friendly, enemy, map_):
     return best_i
 
 
+# ===========================================================================
+# SWEG_TRADE_EVAL — Layer B: the one-ply symmetric EXCHANGE term
+# (docs/LAYERS_RESEARCH.md Layer B; composes ON the value field, Layer A)
+# ===========================================================================
+# The value field (SWEG_VALUE_MOVE) prices a destination's DESTINATION VALUE and
+# RISK, but not the EXCHANGE: a unit commits to valuable ground without asking
+# what the commitment trades — what it kills from there next activation vs what
+# kills it over the following turn. Trade-poor armies therefore over-commit and
+# trade-rich armies under-punish. This term adds the symmetric one-ply exchange
+# the research doc specifies, as a TILT on the value field's net score:
+#
+#     OUR RETURN = value we expect to REMOVE from our best reachable target by
+#                  shooting / charging from the candidate cell p next activation
+#     THEIR REPLY = value the incoming threat field T_post(p) (the SAME field the
+#                  value consumer already computes) removes from us at p
+#     EXCHANGE   = OUR RETURN - THEIR REPLY        (added to value_net_score)
+#
+# It ONLY composes with SWEG_VALUE_MOVE=1 (it modifies the value consumer's
+# argmax); SWEG_TRADE_EVAL=1 with the value gate unset is a NO-OP (byte-identical,
+# because the value block below never runs). It is a TILT, never a hard veto: the
+# settled blanket-charge-block rejections (SWEG_AM_CHARGE_DISCIPLINE -2.41) apply
+# — it re-targets among objective destinations, it never freezes a commit.
+#
+# Reuses the audited expected-wounds helpers symmetrically (simulator.
+# _ranged_expected_wounds / strategy._kill_potential_wounds / the real 2D6 reach
+# _p_2d6_at_least) exactly as the value field's _threat_field_at does, with ME as
+# the projector for OUR RETURN. No new random number; per-round projector caching
+# is inherited (_threat_projectors). Cited simulator.trade_exchange (AI heuristic).
+
+# Reference constant (documented, NOT a tuned knob — the same class as the value
+# field's _VALUE_VP_PER_ROUND_REF / _VALUE_BEL_VP_PER_ROUND). The value field
+# prices every unit's per-unit dual as a FLAT _VALUE_VP_PER_ROUND_REF * srr
+# victory points (value_net_score.unit_future_value). The trade evaluator refines
+# that flat dual to be POINTS-PROPORTIONAL, so trading a cheap body into a dear
+# one reads as the value gain it is: a unit costing _TRADE_POINTS_REF points is
+# worth exactly one marker's full remaining horizon (_VALUE_VP_PER_ROUND_REF * srr
+# victory points) if all its wounds are removed, and cheaper / dearer units scale
+# linearly. Chosen as a representative committed-squad points value so the AVERAGE
+# unit's full trade dual EQUALS the value field's flat dual (continuity with Layer
+# A): points * relevance = points * (5 * srr) / 175 = 5 * srr at points = 175.
+_TRADE_POINTS_REF = 175.0
+
+# Shadow diagnostic counters for the mechanism check (SWEG_TRADE_EVAL_DIAG): in a
+# gate-OFF (or value-only) battle, at every objective-destination decision, count
+# how often ADDING the exchange re-routes the unit to a different marker than the
+# value field alone — with ZERO RNG divergence (the battle still acts on the
+# value-field pick). Mirrors _VALUE_MOVE_DIAG / _THREAT_CHARGE_DIAG exactly.
+_TRADE_EVAL_DIAG = {"decisions": 0, "changes": 0}
+
+
+def reset_trade_eval_diag() -> None:
+    _TRADE_EVAL_DIAG["decisions"] = 0
+    _TRADE_EVAL_DIAG["changes"] = 0
+
+
+def _trade_vp_per_wound(profile, scoring_rounds_remaining) -> float:
+    """Victory points one wound of damage dealt to / suffered by a unit with this
+    profile is worth over the horizon: points-per-wound (points_cost / starting
+    wounds) times the value field's RELEVANCE ((_VALUE_VP_PER_ROUND_REF * srr) /
+    _TRADE_POINTS_REF, victory points per point over the rounds remaining). This
+    is the 'points-per-wound x the value field's relevance' pricing the exchange
+    term is quoted in. Knob-free beyond the one documented reference constant."""
+    health = getattr(profile, "health", 0.0) or 0.0
+    if health <= 0.0:
+        return 0.0
+    points_per_wound = (getattr(profile, "points_cost", 0.0) or 0.0) / health
+    relevance = (_VALUE_VP_PER_ROUND_REF * scoring_rounds_remaining) / _TRADE_POINTS_REF
+    return points_per_wound * relevance
+
+
+def _trade_our_return(me_unit, dest, enemy_alive, scoring_rounds_remaining) -> float:
+    """OUR RETURN priced in victory points: the value we expect to remove from our
+    single BEST reachable target by shooting or charging from `dest` next
+    activation. Symmetric one-ply — the exact ranged + melee expected-wounds math
+    the threat field uses, with ME as the projector onto each living enemy:
+
+        ranged reachable  iff  dist(dest, E) <= my Move + my weapon range
+        melee  reachable  iff  the 2D6 charge after my Move can cover the gap
+        removed(E)        =  min(expected wounds, E.current_health)
+                             * _trade_vp_per_wound(E's profile)
+
+    The best single target's removed-value is OUR RETURN (a unit commits to ONE
+    target next activation; the max, not the sum). No random number; the same
+    _score_profile squad-aggregate isolation the rest of the AI scoring uses.
+
+    Co-committed friends already headed to `dest` are DEFERRED (documented, like
+    the value field's Engage-on-All-Fronts deferral): in-flight friendly move
+    intents are not cleanly readable at this point, and friends already ON the
+    marker are priced by their OWN activations, so summing them here would double-
+    count. The term stays a clean single-unit exchange."""
+    from .simulator import Battle          # lazy: avoid strategy<->simulator cycle
+    me_p = _score_profile(me_unit)
+    my_move = float(effective_move(me_unit))
+    my_range = float(getattr(me_p, "range_inches", 0.0) or 0.0)
+    melee_capable = (getattr(me_p, "melee_attacks", 0) or 0) > 0
+    best = 0.0
+    for e in enemy_alive:
+        ep = _score_profile(e)
+        d = _dist(dest, e.position)
+        ew = 0.0
+        if my_range > 0.0 and d <= my_move + my_range:
+            rw = Battle._ranged_expected_wounds(me_p, e)
+            if rw > ew:
+                ew = rw
+        if melee_capable:
+            needed = d - my_move - _THREAT_ENGAGE_RANGE
+            if needed <= 12.0:
+                mw = _kill_potential_wounds(me_p, ep) * _p_2d6_at_least(needed)
+                if mw > ew:
+                    ew = mw
+        if ew <= 0.0:
+            continue
+        # Cap removable value at the target's remaining wounds — you cannot
+        # remove more value than the target has left.
+        target_health = float(getattr(e, "current_health", 0.0) or 0.0)
+        removed = min(ew, target_health) * _trade_vp_per_wound(
+            ep, scoring_rounds_remaining)
+        if removed > best:
+            best = removed
+    return best
+
+
+def trade_exchange(me_unit, dest, threat_at_dest, enemy_alive,
+                   scoring_rounds_remaining) -> float:
+    """The symmetric one-ply exchange TILT at destination `dest`:
+
+        RETURN   = _trade_our_return(...)                 (value we remove)
+        REPLY    = min(T_post(dest), my remaining wounds)
+                   * _trade_vp_per_wound(me)              (value the reply removes)
+        EXCHANGE = RETURN - REPLY
+
+    Both priced on the value field's victory-point axis (points-per-wound times
+    relevance) so the tilt composes directly with value_net_score. REPLY reuses
+    `threat_at_dest` — the SAME incoming threat field T the value consumer already
+    computes at this cell (strategy._threat_field_at). For a MOVE destination
+    (a marker, not a specific charged target) T_post == T: moving onto the marker
+    commits no single enemy's death, so nothing is subtracted from the reply — the
+    conservative (fully-priced) reply, and the honest one. No random number."""
+    our_return = _trade_our_return(me_unit, dest, enemy_alive, scoring_rounds_remaining)
+    my_health = float(getattr(me_unit, "current_health", 0.0) or 0.0)
+    reply = min(threat_at_dest, my_health) * _trade_vp_per_wound(
+        _score_profile(me_unit), scoring_rounds_remaining)
+    return our_return - reply
+
+
 def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, float]]:
     """Pick a point up to ``M`` inches from ``unit`` that sits outside the
     engagement range (1.5") of every enemy in ``enemies``.
@@ -4311,11 +4456,42 @@ def pick_move_intent(
         ]
         _idx_net = max(range(len(objs)), key=lambda k: _net[k])
         _idx_legacy = max(range(len(objs)), key=lambda k: objs[k][0])
+        _idx_final = _idx_net          # what the value-move consumer acts on
+
+        # ----- SWEG_TRADE_EVAL (Layer B: the symmetric one-ply exchange TILT) ---
+        # Add the exchange term to each objective's value-field net score, then
+        # re-argmax. EXCHANGE = OUR RETURN (value we remove from our best
+        # reachable target from the marker) - THEIR REPLY (value the incoming
+        # threat field T removes from us there); a TILT, never a veto. Only
+        # meaningful composed with SWEG_VALUE_MOVE=1 (it re-points the value
+        # consumer's pick); with the value gate unset this whole block never runs,
+        # so SWEG_TRADE_EVAL=1 alone is byte-identical (no-op). SWEG_TRADE_EVAL_DIAG
+        # is a gate-OFF shadow counter: it computes the re-route WITHOUT acting on
+        # it and tallies destination changes vs the value field alone. Both
+        # default-off (== "1").
+        _use_trade = os.environ.get("SWEG_TRADE_EVAL") == "1"
+        _trade_diag = os.environ.get("SWEG_TRADE_EVAL_DIAG") == "1"
+        if _use_trade or _trade_diag:
+            _exch = [
+                trade_exchange(
+                    unit, (_o.x, _o.y),
+                    _threat_field_at(unit, _vproj, (_o.x, _o.y), map_),
+                    enemy_alive, _srr)
+                for (_s, _i, _o, _d) in objs
+            ]
+            _idx_trade = max(range(len(objs)), key=lambda k: _net[k] + _exch[k])
+            if _trade_diag:
+                _TRADE_EVAL_DIAG["decisions"] += 1
+                if objs[_idx_trade][2] is not objs[_idx_net][2]:
+                    _TRADE_EVAL_DIAG["changes"] += 1
+            if _use_trade:
+                _idx_final = _idx_trade
+
         if _value_move_diag:
             _VALUE_MOVE_DIAG["decisions"] += 1
             if objs[_idx_net][2] is not objs[_idx_legacy][2]:
                 _VALUE_MOVE_DIAG["changes"] += 1
-        best = objs[_idx_net] if _use_value_move else objs[_idx_legacy]
+        best = objs[_idx_final] if _use_value_move else objs[_idx_legacy]
     else:
         best = max(objs, key=lambda t: t[0]) if objs else None
 

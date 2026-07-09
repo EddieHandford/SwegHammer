@@ -1415,6 +1415,22 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # expected-wounds math; draws no new random number; re-routes only (never
     # freezes a claim/contest). Cited in data/rule_citations.d/value_layer.json.
     "simulator.value_projection",
+    # THE TRADE / EXCHANGE EVALUATOR, Layer B of the decision-substrate roadmap
+    # (docs/LAYERS_RESEARCH.md), composed ON the value field (env-gated
+    # SWEG_TRADE_EVAL, default OFF; only meaningful with SWEG_VALUE_MOVE=1, a
+    # no-op alone). AI piloting heuristic in code/strategy.py (trade_exchange /
+    # _trade_our_return / _trade_vp_per_wound, consumed in pick_move_intent):
+    # adds the symmetric one-ply exchange EXCHANGE = OUR RETURN - THEIR REPLY as
+    # a TILT on the value field's objective-destination argmax — the value we
+    # expect to remove from our best reachable target from a marker (our own
+    # shooting / charging expected wounds, priced points-per-wound times the
+    # value field's relevance) minus the value the incoming threat field removes
+    # from us there. Reuses the audited expected-wounds math symmetrically
+    # (simulator._ranged_expected_wounds, strategy._kill_potential_wounds, the
+    # real 2D6 reach) and the cached threat-field projectors; draws no new random
+    # number; re-targets only (never freezes a commit — the settled blanket-block
+    # rejections apply). Cited in data/rule_citations.d/trade_layer.json.
+    "simulator.trade_exchange",
     # Rotate Ion Shields (Imperial Knights Household, 1 CP, Wargear
     # Stratagem, durability fidelity wave audit B fix B2, env-gated
     # SWEG_IK_ROTATE_IONS, default ON per the Custodes-batch precedent for

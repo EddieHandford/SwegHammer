@@ -218,6 +218,32 @@ shooting resolution actually enforces, not by line-of-sight occlusion (a
 separate rules-fidelity question). Only charge scoring (consumer 1) is built;
 move-intent destinations and reserve placement (consumers 2-3) are not.
 
+#### Value field and trade evaluator (move-intent layers, default-OFF)
+
+Two further decision-substrate layers (`docs/LAYERS_RESEARCH.md`) price the
+move-intent objective-destination choice, both default-OFF and byte-identical
+off. The **value field**, gate `SWEG_VALUE_MOVE` (Layer A), ranks each candidate
+objective destination by a multi-round net score `V(p) - unit_future_value *
+frac_at_risk(p)`: the marker's primary victory points over the rounds remaining,
+discounted by the unit's chance of surviving to score there (read from the same
+threat field `T`), minus the fraction of the unit's own future value it risks by
+standing there. It re-routes among claim/contest destinations only; it never
+freezes a commit. Cited `simulator.value_projection`.
+
+The **trade evaluator**, gate `SWEG_TRADE_EVAL` (Layer B), composes ON the value
+field (it is a no-op unless `SWEG_VALUE_MOVE=1` is also set): it adds the
+symmetric one-ply exchange `EXCHANGE(p) = OUR RETURN - THEIR REPLY` as a TILT on
+that net score. OUR RETURN is the value the unit expects to remove from its best
+reachable target by shooting or charging from `p` next activation (its own
+expected wounds through the audited helpers, priced points-per-wound times the
+value field's relevance); THEIR REPLY is the incoming threat field `T` at `p`
+priced the same way against the unit's own remaining value. It prices what a
+commitment TRADES — trade-poor armies stop over-committing to valuable ground
+they cannot pay for, trade-rich armies punish where the exchange is positive — as
+a tilt, never a veto (the settled blanket-charge-block rejection is respected;
+re-target, never freeze). It reuses the audited expected-wounds math
+symmetrically and draws no new random number. Cited `simulator.trade_exchange`.
+
 ### Activation Sequence
 
 Each battle round proceeds as follows:
