@@ -168,6 +168,8 @@ equal points implies equal expected battlefield score. See
 | `scripts/sim_motion_proof.py` | Behaviour-identity fingerprint harness — proves a simulator code-motion refactor changes nothing, by hashing fixed-seed battle traces before and after |
 | `scripts/evaluate_vs_meta.py` | Sim-vs-real-meta matchup matrix; reports raw MAE + noise-gated MAE against the 4-week rolling Warp Friends aggregate in `data/warpfriends_rolling.json` |
 | `scripts/scrape_warpfriends.py` | Refresh `data/warpfriends_rolling.json` from the latest weekly posts at warpfriends.wordpress.com |
+| `scripts/make_screen_job.py` | Generate a distributed-screening job ticket pinned to the current commit + standing anchor (see [`docs/DISTRIBUTED_SCREENING.md`](docs/DISTRIBUTED_SCREENING.md)) |
+| `scripts/screen_job.py` | Verify-and-run harness for a screening job ticket — refuses on commit/anchor mismatch, then runs `evaluate_vs_meta` + `paired_delta` and writes `data/screen_results/<job_id>.json` |
 | `scripts/sweg_balance_mc.py` | MC-driven per-faction balance pass on top win-rate residuals |
 | `scripts/ai_lab_run.py` | Headless AI Lab run — evolve duel piloting genomes and record the strain lineage (`docs/ai_lab_lineage.csv`, `data/ai_lab_runs/`) |
 | `scripts/cross_validate_pricing.py` | Compare Phase 5 equilibrium vs MC bisection signals |
