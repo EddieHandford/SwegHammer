@@ -1,6 +1,6 @@
 {
   "job_id": "identity_check",
-  "base_commit": "b2b99e83cfa3e8b194677c23c722748f25e60c43",
+  "base_commit": "859be1e3e93f612b19abdfa33badc605d320f241",
   "anchor_path": "data/_anchor_sc61a_n80_log.json",
   "anchor_sha256": "056792b347ab8157b8ac0e39bab42dc2baa38d63c949f2f316ad96673491294d",
   "env": {},
@@ -8,5 +8,5 @@
   "factions": "Orks",
   "seed_start": 0,
   "log_path": "data/screen_results/identity_check_log.json",
-  "notes": "Cross-machine reproducibility gate (docs/DISTRIBUTED_SCREENING.md). Orks-scoped, N=20, NO gate overrides -- byte-identical to the standing anchor, so a correct machine must reproduce EXACTLY ZERO flips against data/_anchor_sc61a_n80_log.json. Run this FIRST on any new machine; its screens do not count toward a keep/reject decision until this passes with 0 flips across every Orks cell. NOTE: base_commit currently pins this tooling worktree's commit -- regenerate this ticket (python -m scripts.make_screen_job --id identity_check --battles 20 --factions Orks --notes '...') once this branch merges to main, so base_commit tracks the merged SHA collaborators will actually check out."
+  "notes": ""
 }
