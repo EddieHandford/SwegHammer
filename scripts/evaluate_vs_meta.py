@@ -791,7 +791,20 @@ def main() -> None:
     import atexit
     import pathlib
     import time
-    _lock = pathlib.Path("data/_eval.lock")
+    # GLOBAL lock path (2026-07-09): a relative data/_eval.lock is PER-WORKTREE
+    # — agents screening from worktrees never saw the main tree's lock (nor it
+    # theirs), so "serial evals" silently never held across worktrees: the
+    # true mechanism of two box-saturation incidents. Anchor the lock at the
+    # git COMMON directory, shared by every worktree of this repository.
+    import subprocess as _lsp
+    try:
+        _common = _lsp.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            capture_output=True, text=True, timeout=15,
+        ).stdout.strip()
+        _lock = pathlib.Path(_common) / "sweg_eval.lock" if _common else pathlib.Path("data/_eval.lock")
+    except Exception:
+        _lock = pathlib.Path("data/_eval.lock")
     if _lock.exists() and os.environ.get("SWEG_EVAL_FORCE") != "1":
         # Aliveness probe. os.kill(pid, 0) is UNRELIABLE on Windows CPython —
         # it can raise SystemError ("<class 'OSError'> returned a result with
