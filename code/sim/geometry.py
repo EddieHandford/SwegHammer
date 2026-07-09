@@ -24,7 +24,9 @@ from .constants import (
     _PATHFIND_BIG_RADIUS_IN,
     PATHFIND_STAGE0_STATS,
     REACH_STATS,
+    TERRAIN_COLLISION_STATS,
 )
+from .los import path_blocked, wall_clamp
 
 
 def _distance(a: Tuple[float, float], b: Tuple[float, float]) -> float:
@@ -175,7 +177,8 @@ def _enemy_path_cap_t(start, end, mover_radius, occupants, mover_fly) -> float:
     return cap
 
 
-def _fan_to_goal(start, goal, max_dist, mover_radius, occupants, mover_fly, map_, best):
+def _fan_to_goal(start, goal, max_dist, mover_radius, occupants, mover_fly, map_, best,
+                 terrain_block_ruins=False):
     """Open-blocked reach recovery (wave 211, gated SWEG_REACH_FIX). A BIG mover whose
     straight end was blocked by a FRIENDLY/terrain (the caller gates this to cap_t>=1,
     i.e. NO enemy on the straight path) and whose pathfinder could not place its base
@@ -204,6 +207,8 @@ def _fan_to_goal(start, goal, max_dist, mover_radius, occupants, mover_fly, map_
                 continue                                  # out of this move's reach
             if map_.is_blocked((cx, cy)):
                 continue
+            if terrain_block_ruins and path_blocked(start, (cx, cy), map_):
+                continue                                  # ring approach crosses a wall → skip
             if _enemy_path_cap_t(start, (cx, cy), mover_radius, occupants, mover_fly) < 1.0:
                 continue                                  # path crosses an enemy → screened, skip
             if not _collision_pos_legal((cx, cy), mover_radius, occupants, mover_fly):
@@ -222,12 +227,24 @@ def _move_toward(
     occupants=None,
     mover_fly: bool = False,
     sidestep: bool = True,
+    terrain_block_ruins: bool = False,
 ) -> Tuple[float, float]:
     """Move from start toward goal up to max_dist inches.
 
     Clamps to map bounds. If the destination point lies inside impassable
     terrain, the move is aborted and the unit stays put — crude but enough
     for Phase A.
+
+    Terrain wall collision (terrain-realism Stage T2, gate SWEG_TERRAIN_COLLISION,
+    default-OFF / byte-identical): when the caller passes ``terrain_block_ruins=True``
+    (set by ``Battle._collision_kwargs`` only for a non-FLY, non-INFANTRY mover while
+    the gate is on), a move whose straight segment would cross a Ruin / Impassable
+    wall is CLAMPED to the near face of that wall (``code.sim.los.wall_clamp``)
+    instead of tunnelling through it, and the off-axis candidate-destination pickers
+    (the pathfinder fan and the angular sidesteps) reject candidates whose approach
+    crosses a wall so an unblocked route is preferred. Default False → every wall
+    branch below is skipped and the function is byte-identical to its pre-existing
+    behaviour. Cited as ``simulator.terrain_wall_collision``.
 
     Avenue-2 Stage 1 no-overlap collision (default-OFF / byte-identical): when
     `occupants` is None (every caller today, and whenever SWEG_COLLISION is off) the
@@ -250,6 +267,16 @@ def _move_toward(
     new_point = (new_x, new_y)
     if map_.is_blocked(new_point):
         return start
+    # Terrain wall collision (Stage T2, gated). Clamp the straight destination to
+    # the near side of the first Ruin/Impassable wall its segment would cross, so
+    # the mover stops at the wall instead of tunnelling through it. Runs before the
+    # occupants fast-path below so it applies even when model collision is off.
+    if terrain_block_ruins:
+        TERRAIN_COLLISION_STATS["considered"] += 1
+        clamped = wall_clamp(start, new_point, map_, block_ruins=True)
+        if clamped != new_point:
+            TERRAIN_COLLISION_STATS["clamped"] += 1
+            new_point = clamped
     if occupants is None:
         return new_point
     # Collision ON. Faithful 10e movement vs other models (cited
@@ -312,6 +339,11 @@ def _move_toward(
     if mover_radius >= _PATHFIND_BIG_RADIUS_IN and __import__("os").environ.get("SWEG_PATHFIND", "1") != "0":
         walls = map_.wall_segments() if map_ is not None else ()
         p = find_path(start, goal, max_dist, mover_radius, occupants, walls=walls, map_=map_)
+        # Stage T2: the coarse A* grid does not know the ruin rectangles (wall_segments
+        # is empty until per-ruin walls are encoded), so clamp its result to the near
+        # face of any wall the straight run to it would cross.
+        if terrain_block_ruins:
+            p = wall_clamp(start, p, map_, block_ruins=True)
         if _collision_pos_legal(p, mover_radius, occupants, mover_fly):
             best = p   # pathfinder's furthest legal point (may still strand the base short)
         # Open-blocked reach recovery (gated SWEG_REACH_FIX, default-ON; =0 reverts):
@@ -321,7 +353,8 @@ def _move_toward(
         # legal spot near the goal it could not stack on (per-candidate enemy-clear).
         if cap_t >= 1.0 and __import__("os").environ.get("SWEG_REACH_FIX", "1") != "0":
             best = _fan_to_goal(start, goal, max_dist, mover_radius, occupants,
-                                mover_fly, map_, best)
+                                mover_fly, map_, best,
+                                terrain_block_ruins=terrain_block_ruins)
         return best
     if not sidestep:
         # Big movers (blocker-makes-way model): stop straight at the blocker — an
@@ -340,6 +373,9 @@ def _move_toward(
         cy = max(0.0, min(map_.height, sy + reach * _m.sin(ang)))
         if map_.is_blocked((cx, cy)):
             continue
+        if terrain_block_ruins and path_blocked(start, (cx, cy), map_):
+            TERRAIN_COLLISION_STATS["candidates_rejected"] += 1
+            continue                                  # sidestep crosses a wall → skip
         if not _collision_pos_legal((cx, cy), mover_radius, occupants, mover_fly):
             continue
         d2 = (cx - goal[0]) ** 2 + (cy - goal[1]) ** 2

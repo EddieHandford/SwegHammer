@@ -735,6 +735,49 @@ class Army:
         """Record that `key` has used `effect` this round."""
         self._unit_budget_used.setdefault(effect, set()).add(key)
 
+    # Sentinel key used by `fate_budget_key` under SWEG_AELDARI_FATE_FAITHFUL
+    # to collapse the four fate_* budgets from per-squad to army-wide.
+    _FATE_ARMY_WIDE_KEY = "__ARMY_WIDE_FATE__"
+
+    def fate_budget_key(self, squad_id: int, profile_name: str) -> object:
+        """Key for the four Strands of Fate once-per-round budgets
+        (fate_advance / fate_charge / fate_hit / fate_save).
+
+        Default (gate off, byte-identical): per-squad key — squad_id when
+        the unit has a valid squad_id (>= 0), otherwise profile_name (task
+        #28 squad_id re-key). Unchanged behaviour.
+
+        SWEG_AELDARI_FATE_FAITHFUL (default off): Wahapedia Strands of Fate
+        is verbatim an ARMY-WIDE once-per-phase resource — "Once per phase,
+        before making a dice roll for a model or unit from your army with
+        the Strands of Fate ability, if you have one or more dice in your
+        Fate dice pool, you can use one of those Fate dice"
+        (https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate)
+        — ONE substitution per phase for the WHOLE ARMY from the single
+        6-die pool, not one per squad. Under the gate every unit in the
+        army collapses onto one shared key per roll-type, so
+        `mark_unit_budget` records the whole army (not just one squad) as
+        having spent that roll-type's substitution this round.
+
+        The four roll-types (fate_advance / fate_charge / fate_hit /
+        fate_save) are a documented APPROXIMATION of the codex's single
+        "once per phase" grant: they map to the four phase contexts a Fate
+        die is actually spent in during this simulator (Movement,
+        Charge, Shooting/Fight-hit, Shooting/Fight-save), so the gate caps
+        spending at a maximum of 4 substitutions per round army-wide,
+        instead of the true once-per-phase-for-any-roll-in-that-phase. This
+        is a directional fidelity fix versus the current per-squad budget
+        (up to ~36-40 spends/round for a 9-10-squad army) — not a literal
+        re-implementation of "once per phase" — because the simulator has
+        no single unified per-phase gate across roll types. Byte-identical
+        off (the gate is only read here, and only this key computation
+        changes — the 6-die pool and every spend-decision heuristic are
+        untouched). Cited as `simulator.strands_of_fate`.
+        """
+        if os.environ.get("SWEG_AELDARI_FATE_FAITHFUL", "1") != "0":  # ADOPTED default-on 2026-07-08 (sc59a rider; =0 kill-switch)
+            return self._FATE_ARMY_WIDE_KEY
+        return squad_id if squad_id >= 0 else profile_name
+
     def pop_miracle_die_meeting(self, threshold: int) -> Optional[int]:
         """Greedy spend: remove and return the LOWEST die in the pool
         that is >= `threshold`. Mirrors `pop_fate_die_meeting` — the

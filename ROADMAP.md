@@ -152,6 +152,7 @@ in real play.
   - Chaos Knights: Harbingers of Dread army rule (Deathly Terror Battle-shock aura + Doom wound-roll bonus vs Battle-shocked targets) + Iconoclast Fiefdom detachment: Dread Tyrants Aura (War Dog units re-roll hit and wound 1s while a friendly TITANIC Chaos Knights unit is within 9")
   - Astra Militarum: Voice of Command Orders (Officers issue per-datasheet Order counts to REGIMENT / SQUADRON / TITANIC units — wave 243 made REGIMENT and SQUADRON first-class unit keywords from the BSData categoryLink entries, replacing a BATTLELINE proxy that silently blocked nearly the whole faction; "First Rank, Fire! Second Rank, Fire!" is only issued to units that actually carry a Rapid Fire weapon, since the rule text buffs Rapid Fire weapons exclusively — tanks receive Take Aim! instead) + Flexible Command stratagem (widens a REGIMENT-only Officer's eligible set to SQUADRON for the round) + Grizzled Company detachment (env-gated `SWEG_AM_GRIZZLED`, default OFF — the real top-performing Astra Militarum detachment released Grotmas December 2025, previously entirely absent from the simulator: Ruthless Discipline gives +1 Order per Officer and re-rolls Hit rolls of 1 for attacks made by a unit affected by an Order; byte-identical to the pre-existing Combined Arms default when the gate is off)
   - Adeptus Astartes: **[pending — needs retry]** Oath of Moment + Combat Doctrines
+  - Emperor's Children: Coterie of the Conceited detachment (env-gated `SWEG_EC_DETACHMENT`, default OFF — the confirmed competitive go-to detachment, previously entirely absent so the faction ran with no detachment at all: Slaanesh's Due grants four cumulative attack bonuses keyed to a running Pact-point total that accrues one point per enemy unit destroyed while the Warlord lives — 1+ re-roll Hit rolls of 1, 3+ re-roll Wound rolls of 1, 5+ melee weapons gain [LETHAL HITS] and [SUSTAINED HITS 1], 7+ a Critical Hit on an unmodified Hit roll of 5+; the player-chosen pledge is idealised as competent play and the missed-pledge mortal-wound downside honestly omitted; byte-identical to the pre-existing no-detachment path when the gate is off)
 - **Core 10e mechanics**: Hit/Wound/Save w/ crits, AP+invuln+FNP, 18 weapon
   keywords, Cover (light/heavy/obscuring), Big Guns Never Tire (both
   directions — the attacker's own in-engagement -1 and the reciprocal
@@ -216,8 +217,10 @@ modelled first.
   - 5 new per-faction stratagems shipped this session: Implacable Onslaught
     + Methodical Destruction (Necrons), Cabbalistic Empowerment (TSON),
     Spirit Stones (Aeldari/Saim-Hann), Strike Swiftly (T'au/Mont'ka).
-- **Detachments**: 25 total (was 21). Each faction now has at least
-  one canonical detachment; 4 majors (Marines, Necrons, Aeldari, DG) have
+- **Detachments**: 26 total (was 21). Each faction now has at least
+  one canonical detachment (Emperor's Children's Coterie of the Conceited,
+  the 26th, is env-gated `SWEG_EC_DETACHMENT` default-off pending its
+  adoption screen); 4 majors (Marines, Necrons, Aeldari, DG) have
   a second:
   - Marines: Gladius + Ironstorm Spearhead
   - Necrons: Awakened Dynasty + Canoptek Court

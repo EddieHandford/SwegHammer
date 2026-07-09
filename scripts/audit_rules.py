@@ -154,6 +154,17 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # `simulator.hearthband_methodical_annihilation` in
     # data/rule_citations.d/votann.json.
     ("hearthband_methodical_annihilation", False),
+    # Emperor's Children Coterie of the Conceited — Slaanesh's Due (EC-COTERIE-
+    # V1). A single flag driving the whole escalating Pact-point economy: the
+    # Battle hook `_ec_pledge_pact_points` / `_settle_ec_pact_points` tracks the
+    # running Pact total and Unit.attack reads it to grant the four cumulative
+    # attack bonuses (re-roll Hit 1s / re-roll Wound 1s / melee [LETHAL HITS] +
+    # [SUSTAINED HITS 1] / Critical Hit on unmodified 5+). Gated
+    # SWEG_EC_DETACHMENT (default OFF). Cited as
+    # `COTERIE_OF_THE_CONCEITED.coterie_pact_points` and
+    # `simulator.ec_coterie_pact_points` in
+    # data/rule_citations.d/emperors_children.json.
+    ("coterie_pact_points", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
@@ -707,6 +718,19 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # code.map.Map.has_line_of_sight via attacker_keywords / target_keywords
     # threaded from the simulator's _do_shoot / _apply_firing_deck call sites.
     "terrain.ruin_infantry_los",
+    # Terrain-realism substrate (docs/TERRAIN_REALISM_PROPOSAL.md), code/sim/los.py.
+    # SWEG_TERRAIN_COLLISION (default-off): a non-FLY, non-INFANTRY move may not
+    # cross a RUIN/IMPASSABLE wall — it clamps at the wall (code.sim.los.wall_clamp)
+    # rather than tunnelling through it (open issue 52). INFANTRY/BEASTS move
+    # through ruin walls per the 10e Ruins movement rule. See
+    # data/rule_citations.d/terrain_realism.json.
+    "simulator.terrain_wall_collision",
+    # SWEG_TERRAIN_LOS (default-off): shooting target legality requires line of
+    # sight, routed through the shared substrate code.sim.los.has_los (delegates
+    # to Map.has_line_of_sight); Indirect Fire weapons are exempt. Byte-identical
+    # off (the pre-existing Map.has_line_of_sight legality check already applies).
+    # See data/rule_citations.d/terrain_realism.json.
+    "simulator.terrain_los_gate",
     # 10e core-rules cap: "Hit roll modifiers are cumulative, but the Hit
     # roll for an attack can never be modified by more than -1 or +1." Same
     # text for the Wound roll. Enforced in code/units.py Unit.attack by
@@ -751,6 +775,18 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Wave 203 (#87) — The Ritual primary: 5VP per No Man's Land marker controlled
     # (cap 15); home-zone markers score nothing (the_ritual branch of _score_objectives).
     "simulator.primary_the_ritual",
+    # SWEG_PRIMARY_DECK_FULL — the five remaining CA-2025-26 primaries, each a
+    # disclosed partial (see data/rule_citations.d/primary_missions.json for the
+    # exact omission per card): Linchpin (home-marker-gated 3VP/5VP), Burden of
+    # Trust (4VP/non-home marker, guard-VP clause not modelled), Unexploded
+    # Ordnance (Hazard-proximity bands, Move Hazard Action not modelled), Hidden
+    # Supplies (cumulative weighted hold, setup-step extra marker not modelled),
+    # Supply Drop (escalating VP with Alpha/Omega razing on a schedule).
+    "simulator.primary_linchpin",
+    "simulator.primary_burden_of_trust",
+    "simulator.primary_unexploded_ordnance",
+    "simulator.primary_hidden_supplies",
+    "simulator.primary_supply_drop",
     # 10e Imperial / Chaos Knights "Damaged: Wounds Remaining" datasheet ability,
     # both clauses. OC half: Battle._effective_oc (wave 85). Hit half: Unit.attack
     # hit_mod_delta -= 1 when on the Damaged bracket (wave 188). Registered here so
@@ -776,6 +812,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Gate SWEG_EC_DAEMONETTE_FF suppresses it for Emperor's Children Daemonettes.
     # Cited in data/rule_citations.d/emperors_children.json.
     "simulator.ec_daemonette_fights_first",
+    # EC-COTERIE-V1 — Emperor's Children Coterie of the Conceited detachment
+    # rule "Slaanesh's Due". The bespoke Pact-point tracker: the Battle hook
+    # `_settle_ec_pact_points` (end-of-round accrual of one Pact point per enemy
+    # unit destroyed while the Warlord lives — the competent-pledge
+    # idealisation). Unit.attack reads the running Pact total to grant the four
+    # cumulative attack bonuses. Gated SWEG_EC_DETACHMENT (default OFF). Cited
+    # in data/rule_citations.d/emperors_children.json (this simulator gate plus
+    # the detachment-flag key COTERIE_OF_THE_CONCEITED.coterie_pact_points).
+    "simulator.ec_coterie_pact_points",
     # Two-card hand cap for the legacy-union secondary fallback (env-gated
     # SWEG_SECONDARY_HANDCAP, default OFF; recovered 2026-06-29 from git 58acc4b).
     # When ON, Battle._score_secondaries_deck caps the round total at the two
@@ -1111,6 +1156,24 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # _suppress_advance block in code/simulator.py _do_move. Cited in
     # data/rule_citations.d/tyranids.json.
     "simulator.tyranids_ranged_hold",
+    # SWEG_ASTARTES_RANGED_HOLD (default-OFF screening gate, 2026-07-03). AI
+    # piloting heuristic (same as simulator.am_advance_discipline /
+    # ck_ranged_hold / votann_ranged_hold / tsons_ranged_hold /
+    # soror_ranged_hold / tyranids_ranged_hold, Adeptus-Astartes-scoped): the
+    # faction's dedicated fire platforms (Repulsor, Predator, Vindicator,
+    # Gladiator/Ballistus/Redemptor, Land Raiders, Devastator, Eradicator and
+    # the ranged CHARACTERS) hold and shoot instead of Advancing and forfeiting
+    # their Shooting phase, while the core bolter infantry (Intercessors,
+    # Tacticals, Scouts) and every [ASSAULT] unit (Hellblasters, Inceptors,
+    # Terminator Assault, Vanguard, Bladeguard) stay free to Advance onto
+    # objectives (roster-filter audit: scripts/diag_astartes_filter.py holds 73
+    # fire-platform/character units, 0 core-infantry units). Derived from
+    # watched pilot-observation (the Orks seed-1 6-67 blow-out was the gunline
+    # ground up in melee; the Necrons seed-2 Eradicators Advanced round 2 firing
+    # nothing). Eighth entry point _ad_astartes on the shared _suppress_advance
+    # block in code/simulator.py _do_move. Cited in
+    # data/rule_citations.d/marines.json.
+    "simulator.astartes_ranged_hold",
     # SWEG_STAGING (default-off, byte-identical off). The faction-neutral
     # closing-side counterpart of the ranged-hold family: a unit whose commit
     # would deliver it EXPOSED into a significant enemy threat envelope while it
@@ -1183,6 +1246,23 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # approximation the point geometry supports. Cited in
     # data/rule_citations.d/melee_caging.json.
     "simulator.melee_caging",
+    # SWEG_MELEE_HOLD_OBJECTIVE (default-off, faction-neutral, byte-identical
+    # off). Score-what-you-hold late-game hold (pick_move_intent,
+    # code/strategy.py): in the scoring rounds (4 and 5), a MELEE unit that
+    # CURRENTLY CONTROLS the objective it stands on (its army's Objective
+    # Control there strictly exceeds the enemy's) does not vacate that marker
+    # to charge a durable brick (Toughness 10+ or 15+ Wounds, the same
+    # simulator.antitank_advance_discipline brick definition) it cannot
+    # meaningfully damage (under ~1 wound of melee via _kill_potential_wounds).
+    # It returns a stationary HOLD and keeps scoring the primary instead of
+    # surrendering it for a futile charge. An artificial-intelligence piloting
+    # heuristic composed with the already-cited core Objective Control rule —
+    # not a charge-target redirect (the rejected SWEG_ELITE_ANTIBRICK) and not
+    # a blanket charge-block (the rejected SWEG_AM_CHARGE_DISCIPLINE). The
+    # board-read evidence is the Chaos Daemons objective-abandonment misplay
+    # documented in docs/PILOT_PROTOCOL.md. Cited in
+    # data/rule_citations.d/melee_hold_objective.json.
+    "simulator.melee_hold_objective",
     "unit.necrodermis",
     # Wave 181 — CA-2025-26 Tactical-track flat kill card VP values.
     # When a TACTICAL-track army (SWEG_TAC_DECK path) draws one of these three
@@ -1310,6 +1390,19 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # nominee (per-army _persistent_nom_uid / _focusfire_target_uid channels, set
     # only on that army's own turn). Documented in the same citation; no new key.
     "simulator.persistent_nomination",
+    # Threat-projection field, consumer 1 (2026-07-09 owner-originated design;
+    # docs/THREAT_LAYER_PROPOSAL.md) — charge-target scoring (env-gated
+    # SWEG_THREAT_CHARGE, default OFF). AI piloting heuristic in
+    # code/strategy.py pick_charge_target: replaces the target-only melee
+    # threat_against denominator with the post-fight threat FIELD at the charge
+    # destination (the target PLUS every other enemy whose Move + real 2D6
+    # charge reach bears on the cell, minus the target's own contribution
+    # weighted by the probability the fight kills it — the two-Berzerker case).
+    # Reuses the audited expected-wounds math (strategy._kill_potential_wounds,
+    # simulator._ranged_expected_wounds) and the audited save_probability cover
+    # tax; draws no new random number. Cited in
+    # data/rule_citations.d/threat_layer.json.
+    "simulator.threat_projection_charge",
     # Rotate Ion Shields (Imperial Knights Household, 1 CP, Wargear
     # Stratagem, durability fidelity wave audit B fix B2, env-gated
     # SWEG_IK_ROTATE_IONS, default ON per the Custodes-batch precedent for

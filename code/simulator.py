@@ -159,8 +159,11 @@ from .sim.constants import (  # noqa: F401  (re-exported for the public surface)
     PATHFIND_STAGE0_STATS,
     REACH_STATS,
     STRAND_STATS,
+    TERRAIN_COLLISION_STATS,
+    TERRAIN_LOS_STATS,
     _PATHFIND_BIG_RADIUS_IN,
 )
+from .sim import los
 # Pure geometry helpers moved verbatim to code/sim/geometry.py (Stage A of
 # docs/SIM_MODULARIZATION_PLAN.md). Re-imported here (after the constants they
 # depend on are bound above) so this module's public surface is unchanged:
@@ -484,14 +487,37 @@ class Battle:
         # Drives the Heavy keyword (+1 to hit if attacker did NOT move).
         # Reset each round.
         self._did_move_this_round: set = set()
-        # UIDs of units that disembarked from a TRANSPORT this round (10e
-        # core: "If a unit disembarks from a Transport in your Movement
-        # phase, it cannot make a Normal, Advance or Fall Back move that
-        # turn. The unit is then treated as having moved a distance equal
-        # to its Move characteristic this turn."). The unit may still
-        # Shoot and Charge normally. Reset each round. Cited as
-        # `simulator.disembark`.
+        # UIDs of units that disembarked from a TRANSPORT this round. Real
+        # 10e core rule (Wahapedia, verbatim, re-verified 2026-07-08 — the
+        # OLD comment here paraphrased the "made a Normal move already"
+        # branch as if it were the ONLY branch, which was wrong): "Units
+        # that disembark from a TRANSPORT model that either Remained
+        # Stationary this phase or has not yet made a Normal, Advance or
+        # Fall Back move this phase can then act normally (make a Normal
+        # move, Advance, shoot, declare a charge, fight, etc.) ... Units
+        # that disembark from a TRANSPORT model that made a Normal move
+        # this phase count as having made a Normal move themselves; they
+        # cannot move further during this phase [and] cannot declare a
+        # charge in the same turn, but can otherwise act normally."
+        # SwegHammer's `_maybe_disembark_before_move` always fires BEFORE
+        # the transport's own move decision for that activation, so a
+        # voluntary disembark always lands in the FIRST branch (full acts)
+        # — see SWEG_TRANSPORT_PLAY in `_disembark`. Default OFF preserves
+        # the historical approximation (blanket movement lockout, no
+        # charge lockout) for byte-identical behaviour. Forced disembark
+        # (Destroyed Transport) is its own carve-out — always "counts as
+        # a Normal move ... cannot declare a charge" regardless of the
+        # flag; see `_forced_disembark_charge_locked_this_round` below and
+        # `simulator.destroyed_transport`. Reset each round. Cited as
+        # `simulator.disembark` / `simulator.transport_play_disembark_full_acts`.
         self._disembarked_this_round: set = set()
+        # SWEG_TRANSPORT_PLAY (default-off): UIDs force-disembarked from a
+        # DESTROYED transport this round, which per the real rule "cannot
+        # declare a charge this turn" regardless of movement timing (unlike
+        # a voluntary before-move disembark, which the fix above frees to
+        # charge normally). Read by `_do_charge`. Reset each round. Cited as
+        # `simulator.transport_play_disembark_full_acts`.
+        self._forced_disembark_charge_locked_this_round: set = set()
         # UIDs of units that have already fired their One Shot weapon this
         # battle. Once a uid is here, the unit may not shoot again.
         # Persists for the whole battle (NOT reset per round).
@@ -540,6 +566,14 @@ class Battle:
         # in-progress Terraform Action target (mirrors _burn_targets).
         self._terraformed_owner: dict = {}
         self._terraform_targets: dict = {}
+        # Supply Drop primary (gated SWEG_PRIMARY_DECK_FULL / SWEG_SUPPLY_DROP):
+        # the two No Man's Land objectives (excluding the exact board-centre
+        # marker) designated Alpha/Omega at battle start — Alpha razed at the
+        # start of round 4, Omega at the start of round 5, reusing
+        # `_razed_objectives`. None until `_assign_supply_drop_targets` runs;
+        # () if the map has no eligible No Man's Land marker. Cited
+        # simulator.primary_supply_drop.
+        self._supply_drop_alpha_omega: Optional[tuple] = None
         # Stratagem book-keeping. Each army keeps a set of stratagem names
         # already fired this battle (used for once_per_battle stratagems —
         # the four universals are not once-per-battle but the field is here
@@ -652,9 +686,13 @@ class Battle:
     def run(self) -> BattleResult:
         # Battle Focus tokens (Aeldari ASURYANI army rule, 10e). The token
         # pool is now granted PER BATTLE ROUND in _run_round, not once here.
-        # Tokens accumulate (additive carryover — the Wahapedia rule says
-        # "you receive" per round; it does not say unspent tokens are discarded,
-        # so we carry over). Amounts are battle-size-dependent (see
+        # By default the grant is additive across rounds (legacy behaviour).
+        # CORRECTED CITATION: Wahapedia states verbatim "At the end of the
+        # battle round, all unspent Battle Focus tokens are lost" — under the
+        # default-off gate `SWEG_AELDARI_BF_DISCARD`, `_run_round` zeroes each
+        # army's pool at the end of every round so it does not carry over (see
+        # `_grant_battle_focus_tokens` and the end-of-round reset in
+        # `_run_round`). Amounts are battle-size-dependent (see
         # _grant_battle_focus_tokens). Army.battle_focus_tokens starts at 0
         # (set in Army.__init__) and is never written here; the first grant
         # fires at the start of Round 1 in _run_round.
@@ -1372,6 +1410,13 @@ class Battle:
         # primaries, several of which (Purge the Foe, Scorched Earth) penalise
         # static holding. Cited simulator.primary_mission_rotation.
         mission = getattr(self, "primary_mission", "take_and_hold") or "take_and_hold"
+        # Supply Drop (gated SWEG_PRIMARY_DECK_FULL): designate Alpha/Omega and
+        # raze whichever of them is due BEFORE the objective loop below, so this
+        # round's control/scoring pass already reflects the removal. No-op unless
+        # mission == "supply_drop". Cited simulator.primary_supply_drop.
+        if mission == "supply_drop":
+            self._assign_supply_drop_targets()
+            self._resolve_supply_drop_removals()
         a_th_award = 0
         b_th_award = 0
         a_controls = 0
@@ -1380,6 +1425,19 @@ class Battle:
         # controlled-marker counts separately (per-side).
         a_controls_nml = 0
         b_controls_nml = 0
+        # SWEG_PRIMARY_DECK_FULL additions: per-side counters for the five
+        # previously-unmodelled CA-2025-26 primaries (Linchpin, Burden of Trust,
+        # Unexploded Ordnance, Hidden Supplies, Supply Drop reuses a_controls_nml
+        # above). Cheap to always compute; only read by their own mission branch.
+        # Cited simulator.primary_linchpin / primary_burden_of_trust /
+        # primary_unexploded_ordnance / primary_hidden_supplies in
+        # data/rule_citations.d/primary_missions.json.
+        a_controls_nondz = 0
+        b_controls_nondz = 0
+        a_home_ctrl = False
+        b_home_ctrl = False
+        a_uo_vp = 0
+        b_uo_vp = 0
 
         # Board-control instrument (avenue-2 Stage 0) — read-only, gated. Snapshots
         # OC-packing / footprint-overlap / big-model-in-ruin at settled positions.
@@ -1490,10 +1548,42 @@ class Battle:
                 a_controls += 1
                 if self._obj_in_nml(obj):
                     a_controls_nml += 1
+                # Linchpin / Burden of Trust / Hidden Supplies (SWEG_PRIMARY_DECK_
+                # FULL): "the objective marker in their deployment zone" and
+                # "not within their deployment zone" both key off _obj_in_own_dz.
+                if self._obj_in_own_dz(obj, own_is_army_a=True):
+                    a_home_ctrl = True
+                else:
+                    a_controls_nondz += 1
             elif scorer == self.b.name:
                 b_controls += 1
                 if self._obj_in_nml(obj):
                     b_controls_nml += 1
+                if self._obj_in_own_dz(obj, own_is_army_a=False):
+                    b_home_ctrl = True
+                else:
+                    b_controls_nondz += 1
+            # Unexploded Ordnance (SWEG_PRIMARY_DECK_FULL): every No Man's Land
+            # marker is a Hazard marker, VP banded by distance to the OPPONENT's
+            # deployment zone edge. The 8VP "wholly within opponent's deployment
+            # zone" band needs the Move Hazard Action (repositioning the marker up
+            # to 6" per turn), which is NOT modelled — a No Man's Land marker's
+            # fixed position can never reach that zone, so only the 5VP/2VP bands
+            # are reachable here (a disclosed partial). Cited
+            # simulator.primary_unexploded_ordnance.
+            if mission == "unexploded_ordnance" and self._obj_in_nml(obj):
+                if scorer == self.a.name:
+                    _d = (self.map.height - self.map.deployment_width) - obj.y
+                    if _d <= 6:
+                        a_uo_vp += 5
+                    elif _d <= 12:
+                        a_uo_vp += 2
+                elif scorer == self.b.name:
+                    _d = obj.y - self.map.deployment_width
+                    if _d <= 6:
+                        b_uo_vp += 5
+                    elif _d <= 12:
+                        b_uo_vp += 2
             _award = scorer if (only_for is None or scorer == only_for) else None
             if _award == self.a.name:
                 a_th_award += obj.vp_per_round
@@ -1603,6 +1693,115 @@ class Battle:
                 self._a_vp += min(5 * a_controls_nml, 15)
             if only_for is None or only_for == self.b.name:
                 self._b_vp += min(5 * b_controls_nml, 15)
+        elif mission == "linchpin":
+            # Linchpin (Chapter Approved 2025-26, SWEG_PRIMARY_DECK_FULL): "If the
+            # player whose turn it is does not control the objective marker in
+            # their deployment zone, they score 3VP for each objective marker they
+            # control. OR If [they do] control the objective marker in their
+            # deployment zone, they score 3VP for controlling that objective
+            # marker, and 5VP for each other objective marker they control (up to
+            # 15VP per turn)." Verbatim text has NO cap on the first branch. On our
+            # maps at most one objective ever sits in a side's own deployment zone
+            # (a_home_ctrl computed in the loop above via _obj_in_own_dz); on the 3
+            # of 5 rotation maps with zero home markers, a_home_ctrl is always
+            # False and the flat 3VP-per-marker branch applies unconditionally,
+            # matching the real card. Cited simulator.primary_linchpin.
+            if only_for is None or only_for == self.a.name:
+                if a_home_ctrl:
+                    self._a_vp += min(3 + 5 * (a_controls - 1), 15)
+                else:
+                    self._a_vp += 3 * a_controls
+            if only_for is None or only_for == self.b.name:
+                if b_home_ctrl:
+                    self._b_vp += min(3 + 5 * (b_controls - 1), 15)
+                else:
+                    self._b_vp += 3 * b_controls
+        elif mission == "burden_of_trust":
+            # Burden of Trust (Chapter Approved 2025-26, SWEG_PRIMARY_DECK_FULL):
+            # "The player whose turn it is scores 4VP for each objective marker
+            # they control that is not within their deployment zone." Verbatim
+            # text has NO cap on this clause (the only CA-2025-26 primary hold
+            # clause without a stated per-round ceiling). a_controls_nondz /
+            # b_controls_nondz are the per-side controlled-and-outside-own-DZ
+            # counts from the loop above.
+            #
+            # PARTIAL, disclosed: the card's second scoring clause ("The opponent
+            # of the player whose turn it is scores 2VP for each of their units...
+            # that are within range of and guarding an objective marker they
+            # control") needs true per-player-turn granularity (a unit is
+            # nominated to guard at one player's Command phase and scores at the
+            # OTHER player's end of turn) that this round-batched scorer does not
+            # have, and is NOT modelled — the same documented-gap pattern as The
+            # Ritual's un-modelled Action above. Cited
+            # simulator.primary_burden_of_trust.
+            if only_for is None or only_for == self.a.name:
+                self._a_vp += 4 * a_controls_nondz
+            if only_for is None or only_for == self.b.name:
+                self._b_vp += 4 * b_controls_nondz
+        elif mission == "unexploded_ordnance":
+            # Unexploded Ordnance (Chapter Approved 2025-26, SWEG_PRIMARY_DECK_
+            # FULL): a_uo_vp / b_uo_vp accumulate the 5VP/2VP Hazard-proximity
+            # bands per marker in the loop above (see the comment there for the
+            # disclosed Move-Hazard-Action gap — the 8VP band is unreachable
+            # without it). Cited simulator.primary_unexploded_ordnance.
+            if only_for is None or only_for == self.a.name:
+                self._a_vp += a_uo_vp
+            if only_for is None or only_for == self.b.name:
+                self._b_vp += b_uo_vp
+        elif mission == "hidden_supplies":
+            # Hidden Supplies (Chapter Approved 2025-26, SWEG_PRIMARY_DECK_FULL):
+            # "5VP if they control one objective marker not within their
+            # deployment zone. 5VP if they control two objective markers not
+            # within their deployment zone. 5VP if they control more objective
+            # markers than their opponent controls." (cumulative). The third
+            # bullet is unqualified in the source text (unlike the first two), so
+            # — matching Purge the Foe's identically-unqualified "more objective
+            # markers than their opponent controls" clause — it reads off the
+            # ALL-objectives a_controls / b_controls totals, not the not-in-own-DZ
+            # subset. PARTIAL, disclosed: the mission's setup step (add a new
+            # objective marker in No Man's Land, first repositioning the centre
+            # marker toward a corner) is NOT modelled — the sim's per-map
+            # objective set is fixed, so this scores against the EXISTING marker
+            # set only, the same fixed-objective-set limitation as The Ritual's
+            # un-modelled Action. Cited simulator.primary_hidden_supplies.
+            if only_for is None or only_for == self.a.name:
+                a_hs = ((5 if a_controls_nondz >= 1 else 0)
+                        + (5 if a_controls_nondz >= 2 else 0)
+                        + (5 if a_controls > b_controls else 0))
+                self._a_vp += a_hs
+            if only_for is None or only_for == self.b.name:
+                b_hs = ((5 if b_controls_nondz >= 1 else 0)
+                        + (5 if b_controls_nondz >= 2 else 0)
+                        + (5 if b_controls > a_controls else 0))
+                self._b_vp += b_hs
+        elif mission == "supply_drop":
+            # Supply Drop (Chapter Approved 2025-26, SWEG_PRIMARY_DECK_FULL): "The
+            # player whose turn it is scores the following VP for each objective
+            # marker in No Man's Land that they control, depending on the current
+            # battle round: 5VP in the second and third battle rounds. 8VP in the
+            # fourth battle round. 15VP in the fifth battle round." This scores
+            # over ALL remaining (non-razed) No Man's Land markers, not just the
+            # Alpha/Omega pair — Alpha/Omega only decide which TWO markers get
+            # removed (`_resolve_supply_drop_removals`, called before the
+            # objective loop above) at the start of rounds 4 and 5 respectively;
+            # verbatim text has NO cap on the per-marker VP. a_controls_nml /
+            # b_controls_nml already exclude razed markers (the loop above skips
+            # `obj_idx in self._razed_objectives`). PARTIAL, disclosed: the real
+            # Alpha/Omega pick is RANDOM; `_assign_supply_drop_targets` picks the
+            # first two non-centre No Man's Land markers in map-definition order
+            # instead, to avoid perturbing the battle's deterministic random
+            # stream for games that never draw this mission. Cited
+            # simulator.primary_supply_drop.
+            if self._current_round >= 5:
+                _sd_per_marker = 15
+            elif self._current_round >= 4:
+                _sd_per_marker = 8
+            else:
+                _sd_per_marker = 5
+            if only_for is None or only_for == self.a.name:
+                self._a_vp += _sd_per_marker * a_controls_nml
+            if only_for is None or only_for == self.b.name:
+                self._b_vp += _sd_per_marker * b_controls_nml
         else:
             # take_and_hold (default, byte-identical to the legacy behaviour):
             # award the accumulated per-objective VP, then apply the 15 VP/round
@@ -1973,17 +2172,33 @@ class Battle:
         moves keep ER (allow_engagement=False) — only a Charge may end within 1".
         Note C perf: only the gated path pays this O(models) cost; benchmark +
         spatial-bucket if the Stage-1 A/B wall-clock exceeds 1.5x. No RNG."""
+        # Terrain wall collision (Stage T2, gate SWEG_TERRAIN_COLLISION, default-off):
+        # a non-FLY, non-INFANTRY/BEAST mover may not tunnel through a Ruin/Impassable
+        # wall — code.sim.geometry._move_toward clamps it at the wall. FLY movers pass
+        # over terrain; INFANTRY / BEASTS move through ruin walls in 10e (they carry no
+        # terrain block). Computed independently of SWEG_COLLISION (model collision) so
+        # the wall clamp applies even on the SWEG_COLLISION=0 path below. Cited as
+        # `simulator.terrain_wall_collision`. (No stock map is IMPASSABLE today, so
+        # infantry are effectively unblocked; a future IMPASSABLE map would want them
+        # blocked by it, which this single boolean does not yet express.)
+        terrain_block = False
+        if __import__("os").environ.get("SWEG_TERRAIN_COLLISION") == "1":
+            _mkw = mover.profile.unit_keywords or ()
+            terrain_block = (
+                "FLY" not in _mkw and "INFANTRY" not in _mkw and "BEAST" not in _mkw
+            )
+        terrain_kw = {"terrain_block_ruins": True} if terrain_block else {}
         # Collision is DEFAULT-ON (user ruling 2026-06-07: no-overlap collision is the
         # production baseline); set SWEG_COLLISION=0 to A/B the legacy no-collision path.
         if __import__("os").environ.get("SWEG_COLLISION", "1") == "0":
-            return {}
+            return terrain_kw
         friendly = getattr(mover, "army_ref", None)
         if friendly is self.a:
             enemy = self.b
         elif friendly is self.b:
             enemy = self.a
         else:
-            return {}
+            return terrain_kw
         occ = []
         for u in friendly.alive_units:
             if u is mover:
@@ -2001,6 +2216,7 @@ class Battle:
             "mover_radius": _bc_model_radius_in(mover.profile),
             "occupants": occupants,
             "mover_fly": "FLY" in (mover.profile.unit_keywords or ()),
+            **terrain_kw,
         }
 
     def _oc_within(self, army, obj) -> int:
@@ -2360,6 +2576,11 @@ class Battle:
         already-known board / hand state, so the paired common-random-number
         evaluation's downstream RNG stream is untouched on the ON path
         relative to itself, and untouched at all on the OFF path."""
+        # SWEG_TAC_TRACK_LIVE (2026-07-08 dormancy-diagnosis wave) — see
+        # `_tac_track_live_enabled` below. Checked first so it is a pure
+        # additional OR: default-off, byte-identical to every path beneath it.
+        if self._tac_track_live_enabled():
+            return True
         # ARMY-SCOPED ENTRY POINT (`SWEG_AM_SECONDARY_PURSUIT`, ADOPTED
         # default-on — the flip was lost in a later merge and restored
         # 2026-07-03 after an agent caught the anchor-config mismatch)
@@ -2377,6 +2598,72 @@ class Battle:
             (army.units[0].profile.faction or "") == "Astra Militarum"
             and os.environ.get("SWEG_AM_SECONDARY_PURSUIT", "1") != "0"
         )
+
+    def _tac_track_live_enabled(self) -> bool:
+        """SWEG_TAC_TRACK_LIVE — dormancy fix, wiring only. DEFAULT-OFF: unset
+        / anything but "1" changes nothing (every path this touches is an
+        additional `if ...: return True` ahead of unchanged existing logic).
+
+        DIAGNOSIS (five-facet audit, 2026-07-08): `_choose_secondary_track` /
+        `_tac_deck_enabled` (`SWEG_TAC_DECK`, DEFAULT-ON since wave 210) already
+        run the real Pariah Nexus choice — each army picks FIXED or TACTICAL
+        from its own capability (spare chaff + roster breadth), and a TACTICAL
+        army is already dealt a genuine 2-card hand from the full 19-card deck
+        and re-drawn every Command phase. That half of the pipeline is NOT
+        dormant; a 3-battle instrumented check (Necrons, Orks, Tyranids,
+        Astra Militarum, T'au Empire) confirmed every capable army reaches the
+        TACTICAL track and holds real cards (e.g. a T'au Empire hand of
+        `engage_on_all_fronts` / `cleanse` / `establish_locus` /
+        `defend_stronghold` across five activations in one game).
+
+        What IS dormant fleet-wide is the movement/assignment layer that
+        would put a spare unit into the position a held card actually pays
+        for: `_assign_card_pursuit` (Behind Enemy Lines, Engage on All
+        Fronts, Cleanse, the five BOARD take-and-hold cards) and the
+        Establish Locus / Recover Assets / A Tempting Target positional
+        filters all read the SAME `_secondary_pursuit_enabled` gate, which
+        the wave-121/2026-07-03 Principle-2 ruling scoped to exactly one
+        faction by name (Astra Militarum, `SWEG_AM_SECONDARY_PURSUIT`
+        default-on) — every other army's activation reads gate=False. The
+        same 3-battle check caught this directly: a T'au Empire army held
+        `engage_on_all_fronts` / `cleanse` / `establish_locus` /
+        `defend_stronghold` with 30, 20, 12, 4 and 3 spare chaff units
+        available on its five activations, `_assign_card_pursuit` returned
+        early every time (gate=False), and zero units ever received a
+        `pursue_target`. Even Astra Militarum only clears the gate when its
+        random 2-card draw happens to be one of the ~7 cards
+        `_assign_card_pursuit` actually routes toward (the other ~12 drawable
+        cards, e.g. `marked_for_death` / `a_tempting_target`, are pure-kill or
+        handled by their own separately-gated assignment function) — 3 of 5
+        AM activations in the same check drew only non-routed cards and
+        produced zero assignments despite 14 / 2 / 1 spare chaff being ready.
+
+        This flag makes `_secondary_pursuit_enabled` return True for BOTH
+        armies whenever a real TACTICAL-track army holds a pursuable card —
+        it widens WHO the already-built, already-cited pursuit/positional
+        machinery runs for (from "Astra Militarum only" to "any army the real
+        Fixed-vs-Tactical choice put on the Tactical track"). It changes
+        nothing in `_choose_secondary_track` (the track-selection heuristic)
+        and nothing in any `code/secondaries.py` scorer — only the
+        assignment/movement wiring already cited at
+        `simulator.secondary_card_pursuit_ai` and `simulator.am_secondary_pursuit`.
+
+        HELD, not adopted. The isolated mechanism this composes was already
+        screened twice and found not to move the headline metric on its own:
+        wave 121-122's unscoped `SWEG_TAC_PURSUE` A/B did not raise Behind
+        Enemy Lines / Cleanse achieve rates (35%->34% / 27%->24%, unchanged)
+        and washed at N=80 (deck-only 3.62 -> deck+pursuit 3.60, -0.02); the
+        fully-composed `SWEG_SECONDARY_PURSUIT` package separately measured
+        Astra Militarum +5.17 but fed the already-over-credited durable
+        factions (Necrons +4.89, Chaos Daemons +5.80) when run unscoped. Per
+        `docs/LEVER_PROTOCOL.md`'s family table ("Faction-NEUTRAL piloting /
+        target bias" — washes or feeds the durable side; do not build
+        unscoped), this gate exists ONLY to produce the requested mechanism
+        numbers (tactical-track selection rate, pursue-assignment counts,
+        mean secondary victory points) under controlled, default-off
+        conditions — it must not flip to default-on without a fresh screen
+        and a stated escape from both settled reads above."""
+        return __import__("os").environ.get("SWEG_TAC_TRACK_LIVE", "0") == "1"
 
     # ------------------------------------------------------------------
     # PRINCIPLE-2 ARMY-SCOPED ENTRY POINTS FOR THE PINNED CAPSTONE LEVERS
@@ -2428,6 +2715,19 @@ class Battle:
         "ORKS": "Orks",
         "SOROR": "Adepta Sororitas",
         "GSC": "Genestealer Cults",
+        # DAEMONS added 2026-07-04 (Chaos Daemons Principle-2 pilot). Chaos
+        # Daemons is the #2 under-pole (sim 44.2 vs real 52.6) and its crater is
+        # concentrated in the DURABLE over-poles (Death Guard 36% / Imperial
+        # Knights 42% / Chaos Knights 42%) — so a Daemon-SCOPED lift is doubly
+        # corrective in the closed matrix (Daemons up toward 52.6 AND those
+        # over-poles down toward their targets in the Daemon cells), and the
+        # −9.3 going-first A/B asymmetry (the fragile-swarm mirror of the
+        # durability-over-reward) is exactly what a scoped STAGING gate
+        # addresses. Byte-identical off: a Chaos Daemons army previously fell
+        # through this loop to the final `return False`; now it matches here and
+        # reads `SWEG_DAEMONS_<suffix>` which is default-off (`== "1"`), so the
+        # returned boolean is unchanged until a scoped gate is explicitly set.
+        "DAEMONS": "Chaos Daemons",
     }
 
     def _scoped_lever_on(self, lever: str, army) -> bool:
@@ -3045,6 +3345,75 @@ class Battle:
                 # Fresh terraform overwrites the opponent's (a marker is terraformed
                 # by at most one side at a time).
                 self._terraformed_owner[idx] = owner
+
+    def _supply_drop_removal_enabled(self) -> bool:
+        """Supply Drop primary — the Alpha/Omega removal IS the mission (the
+        Scorched-Burn / Terraform pattern): active whenever the Supply Drop
+        primary mission is in play. SWEG_SUPPLY_DROP=0 disables the removal for
+        A/B isolation (leaving the escalating-VP hold scoring alone). Inert in
+        the default eval, which never draws a Supply Drop game unless
+        SWEG_PRIMARY_DECK_FULL is set. Cited simulator.primary_supply_drop."""
+        if getattr(self, "primary_mission", "take_and_hold") != "supply_drop":
+            return False
+        return __import__("os").environ.get("SWEG_SUPPLY_DROP", "1") not in ("0", "false", "")
+
+    def _assign_supply_drop_targets(self) -> None:
+        """Designate the Alpha/Omega markers once per battle: the two No Man's
+        Land objectives (excluding the exact board-centre marker) that will be
+        razed at the start of battle rounds 4 and 5 respectively. Real rule
+        (Supply Drop, Chapter Approved 2025-26): "Players randomly select two
+        different objective markers within No Man's Land that are not in the
+        centre of the battlefield; the first selected is the Alpha objective,
+        the second selected is the Omega objective."
+
+        APPROXIMATION (disclosed): the real selection is RANDOM. This picks the
+        first two eligible markers in `self.map.objectives` definition order
+        instead, so that drawing this mission never consumes from the battle's
+        seeded random stream — a new RNG draw here would perturb every
+        subsequent random decision in the SAME game (unit placement jitter,
+        hit/wound rolls, etc.), which would make even the OFF path only
+        conditionally byte-identical. Idempotent: no-op once already assigned.
+        Cited simulator.primary_supply_drop."""
+        if not self._supply_drop_removal_enabled():
+            return
+        if self._supply_drop_alpha_omega is not None:
+            return
+        cx = self.map.width / 2.0
+        cy = self.map.height / 2.0
+        candidates = [
+            idx for idx, obj in enumerate(self.map.objectives)
+            if self._obj_in_nml(obj)
+            and not (abs(obj.x - cx) < 1e-6 and abs(obj.y - cy) < 1e-6)
+        ]
+        if len(candidates) >= 2:
+            self._supply_drop_alpha_omega = (candidates[0], candidates[1])
+        elif len(candidates) == 1:
+            # Degenerate map with only one eligible marker — both labels point at
+            # it (it still razes on schedule; no invented second marker).
+            self._supply_drop_alpha_omega = (candidates[0], candidates[0])
+        else:
+            self._supply_drop_alpha_omega = ()
+
+    def _resolve_supply_drop_removals(self) -> None:
+        """Raze the Alpha marker at the start of battle round 4 and the Omega
+        marker at the start of battle round 5 — added to `_razed_objectives`,
+        the same permanent-removal bucket Scorched Earth's Burn uses (both mean
+        "gone from the battlefield for the rest of the game"). Called from
+        `_score_objectives` BEFORE the per-objective control loop, so the round
+        in which a marker is razed already excludes it from that same round's
+        control/scoring pass — matching "Start of the Fourth/Fifth Battle
+        Round" timing. Idempotent (adding an already-razed index is a no-op).
+        Cited simulator.primary_supply_drop."""
+        if not self._supply_drop_removal_enabled():
+            return
+        if not self._supply_drop_alpha_omega:
+            return
+        alpha = self._supply_drop_alpha_omega[0]
+        omega = self._supply_drop_alpha_omega[-1]
+        if self._current_round >= 4:
+            self._razed_objectives.add(alpha)
+        if self._current_round >= 5:
+            self._razed_objectives.add(omega)
 
     # ------------------------------------------------------------------
     # Wave 121 — AI-pursuit layer for held Tactical secondary cards
@@ -3703,18 +4072,31 @@ class Battle:
 
     # ------------------------------------------------------------------
     # Challenger cards (Chapter Approved 2025-26 trailing-player catch-up).
-    # Env-gated SWEG_CHALLENGER_CARDS; default OFF byte-identical.
-    # See data/rule_citations.d/core_challenger_cards.json#simulator.challenger_cards.
+    # Env-gated SWEG_CHALLENGER_CARDS. REVERTED TO DEFAULT-OFF 2026-07-04 (was
+    # default-on wave 252 -> sc53a; commit bc9159d adopted it on the OLD
+    # compensated scale). WHY REVERTED, on both grounds: (1) FIDELITY — the
+    # competitive Chapter Approved Tournament Companion, the ruleset the May 2026
+    # Warp Friends calibration aggregate is drawn from, EXPLICITLY EXCLUDES
+    # challenger cards ("we have not included ... the Challenger cards"), so the
+    # real target games were played WITHOUT them; modelling them is an
+    # out-of-reference catch-up dial that trips EVAL_PROTOCOL rule 9. (2) METRIC
+    # — on the now-faithful frame the wave-252 gain has inverted: removing
+    # challenger improves gated MAE (Adeptus Astartes 52->47 onto its real 47,
+    # the Genestealer Cults under-pole eases). `=1` re-enables the (verified,
+    # byte-identical-on) mechanic for anyone calibrating against a challenger-
+    # legal format. See data/rule_citations.d/core_challenger_cards.json.
     # ------------------------------------------------------------------
 
     _CHALLENGER_GAP: int = 6        # trail by this many VP to be eligible
-    _CHALLENGER_LIFETIME_CAP: int = 12   # ~12 VP practical lifetime cap per side
+    _CHALLENGER_LIFETIME_CAP: int = 12   # 12 VP printed lifetime cap per side
 
     def _challenger_enabled(self) -> bool:
-        """Chapter Approved 2025-26 challenger cards. Read EXACTLY the documented
-        gate so OFF is unambiguous. Unset/anything-but-"1" → the mechanic is
-        inert: no draw, no scoring, no RNG consumed (byte-identical OFF path)."""
-        return __import__("os").environ.get("SWEG_CHALLENGER_CARDS", "1") != "0"
+        """Chapter Approved 2025-26 challenger cards, REVERTED to DEFAULT-OFF
+        2026-07-04 (out-of-reference for the competitive Warp Friends target +
+        metric-negative on the faithful frame). Only an explicit "1" enables the
+        mechanic; unset/"0" is the byte-identical off path (no draw, no scoring,
+        no RNG consumed)."""
+        return __import__("os").environ.get("SWEG_CHALLENGER_CARDS", "0") == "1"
 
     def _decide_challenger_draw(self, round_num: int) -> None:
         """At the start of a battle round, if one side trails by >= 6 victory
@@ -4702,6 +5084,13 @@ class Battle:
             u.transient_minus_one_damage_taken = False
             u.transient_plus_one_to_wound_melee = False
             u.transient_plus_one_save = False
+            # Lightning-Fast Reactions FIDELITY path (gate
+            # SWEG_AELDARI_LFR_PHASE): cleared with the other per-round
+            # stratagem flags, same caveat as go_to_ground_active /
+            # smokescreen_active above — the real "until end of the phase"
+            # duration is approximated as "until round end" because the sim
+            # only resets transient flags at round start.
+            u.transient_minus_one_to_hit_shooting = False
             u.transient_reroll_hits_shooting = False
             u.transient_assault_this_round = False
             u.transient_charge_after_advance = False
@@ -5639,9 +6028,47 @@ class Battle:
             self._set_transient_squad(candidate, "transient_reroll_wounds")
 
     def _try_lightning_fast_reactions(self, army: Army, opponent: Army) -> None:
-        """Lightning-Fast Reactions (Warhost): +1 save on the most
-        vulnerable AELDARI unit for the round. Wahapedia:
-        https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost"""
+        """Lightning-Fast Reactions (Warhost). Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost
+
+        Real rule (verbatim, data/rule_citations.d/stratagems.json): "USE
+        THIS STRATAGEM IN YOUR OPPONENT'S SHOOTING PHASE OR FIGHT PHASE,
+        JUST AFTER AN ENEMY UNIT HAS SELECTED ITS TARGETS. UNTIL THE END OF
+        THE PHASE, SUBTRACT 1 FROM HIT ROLLS TARGETING YOUR UNIT." — a
+        single-phase reactive -1-to-hit, usable in EITHER the opponent's
+        Shooting phase or their Fight phase.
+
+        LEGACY path (default; SWEG_AELDARI_LFR_PHASE unset or != "1"):
+        SwegHammer's stratagem dispatcher fires once at Command-phase start,
+        proactively, not reactively "just after an enemy unit has selected
+        its targets" — so the legacy code approximated with the WRONG effect
+        (+1 to the armour save instead of -1 to hit) held for the WHOLE
+        round instead of one phase, over-crediting both effect and duration.
+        Left byte-identical for the both-off validation; still used by the
+        Skyborne Sanctuary / Webway Tunnel proxies, which this gate does not
+        touch.
+
+        FIDELITY path (gate SWEG_AELDARI_LFR_PHASE == "1"): fixes both
+        problems as far as the sim's structure cleanly allows.
+        - EFFECT: sets `transient_minus_one_to_hit_shooting` instead of
+          `transient_plus_one_save` — read at the same ranged-only Stealth /
+          Smokescreen -1-to-hit site in `Unit.attack`, so the correct -1 to
+          Hit (not +1 save) is applied, subject to the same ±1 hit-modifier
+          cap as every other source (never doubles).
+        - DURATION: that site is ranged-only (`mode != "melee"`), so the
+          buff can only ever manifest against the opponent's Shooting phase
+          attacks — never Fight-phase attacks — which is the closest
+          faithful narrowing the sim's round-start (not per-phase-reactive)
+          dispatch structure allows.
+        RESIDUAL APPROXIMATION (documented, not fixed — see the citation
+        entry): the real stratagem can also be spent reactively in the Fight
+        phase for identical -1-to-hit protection there, which this path does
+        not model; and even the Shooting-phase coverage still spans the
+        whole round rather than clearing the instant that one phase ends,
+        because the sim only clears transient stratagem flags at round
+        start (same approximation already accepted for Go To Ground and
+        Smokescreen).
+        """
         target = self._most_vulnerable_unit(
             army, keyword="AELDARI", faction="Aeldari",
         )
@@ -5653,6 +6080,9 @@ class Battle:
         if not should_fire_stratagem(army, LIGHTNING_FAST_REACTIONS, ctx):
             return
         if not self._fire_stratagem(army, LIGHTNING_FAST_REACTIONS):
+            return
+        if os.environ.get("SWEG_AELDARI_LFR_PHASE", "1") != "0":  # ADOPTED default-on 2026-07-09 (sc61a rider; =0 kill-switch)
+            self._set_transient_squad(target, "transient_minus_one_to_hit_shooting")
             return
         self._set_transient_squad(target, "transient_plus_one_save")
 
@@ -5746,10 +6176,23 @@ class Battle:
         ability). ST-1: now routes through the proper
         `transient_sustained_hits` accumulator (additive on top of any
         per-weapon SUSTAINED HITS already on the profile, matching the
-        codex stacking rule). The 12" range gate and the 5+ Critical
-        Hit upgrade for weapons already carrying SUSTAINED HITS X are
-        still not modelled. Wahapedia:
-        https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost"""
+        codex stacking rule). The 5+ Critical Hit upgrade for weapons
+        already carrying SUSTAINED HITS X is still not modelled.
+
+        FIDELITY (gate SWEG_AELDARI_BLITZ_RANGE, default OFF): the real
+        [SUSTAINED HITS 1] grant only applies against targets within 12"
+        — the sim has never modelled that gate, and Aeldari is an
+        over-pole (sim ~50 vs real 41.5), so the un-gated grant is a
+        plausible over-model. Per the Necron Conquering Tyrant
+        half-range META-LESSON (docs/DECISION_LEDGER.md), do NOT gate the
+        stratagem's FIRING — that saves the command point for
+        reallocation to a stronger stratagem and goes wrong-direction.
+        This uses the same keep-the-CP-spend-drop-the-effect shape as
+        Fire and Fade instead: the stratagem still fires and spends its
+        command point exactly as today, and only the sustained-hits
+        grant is withheld when the picked target is beyond 12" of the
+        attacker. OFF path applies the grant unchanged → byte-identical.
+        Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost"""
         attacker = self._highest_dpa_unit(
             army, keyword="AELDARI", faction="Aeldari",
         )
@@ -5765,6 +6208,9 @@ class Battle:
             return
         if not self._fire_stratagem(army, BLITZING_FIREPOWER):
             return
+        if os.environ.get("SWEG_AELDARI_BLITZ_RANGE", "1") != "0":  # ADOPTED default-on 2026-07-09 (sc61a rider; =0 kill-switch)
+            if _distance(attacker.position, target.position) > 12.0:
+                return
         attacker.transient_sustained_hits += 1
 
     def _try_webway_tunnel(self, army: Army, opponent: Army) -> None:
@@ -11137,10 +11583,19 @@ class Battle:
         "At the start of the battle round, you receive 1 additional Battle Focus
         token."
 
-        Tokens are ADDITIVE — "you receive" is accumulation language; the rule
-        text does not say unspent tokens are discarded at round end, so carryover
-        is preserved. Only armies containing at least one ASURYANI unit receive
-        tokens (the rule is faction-wide, not detachment-gated for the base grant).
+        Tokens ADD onto the existing pool here at the grant site (this method
+        only ever increments). CORRECTION (this comment previously claimed the
+        rule text "does not say" unspent tokens are discarded — that was
+        WRONG. Wahapedia states it verbatim: "At the end of the battle round,
+        all unspent Battle Focus tokens are lost." Under the default-off gate
+        `SWEG_AELDARI_BF_DISCARD`, `_run_round` zeroes each army's
+        `battle_focus_tokens` at the end of the round (after this method's
+        next-round grant would otherwise stack on top of leftover tokens),
+        making the pool round-scoped as the rule requires. Gate off (legacy,
+        current default) preserves the additive carryover this method always
+        produced. Only armies containing at least one ASURYANI unit receive
+        tokens (the rule is faction-wide, not detachment-gated for the base
+        grant). Cited as `simulator.battle_focus`.
 
         Battle size is derived from army.starting_points, which is set before the
         round loop by Battle.run. If starting_points is 0 (unset), this raises
@@ -11176,6 +11631,66 @@ class Battle:
 
         army.battle_focus_tokens += base_tokens
 
+    def _settle_ec_pact_points(self) -> None:
+        """Emperor's Children Coterie of the Conceited — end-of-round Pact-point
+        accrual (Slaanesh's Due).
+
+        Real rule (BSData v10.6.0, verbatim): "At the start of the battle round,
+        if your WARLORD is on the battlefield, you must pledge a number to
+        Slaanesh representing how many enemy units will be destroyed this battle
+        round. At the end of the battle round, if the number of enemy units
+        destroyed this battle round is greater than or equal to your pledge, you
+        gain a number of Pact points equal to your pledge. Otherwise, you do not
+        gain any Pact points this battle round and your WARLORD model suffers D3
+        mortal wounds."
+
+        MODELLING. The pledge is a piloting decision, so a competent pilot is
+        idealised: at the start of their turn a strong player reads the board,
+        pledges a number up to the units they will reliably destroy this round,
+        and meets it — banking a number of Pact points equal to that pledge.
+        SwegHammer collapses this to "gain one Pact point per enemy unit
+        destroyed this round" (the accrual equals the met pledge for a pilot
+        who pledges to their realised output). This is the accrual a
+        tournament-calibre pilot achieves, which is the right reference for
+        calibrating against tournament win rates. Accrual is gated on the
+        army's Warlord still being alive on the battlefield (the rule's
+        "if your WARLORD is on the battlefield" condition), checked at
+        end-of-round as a one-hook approximation of the start-of-round check.
+
+        HONEST OMISSIONS (documented, not hidden): (1) the pledge is idealised
+        as always met, so (2) the D3-mortal-wounds-on-a-missed-pledge downside
+        is not fired — a competent pilot pledges conservatively (down to 0)
+        precisely to avoid it, so simulating frequent self-inflicted Warlord
+        damage would model incompetent play. The Pact counter is uncapped; the
+        attack bonuses themselves cap at the 7+ tier.
+
+        Enemy units destroyed this round come from `_units_destroyed_this_round`
+        (the same round-start-snapshot diff Purge the Foe and the Pariah Nexus
+        secondaries use). No RNG is drawn, and the loop skips every non-Coterie
+        army, so the off path (Emperor's Children with no detachment, or any
+        other faction) is byte-identical. Cited as
+        `simulator.ec_coterie_pact_points`.
+        """
+        a_killed, b_killed = self._units_destroyed_this_round()
+        for army, killed in ((self.a, a_killed), (self.b, b_killed)):
+            det = army.resolve_detachment()
+            if not det or not getattr(det, "coterie_pact_points", False):
+                continue
+            if killed <= 0:
+                continue
+            # Warlord must be on the battlefield to pledge (and so to gain Pact
+            # points). `warlord_uid` stably caches the first CHARACTER (the
+            # designated Warlord); check that specific model is still alive.
+            wl_uid = army.warlord_uid
+            wl_alive = wl_uid is not None and any(
+                id(u) == wl_uid and u.is_alive for u in army.units
+            )
+            if not wl_alive:
+                continue
+            army.ec_pact_points = (
+                int(getattr(army, "ec_pact_points", 0) or 0) + int(killed)
+            )
+
     def _run_round(self, round_num: int) -> None:
         if self.verbose:
             print(f"\n--- Round {round_num} ---")
@@ -11205,6 +11720,8 @@ class Battle:
         self._did_move_this_round = set()
         # Reset disembark tracking: nothing has disembarked yet this round.
         self._disembarked_this_round = set()
+        # SWEG_TRANSPORT_PLAY: reset the forced-disembark charge lock too.
+        self._forced_disembark_charge_locked_this_round = set()
         # Displacement Stage-0 (observation-only): start each round with a clean local-
         # damage accumulator so a marker-tick's "out-fought" classification reflects only
         # the preceding battle round's fighting. No-op when the gate is off.
@@ -11212,10 +11729,15 @@ class Battle:
             self._displace.end_round()
 
         # Battle Focus tokens (Aeldari ASURYANI army rule, 10e). Grant is per
-        # battle round ("at the start of the battle round") and is ADDITIVE —
-        # the Wahapedia rule says "you receive"; it does not say unspent tokens
-        # are discarded, so carryover is preserved. The base grant is derived
-        # from battle size via army.starting_points (see
+        # battle round ("at the start of the battle round"); by default the
+        # pool ADDS onto whatever is left from the previous round (legacy
+        # behaviour). Wahapedia also states, verbatim: "At the end of the
+        # battle round, all unspent Battle Focus tokens are lost." — under
+        # the default-off gate `SWEG_AELDARI_BF_DISCARD`, the end of this
+        # method (`_run_round`, see the reset just before `_run_round_...`
+        # returns) zeroes the pool each round so this grant is the round's
+        # only tokens, matching the codex. The base grant is derived from
+        # battle size via army.starting_points (see
         # _battle_focus_tokens_for_army). Warhost Martial Grace adds a further
         # +1 per round on top. Cited as `simulator.battle_focus` and
         # `WARHOST.martial_grace`.
@@ -11821,6 +12343,39 @@ class Battle:
                     for obj in self.map.objectives
                 )
 
+        # Cadia Stands! (SWEG_AM_CADIA_STANDS, default-off -> byte-identical off):
+        # a Cadian Shock Troops squad led by a Cadian Command Squad officer, while
+        # on an objective its own army CONTROLS, gains Benefit of Cover against
+        # ranged attacks. Precomputed once per round here (cheap) so the per-attack
+        # save path (code/units.py) only reads the `_cadia_stands_active` flag.
+        # When the gate is unset the attribute is never written and the save path
+        # reads it via getattr(..., False), so the OFF path is byte-identical.
+        # Real rule (Wahapedia, Cadian Command Squad "Cadia Stands!"): "While this
+        # unit contains an OFFICER, each time a ranged attack targets this unit, if
+        # this unit is within range of an objective marker you control, models in
+        # this unit have the Benefit of Cover against that attack." The led-by test
+        # (a Cadian Command Squad within its 6" aura) is the simulator's proximity
+        # proxy for the Leader attachment, matching leaders.in_range_leaders; the
+        # controlled-objective test uses the round-start control snapshot. Cited as
+        # `simulator.cadia_stands`.
+        if os.environ.get("SWEG_AM_CADIA_STANDS", "0") == "1":
+            from .leaders import in_range_leaders as _cadia_irl
+            _cadia_ctrl = self._obj_controller_at_round_start
+            for army in (self.a, self.b):
+                _cadia_own_tag = "a" if army is self.a else "b"
+                for u in army.units:
+                    _cadia_active = False
+                    if u.is_alive and (u.profile.name or "") == "Cadian Shock Troops":
+                        if any((ldr.profile.name or "") == "Cadian Command Squad"
+                               for ldr in _cadia_irl(u)):
+                            for _cadia_i, _cadia_obj in enumerate(self.map.objectives):
+                                if (_distance(u.position, (_cadia_obj.x, _cadia_obj.y))
+                                        <= _cadia_obj.control_radius
+                                        and _cadia_ctrl.get(_cadia_i) == _cadia_own_tag):
+                                    _cadia_active = True
+                                    break
+                    u._cadia_stands_active = _cadia_active
+
         # Battleshock phase already ran before the stratagem dispatcher
         # (task #168 — stratagems can't target battleshocked units, so the
         # test must populate `_battleshocked_this_round` first). See
@@ -11939,9 +12494,34 @@ class Battle:
         self._try_reinforcements(self.a, round_num)
         self._try_reinforcements(self.b, round_num)
 
+        # Emperor's Children Coterie of the Conceited — Slaanesh's Due
+        # Pact-point accrual (end of the battle round). Placed AFTER end-of-
+        # round revivals (healing / cult-ambush / reinforcements) so a revived
+        # enemy unit is not counted as "destroyed this battle round". No-op /
+        # no RNG draw for any army whose detachment is not Coterie of the
+        # Conceited (byte-identical off path). See `_settle_ec_pact_points`.
+        self._settle_ec_pact_points()
+
         if round_num > 1 and self.rules.cp_catchup_bonus:
             self._award_cp(self.a, self.b)
             self._award_cp(self.b, self.a)
+
+        # Battle Focus tokens (Aeldari ASURYANI army rule, 10e) —
+        # SWEG_AELDARI_BF_DISCARD. Wahapedia
+        # (https://wahapedia.ru/wh40k10ed/factions/aeldari/#Battle-Focus):
+        # "At the end of the battle round, all unspent Battle Focus tokens
+        # are lost." The base grant path (`_grant_battle_focus_tokens`,
+        # and the comment in `run()` above it) treats the tokens as additive
+        # carryover on the claim that the rule text "does not say" tokens are
+        # discarded — that claim is WRONG, the quoted sentence above says so
+        # verbatim. Under this gate, zero each army's battle_focus_tokens at
+        # the end of the round, here, before the next round's grant (fired at
+        # the top of the next `_run_round` call). Byte-identical off (the
+        # gate is only read here; the additive accumulation at the grant site
+        # is untouched either way). Cited as `simulator.battle_focus`.
+        if os.environ.get("SWEG_AELDARI_BF_DISCARD", "1") != "0":  # ADOPTED default-on 2026-07-08 (sc59a rider; =0 kill-switch)
+            self.a.battle_focus_tokens = 0
+            self.b.battle_focus_tokens = 0
 
     # ------------------------------------------------------------------
     # Round body — alternating (SwegHammer) vs turn-based (vanilla 10e)
@@ -13043,15 +13623,20 @@ class Battle:
         if self._is_transport(attacker) and attacker.passengers:
             self._maybe_disembark_before_move(attacker, attacker_army, defender_army)
 
-        # Disembark lockout (10e core): "If a unit disembarks from a
-        # Transport in your Movement phase, it cannot make a Normal,
-        # Advance or Fall Back move that turn." Shoot and Charge are NOT
-        # blocked (handled separately via _do_shoot / _do_charge). Cited
-        # as `simulator.disembark`. The passenger was already placed
-        # within 3" of the transport and is treated as having moved its
-        # Move characteristic — `_did_move_this_round` / `moved_this_round`
-        # are set in `_disembark`, surfacing the move to the Heavy
-        # keyword check.
+        # Disembark movement lockout — DEFAULT (SWEG_TRANSPORT_PLAY unset/0):
+        # a historical approximation that blocks ANY further move the round a
+        # unit disembarks. The real rule only imposes that when the transport
+        # had ALREADY made its own Normal move before the disembark; since
+        # `_maybe_disembark_before_move` always fires before the transport's
+        # own move, the real rule actually grants this unit full acts
+        # (Normal move, Advance, shoot, charge, fight) instead — see
+        # `_disembark`, which under SWEG_TRANSPORT_PLAY=1 skips adding a
+        # voluntary (non-forced) disembark to `_disembarked_this_round`, so
+        # this early return is skipped and the move continues below. Forced
+        # disembark (Destroyed Transport) is unaffected by the flag — the
+        # real rule's own carve-out already caps it at "counts as a Normal
+        # move, cannot move further" regardless. Cited as `simulator.disembark`
+        # / `simulator.transport_play_disembark_full_acts`.
         if attacker.uid in self._disembarked_this_round:
             return
 
@@ -13369,8 +13954,87 @@ class Battle:
         # unset) byte-identical. Cited simulator.tyranids_ranged_hold.
         _ad_tyranids = (os.environ.get("SWEG_TYRANIDS_RANGED_HOLD", "0") == "1"
                         and (attacker.profile.faction or "") == "Tyranids")
+        # ADEPTUS-ASTARTES-SCOPED entry point (SWEG_ASTARTES_RANGED_HOLD —
+        # ADOPTED default-on 2026-07-03, `=0` kill-switch; N=80 Adeptus-Astartes-
+        # scoped screen vs sc52a: Adeptus Astartes +14.03 (42.0 -> 56.1), gated
+        # 4.23 -> 3.96. Same disposition as the Chaos Knights / Votann ranged-
+        # holds — the faction OVERSHOOTS its real 47.6 (to +8.5 over) and the
+        # metric improves via the broad over-pole collateral deflating toward
+        # real in the Astartes matchup; the +8.5 is the model-count / survivor
+        # over-reward economy expressed through Marines' now-effective held
+        # shooting, consistent with the Stage-1-floor finding): the SAME
+        # gunline-hold logic, restricted to Adeptus Astartes.
+        # Derived from watched pilot-observation (2026-07-03, docs/PILOT_FINDINGS.md):
+        # across three piloted games (versus Chaos Knights seed 0, Orks seed 1,
+        # Necrons seed 2) the Marine non-[ASSAULT] fire platforms Advanced their
+        # opening rounds and marched their whole line forward into the enemy. In
+        # the Orks melee-horde game (seed 1) this fed a 6-67 blow-out: the gunline
+        # Advanced into contact round 1 and was ground up in melee, while the two
+        # Repulsors that HELD and shot killed 16 and 19 Boyz per activation. Versus
+        # Necrons (seed 2) the Eradicator Squads (Melta Rifles, ranged damage per
+        # activation 2.24, range 18 inches, non-[ASSAULT]) Advanced round 2 (the
+        # Tactical Doctrine round, which lifts only the Fall-Back lockout, NOT the
+        # Advance lockout) and forfeited their Shooting phase; when held rounds 3-4
+        # they dealt an Overlord 6 and a Ghost Ark 5. IMPORTANT SIM-DATA FINDING
+        # (scripts/diag_astartes_filter.py): the army's premier gun infantry, the
+        # Hellblaster Squad, is flagged [ASSAULT] in the catalogue (plasma
+        # incinerator), so it can already shoot after Advancing and is CORRECTLY
+        # excluded by the shared `not attacker.profile.assault` guard below — it
+        # loses nothing by Advancing, so it is never held. Oath of Moment (army
+        # rule) and the Gladius Combat Doctrines (Devastator R1 shoot-after-Advance,
+        # Tactical R2 act-after-Fall-Back, Assault R3+ charge-after-Advance) are
+        # ALREADY modelled (army.oath_target_uid / simulator.combat_doctrines) and
+        # verified firing in the replays — the deficit is the mis-pilot, not a
+        # missing rule. ROSTER-FILTER AUDIT (scripts/diag_astartes_filter.py): the
+        # shared rDPA >= 2.0 & range >= 18 inch filter holds 73 catalogue units,
+        # every one a dedicated fire platform (Repulsor, Predator, Vindicator,
+        # Gladiator/Ballistus/Redemptor, Land Raiders, Whirlwind, Desolation,
+        # Devastator, Eradicator, Eliminator, Suppressor) or a ranged CHARACTER
+        # (Captain, Lieutenant, Librarian, Techmarine — the direct analog of the
+        # Thousand Sons psyker holds and the Sororitas Morvenn Vahl hold), and
+        # holds NONE of the core bolter or assault infantry: Intercessors (rDPA
+        # 1.67), Tactical Squad (1.95), Assault Intercessors (0.73), Scouts, plus
+        # every [ASSAULT] unit (Hellblasters, Inceptors, Heavy Intercessors,
+        # Terminator Assault, Vanguard, Bladeguard) stay FREE to Advance onto
+        # objectives — so the filter needs no narrowing for infantry. Faithful
+        # piloting, not a rules claim (Advancing forfeits non-[ASSAULT] shooting);
+        # the direct analog of _ad_am / _ad_ck / _ad_votann / _ad_tsons /
+        # _ad_soror / _ad_tyranids and the eighth entry point on the shared
+        # advance-suppression block. Off path (gate unset) byte-identical. Cited
+        # simulator.astartes_ranged_hold.
+        _ad_astartes = (os.environ.get("SWEG_ASTARTES_RANGED_HOLD", "1") != "0"
+                        and (attacker.profile.faction or "") == "Adeptus Astartes")
+        # EMPEROR'S-CHILDREN-SCOPED entry point (SWEG_EC_RANGED_HOLD — default-OFF
+        # screening gate, `=1` opt-in; unset/`0` is the byte-identical off path):
+        # the SAME gunline-hold logic, restricted
+        # to Emperor's Children. Derived from watched pilot-observation (2026-07-03,
+        # three piloted games under the SWEG_EC_REALISM archetype: Chaos Knights
+        # seed 0, Orks seed 1, Necrons seed 2). The Noise Marines line (ranged
+        # damage per activation 4.66, range 18 inches) Advanced round 1 and, in
+        # two of the three games, round 2 as well, forfeiting its Shooting phase
+        # both times before ever firing a shot; the same games also show the
+        # Sorcerer (5.34 / 18") and the Tormentors troop choice (2.27 / 24",
+        # already capable of shooting AND still charging on a Normal move) Advance
+        # instead of holding. The shared rDPA >= 2.0 & range >= 18 inch filter
+        # below holds exactly these three plus the Chaos Rhino transport (2.67 /
+        # 48"); it does NOT hold the Defiler despite it being the observed
+        # stand-out misplay (Advanced rounds 1-2 in all three games, then held
+        # and dealt 16-29 damage per activation once it finally fired) — the
+        # Defiler's `range_inches` field reflects the mapper's best-single-EV
+        # weapon pick (Heavy baleflamer, a 12-inch torrent), while its actual
+        # fire-platform output rides on its SECONDARY profile (Hades battle
+        # cannon, 48 inches, rDPA approximately 12.0), which this filter does not
+        # read — a known limitation of the shared primary-profile-only filter,
+        # not fixed here (see the decision ledger's Emperor's Children entry for
+        # the follow-up). Faithful piloting, not a rules claim (Advancing
+        # forfeits non-[ASSAULT] shooting); the direct analog of _ad_am / _ad_ck
+        # / _ad_votann / _ad_tsons / _ad_soror / _ad_tyranids and the eighth
+        # entry point on the shared advance-suppression block. Off path (gate
+        # unset) byte-identical. Cited simulator.ec_ranged_hold.
+        _ad_ec = (os.environ.get("SWEG_EC_RANGED_HOLD", "0") == "1"
+                  and (attacker.profile.faction or "") == "Emperor's Children")
         if ((_ad_generic or _ad_am or _ad_ck or _ad_votann or _ad_tsons
-                or _ad_soror or _ad_tyranids)
+                or _ad_soror or _ad_tyranids or _ad_astartes or _ad_ec)
                 and intent in ("CAPTURE", "STEAL")
                 # Units that can shoot AFTER Advancing (ASSAULT weapons, or a
                 # transient ASSAULT grant) lose nothing by it — never suppress them
@@ -13528,10 +14192,13 @@ class Battle:
             # Fate die per model per round. Block if this squad has already
             # spent a Fate die on advance this round.
             # task #28 squad_id re-key: use squad_id as the set key when >= 0.
+            # SWEG_AELDARI_FATE_FAITHFUL (default off): `fate_budget_key`
+            # collapses this to one army-wide key instead of per-squad — see
+            # `Army.fate_budget_key` for the rule citation and rationale.
             # Cited as `simulator.strands_of_fate`.
             and attacker_army.unit_budget_available(
                 "fate_advance",
-                (lambda _sid, _nm: _sid if _sid >= 0 else _nm)(
+                attacker_army.fate_budget_key(
                     getattr(attacker, "squad_id", -1), attacker.profile.name
                 ),
             )
@@ -13541,10 +14208,8 @@ class Battle:
                 sub = attacker_army.pop_fate_die_meeting(int(need))
                 if sub is not None:
                     advance_d6 = sub
-                    _fate_adv_key = (
-                        getattr(attacker, "squad_id", -1)
-                        if getattr(attacker, "squad_id", -1) >= 0
-                        else attacker.profile.name
+                    _fate_adv_key = attacker_army.fate_budget_key(
+                        getattr(attacker, "squad_id", -1), attacker.profile.name
                     )
                     attacker_army.mark_unit_budget("fate_advance", _fate_adv_key)
         move_distance = normal_move + advance_d6
@@ -13774,6 +14439,56 @@ class Battle:
         return self._TARGET_ECONOMICS_FLOOR + kill_frac * (
             self._TARGET_ECONOMICS_CAP - self._TARGET_ECONOMICS_FLOOR
         )
+
+    # Chase-VP target-priority multipliers (simulator.vp_chase_targeting).
+    _VP_BRING_IT_DOWN_MULT: float = 1.8   # kill a MONSTER/VEHICLE -> Bring It Down
+    _VP_DENY_HOLDER_MULT: float = 1.4     # kill a unit ON an objective -> deny primary
+    _VP_FINISH_MULT: float = 2.0          # finish a near-dead whole unit -> No Prisoners
+
+    def _vp_yield_bonus(self, attacker, target) -> float:
+        """`simulator.vp_chase_targeting` (env-gated SWEG_AM_CHASE_VP, default
+        OFF, Astra-Militarum-scoped). A "play to score" ranged target-priority
+        multiplier the base picker lacks: the `min()` key below composes threat,
+        health, screen/synapse/oath biases and the target-economics kill-fraction
+        (can-I-hurt-it), but NOTHING keys on the VICTORY POINTS a kill banks.
+        Real players shoot for the secondaries their firepower feeds — and the
+        game-shape instrument found AM scores only ~9 secondary VP/game (real
+        killy AM ~25-35) because it clears models without finishing units or
+        killing the enemy's monsters/vehicles. This term boosts a candidate whose
+        DESTRUCTION scores, mirroring the real Pariah Nexus secondaries:
+          * Bring It Down  — the target is a MONSTER/VEHICLE (2-6 VP/kill),
+          * No Prisoners   — finishing a near-dead WHOLE unit (2 VP/unit),
+          * objective-denial — the target sits on an objective (removing it
+            protects AM's primary), using the precomputed `on_objective` flag.
+        Composed multiplicatively with the existing chain (it TILTS the picker,
+        it does not replace it — so survival-critical threat/economics terms
+        still weigh, unlike a hard target override). AM-SCOPED because a faction-
+        neutral target bias washes on closed-matrix symmetry (the rejected
+        SWEG_TAU_GUIDED_TARGET_BIAS lesson): AM is the faction whose win
+        condition IS secondary-from-kills, so the scoped lift banks without
+        feeding every shooting army the same play. Returns 1.0 (byte-identical
+        denominator) when the gate is off or the attacker is not AM. Cited as
+        `simulator.vp_chase_targeting`."""
+        if os.environ.get("SWEG_AM_CHASE_VP", "0") != "1":
+            return 1.0
+        if (attacker.profile.faction or "") != "Astra Militarum":
+            return 1.0
+        mult = 1.0
+        kw = set(target.profile.unit_keywords or ())
+        if kw & {"MONSTER", "VEHICLE"}:
+            mult *= self._VP_BRING_IT_DOWN_MULT
+        if getattr(target, "on_objective", False):
+            mult *= self._VP_DENY_HOLDER_MULT
+        # No Prisoners: boost as the target's whole unit nears destruction.
+        darmy = getattr(target, "army_ref", None)
+        if darmy is not None:
+            sid = getattr(target, "squad_id", -1)
+            squad_hp = sum(
+                max(0.0, u.current_health) for u in darmy.alive_units
+                if getattr(u, "squad_id", -2) == sid
+            )
+            mult *= 1.0 + (self._VP_FINISH_MULT - 1.0) / (1.0 + squad_hp / 5.0)
+        return mult
 
     # Focus-fire completion range for the "finish the wounded" bonus below.
     # 1.0 (no bonus) at full health, rising to this cap as the candidate
@@ -14624,11 +15339,38 @@ class Battle:
         # Indirect Fire lets us target units we cannot see; otherwise LoS is
         # required. The has_los flag is plumbed into Unit.attack so it can
         # apply the -1 to hit when shooting blind.
+        #
+        # Terrain line of sight (Stage T3, gate SWEG_TERRAIN_LOS, default-off):
+        # line-of-sight target legality is NOT new — the baseline already filters
+        # targets by self.map.has_line_of_sight (it denies ~45% of candidate shots
+        # on a dense map). When the gate is set, the IDENTICAL check is routed
+        # through the shared substrate code.sim.los.has_los (which delegates to the
+        # same engine), so shooting resolution and the future threat-projection
+        # planner read one occlusion geometry, and an occlusion-denial instrument is
+        # populated. Indirect Fire is exempt (may target unseen units, per its rule).
+        # Cited as `simulator.terrain_los_gate`. Byte-identical off (the OFF branch
+        # below is the exact pre-existing list comprehension).
+        _use_terrain_los = __import__("os").environ.get("SWEG_TERRAIN_LOS") == "1"
         if attacker.profile.indirect_fire:
             candidates = [
                 u for u in targetable
                 if _distance(attacker.position, u.position) <= rng
             ]
+        elif _use_terrain_los:
+            attacker_kw = attacker.profile.unit_keywords or ()
+            candidates = []
+            for u in targetable:
+                if _distance(attacker.position, u.position) > rng:
+                    continue
+                TERRAIN_LOS_STATS["checked"] += 1
+                if los.has_los(
+                    attacker.position, u.position, self.map,
+                    attacker_keywords=attacker_kw,
+                    target_keywords=u.profile.unit_keywords or (),
+                ):
+                    candidates.append(u)
+                else:
+                    TERRAIN_LOS_STATS["denied"] += 1
         else:
             attacker_kw = attacker.profile.unit_keywords or ()
             candidates = [
@@ -14888,6 +15630,7 @@ class Battle:
                     * self._threat_priority_bonus(attacker, u)
                     * self._target_economics_bonus(attacker, u)
                     * self._focus_fire_bonus(attacker, u)
+                    * self._vp_yield_bonus(attacker, u)
                 ),
             )
 
@@ -15934,11 +16677,25 @@ class Battle:
             dist = _distance(unit.position, enemy_unit.position)
             if dist > 24.0:
                 continue
-            if not self.map.has_line_of_sight(
-                unit.position, enemy_unit.position,
-                attacker_keywords=p.unit_keywords or (),
-                target_keywords=enemy_unit.profile.unit_keywords or (),
-            ):
+            # Terrain line of sight (Stage T3): route the overwatcher's visibility
+            # check through the shared substrate when SWEG_TERRAIN_LOS is set (same
+            # result as Map.has_line_of_sight; byte-identical off). Cited as
+            # `simulator.terrain_los_gate`.
+            if __import__("os").environ.get("SWEG_TERRAIN_LOS") == "1":
+                _ov_vis = los.has_los(
+                    unit.position, enemy_unit.position, self.map,
+                    attacker_keywords=p.unit_keywords or (),
+                    target_keywords=enemy_unit.profile.unit_keywords or (),
+                )
+                if not _ov_vis:
+                    TERRAIN_LOS_STATS["denied"] += 1
+            else:
+                _ov_vis = self.map.has_line_of_sight(
+                    unit.position, enemy_unit.position,
+                    attacker_keywords=p.unit_keywords or (),
+                    target_keywords=enemy_unit.profile.unit_keywords or (),
+                )
+            if not _ov_vis:
                 continue
             # Expected wounds on a normal Shooting phase, scaled by the 1/6
             # overwatch hit rate (overwatch only hits on an unmodified 6). The
@@ -16404,6 +17161,14 @@ class Battle:
         # Embarked passengers cannot charge (10e core). Cited as `simulator.embark`.
         if getattr(attacker, "embarked_in", None) is not None:
             return
+        # SWEG_TRANSPORT_PLAY (default-off): a unit force-disembarked from a
+        # DESTROYED transport this round "cannot declare a charge this turn"
+        # (10e core, verbatim on Wahapedia) — a codex carve-out distinct from
+        # (and unaffected by) the voluntary-disembark-before-move fix in
+        # `_disembark`, which frees a voluntary disembark to charge normally.
+        # Cited as `simulator.transport_play_disembark_full_acts`.
+        if attacker.uid in self._forced_disembark_charge_locked_this_round:
+            return
         # PILOT charge-desire hook — default-OFF / byte-identical in production
         # (Battle._pilot_charge is set only by code/ai_lab/pilot.attach for the
         # genetic-algorithm sandbox; production never sets it -> getattr None ->
@@ -16450,7 +17215,10 @@ class Battle:
                 return
 
         from .strategy import pick_charge_target
-        target, dist = pick_charge_target(attacker, defender_army)
+        # Pass the map so the SWEG_THREAT_CHARGE field (consumer 1) can read the
+        # positional cover at candidate charge destinations. Ignored on the OFF
+        # path; cover attenuation is skipped when map_ is None.
+        target, dist = pick_charge_target(attacker, defender_army, self.map)
         if target is None:
             return
 
@@ -16538,7 +17306,15 @@ class Battle:
         # exempt (coordinated wraps accept bad per-model trades); cheap chaff
         # tarpits are exempt (same exception as charge-discipline).
         # AI piloting heuristic — no rule_citations entry required.
-        if (os.environ.get("SWEG_CHARGE_TRADE", "1") != "0"
+        # REJECTED-empirical 2026-07-09, flipped default-OFF (owner decision).
+        # This veto shipped default-on by owner ruling with no screen; the
+        # first paired measurement (kill-screen, full-frame N=20 vs sc61a)
+        # read gated mean absolute error 3.71 -> 3.19 (-0.52) WITHOUT it,
+        # with World Eaters -11.98 DECISIVE (57.4 -> 45.4, landing on its
+        # real 44.9) and Chaos Knights -5.02 DECISIVE toward real -- the
+        # settled faction-neutral family signature (feeds the durable side).
+        # `SWEG_CHARGE_TRADE=1` re-enables for study.
+        if (os.environ.get("SWEG_CHARGE_TRADE", "0") == "1"
                 and not _is_cage_charge):
             _tp = target.profile
             _t_melee = (_tp.melee_attacks * _tp.melee_hit_probability
@@ -16605,7 +17381,10 @@ class Battle:
         # found none, the roll stays failed for every member.
         # Key: squad_id (int, when >= 0) or profile name (str) — identical to
         # the fate_advance / fate_hit / fate_save keying (task #28 re-key).
-        _fate_chg_key = sid if sid >= 0 else attacker.profile.name
+        # SWEG_AELDARI_FATE_FAITHFUL (default off): `fate_budget_key` collapses
+        # this to one army-wide key instead of per-squad — see
+        # `Army.fate_budget_key` for the rule citation and rationale.
+        _fate_chg_key = attacker_army.fate_budget_key(sid, attacker.profile.name)
         if (
             roll < dist
             and attacker.profile.faction == "Aeldari"
@@ -17581,19 +18360,30 @@ class Battle:
     # Transports (Embark / Disembark / Firing Deck / Destroyed Transport)
     # ------------------------------------------------------------------
     #
-    # 10e core rules (Wahapedia):
+    # 10e core rules (Wahapedia, https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#TRANSPORTS,
+    # re-verified verbatim 2026-07-08):
     #   * Embark: a unit within 3" of a friendly TRANSPORT at the end of a
     #     Normal/Advance/Fall Back move may embark. Once embarked, the unit
     #     does not act normally — it's tracked as a passenger on the transport.
-    #   * Disembark: at the start of any Movement phase a unit may disembark
-    #     from a transport that hasn't moved this turn; the disembarked unit
-    #     is placed wholly within 3" of the transport, then may move normally.
+    #   * Disembark: a unit embarked at the start of its army's Movement phase
+    #     may disembark, placed wholly within 3" of the transport and not
+    #     within Engagement Range of an enemy. If the transport Remained
+    #     Stationary or has not yet moved THIS phase, the disembarking unit
+    #     can then act fully normally (Normal move, Advance, shoot, charge,
+    #     fight). If the transport already made a Normal move this phase, the
+    #     disembarking unit counts as having made its own Normal move (cannot
+    #     move further, cannot charge) but can otherwise act normally. A unit
+    #     cannot disembark from a transport that Advanced or Fell Back.
     #   * Firing Deck X: a TRANSPORT with Firing Deck X may select up to X
-    #     embarked passenger models' weapons each Shooting phase and shoot
-    #     with them as if they were the transport's own weapons (transport's BS).
+    #     embarked passenger models (whose units haven't already shot this
+    #     phase) each Shooting phase; those models' weapons fire as if they
+    #     were the transport's own (transport's ballistic skill), and their
+    #     units then become ineligible to shoot for the rest of the phase.
     #   * Destroyed Transport: when a TRANSPORT is destroyed, before removing
-    #     it, each embarked unit disembarks wholly within 3". For each model
-    #     in the disembarking unit, roll 1D6; on a 1, that model is destroyed.
+    #     it, each embarked unit force-disembarks wholly within 3" (rolling
+    #     1D6 per model, 1 = that model's unit suffers a mortal wound), then
+    #     is Battle-shocked and counts as having made a Normal move this turn
+    #     with no charge — regardless of the transport's own move history.
     #
     # SwegHammer simplifications (first pass):
     #   - Transport capacity is hardcoded to 12 INFANTRY models (Rhino-tier).
@@ -17602,12 +18392,21 @@ class Battle:
     #   - No mid-game voluntary embark (would need a Movement-phase hook).
     #   - Disembark fires on (a) destroyed transport, (b) at the start of the
     #     transport's Movement sub-phase if the AI judges the passenger needs
-    #     to be off-board now (capture nearby objective, transport about to die).
+    #     to be off-board now (capture nearby objective, transport about to
+    #     die, or — SWEG_TRANSPORT_PLAY only — a shoot or charge opportunity
+    #     the ride would otherwise waste; see `_maybe_disembark_before_move`).
     #   - Firing Deck: when a transport shoots, up to firing_deck passengers
-    #     each fire ONE extra shot using the transport's hit_probability.
+    #     each fire ONE extra shot, approximated with the passenger's OWN
+    #     hit_probability rather than swapping in the transport's ballistic
+    #     skill (documented gap, see `_apply_firing_deck`).
     #   - Emergency disembark (placement >3" but ≤6" with mortal wounds on
     #     1-3" path) is NOT modelled — first pass just skips placement if
     #     blocked.
+    #   - Disembark-then-act timing: SWEG_TRANSPORT_PLAY=0 (default) keeps a
+    #     historical over-conservative approximation (blanket movement
+    #     lockout on ANY disembark, no charge lockout on a forced one).
+    #     SWEG_TRANSPORT_PLAY=1 corrects both per the verbatim rule above —
+    #     see `_disembark` and `_do_charge`. Byte-identical off.
 
     _TRANSPORT_CAPACITY = 12   # first-pass simplification — Rhino-tier
 
@@ -17785,19 +18584,48 @@ class Battle:
         passenger.embarked_in = None
         if passenger in transport.passengers:
             transport.passengers.remove(passenger)
-        # 10e core Disembark: "The unit is then treated as having moved a
-        # distance equal to its Move characteristic this turn" — surface
-        # to the Heavy keyword check. The unit cannot make a Normal,
-        # Advance or Fall Back move when its own activation arrives —
-        # tracked in `_disembarked_this_round` and enforced in `_do_move`.
-        # Voluntary disembark (forced=False) fires from the transport's
-        # own Movement sub-phase, so the lockout applies for the rest of
-        # this round. Forced disembark (transport destroyed) is also a
-        # disembark for rule purposes and the same lockout applies.
+        # 10e core Disembark — verbatim (Wahapedia, re-verified 2026-07-08):
+        # "Units that disembark from a TRANSPORT model that either Remained
+        # Stationary this phase or has not yet made a Normal, Advance or Fall
+        # Back move this phase can then act normally (make a Normal move,
+        # Advance, shoot, declare a charge, fight, etc.) ... Units that
+        # disembark from a TRANSPORT model that made a Normal move this phase
+        # count as having made a Normal move themselves; they cannot move
+        # further during this phase. Such a unit also cannot declare a
+        # charge in the same turn, but can otherwise act normally."
+        # SwegHammer's `_maybe_disembark_before_move` always calls `_disembark`
+        # BEFORE the transport's own move decision for that activation, so a
+        # VOLUNTARY disembark always satisfies the first branch (full acts) —
+        # under SWEG_TRANSPORT_PLAY=1 we therefore do NOT lock out the
+        # passenger's own move/charge below. Default OFF preserves the prior
+        # approximation (blanket movement lockout via `_disembarked_this_round`,
+        # read by `_do_move`) byte-identical.
+        #
+        # A FORCED disembark (Destroyed Transport) is the codex's OWN
+        # explicit carve-out regardless of timing — "that unit counts as
+        # having made a Normal move this turn, and cannot declare a charge
+        # this turn" — so it keeps the movement lockout AND (new, under the
+        # flag) also gets the charge lockout it was previously missing,
+        # tracked in `_forced_disembark_charge_locked_this_round` and read
+        # by `_do_charge`. Cited as `simulator.disembark` /
+        # `simulator.transport_play_disembark_full_acts`.
         # Wahapedia core rules: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#TRANSPORTS
-        self._did_move_this_round.add(passenger.uid)
-        passenger.moved_this_round = True
-        self._disembarked_this_round.add(passenger.uid)
+        _transport_play = os.environ.get("SWEG_TRANSPORT_PLAY", "0") == "1"
+        if _transport_play and not forced:
+            # Branch 1 (full acts): leave `_did_move_this_round` /
+            # `moved_this_round` / `_disembarked_this_round` untouched — the
+            # passenger has NOT moved yet this phase and remains free to
+            # make its own Normal/Advance move (if its `_do_move` activation
+            # slot for this round hasn't already elapsed — see the ordering
+            # caveat on `_maybe_disembark_before_move`), to shoot, and to
+            # charge, exactly as an on-foot unit would.
+            pass
+        else:
+            self._did_move_this_round.add(passenger.uid)
+            passenger.moved_this_round = True
+            self._disembarked_this_round.add(passenger.uid)
+            if _transport_play and forced:
+                self._forced_disembark_charge_locked_this_round.add(passenger.uid)
         # DRK-SKYSPLINTER-DISEMBARK: Rain of Cruelty — "Each time a DRUKHARI
         # unit disembarks from a TRANSPORT, until the end of the turn its
         # ranged weapons gain [IGNORES COVER] and its melee weapons gain
@@ -17878,17 +18706,65 @@ class Battle:
             if not passenger.is_alive:
                 self._emit(UnitKilled(unit_uid=passenger.uid))
 
+    # SWEG_TRANSPORT_PLAY disembark-intelligence radii. The disembark spiral
+    # search places a passenger up to 3" from the transport (10e core); the
+    # charge-reach figure mirrors `_do_charge`'s own "2D6 charge vs the best
+    # target <=12"" pick radius, so a unit is judged charge-capable on the
+    # same threshold the charge picker itself uses. Cited as
+    # `simulator.transport_play_disembark_intelligence`.
+    _TRANSPORT_PLAY_DISEMBARK_RADIUS = 3.0
+    _TRANSPORT_PLAY_CHARGE_REACH = 12.0
+
     def _maybe_disembark_before_move(
         self, transport: "Unit", army: Army, opponent: Army,
     ) -> None:
         """Voluntary disembark hook fired at the start of a TRANSPORT's
         Movement sub-phase (10e core).
 
-        Heuristic: disembark when EITHER
+        Base heuristic (always on, unconditional): disembark when EITHER
           (a) the transport currently sits within 6" of an objective marker —
               the passenger should grab it while the transport repositions; OR
           (b) the transport is below 50% HP — likely to die soon, so eject
               before Destroyed Transport mortals fire.
+
+        SWEG_TRANSPORT_PLAY (default-off) adds two more "the passenger's job
+        warrants disembarking" triggers, both real consequences of the fixed
+        disembark-timing rule in `_disembark` (a voluntary before-move
+        disembark gets full acts — shoot AND charge, per Wahapedia's "can
+        then act normally" branch):
+        Both new triggers are scoped to firing_deck<=0 transports ONLY — a
+        transport WITH a Firing Deck already gives its passenger a
+        guaranteed shot every Shooting phase without disembarking (the
+        pre-existing, always-on simulator.firing_deck mechanic), and
+        SwegHammer's one-passenger-per-transport pregame embark means once
+        this passenger disembarks the transport's Firing Deck permanently
+        has nobody left to select — so a bare shoot/charge chance must not
+        be allowed to cannibalise the guaranteed firing-deck output:
+          (c) SHOOT OPPORTUNITY — the transport has no Firing Deck, so an
+              embarked passenger can NEVER shoot while riding; if a live
+              enemy sits within the passenger's own weapon range (plus the
+              3" disembark placement), disembarking gives it a shot it
+              would otherwise never take.
+          (d) CHARGE OPPORTUNITY — same firing_deck<=0 scope; a live enemy
+              sits within charge-threat distance (3" disembark placement +
+              the passenger's Move + the standard 12" charge-pick radius) —
+              disembarking lets it declare a charge this same turn (embarked
+              passengers can never charge).
+        Both are additional OR conditions alongside (a)/(b); neither fires
+        with the flag off (byte-identical). Cited as `simulator.disembark`
+        (a)/(b) and `simulator.transport_play_disembark_intelligence` (c)/(d).
+
+        ORDERING CAVEAT (documented, not hidden — rule 13 discipline): the
+        activation loop calls `_do_move` once per unit per Movement phase in
+        `army.units` order. If a passenger's list position precedes its
+        transport's, the passenger's own `_do_move` call already returned
+        early (still embarked) before this hook disembarks it later in the
+        transport's activation — so the "full acts" movement continuation in
+        `_disembark` only actually grants a further move when the transport
+        is ordered at or before its passenger. The shoot/charge eligibility
+        this method exists to unlock does NOT depend on that ordering — both
+        `_do_shoot` and `_do_charge` run as their own later activations this
+        same round regardless of `army.units` order.
 
         Otherwise we keep the passenger embarked so they continue to ride
         toward an objective. Cited as `simulator.disembark`.
@@ -17906,7 +18782,45 @@ class Battle:
         )
         # (b) below half HP?
         damaged = transport.current_health < transport.profile.health / 2.0
-        if not near_obj and not damaged:
+        shoot_opportunity = False
+        charge_opportunity = False
+        if os.environ.get("SWEG_TRANSPORT_PLAY", "0") == "1":
+            firing_deck = getattr(transport.profile, "firing_deck", 0) or 0
+            # Both new triggers are scoped to firing_deck<=0 transports ONLY.
+            # A transport WITH a Firing Deck already gives its passenger a
+            # guaranteed shot every Shooting phase without disembarking (the
+            # pre-existing, always-on simulator.firing_deck mechanic) — a
+            # bare charge chance is not obviously worth trading that away
+            # for, and SwegHammer's one-passenger-per-transport pregame
+            # embark means once this passenger disembarks, the transport's
+            # Firing Deck permanently has nobody left to select. Restricting
+            # to firing_deck<=0 avoids the new heuristic cannibalising the
+            # already-working mechanic it must coexist with. See
+            # `simulator.transport_play_disembark_intelligence`.
+            if firing_deck <= 0:
+                alive_enemies = [
+                    e for e in opponent.alive_units
+                    if getattr(e, "embarked_in", None) is None
+                ]
+                if alive_enemies:
+                    passengers = transport.passengers
+                    shoot_reach = self._TRANSPORT_PLAY_DISEMBARK_RADIUS + max(
+                        p.profile.range_inches for p in passengers
+                    )
+                    shoot_opportunity = any(
+                        _distance(transport.position, e.position) <= shoot_reach
+                        for e in alive_enemies
+                    )
+                    charge_reach = (
+                        self._TRANSPORT_PLAY_DISEMBARK_RADIUS
+                        + max(p.profile.move for p in passengers)
+                        + self._TRANSPORT_PLAY_CHARGE_REACH
+                    )
+                    charge_opportunity = any(
+                        _distance(transport.position, e.position) <= charge_reach
+                        for e in alive_enemies
+                    )
+        if not (near_obj or damaged or shoot_opportunity or charge_opportunity):
             return
         # Disembark the best passenger (the one most likely to claim an obj
         # or pour fire downrange). First-pass: just disembark all of them.
@@ -17918,24 +18832,39 @@ class Battle:
         attacker_army: Army, defender_army: Army,
         alloc_next_fn=None,
     ) -> float:
-        """Firing Deck X (10e core).
+        """Firing Deck X (10e core, Wahapedia verbatim, re-verified 2026-07-08):
+        "Some TRANSPORT models have 'Firing Deck x' listed in their
+        abilities. Each time such a model is selected to shoot in the
+        Shooting phase, you can select up to 'x' models embarked within it
+        whose units have not already shot this phase. Then, for each of
+        those embarked models, you can select one ranged weapon that
+        embarked model is equipped with (excluding weapons with the [ONE
+        SHOT] ability). Until that TRANSPORT model has resolved all of its
+        attacks, it counts as being equipped with all of the weapons you
+        selected in this way, in addition to its other weapons. Until the
+        end of the phase, those selected models' units are not eligible to
+        shoot."
 
         When a TRANSPORT shoots, up to X embarked passenger models may fire
         their weapons as if they were the transport's. SwegHammer applies a
         simplified version: each of the first X passengers does a single
-        Unit.attack against the target using the passenger's own profile,
-        but inheriting the transport's hit_probability (per the codex's
-        "shoot with them as if they were the transport's weapons" wording).
+        Unit.attack against the target using the passenger's own profile.
 
         Returns total damage dealt by the firing-deck passengers (0 if no
         firing deck or no passengers). Cited as `simulator.firing_deck`.
 
         First-pass simplification: passenger attacks use the passenger's own
-        hit_probability rather than swapping in the transport's, because the
-        Unit.attack stochastic loop reads hit_probability off the passenger's
-        profile. The codex says "use the transport's BS"; in practice for
-        Marine transports that's BS3+ which matches the passenger's anyway.
-        Future task: thread a BS-override into Unit.attack.
+        hit_probability rather than the transport's ballistic skill, because
+        the Unit.attack stochastic loop reads hit_probability off the firing
+        profile and there is no BS-override plumbed through it. The codex
+        says the shots count as the TRANSPORT's own weapons (transport's
+        BS); in practice for Marine transports that's BS3+ which matches the
+        passenger's anyway. The "units have not already shot this phase" /
+        "not eligible to shoot" restriction is satisfied for free by
+        SwegHammer's activation model — an embarked passenger has no
+        activation of its own while embarked, so it can never have shot
+        before the transport's own Shooting-phase activation calls this
+        method. Future task: thread a BS-override into Unit.attack.
         """
         x = getattr(transport.profile, "firing_deck", 0) or 0
         if x <= 0:

@@ -11,6 +11,16 @@
     "approximation": true
   },
 
+  "simulator.cadia_stands": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Command-Squad",
+    "rule_name": "Cadia Stands! (Cadian Command Squad datasheet ability)",
+    "quoted_text": "While this unit contains an OFFICER, each time a ranged attack targets this unit, if this unit is within range of an objective marker you control, models in this unit have the Benefit of Cover against that attack.",
+    "trigger": "SWEG_AM_CADIA_STANDS=1 (the gate unset is the byte-identical default-off kill-switch); a Cadian Shock Troops unit is led by a Cadian Command Squad officer (the combined unit 'contains an OFFICER'), is within range of an objective marker it controls (strictly greater Level of Control at round start), and is the target of a ranged attack",
+    "effect": "Grants the target the Benefit of Cover (+1 to the armour save, single-pip cap, ranged-only) for that attack's save resolution. Precomputed once per round in simulator.py round-setup as the _cadia_stands_active flag (led-by-Command-Squad test via leaders.in_range_leaders proximity proxy, plus the controlled-objective test via _obj_controller_at_round_start), then read on the save path in code/units.py alongside the in_cover / indirect-fire / Recon-Element cover sources. Approximation: the Leader attachment is the simulator's proximity proxy (a Cadian Command Squad within its 6-inch aura), and objective control is snapshotted at round start rather than re-tested per attack, matching the simulator.masters_of_camouflage and simulator.sticky_objective cover/objective approximations.",
+    "scope": "unit-led",
+    "approximation": true
+  },
+
   "simulator.am_battleline_special_weapons": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Shock-Troops",
     "rule_name": "Cadian Shock Troops / Death Korps of Krieg — special weapon wargear options",

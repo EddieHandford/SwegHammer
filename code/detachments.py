@@ -514,6 +514,48 @@ class Detachment:
     # `simulator.hearthband_methodical_annihilation`.
     hearthband_methodical_annihilation: bool = False
 
+    # Emperor's Children Coterie of the Conceited — "Slaanesh's Due" detachment
+    # rule (EC-COTERIE-V1, gated SWEG_EC_DETACHMENT, default OFF). BSData
+    # v10.6.0 (Chaos - Emperor's Children.cat.gz, selectionEntry id
+    # 9db8-cf55-983f-9671) verbatim: "At the start of the battle round, if your
+    # WARLORD is on the battlefield, you must pledge a number to Slaanesh
+    # representing how many enemy units will be destroyed this battle round. At
+    # the end of the battle round, if the number of enemy units destroyed this
+    # battle round is greater than or equal to your pledge, you gain a number of
+    # Pact points equal to your pledge. Otherwise, you do not gain any Pact
+    # points this battle round and your WARLORD model suffers D3 mortal wounds.
+    # EMPEROR'S CHILDREN units from your army gain a bonus depending on how many
+    # Pact points you have gained during the battle, as shown below (these are
+    # all cumulative). 1+: Each time a model in this unit makes an attack,
+    # re-roll a Hit roll of 1. 3+: Each time a model in this unit makes an
+    # attack, re-roll a Wound roll of 1. 5+: Melee weapons equipped by models in
+    # this unit have the [LETHAL HITS] and [SUSTAINED HITS 1] abilities. 7+:
+    # Each time a model in this unit makes an attack, a Critical Hit is scored
+    # on an unmodified Hit roll of 5+."
+    #
+    # This flag activates a bespoke simulator surface (there is no static-flag
+    # expression for an escalating, kill-driven pact economy): the Battle hook
+    # `_settle_ec_pact_points` tracks the running Pact-point total on the EC
+    # army, and `Unit.attack` reads that total (via the flag) to grant the four
+    # cumulative attack bonuses to every EMPEROR'S CHILDREN attacker. The four
+    # bonuses map exactly onto existing attack machinery (att_reroll_hit_ones /
+    # att_reroll_wound_ones / effective_lethal_hits + effective_sustained_hits /
+    # the crit-to-hit threshold), so no new per-attack primitive is invented.
+    #
+    # APPROXIMATION — the "pledge" is a piloting decision the simulator cannot
+    # make with foresight, so a competent pilot is idealised: a strong player
+    # pledges up to the units they will reliably destroy this round and meets
+    # it, banking Pact points equal to that pledge. SwegHammer collapses this to
+    # "gain one Pact point per enemy unit destroyed this round", gated on the
+    # army's Warlord still being alive on the battlefield (the rule's "if your
+    # WARLORD is on the battlefield" condition). HONEST OMISSIONS: the pledge is
+    # idealised as always met, so the D3-mortal-wounds-on-a-missed-pledge
+    # downside is not fired (a competent pilot pledges conservatively — down to
+    # 0 — to avoid it). See `_settle_ec_pact_points` for the full rationale.
+    # Cited as `COTERIE_OF_THE_CONCEITED.coterie_pact_points` and
+    # `simulator.ec_coterie_pact_points`.
+    coterie_pact_points: bool = False
+
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
     enemy_ld_penalty: int = 0            # -N to enemy Ld (higher target)
@@ -1893,8 +1935,49 @@ CURSED_LEGION = Detachment(
 # Registry
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Emperor's Children — Coterie of the Conceited (EC-COTERIE-V1)
+# ---------------------------------------------------------------------------
+# The competitive go-to detachment for Emperor's Children (Goonhammer /
+# Tabletop Battles detachment focus; Falco La Orden went 7-0 with it at the
+# La Voz Open 2025). Prior to this the sim's Emperor's Children ran NO
+# detachment at all (no entry in DEFAULT_BY_FACTION / FACTION_DETACHMENTS), so
+# `pick_detachment_for_army` fell through to the None path — the faction was
+# playing with its army rule alone. See the `coterie_pact_points` field on the
+# Detachment dataclass for the verbatim "Slaanesh's Due" rule text and the
+# modelling notes.
+# Source (BSData v10.6.0): https://github.com/BSData/wh40k-10e/blob/main/Chaos%20-%20Emperor's%20Children.cat
+# Source (Wahapedia): https://wahapedia.ru/wh40k10ed/factions/emperor-s-children/
+COTERIE_OF_THE_CONCEITED = Detachment(
+    name="Coterie of the Conceited",
+    faction="Emperor's Children",
+    notes=(
+        "Slaanesh's Due (BSData v10.6.0 verbatim): \"At the start of the "
+        "battle round, if your WARLORD is on the battlefield, you must pledge "
+        "a number to Slaanesh representing how many enemy units will be "
+        "destroyed this battle round. At the end of the battle round, if the "
+        "number of enemy units destroyed this battle round is greater than or "
+        "equal to your pledge, you gain a number of Pact points equal to your "
+        "pledge. Otherwise, you do not gain any Pact points this battle round "
+        "and your WARLORD model suffers D3 mortal wounds. EMPEROR'S CHILDREN "
+        "units from your army gain a bonus depending on how many Pact points "
+        "you have gained during the battle (cumulative): 1+ re-roll a Hit roll "
+        "of 1; 3+ re-roll a Wound roll of 1; 5+ melee weapons gain [LETHAL "
+        "HITS] and [SUSTAINED HITS 1]; 7+ a Critical Hit is scored on an "
+        "unmodified Hit roll of 5+.\" Modelled via a bespoke Battle Pact-point "
+        "tracker (see `coterie_pact_points` field + `simulator."
+        "ec_coterie_pact_points`); the pledge is idealised as competent play — "
+        "gain one Pact point per enemy unit destroyed while the Warlord lives "
+        "(the D3-mortal-wounds miss-downside is an honest omission). Gated "
+        "SWEG_EC_DETACHMENT (default OFF)."
+    ),
+    coterie_pact_points=True,
+    preferred_composition="infantry",
+)
+
 DETACHMENTS: Dict[str, Detachment] = {
     "gladius_task_force":      GLADIUS_TASK_FORCE,
+    "coterie_of_the_conceited": COTERIE_OF_THE_CONCEITED,
     "awakened_dynasty":        AWAKENED_DYNASTY,
     "invasion_fleet":          INVASION_FLEET,
     "subterranean_assault":    SUBTERRANEAN_ASSAULT,
@@ -1989,6 +2072,7 @@ del _key, _det, _enh, _dc
 # Re-bind the module-level constants so downstream `from .detachments import
 # GLADIUS_TASK_FORCE` callers see the patched-with-enhancements instance.
 GLADIUS_TASK_FORCE = DETACHMENTS["gladius_task_force"]
+COTERIE_OF_THE_CONCEITED = DETACHMENTS["coterie_of_the_conceited"]
 AWAKENED_DYNASTY   = DETACHMENTS["awakened_dynasty"]
 CURSED_LEGION      = DETACHMENTS["cursed_legion"]
 INVASION_FLEET     = DETACHMENTS["invasion_fleet"]
@@ -2029,6 +2113,20 @@ _AM_GRIZZLED_ON: bool = os.environ.get("SWEG_AM_GRIZZLED", "0") == "1"
 # both resolve to "hearthband" instead. See HEARTHBAND notes above for the
 # rule text.
 _VOTANN_HEARTHBAND_ON: bool = os.environ.get("SWEG_VOTANN_HEARTHBAND", "0") == "1"
+
+# Emperor's Children Coterie of the Conceited gate (SWEG_EC_DETACHMENT, default
+# OFF). Read once at import time — same convention as _AM_GRIZZLED_ON /
+# _VOTANN_HEARTHBAND_ON above. When False, Emperor's Children has NO entry in
+# DEFAULT_BY_FACTION / FACTION_DETACHMENTS (the resolver returns None, exactly
+# as it did before this detachment existed — byte-identical no-detachment
+# path). When True, both resolve to "coterie_of_the_conceited". See
+# COTERIE_OF_THE_CONCEITED notes above for the rule text.
+# ADOPTED default-on 2026-07-04 (`=0` kill-switch). N=80 Emperor's-Children-
+# scoped screen vs sc55a: Emperor's Children 42.0 -> 45.3 (+3.34 toward real
+# 53.3), gated 3.51 -> 3.37, Death Guard flat — the missing-detachment fix (the
+# faction ran NO detachment). Closes a third of the -11.3 under-pole; the
+# remainder is Emperor's Children's wider list composition (audit pending).
+_EC_DETACHMENT_ON: bool = os.environ.get("SWEG_EC_DETACHMENT", "1") != "0"
 
 # Default detachment per faction (used when Army.detachment is None and a
 # faction is known). Picks a sensible competitive default; user can override.
@@ -2100,6 +2198,13 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     # _VOTANN_HEARTHBAND_ON above).
     "Leagues of Votann":        "hearthband" if _VOTANN_HEARTHBAND_ON else "oathband",
 }
+
+# SWEG_EC_DETACHMENT (default OFF): only register Emperor's Children's default
+# detachment when the gate is on. Left absent when off so the resolver returns
+# None — the exact byte-identical no-detachment path Emperor's Children ran on
+# before this detachment existed.
+if _EC_DETACHMENT_ON:
+    DEFAULT_BY_FACTION["Emperor's Children"] = "coterie_of_the_conceited"
 
 
 def default_detachment_for_faction(faction: str) -> Optional[Detachment]:
@@ -2227,6 +2332,14 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Leagues of Votann":        (("hearthband",) if _VOTANN_HEARTHBAND_ON
                                  else ("oathband",)),
 }
+
+# SWEG_EC_DETACHMENT (default OFF): register Coterie of the Conceited as the
+# sole Emperor's Children detachment when the gate is on (single-entry tuple ->
+# pick_detachment_for_army returns it deterministically). Absent when off, so
+# `FACTION_DETACHMENTS.get("Emperor's Children", ())` is the empty tuple and
+# the picker falls through to the None default — byte-identical to base.
+if _EC_DETACHMENT_ON:
+    FACTION_DETACHMENTS["Emperor's Children"] = ("coterie_of_the_conceited",)
 
 
 def _army_composition_signature(units) -> Dict[str, float]:

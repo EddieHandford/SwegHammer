@@ -188,6 +188,36 @@ any new scoring term. Cited as `simulator.charge_path_non_target`. Setting
 `SWEG_CHARGE_PATH=0` restores the legacy behaviour where chargers passed
 through screening units to reach the unit behind.
 
+### Threat-Projection Field — Charge Scoring (default-off)
+
+The charge-target picker's default score prices each candidate against only that
+target's own melee output back at the charger (the denominator
+`1 + threat_against_target`), so it is blind to the rest of the board — most
+sharply to a second enemy melee squad sitting beside the target that will
+counter-charge whoever commits (the two-adjacent-Khorne-Berzerkers case). The
+threat-projection field, gate `SWEG_THREAT_CHARGE` (default-OFF), replaces that
+denominator with the post-fight incoming threat field at the charge destination:
+`1 + T_post / effective_wounds(charger)`, where `T_post` sums the projected
+expected wounds every living enemy can deliver onto the charger standing at the
+destination — its guns within Move + weapon range (attenuated by the positional
+Benefit of Cover at the cell) plus its melee weighted by the real Move + 2D6
+charge-reach probability — minus the target's own contribution weighted by the
+probability the fight kills it this turn (killing an isolated target removes it
+from the field; a supported target leaves its neighbour's reach in the
+denominator). Every existing bonus multiplier is preserved and the OFF path is
+byte-identical (the denominator is the exact legacy value when the gate is
+unset). The field REUSES the audited expected-wounds helpers
+(`strategy._kill_potential_wounds`, `simulator._ranged_expected_wounds`) and the
+audited cover save math, and draws no new random number. Cited as
+`simulator.threat_projection_charge`; owner-originated design in
+`docs/THREAT_LAYER_PROPOSAL.md`. The falsifier is the "walked-into-it" rate —
+how often a unit ends an activation in a cell whose realized next-turn incoming
+damage is lethal — measured by `scripts/diag_walked_into_it.py`. Honest caveat:
+the ranged half is attenuated only by the angle-independent positional cover the
+shooting resolution actually enforces, not by line-of-sight occlusion (a
+separate rules-fidelity question). Only charge scoring (consumer 1) is built;
+move-intent destinations and reserve placement (consumers 2-3) are not.
+
 ### Activation Sequence
 
 Each battle round proceeds as follows:

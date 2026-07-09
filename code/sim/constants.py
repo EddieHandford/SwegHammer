@@ -121,3 +121,25 @@ REACH_STATS: dict = {
 # (~38mm base). A 170mm Knight is ~3.3", infantry ~0.63" — the threshold cleanly
 # separates the big bases that crash their reach from the small bases that sidestep fine.
 _PATHFIND_BIG_RADIUS_IN = 1.5
+
+# TERRAIN-COLLISION instrument (terrain-realism Stage T2, gate SWEG_TERRAIN_COLLISION).
+# Counts, over the moves that RAN with terrain collision active (non-FLY, non-INFANTRY
+# movers when the gate is on), how many had their straight destination CLAMPED at a
+# Ruin/Impassable wall they would otherwise have tunnelled through, and how many
+# off-axis candidate destinations were REJECTED for crossing a wall. Mutated only on
+# the gated path (terrain_block_ruins=True in code.sim.geometry._move_toward), so the
+# default-off path leaves it at zero and is byte-identical. Read-only diagnostic.
+TERRAIN_COLLISION_STATS: dict = {
+    "considered": 0, "clamped": 0, "candidates_rejected": 0,
+}
+
+# TERRAIN-LINE-OF-SIGHT instrument (terrain-realism Stage T3, gate SWEG_TERRAIN_LOS).
+# Counts, when the gate routes the shooting / Fire Overwatch target-legality check
+# through the shared substrate code.sim.los.has_los, how many in-range enemy targets
+# were DENIED because a Ruin/Woods wall occludes them (checked = in-range targets
+# tested, denied = of those, occluded). Mutated only on the gated path; the default-off
+# path keeps its pre-existing Map.has_line_of_sight legality check unchanged and leaves
+# this at zero. Read-only diagnostic. NOTE: line-of-sight target LEGALITY is not new —
+# the baseline Map.has_line_of_sight check already denies occluded targets; the gate
+# routes the identical check through the substrate the T4 planner will share.
+TERRAIN_LOS_STATS: dict = {"checked": 0, "denied": 0}

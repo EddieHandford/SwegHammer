@@ -1068,6 +1068,10 @@ class Unit:
         # legacy / shared-profile units. Cited as `simulator.per_model_loadouts`.
         "squad_profile_ref",
         "moved_this_round", "on_objective", "shooting_in_engagement",
+        # Cadia Stands! per-round flag (SWEG_AM_CADIA_STANDS): set True in
+        # simulator.py round-setup when a led Cadian Shock Troops squad is on an
+        # objective its army controls; read on the save path for Benefit of Cover.
+        "_cadia_stands_active",
         # RECIPROCAL BIG GUNS NEVER TIRE (gated SWEG_BGNT_RECIPROCAL). Set per
         # shooting activation by Battle._do_shoot: True when this ranged
         # activation targets an enemy MONSTER/VEHICLE that is within Engagement
@@ -1126,9 +1130,20 @@ class Unit:
         #   transient_plus_one_to_wound_melee — Outbreak of Pestilence. Attacker
         #       buff: +1 to wound on melee attacks for the round.
         # Warhost (Aeldari, was "Battle Host" pre-#197):
-        #   transient_plus_one_save — Lightning-Fast Reactions (also reused by
-        #       Skyborne Sanctuary and Webway Tunnel as defensive proxies).
-        #       Defender buff: +1 to armour save (cap 2+) for the round.
+        #   transient_plus_one_save — Lightning-Fast Reactions LEGACY path
+        #       (SWEG_AELDARI_LFR_PHASE default OFF; also reused by Skyborne
+        #       Sanctuary and Webway Tunnel as defensive proxies, unaffected
+        #       by the gate). Defender buff: +1 to armour save (cap 2+) for
+        #       the round.
+        #   transient_minus_one_to_hit_shooting — Lightning-Fast Reactions
+        #       FIDELITY path (gate SWEG_AELDARI_LFR_PHASE == "1"). Defender
+        #       buff: -1 to incoming ranged Hit rolls for the round, composed
+        #       via OR at the same Stealth/Smokescreen site (Unit.attack,
+        #       ranged branch) and subsumed by the same ±1 hit-modifier cap
+        #       (never doubles). Matches the codex "-1 to Hit rolls" effect
+        #       in kind; being ranged-only also narrows the duration to the
+        #       opponent's Shooting phase, since it can never apply in the
+        #       Fight phase. Cited as `Stratagem.Lightning-Fast Reactions`.
         #   transient_reroll_hits_shooting — Fire and Fade. Attacker buff: failed
         #       hit rolls in shooting are re-rolled (once) for the round.
         #   transient_plus_one_to_hit_shooting — Blitzing Firepower (Warhost
@@ -1193,6 +1208,7 @@ class Unit:
         "transient_minus_one_damage_taken",
         "transient_plus_one_to_wound_melee",
         "transient_plus_one_save",
+        "transient_minus_one_to_hit_shooting",
         "transient_reroll_hits_shooting",
         "transient_assault_this_round",
         "transient_charge_after_advance",
@@ -1417,6 +1433,10 @@ class Unit:
         # Unit.attack() to gate detachment buffs like Awakened Dynasty's
         # objective_holder_bonus_to_wound.
         self.on_objective: bool = False
+        # Cadia Stands! per-round cover flag (default False; only set True in
+        # simulator.py round-setup when SWEG_AM_CADIA_STANDS=1). Byte-identical
+        # off: stays False when the gate is unset.
+        self._cadia_stands_active: bool = False
         # Toggled by Battle._do_shoot: True if this VEHICLE/MONSTER unit
         # is firing while inside an enemy's engagement range (Big Guns
         # Never Tire). Triggers a -1 to hit modifier per 10e core rules.
@@ -1435,6 +1455,11 @@ class Unit:
         self.transient_minus_one_damage_taken: bool = False
         self.transient_plus_one_to_wound_melee: bool = False
         self.transient_plus_one_save: bool = False
+        # Lightning-Fast Reactions FIDELITY path (gate SWEG_AELDARI_LFR_PHASE
+        # == "1"): -1 to incoming ranged Hit rolls, read at the Stealth /
+        # Smokescreen OR-site in Unit.attack. Default False = no-op on the
+        # legacy (gate off) path, which still uses transient_plus_one_save.
+        self.transient_minus_one_to_hit_shooting: bool = False
         self.transient_reroll_hits_shooting: bool = False
         self.transient_assault_this_round: bool = False
         self.transient_charge_after_advance: bool = False
@@ -3519,9 +3544,18 @@ class Unit:
             # ability until end of the opponent's Shooting phase, composed via
             # OR with the datasheet's own (permanent) Stealth. Cited as
             # `simulator.smokescreen`.
+            # Lightning-Fast Reactions FIDELITY path (Warhost Aeldari stratagem,
+            # gate SWEG_AELDARI_LFR_PHASE == "1", `simulator._try_lightning_
+            # fast_reactions`): the codex effect is "subtract 1 from Hit rolls
+            # targeting your unit" — reusing this exact ranged-only -1-to-hit
+            # site (rather than the legacy `transient_plus_one_save` mis-map)
+            # both fixes the effect direction AND narrows the duration to the
+            # Shooting phase only, since this branch never fires for melee.
+            # Cited as `Stratagem.Lightning-Fast Reactions`.
             if mode != "melee" and (
                 target.profile.stealth
                 or getattr(target, "smokescreen_active", False)
+                or getattr(target, "transient_minus_one_to_hit_shooting", False)
             ):
                 hit_mod_delta -= 1
 
@@ -3749,9 +3783,19 @@ class Unit:
                      or "WALKER" in (target.profile.unit_keywords or ()))
                 and __import__("os").environ.get("SWEG_AM_RECON", "0") == "1"
             )
+            # Cadia Stands! (SWEG_AM_CADIA_STANDS): a Cadian Shock Troops squad led
+            # by its Cadian Command Squad officer, while on an objective its army
+            # CONTROLS, has Benefit of Cover against ranged attacks. The
+            # `_cadia_stands_active` per-round flag is precomputed in simulator.py
+            # round-setup (the led + controlled-objective test); it is only ever
+            # written when the gate is ON, so getattr(..., False) keeps the OFF
+            # path byte-identical. Ranged-only via the `mode != "melee"` gate.
+            # Cited as `simulator.cadia_stands`.
+            _cadia_cover = getattr(target, "_cadia_stands_active", False)
             if (
                 mode != "melee"
-                and (target.in_cover or indirect_fire_attack or _recon_cover)
+                and (target.in_cover or indirect_fire_attack or _recon_cover
+                     or _cadia_cover)
                 and not ignore_cover
                 and not precision_pierces_cover
                 and not cover_blocked_by_ap0_exception
@@ -3991,6 +4035,38 @@ class Unit:
                     _det_hb = None
                 if getattr(_det_hb, "hearthband_methodical_annihilation", False):
                     att_reroll_wound_ones = True
+
+            # ---- Emperor's Children Coterie of the Conceited — Slaanesh's Due
+            # (detachment rule, gated SWEG_EC_DETACHMENT default OFF). BSData
+            # v10.6.0 verbatim: EMPEROR'S CHILDREN units gain cumulative bonuses
+            # by the army's running Pact-point total (tracked on the army by the
+            # Battle hook `_settle_ec_pact_points`):
+            #   1+: re-roll a Hit roll of 1 (this block).
+            #   3+: re-roll a Wound roll of 1 (this block).
+            #   5+: melee weapons gain [LETHAL HITS] and [SUSTAINED HITS 1]
+            #       (the `_ec_pact` reads in the lethal / sustained blocks below).
+            #   7+: a Critical Hit is scored on an unmodified Hit roll of 5+
+            #       (the `_ec_pact` reads in the crit-threshold block below).
+            # `_ec_pact` is computed here (before every consuming site) and is 0
+            # for any non-EC attacker / any EC army whose detachment is not
+            # Coterie of the Conceited (gate off), so the whole feature is inert
+            # unless the pact tracker is live. The 1+ / 3+ re-roll grants sit
+            # BEFORE the overwatch guard below so overwatch (nat-6-only) still
+            # correctly suppresses the Hit re-roll. Cited as
+            # `COTERIE_OF_THE_CONCEITED.coterie_pact_points` and
+            # `simulator.ec_coterie_pact_points`.
+            _ec_pact = 0
+            if (p.faction or "") == "Emperor's Children" and own_army is not None:
+                try:
+                    _det_ec = own_army.resolve_detachment()
+                except Exception:
+                    _det_ec = None
+                if getattr(_det_ec, "coterie_pact_points", False):
+                    _ec_pact = int(getattr(own_army, "ec_pact_points", 0) or 0)
+            if _ec_pact >= 1:
+                att_reroll_hit_ones = True
+            if _ec_pact >= 3:
+                att_reroll_wound_ones = True
 
             # ---- Adeptus Astartes Oath of Moment (army rule, 10e). When the
             # attacker is a Marine (any chapter) AND its army has declared
@@ -4240,6 +4316,16 @@ class Unit:
             # gates the aura to the led unit. Cited as
             # LeaderAbility.Warrior-Forged Leadership.
             if mode == "melee" and att_buffs.get("lethal_hits_melee"):
+                effective_lethal_hits = True
+            # Emperor's Children Coterie of the Conceited — Slaanesh's Due 5+
+            # Pact-point tier: "Melee weapons equipped by models in this unit
+            # have the [LETHAL HITS] and [SUSTAINED HITS 1] abilities." The
+            # [LETHAL HITS] half is applied here (melee only); the [SUSTAINED
+            # HITS 1] half is added to `effective_sustained_hits` in the melee
+            # sustained block below. `_ec_pact` computed in the re-roll block
+            # above (0 unless the Coterie Pact tracker is live). Cited as
+            # `COTERIE_OF_THE_CONCEITED.coterie_pact_points`.
+            if mode == "melee" and _ec_pact >= 5:
                 effective_lethal_hits = True
             # Adeptus Custodes Martial Ka'tah — RENDAX [LETHAL HITS] stance (10e
             # datasheet ability, BSData shared rule id e348-7090-3aff-ee2c). Each
@@ -4604,6 +4690,15 @@ class Unit:
                             and getattr(_det, "faction", None) == p.faction):
                         effective_sustained_hits += 1
 
+            # Emperor's Children Coterie of the Conceited — Slaanesh's Due 5+
+            # Pact-point tier: melee weapons gain [SUSTAINED HITS 1] (the
+            # [LETHAL HITS] half is applied in the lethal block above). Composes
+            # additively with any per-weapon melee sustained, matching the
+            # WAR_HORDE convention. `_ec_pact` computed in the re-roll block
+            # above. Cited as `COTERIE_OF_THE_CONCEITED.coterie_pact_points`.
+            if mode == "melee" and _ec_pact >= 5:
+                effective_sustained_hits += 1
+
             # ---- World Eaters Blessings of Khorne (10e army rule) — Martial
             # Excellence grants army-wide melee SUSTAINED HITS 1 for the
             # battle round. Gate: mode == "melee" AND attacker faction ==
@@ -4683,6 +4778,22 @@ class Unit:
             # True without new plumbing. Gate: mode=="melee" AND the
             # attacker's detachment carries `melee_crit_on_5_plus_hits=True`.
             melee_crit_threshold = 6   # canonical 10e: nat 6 to-hit = Critical Hit
+            # Ranged crit-to-hit threshold — default 6. `>= 6` is identical to
+            # `== 6` for a d6, so the ranged crit path is byte-identical unless
+            # a rule lowers this. Emperor's Children Coterie of the Conceited's
+            # 7+ Pact-point tier is the only source that lowers it (to 5).
+            ranged_crit_threshold = 6
+            # Emperor's Children Coterie of the Conceited — Slaanesh's Due 7+
+            # Pact-point tier: "a Critical Hit is scored on an unmodified Hit
+            # roll of 5+" — applies to every attack the unit makes, so BOTH the
+            # melee and ranged crit thresholds drop to 5. `_ec_pact` computed in
+            # the re-roll block above (0 unless the Coterie Pact tracker is
+            # live). Placed before the Custodes melee block so an EC attacker's
+            # threshold is not re-touched (EC never carries melee_crit_on_5_plus
+            # _hits). Cited as `COTERIE_OF_THE_CONCEITED.coterie_pact_points`.
+            if _ec_pact >= 7:
+                melee_crit_threshold = 5
+                ranged_crit_threshold = 5
             if mode == "melee":
                 _own_army = getattr(self, "army_ref", None)
                 if _own_army is not None:
@@ -4887,12 +4998,19 @@ class Unit:
                             # where the codex allows only 1. Block if this squad
                             # has already spent a Fate die on a Hit roll this round.
                             # task #28 squad_id re-key: key on squad_id when >= 0.
+                            # SWEG_AELDARI_FATE_FAITHFUL (default off):
+                            # `fate_budget_key` collapses this to one army-wide
+                            # key instead of per-squad — see
+                            # `Army.fate_budget_key` for the rule citation.
                             # Cited as `simulator.strands_of_fate`.
                             # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
                             and hasattr(own_army, "unit_budget_available")
+                            and hasattr(own_army, "fate_budget_key")
                             and own_army.unit_budget_available(
                                 "fate_hit",
-                                (getattr(self, "squad_id", -1) if getattr(self, "squad_id", -1) >= 0 else p.name),
+                                own_army.fate_budget_key(
+                                    getattr(self, "squad_id", -1), p.name
+                                ),
                             )
                         ):
                             # AI-5: gate spending by stakes. Only treat the
@@ -4906,10 +5024,8 @@ class Unit:
                             if sub is not None:
                                 roll = sub
                                 if hasattr(own_army, "mark_unit_budget"):
-                                    _fate_hit_key = (
-                                        getattr(self, "squad_id", -1)
-                                        if getattr(self, "squad_id", -1) >= 0
-                                        else p.name
+                                    _fate_hit_key = own_army.fate_budget_key(
+                                        getattr(self, "squad_id", -1), p.name
                                     )
                                     own_army.mark_unit_budget("fate_hit", _fate_hit_key)
                     # Adepta Sororitas Acts of Faith — Miracle Dice
@@ -5000,7 +5116,10 @@ class Unit:
                     elif indirect_fire_attack:
                         crit_hit = False
                     else:
-                        crit_hit = (unmodified_roll == 6)
+                        # Default ranged_crit_threshold is 6, so `>= 6` is
+                        # byte-identical to the legacy `== 6`; only Emperor's
+                        # Children Coterie 7+ lowers it to 5.
+                        crit_hit = (unmodified_roll >= ranged_crit_threshold)
                 n_hits = 1 + (effective_sustained_hits if crit_hit else 0)
 
                 for hit_i in range(n_hits):
@@ -5269,11 +5388,18 @@ class Unit:
                                 # Fate die on their individual save rolls, draining
                                 # up to 10 dice where the codex allows only 1.
                                 # task #28 squad_id re-key: key on squad_id when >= 0.
+                                # SWEG_AELDARI_FATE_FAITHFUL (default off):
+                                # `fate_budget_key` collapses this to one
+                                # army-wide key instead of per-squad — see
+                                # `Army.fate_budget_key` for the rule citation.
                                 # Cited as `simulator.strands_of_fate`.
                                 and hasattr(tgt_army, "unit_budget_available")
+                                and hasattr(tgt_army, "fate_budget_key")
                                 and tgt_army.unit_budget_available(
                                     "fate_save",
-                                    (getattr(target, "squad_id", -1) if getattr(target, "squad_id", -1) >= 0 else target.profile.name),
+                                    tgt_army.fate_budget_key(
+                                        getattr(target, "squad_id", -1), target.profile.name
+                                    ),
                                 )
                             ):
                                 # AI-5: defensive saves are high-stakes when
@@ -5290,10 +5416,8 @@ class Unit:
                                 if sub is not None:
                                     sroll = sub
                                     if hasattr(tgt_army, "mark_unit_budget"):
-                                        _fate_save_key = (
-                                            getattr(target, "squad_id", -1)
-                                            if getattr(target, "squad_id", -1) >= 0
-                                            else target.profile.name
+                                        _fate_save_key = tgt_army.fate_budget_key(
+                                            getattr(target, "squad_id", -1), target.profile.name
                                         )
                                         tgt_army.mark_unit_budget("fate_save", _fate_save_key)
                         # Adepta Sororitas Acts of Faith — defensive Miracle

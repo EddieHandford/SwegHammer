@@ -154,6 +154,14 @@ FX_ALL_FACTIONS: frozenset = frozenset(FACTIONS[10:])
 #     data for the original 5 non-approx factions; set equal to warp_friends
 #     for all others until independent source data is obtained (zero stdev
 #     signals "single confirmed source", not "multi-source agreement")
+# ⚠ SUPERSEDED — NOT THE LIVE TARGET. This is a frozen May-2026 hand snapshot,
+# kept only for the cross-source-variance methodology note above. It has ZERO
+# consumers: the real per-faction win-rate target the gated mean absolute error
+# is computed against is loaded at runtime from `data/warpfriends_rolling.json`
+# by `_load_tournament_target()` (see line ~96), NOT from this dict. Do NOT read
+# per-faction "real" numbers from here — several are stale (e.g. Emperor's
+# Children reads 47.9 here but the live rolling target is 53.3). Reconciled and
+# banner added 2026-07-03 after this table misled a batch of agent briefings.
 TOURNAMENT_SOURCES: Dict[str, Dict[str, float]] = {
     "Adeptus Astartes":   {"warp_friends_may_2026": 47.6, "goonhammer_q2_2026": 47.6,
                            "stat_check_may_2026":   47.6, "meta_monday_may_2026": 47.6},
@@ -270,6 +278,33 @@ _PRIMARY_DECK = (
     "take_and_hold",   # Supply Drop           (not yet modelled)
 )
 
+# SWEG_PRIMARY_DECK_FULL (default-off): the FULL Chapter Approved 2025-26 deck —
+# all ten primaries drawn by their own real scoring rule. `Battle._score_objectives`
+# gains five more mission branches (linchpin, burden_of_trust,
+# unexploded_ordnance, hidden_supplies, supply_drop) alongside the three already
+# modelled above. Each of the five newly-modelled missions is a DISCLOSED
+# PARTIAL — see the per-mission code comments in code/simulator.py and the
+# citations in data/rule_citations.d/primary_missions.json for exactly which
+# real-card clause each one omits and why (mostly Actions that would need
+# dynamic marker creation / repositioning, out of scope for this build). Gated
+# behind SWEG_PRIMARY_DECK_FULL so the default eval (the partial _PRIMARY_DECK
+# above, unchanged) stays byte-identical; SWEG_PRIMARY_DECK must also resolve
+# truthy (its default "1") for either deck to be drawn at all — setting
+# SWEG_PRIMARY_DECK_FULL alone with SWEG_PRIMARY_DECK=0 still yields no primary
+# rotation. Cited simulator.primary_mission_rotation.
+_PRIMARY_DECK_FULL = (
+    "linchpin",             # Linchpin
+    "burden_of_trust",      # Burden of Trust
+    "take_and_hold",        # Take and Hold
+    "terraform",            # Terraform             (Action-on-marker, body-army bonus)
+    "purge_the_foe",        # Purge the Foe
+    "scorched_earth",       # Scorched Earth        (Burn Action displacement)
+    "unexploded_ordnance",  # Unexploded Ordnance   (Hazard-proximity bands)
+    "hidden_supplies",      # Hidden Supplies       (cumulative weighted hold)
+    "the_ritual",           # The Ritual            (No Man's Land-only hold pressure)
+    "supply_drop",          # Supply Drop           (Alpha/Omega escalating VP)
+)
+
 
 def _pick_primary_mission(pair_seed: int) -> Optional[str]:
     """Deterministic per-game primary draw from the CA-2025-26 deck.
@@ -298,13 +333,17 @@ def _pick_primary_mission(pair_seed: int) -> Optional[str]:
     # the legacy all-Take-and-Hold frame for an audit/A-B.
     if os.environ.get("SWEG_PRIMARY_DECK", "1") == "0":
         return None
+    # SWEG_PRIMARY_DECK_FULL (default-off, byte-identical off): draw from the
+    # full ten-real-card deck instead of the partial. See the deck's own
+    # docstring above for the fidelity/disclosure notes.
+    deck = _PRIMARY_DECK_FULL if os.environ.get("SWEG_PRIMARY_DECK_FULL") == "1" else _PRIMARY_DECK
     # pair_seed = (ai * 1000 + bi) * 100 + s, with s in 1..N (<100), faction
     # indices ai, bi < 100. Recover them to break the seed/map correlation.
     s = pair_seed % 100
     rest = pair_seed // 100
     bi = rest % 1000
     ai = rest // 1000
-    return _PRIMARY_DECK[(ai * 7 + bi * 3 + s) % len(_PRIMARY_DECK)]
+    return deck[(ai * 7 + bi * 3 + s) % len(deck)]
 
 
 def _run_battle_job(
@@ -327,12 +366,34 @@ def _run_battle_job(
     """
     a_fac, b_fac, s, pair_seed, rules, use_archetype, price_overrides = args
     random.seed(pair_seed)
+    # SIDE ROLL-OFF (SWEG_SIDE_ROLLOFF, default-off -> byte-identical). The
+    # frame audit (docs/PROTOCOL_REVIEW_2026-07.md) measured per-faction
+    # army-A-vs-army-B positional bias up to +/-5 points, MAP-CONCENTRATED
+    # (all five rotation maps verified 180-degree symmetric in objectives AND
+    # terrain, so the bias is side-keyed game mechanics — deployment ordering,
+    # arrival scans — not geometry). Real 10e play rolls off for deployment
+    # zone choice, so a fixed faction->side assignment is itself unfaithful.
+    # With the gate on, a per-game coin flip (drawn from a SEPARATE Random
+    # keyed on pair_seed, so the global stream and the OFF path are untouched)
+    # exchanges which faction plays each slot, and the returned winner is
+    # re-oriented to a_fac's perspective — every cell's win rate becomes a
+    # both-sides average, which converges the A-frame onto the unbiased
+    # symmetrized estimator at source. Cited simulator.first_turn_rolloff
+    # (deployment-zone leg). Frame change: adoption requires a full re-anchor.
+    _swap = (
+        # ADOPTED default-on 2026-07-08 (anchor sc59a, gated 2.85 A-frame /
+        # 2.62 symmetrized, all 22 factions' side bias within +/-1.7);
+        # SWEG_SIDE_ROLLOFF=0 is the byte-identical kill-switch.
+        os.environ.get("SWEG_SIDE_ROLLOFF", "1") != "0"
+        and random.Random(pair_seed ^ 0x51DE).random() < 0.5
+    )
+    _slot_a_fac, _slot_b_fac = (b_fac, a_fac) if _swap else (a_fac, b_fac)
     a = build_faction_random_army(
-        "A", a_fac, 2000, rng=random.Random(s), use_archetype=use_archetype,
+        "A", _slot_a_fac, 2000, rng=random.Random(s), use_archetype=use_archetype,
         price_overrides=price_overrides,
     )
     b = build_faction_random_army(
-        "B", b_fac, 2000, rng=random.Random(s + 10000), use_archetype=use_archetype,
+        "B", _slot_b_fac, 2000, rng=random.Random(s + 10000), use_archetype=use_archetype,
         price_overrides=price_overrides,
     )
     if not a.units or not b.units:
@@ -341,7 +402,10 @@ def _run_battle_job(
     primary = _pick_primary_mission(pair_seed)
     r = Battle(a, b, map_=battle_map, rules=rules,
                primary_mission=primary).run()
-    return (a_fac, b_fac, s, r.winner)
+    _winner = r.winner
+    if _swap and _winner in ("A", "B"):
+        _winner = "B" if _winner == "A" else "A"
+    return (a_fac, b_fac, s, _winner)
 
 
 def _job_in_scope(a_fac: str, b_fac: str, scope: Optional[set]) -> bool:
@@ -717,6 +781,91 @@ def main() -> None:
     args = p.parse_args()
     if args.seed_start + args.battles > 100:
         raise SystemExit("--seed-start + --battles must be <= 100 (pair_seed packing).")
+    # EVAL-LOCK (protocol review 2026-07-07): the eval protocol mandates SERIAL
+    # evaluations — parallel runs have repeatedly clobbered each other's logs
+    # and produced confounded screens (two background agents once wrote the
+    # same scratch path). Pure I/O guard before any work starts: no RNG, no
+    # effect on results. Refuses only when the lock's pid is CONFIRMED alive;
+    # a stale lock (dead pid, or unreadable) is replaced silently. Override
+    # with SWEG_EVAL_FORCE=1 if a lock is wrongly held.
+    import atexit
+    import pathlib
+    import time
+    # GLOBAL lock path (2026-07-09): a relative data/_eval.lock is PER-WORKTREE
+    # — agents screening from worktrees never saw the main tree's lock (nor it
+    # theirs), so "serial evals" silently never held across worktrees: the
+    # true mechanism of two box-saturation incidents. Anchor the lock at the
+    # git COMMON directory, shared by every worktree of this repository.
+    import subprocess as _lsp
+    try:
+        _common = _lsp.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            capture_output=True, text=True, timeout=15,
+        ).stdout.strip()
+        _lock = pathlib.Path(_common) / "sweg_eval.lock" if _common else pathlib.Path("data/_eval.lock")
+    except Exception:
+        _lock = pathlib.Path("data/_eval.lock")
+    if _lock.exists() and os.environ.get("SWEG_EVAL_FORCE") != "1":
+        # Aliveness probe. os.kill(pid, 0) is UNRELIABLE on Windows CPython —
+        # it can raise SystemError ("<class 'OSError'> returned a result with
+        # an exception set") for both live and dead pids, which crashed a whole
+        # screening chain on 2026-07-08. Use OpenProcess via ctypes on Windows
+        # (PROCESS_QUERY_LIMITED_INFORMATION), os.kill elsewhere; ANY probe
+        # failure means "cannot confirm alive". A lock older than 2 hours is
+        # treated as stale regardless (hard-killed runs never fire atexit).
+        _other_alive = False
+        _other_pid = None
+        try:
+            _other_pid = int(_lock.read_text().split()[0])
+            if time.time() - _lock.stat().st_mtime < 7200:
+                if os.name == "nt":
+                    # Existence alone is not enough: a killed eval's pid can be
+                    # RECYCLED by an unrelated process within hours (bit us
+                    # 2026-07-09 — a dead eval's pid came back as a non-python
+                    # process and the lock refused for nothing). Require the
+                    # holder to actually be a python image.
+                    import subprocess as _sp
+                    _tl = _sp.run(
+                        ["tasklist", "/FI", f"PID eq {_other_pid}"],
+                        capture_output=True, text=True, timeout=30,
+                    ).stdout.lower()
+                    _other_alive = "python" in _tl
+                else:
+                    os.kill(_other_pid, 0)
+                    _other_alive = True
+        except Exception:
+            _other_alive = False
+        if _other_alive:
+            raise SystemExit(
+                f"another evaluate_vs_meta run (pid {_other_pid}) holds "
+                f"data/_eval.lock — the eval protocol is SERIAL evals only "
+                f"(docs/EVAL_PROTOCOL.md / docs/LEVER_PROTOCOL.md §5). Wait for "
+                f"it, or set SWEG_EVAL_FORCE=1 if the lock is wrongly held."
+            )
+    # ATOMIC acquisition (2026-07-09): the previous exists-then-write pattern
+    # had a check-to-write race — two lock-waiters polling for a free lane
+    # could both pass the exists() check and launch simultaneously, which
+    # saturated the owner's box with two concurrent worker pools. O_EXCL
+    # makes creation atomic; a loser gets FileExistsError and refuses.
+    # A dead holder's file must be REMOVED before the exclusive create can
+    # succeed — without this unlink, any hard-killed run wedged the lane
+    # permanently (found 2026-07-09 by the sc62a runner after 12 clean
+    # refusals against a dead pid).
+    if _lock.exists() and not _other_alive and os.environ.get("SWEG_EVAL_FORCE") != "1":
+        try:
+            _lock.unlink()
+        except OSError:
+            pass
+    try:
+        _fd = os.open(str(_lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(_fd, str(os.getpid()).encode())
+        os.close(_fd)
+    except FileExistsError:
+        raise SystemExit(
+            "another evaluate_vs_meta run grabbed data/_eval.lock in the same "
+            "window (atomic acquisition) — serial evals only; retry shortly."
+        )
+    atexit.register(lambda: _lock.unlink(missing_ok=True))
     scope_factions = None
     if args.factions:
         scope_factions = {f.strip() for f in args.factions.split(",") if f.strip()}

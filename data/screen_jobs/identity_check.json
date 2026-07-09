@@ -1,0 +1,12 @@
+{
+  "job_id": "identity_check",
+  "base_commit": "859be1e3e93f612b19abdfa33badc605d320f241",
+  "anchor_path": "data/_anchor_sc61a_n80_log.json",
+  "anchor_sha256": "056792b347ab8157b8ac0e39bab42dc2baa38d63c949f2f316ad96673491294d",
+  "env": {},
+  "battles": 20,
+  "factions": "Orks",
+  "seed_start": 0,
+  "log_path": "data/screen_results/identity_check_log.json",
+  "notes": ""
+}

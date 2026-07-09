@@ -24,6 +24,28 @@ touching code.
 > screens with a single re-anchor. The `eval_guard.py` hook reprints these
 > headline rules whenever an eval command launches.
 
+> **Before running or dispatching a manual pilot — and before ever writing
+> "structural" or "floor" about an under-pole — read
+> [`docs/PILOT_PROTOCOL.md`](docs/PILOT_PROTOCOL.md).** The tactic battery
+> (`scripts/pilot_manual.py`) is a necessary FILTER, not a diagnosis. A piloted
+> run MUST also render real losing games and **read the per-round board images**
+> (not just the objective-control text), name the specific misplays, try to win
+> the game, and check the archetype against the real sourced list. "Floor" is
+> permitted ONLY when the battery, the hands-on board-reading, AND the list-check
+> all come back empty. A flat single-lever screen is NOT a diagnosis — it hid the
+> Thousand Sons Magnus gap, the Ork mobility reshape, and a Chaos Daemons
+> objective-abandonment misplay, each of which was real Stage-1 headroom.
+
+> **Before proposing, building, or screening ANY lever, read
+> [`docs/LEVER_PROTOCOL.md`](docs/LEVER_PROTOCOL.md)** — the family pre-flight
+> (look the proposal up in the settled-verdict table and state the mechanism
+> difference, or don't build it), instrument-before-build, MEASURED-vs-ESTIMATE
+> tagging, minimum-N verdict rules, and the measurement-frame caveat: the
+> standing metric reads army-A cells only and carries per-faction positional
+> bias up to ±5 points — check `scripts/diag_frame.py`'s symmetrized column
+> before declaring any pole real. Evaluations are serial-only, now enforced by
+> a lock (`data/_eval.lock`).
+
 > **To keep a long session from forgetting these standing rules as context
 > fills (the context-management playbook — what survives a compaction, how the
 > hooks re-inject state, why hard rules belong in hooks not prose), see
