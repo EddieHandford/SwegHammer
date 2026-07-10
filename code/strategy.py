@@ -2761,24 +2761,55 @@ def _trade_our_return(me_unit, dest, enemy_alive, scoring_rounds_remaining) -> f
 
 def trade_exchange(me_unit, dest, threat_at_dest, enemy_alive,
                    scoring_rounds_remaining) -> float:
-    """The symmetric one-ply exchange TILT at destination `dest`:
+    """The one-ply exchange TILT at destination `dest`:
 
-        RETURN   = _trade_our_return(...)                 (value we remove)
+        RETURN   = _trade_our_return(...)                 (value we remove,
+                                                           relevance-weighted)
         REPLY    = min(T_post(dest), my remaining wounds)
-                   * _trade_vp_per_wound(me)              (value the reply removes)
+                   * my points-per-wound                  (FULL-PRICE loss)
         EXCHANGE = RETURN - REPLY
 
-    Both priced on the value field's victory-point axis (points-per-wound times
-    relevance) so the tilt composes directly with value_net_score. REPLY reuses
-    `threat_at_dest` — the SAME incoming threat field T the value consumer already
-    computes at this cell (strategy._threat_field_at). For a MOVE destination
-    (a marker, not a specific charged target) T_post == T: moving onto the marker
-    commits no single enemy's death, so nothing is subtracted from the reply — the
-    conservative (fully-priced) reply, and the honest one. No random number."""
+    v2 REPLY PRICING (iteration 2, first-principles re-specification after the
+    v1 screen). v1 priced the reply symmetrically with the return — points-per-
+    wound times the value field's relevance ((5 * srr) / 175, roughly 0.11 at
+    round one) — which DISCOUNTED the cost of standing in the threat field by
+    the same factor that discounts the value of a kill. The walked-into-it
+    falsifier showed that reply under-deters realized exposure (the rate ROSE
+    under trade for all three instrument factions). Two first-principles
+    candidates were specified in advance and measured in order:
+
+      (a) drop the relevance discount only (reply = min(T, remaining wounds) *
+          raw points-per-wound — a death is a full-price loss). MEASURED
+          insufficient: the walked-into-it rate still rose vs value-alone for
+          Death Guard (+0.006) and World Eaters (+0.012).
+      (b) price the reply as the unit's expected REMAINING value at stake:
+          death probability times FULL points, with the death probability the
+          SAME survival math the value field's tolerance term uses
+          (frac_at_risk = min(1, T / max(1, remaining wounds)),
+          value_projection). This is the shipped form:
+
+              REPLY = min(1, T / max(1, remaining wounds)) * points_cost
+
+          For a full-health unit this equals candidate (a); for a DAMAGED unit
+          the death probability divides by the wounds actually left, so a
+          nearly-dead body sees its full points at stake and stops walking in —
+          exactly the realized-exposure class the falsifier counts.
+
+    Only the RETURN (the opportunity side of the exchange) carries the
+    relevance weighting. Faction-neutral; no new constant (points_cost and the
+    tolerance term's survival ratio, both already in use).
+
+    REPLY reuses `threat_at_dest` — the SAME incoming threat field T the value
+    consumer already computes at this cell (strategy._threat_field_at). For a
+    MOVE destination (a marker, not a specific charged target) T_post == T:
+    moving onto the marker commits no single enemy's death, so nothing is
+    subtracted from the reply — the conservative (fully-priced) reply, and the
+    honest one. No random number."""
     our_return = _trade_our_return(me_unit, dest, enemy_alive, scoring_rounds_remaining)
     my_health = float(getattr(me_unit, "current_health", 0.0) or 0.0)
-    reply = min(threat_at_dest, my_health) * _trade_vp_per_wound(
-        _score_profile(me_unit), scoring_rounds_remaining)
+    me_p = _score_profile(me_unit)
+    death_p = min(1.0, threat_at_dest / max(1.0, my_health))
+    reply = death_p * (getattr(me_p, "points_cost", 0.0) or 0.0)
     return our_return - reply
 
 

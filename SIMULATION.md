@@ -232,17 +232,23 @@ freezes a commit. Cited `simulator.value_projection`.
 
 The **trade evaluator**, gate `SWEG_TRADE_EVAL` (Layer B), composes ON the value
 field (it is a no-op unless `SWEG_VALUE_MOVE=1` is also set): it adds the
-symmetric one-ply exchange `EXCHANGE(p) = OUR RETURN - THEIR REPLY` as a TILT on
+one-ply exchange `EXCHANGE(p) = OUR RETURN - THEIR REPLY` as a TILT on
 that net score. OUR RETURN is the value the unit expects to remove from its best
 reachable target by shooting or charging from `p` next activation (its own
 expected wounds through the audited helpers, priced points-per-wound times the
-value field's relevance); THEIR REPLY is the incoming threat field `T` at `p`
-priced the same way against the unit's own remaining value. It prices what a
+value field's relevance); THEIR REPLY is the unit's expected remaining value at
+stake at `p`: the death probability (the tolerance term's survival ratio,
+`min(1, T / max(1, remaining wounds))`, from the same incoming threat field `T`)
+times the unit's full points cost, with no relevance discount — a death is a
+full-price loss regardless of what the square was worth, so only the return
+carries the relevance weighting (the version-two reply pricing; the symmetric
+relevance-discounted version-one reply measurably under-deterred realized
+exposure per the walked-into-it falsifier). It prices what a
 commitment TRADES — trade-poor armies stop over-committing to valuable ground
 they cannot pay for, trade-rich armies punish where the exchange is positive — as
 a tilt, never a veto (the settled blanket-charge-block rejection is respected;
-re-target, never freeze). It reuses the audited expected-wounds math
-symmetrically and draws no new random number. Cited `simulator.trade_exchange`.
+re-target, never freeze). It reuses the audited expected-wounds math on both
+sides and draws no new random number. Cited `simulator.trade_exchange`.
 
 ### Activation Sequence
 
