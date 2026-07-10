@@ -16,7 +16,7 @@ from ``code.sim.constants`` (the same shared objects the diagnostics reset).
 
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Optional, Tuple
 
 from ..map import Map
 from ..pathfind import find_path
@@ -417,7 +417,7 @@ def _charge_path_screen_gap(charger_pos, end_pos, charger_radius,
     return d - (charger_radius + screen_radius)
 
 
-def _er_gap(pos_a, profile_a, pos_b, profile_b) -> float:
+def _er_gap(pos_a, profile_a, pos_b, profile_b, base_edge: Optional[bool] = None) -> float:
     """Engagement-Range distance between two models, in inches.
 
     Under SWEG_CHARGE_BASEEDGE (default ON since wave 240) this is the
@@ -433,9 +433,21 @@ def _er_gap(pos_a, profile_a, pos_b, profile_b) -> float:
     still counts as engaged despite the cos/sin position-reconstruction
     float error. Gate OFF returns the legacy centre-to-centre distance
     unchanged — every `_er_gap(...) <= threshold` call site is byte-identical
-    to its previous `_distance(...) <= threshold` form."""
+    to its previous `_distance(...) <= threshold` form.
+
+    PERF: `base_edge` lets a caller that already knows the gate's value for
+    the current battle (e.g. `Battle._charge_baseedge`, read once in
+    `Battle.__init__` the same way `Battle._cmd_score` caches SWEG_CMDSCORE)
+    pass it straight in and skip the `os.environ.get` round trip — this
+    function is on the hottest path in the simulator (millions of calls per
+    battle) and the env lookup alone was measured at roughly half of its
+    self time. Default `None` preserves the exact original behaviour
+    (fresh env read every call) for every caller that does not pass it, so
+    this is byte-identical whether or not a caller opts in."""
     d = _distance(pos_a, pos_b)
-    if __import__("os").environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1":
+    if base_edge is None:
+        base_edge = __import__("os").environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1"
+    if base_edge:
         d -= (_bc_model_radius_in(profile_a) + _bc_model_radius_in(profile_b)
               + 1e-9)
     return d
