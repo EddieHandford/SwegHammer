@@ -678,6 +678,31 @@ class Battle:
         # battle. None means "not yet resolved" (or gate is OFF — per-round flip).
         # Cited as `simulator.first_turn_rolloff`.
         self._first_player: Optional["Army"] = None
+        # Phase-instance counter (10e core rule — Wahapedia core rules,
+        # Stratagems, verbatim: "You can use the same Stratagem multiple
+        # times during a battle, but you cannot use the same Stratagem more
+        # than once in the same phase."). Incremented once at the start of
+        # every distinct rules-phase in the vanilla IGOUGO turn structure —
+        # the round-level Command phase (`_run_round`) and, per player turn,
+        # Movement / Shooting / Charge / Fight (`_run_round_vanilla_turns`) —
+        # so `_fire_stratagem` can tell whether a (army, stratagem) pair has
+        # already fired in the CURRENT phase instance. The bump itself is
+        # unconditional (a plain counter increment changes no observable
+        # battle behaviour); only the refusal it enables is gated — see
+        # `_fire_stratagem`. NOT advanced by `_run_round_alternating`: that
+        # opt-in ruleset has no global phase boundary to bump on, so
+        # enforcement is unconditionally skipped there regardless of the
+        # gate (scope note also recorded in the citation). Cited as
+        # `simulator.stratagem_once_per_phase`.
+        self._phase_seq: int = 0
+        # (army.name, stratagem.name) -> the `_phase_seq` value that pair
+        # last fired a stratagem in. Written on every successful
+        # `_fire_stratagem` call regardless of the gate (a dict write is
+        # byte-identical-safe); consulted only when
+        # SWEG_STRAT_ONCE_PER_PHASE is on and the battle is not using
+        # alternating activations. Reset per battle for free — this dict
+        # lives on a fresh Battle instance each battle.
+        self._strat_fired_phase_seq: Dict[Tuple[str, str], int] = {}
 
     # ------------------------------------------------------------------
     # Public interface
@@ -12232,6 +12257,13 @@ class Battle:
         # `_battleshocked_this_round` set when picking targets via
         # `_most_vulnerable_unit` / `_highest_dpa_unit`. See task #168.
         self._run_battleshock_phase(round_num)
+        # Phase-instance boundary: the round-level Command phase (both
+        # armies' round-start dispatch below is this simulator's single
+        # collapsed stand-in for the two real per-player-turn Command
+        # phases — see the `_phase_seq` docstring in __init__). Bumped once
+        # here, unconditionally, before any stratagem may fire in it.
+        # Cited as `simulator.stratagem_once_per_phase`.
+        self._phase_seq += 1
         # Detachment-specific stratagems that fire at the start of a round
         # (Virulent Vectorium, Warhost). Doombolt also fires
         # here as a per-round mortal-wound payload — it's nominally a
@@ -12644,6 +12676,10 @@ class Battle:
             # no game-state mutation — a no-op when there are no subscribers
             # (the evaluation paths), same pattern as RoundStarted above.
             self._emit(TurnStarted(round_num=self._current_round, army_name=active.name))
+            # Phase-instance boundary: this player's Movement phase begins.
+            # Bumped unconditionally (see the `_phase_seq` docstring in
+            # __init__). Cited as `simulator.stratagem_once_per_phase`.
+            self._phase_seq += 1
             # Per-Command-phase primary scoring (wave 116, env-gated SWEG_CMDSCORE).
             # 10e scores Primary VP at the end of each player's Command phase —
             # i.e. at the START of that player's turn, on the objectives it
@@ -12851,6 +12887,10 @@ class Battle:
             # uncrackable Knight and waste fire; this one cannot). Every unit
             # that can wound the nominee then concentrates on it in _do_shoot.
             self._nominate_focusfire_target(active, other)
+            # Phase-instance boundary: this player's Shooting phase begins.
+            # Bumped unconditionally (see the `_phase_seq` docstring in
+            # __init__). Cited as `simulator.stratagem_once_per_phase`.
+            self._phase_seq += 1
             # Squad rebuild Stage D (gate SWEG_SQUADSHOOT): clear the per-phase
             # split-fire plan so this army's Shooting phase plans fresh. Resetting
             # empty containers touches no game state and no RNG, so the OFF path
@@ -12878,10 +12918,18 @@ class Battle:
             for unit in list(active.units):
                 if unit.is_alive:
                     self._do_shoot(unit, active, other)
+            # Phase-instance boundary: this player's Charge phase begins.
+            # Bumped unconditionally (see the `_phase_seq` docstring in
+            # __init__). Cited as `simulator.stratagem_once_per_phase`.
+            self._phase_seq += 1
             bump_buffs_generation()
             for unit in list(active.units):
                 if unit.is_alive:
                     self._do_charge(unit, active, other)
+            # Phase-instance boundary: this player's Fight phase begins.
+            # Bumped unconditionally (see the `_phase_seq` docstring in
+            # __init__). Cited as `simulator.stratagem_once_per_phase`.
+            self._phase_seq += 1
             bump_buffs_generation()
             # SOROR-AOF-PER-PHASE (gate SWEG_AOF_PER_PHASE): reset each
             # Sororitas unit's per-phase Acts of Faith flag at the start of
@@ -18928,6 +18976,25 @@ class Battle:
         already = self._stratagems_fired_this_battle.get(army.name, set())
         if strat.once_per_battle and strat.name in already:
             return False
+        # 10e core rule (Wahapedia core rules, Stratagems, verbatim): "You
+        # can use the same Stratagem multiple times during a battle, but
+        # you cannot use the same Stratagem more than once in the same
+        # phase." Gated SWEG_STRAT_ONCE_PER_PHASE (default OFF). Scope
+        # note: alternating-activation mode (`self.rules.alternating_
+        # activations`) has no global phase boundary — `_phase_seq` is only
+        # advanced by the vanilla IGOUGO turn structure — so enforcement
+        # is skipped there regardless of the gate. Checked BEFORE any
+        # command-point spend or state mutation below, per the real rule
+        # (a refused stratagem never happened). Cited as
+        # `simulator.stratagem_once_per_phase`.
+        _once_per_phase_on = (
+            os.environ.get("SWEG_STRAT_ONCE_PER_PHASE", "0") == "1"
+            and not self.rules.alternating_activations
+        )
+        _phase_key = (army.name, strat.name)
+        if (_once_per_phase_on
+                and self._strat_fired_phase_seq.get(_phase_key) == self._phase_seq):
+            return False
         army.command_points -= strat.cp_cost
         # Warlord-gated CP refund. Two independent mechanics, applied in
         # priority order so each pool drains separately:
@@ -18948,6 +19015,10 @@ class Battle:
             army.cp_refund_remaining -= 1
         already.add(strat.name)
         self._stratagems_fired_this_battle[army.name] = already
+        # Record the phase instance this (army, stratagem) pair fired in.
+        # Written unconditionally — see the field docstring in __init__ and
+        # the byte-identity note above `_once_per_phase_on`.
+        self._strat_fired_phase_seq[_phase_key] = self._phase_seq
         # Iter-4 A5: increment the per-Command-phase counter only when this
         # spend originated from `_apply_detachment_stratagems` (faction-neutral
         # detachment-stratagem dispatcher). Core Stratagems (Tank Shock,

@@ -217,6 +217,17 @@ modelled first.
   - 5 new per-faction stratagems shipped this session: Implacable Onslaught
     + Methodical Destruction (Necrons), Cabbalistic Empowerment (TSON),
     Spirit Stones (Aeldari/Saim-Hann), Strike Swiftly (T'au/Mont'ka).
+  - Tenth-edition core-rule fix, not yet screened: the same stratagem
+    cannot be used more than once in the same phase (Wahapedia core rules,
+    Stratagems). A phase-instance counter now stamps every distinct
+    rules-phase in the vanilla turn structure (the round-level Command
+    phase plus each player's Movement, Shooting, Charge, and Fight phase),
+    and the per-trigger core stratagem hooks (Command Re-Roll, Tank Shock,
+    Counter-Offensive) refuse a repeat fire by the same player within one
+    phase instance. Env-gated `SWEG_STRAT_ONCE_PER_PHASE` (default off,
+    byte-identical to the prior unbounded behaviour); does not apply to
+    the alternating-activation homebrew ruleset, which has no global phase
+    boundary. Cited as `simulator.stratagem_once_per_phase`.
 - **Detachments**: 26 total (was 21). Each faction now has at least
   one canonical detachment (Emperor's Children's Coterie of the Conceited,
   the 26th, is env-gated `SWEG_EC_DETACHMENT` default-off pending its

@@ -692,6 +692,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # at round start. Enforced inside `Battle._apply_detachment_stratagems`
     # via Army.stratagems_fired_this_command_phase + `_strat_cap_reached`.
     "simulator.stratagem_per_command_phase_cap",
+    # 10e core rule: "you cannot use the same Stratagem more than once in
+    # the same phase." Enforced inside `Battle._fire_stratagem` via the
+    # `Battle._phase_seq` phase-instance counter, env-gated
+    # SWEG_STRAT_ONCE_PER_PHASE (default off). See
+    # data/rule_citations.d/stratagems.json.
+    "simulator.stratagem_once_per_phase",
     # 10e core EPIC HERO rule. "EPIC HERO units can only be taken once per
     # army." Universal across every codex; the cap is faction-neutral.
     # Enforced at army-composition time by code.army_builder.is_epic_hero
