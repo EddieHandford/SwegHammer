@@ -230,6 +230,18 @@ threat field `T`), minus the fraction of the unit's own future value it risks by
 standing there. It re-routes among claim/contest destinations only; it never
 freezes a commit. Cited `simulator.value_projection`.
 
+A second, optional environment variable, `SWEG_VALUE_MOVE_FACTIONS`, scopes the
+value field to named factions: a comma-separated allow-list of exact faction
+names (whitespace around each name is stripped). When `SWEG_VALUE_MOVE=1` and
+the list is set and non-empty, only units whose faction appears in the list
+consult the value field for their destination pick; every other unit's pick
+falls back to the legacy distance-weighted argmax exactly as if the gate were
+off for it (which also silences the trade evaluator's tilt for that unit, since
+Layer B only fires when the value field is acted upon). An unset or empty list
+preserves the current all-factions behaviour, byte-identical to the un-scoped
+gate. This lets the gate be piloted onto the specific under-performing factions
+it measurably helps without touching the factions it regressed.
+
 The **trade evaluator**, gate `SWEG_TRADE_EVAL` (Layer B), composes ON the value
 field (it is a no-op unless `SWEG_VALUE_MOVE=1` is also set): it adds the
 one-ply exchange `EXCHANGE(p) = OUR RETURN - THEIR REPLY` as a TILT on

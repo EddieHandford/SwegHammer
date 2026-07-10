@@ -4473,6 +4473,32 @@ def pick_move_intent(
     # set, `best` is the legacy argmax, byte-for-byte.
     _use_value_move = os.environ.get("SWEG_VALUE_MOVE") == "1"
     _value_move_diag = os.environ.get("SWEG_VALUE_MOVE_DIAG") == "1"
+    # SWEG_VALUE_MOVE_FACTIONS (per-faction piloting scope, second layer on the
+    # v1 gate above): a comma-separated allow-list of exact faction names
+    # (matching unit.profile.faction / evaluate_vs_meta.py's FACTIONS strings,
+    # e.g. "Astra Militarum", "World Eaters" — verified against
+    # scripts/evaluate_vs_meta.py FACTIONS, not guessed). Whitespace around
+    # each name is stripped (same idiom as evaluate_vs_meta.py's own
+    # --factions parsing). Read every call, matching how SWEG_VALUE_MOVE
+    # itself is read just above (no module-scope caching).
+    #
+    # When set and non-empty: ONLY units whose faction is in the list are
+    # eligible to have the value-move consumer act on their destination pick
+    # — forcing `_use_value_move` False for every other unit reproduces the
+    # legacy argmax for them, i.e. exactly the gate-OFF path (also disabling
+    # the SWEG_TRADE_EVAL tilt for that unit, since Layer B is a no-op
+    # whenever the value gate it composes on is not acted upon). Unset or
+    # empty changes nothing — every faction stays eligible, byte-for-byte the
+    # v1 gate. SWEG_VALUE_MOVE_DIAG's shadow counters are untouched by this
+    # scope: they are a separate measurement instrument, not the piloting
+    # gate, and were already global before this layer existed.
+    _value_move_factions = {
+        f.strip()
+        for f in os.environ.get("SWEG_VALUE_MOVE_FACTIONS", "").split(",")
+        if f.strip()
+    }
+    if _value_move_factions and unit.profile.faction not in _value_move_factions:
+        _use_value_move = False
     if (_use_value_move or _value_move_diag) and objs:
         _srr = _value_scoring_rounds_remaining(cur_round)
         _own_is_a = battle is not None and friendly is getattr(battle, "a", None)
