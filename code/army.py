@@ -567,6 +567,15 @@ class Army:
         # bias is short-circuited when the field is None, preserving the
         # backward-compatible per-unit picks.
         self.army_plan: Optional[str] = None
+        # SWEG_JOB_LAYER (job/commitment layer, movement scope v1) — per-round
+        # HOLD commitments produced by the army-level assignment pass
+        # (strategy.assign_jobs, run once before this army's movement). Maps a
+        # unit uid to the id() of the objective marker it is committed to hold
+        # this round (id() is stable within a battle because map.objectives are
+        # the same objects every round). Empty when the gate is off (the
+        # assignment pass early-returns), so no non-job behaviour reads it.
+        # Cleared at battle start by Battle.__init__ and rebuilt per round.
+        self.job_assignments: Dict = {}
 
     # ------------------------------------------------------------------
     # Faction detection

@@ -3079,6 +3079,396 @@ def value_offense(me_unit, dest, ranged_ok, heavy_bonus, melee_ok,
     return best
 
 
+# ===========================================================================
+# SWEG_JOB_LAYER — the job/commitment layer (movement scope, v1)
+# ===========================================================================
+# docs/JOB_LAYER_PROPOSAL.md. The three substrate fields (value / offense /
+# threat) are individually sound but jointly cancel when summed into one
+# equal-weight utility for every unit. This layer instead gives each unit a
+# per-unit CHANNEL WEIGHTING derived from its own arithmetic, plus an army-level
+# job assignment so labour divides instead of piling on. It reuses the substrate
+# MACHINERY (value_projection / value_offense / _threat_field_at) but NOT the
+# substrate gates — SWEG_JOB_LAYER activates the whole path on its own.
+#
+# THREE CHANNELS, priced per unit per activation in the value field's victory-
+# point currency (the _trade_vp_per_wound exchange over the scoring_rounds_
+# remaining horizon — NO new constants):
+#   HOLD    = best V(p) over reachable markers (value_projection, marginal-holder
+#             logic: prospective objective-control counts).
+#   KILL    = best offense value over reachable firing/charging positions (the
+#             iteration-2 value_offense machinery: best-single-target, move-class
+#             conditional, full advance-shoot/advance-charge exemption web). For a
+#             melee unit this inherently prices charges via the 2D6 reach gradient.
+#   SURVIVE = the unit's value-at-risk reduction: frac-at-risk at the current cell
+#             minus the best achievable frac-at-risk over reachable retreat cells,
+#             times the unit's whole points-value on the VP axis. Exists so a unit
+#             with nothing to hold and nothing to kill retreats intelligently
+#             instead of standing.
+#
+# ROLE WEIGHTING IS DERIVED, NEVER TUNED: the unit takes the channel with the
+# highest priced value (argmax, NOT the additive sum that measurably cancels).
+# The label from classify() is NEVER consulted on this path — a centrepiece melee
+# monster derives KILL from its own melee output arithmetic, not from a coarse
+# role tag it would misclassify (the recorded Mortarion / tank-screen precedent).
+# There are NO faction names anywhere in this layer; playstyle differences fall
+# out of list composition.
+_JOB_HOLD = "HOLD"
+_JOB_KILL = "KILL"
+_JOB_SURVIVE = "SURVIVE"
+
+# Read-only mechanism instrument (SWEG_JOB_LAYER_DIAG): per-faction channel
+# distribution across a gate-ON battle. Pure measurement — no events, no RNG, no
+# control-flow change, so it never perturbs the event digest. faction -> counts.
+_JOB_DIAG: Dict = {}
+
+
+def reset_job_diag() -> None:
+    _JOB_DIAG.clear()
+
+
+def _job_diag_record(faction, channel) -> None:
+    d = _JOB_DIAG.setdefault(faction or "?",
+                             {_JOB_HOLD: 0, _JOB_KILL: 0, _JOB_SURVIVE: 0})
+    d[channel] += 1
+
+
+def _job_unit_value_vp(profile, srr) -> float:
+    """The unit's whole remaining value on the victory-point axis: points-per-
+    wound times the value field's relevance times starting wounds (=
+    _trade_vp_per_wound * health = points_cost * relevance). The SURVIVE channel's
+    value-at-risk currency. Knob-free — the exact exchange the offense term uses."""
+    health = getattr(profile, "health", 0.0) or 0.0
+    return _trade_vp_per_wound(profile, srr) * health
+
+
+def _job_reachable_move(unit) -> float:
+    """Distance a unit can cover this activation (Normal move + a max Advance) —
+    the reach used to filter HOLD markers and greedy-assignment candidates."""
+    return float(effective_move(unit)) + _OFFENSE_MAX_ADVANCE
+
+
+def _job_step_toward(src, dst, dist, map_):
+    """The point `dist` inches from `src` toward `dst` (capped so it never
+    overshoots `dst`), clamped to the map bounds. Deterministic, no RNG."""
+    sx, sy = src
+    dx = dst[0] - sx
+    dy = dst[1] - sy
+    d = (dx * dx + dy * dy) ** 0.5
+    if d <= dist or d < 1e-9:
+        p = (dst[0], dst[1])
+    else:
+        p = (sx + dx / d * dist, sy + dy / d * dist)
+    if map_ is not None:
+        p = (max(0.0, min(getattr(map_, "width", p[0]), p[0])),
+             max(0.0, min(getattr(map_, "height", p[1]), p[1])))
+    return p
+
+
+def _job_hold_value_at(unit, obj, prospective_our_oc, their_oc, projectors,
+                       map_, srr, own_is_a, chosen) -> float:
+    """HOLD channel value for one marker: V(p) from value_projection. The
+    marginal-holder logic lives in `prospective_our_oc` (the caller adds this
+    unit's OC when it is not already on the marker)."""
+    v, _t, _frac = value_projection(
+        unit, obj, prospective_our_oc, their_oc, projectors, map_, srr,
+        own_is_a, chosen)
+    return v
+
+
+def _job_channel_hold(unit, own_oc, objectives, our_oc, their_oc,
+                      unit_on_obj_ids, projectors, map_, srr, own_is_a, chosen):
+    """Best HOLD value over reachable markers. Returns (value, obj_or_None)."""
+    reach = _job_reachable_move(unit)
+    best_v = 0.0
+    best_obj = None
+    for obj in objectives:
+        on_it = id(obj) in unit_on_obj_ids
+        if not on_it and _dist(unit.position, (obj.x, obj.y)) > reach:
+            continue
+        prospective = our_oc[id(obj)] + (own_oc if not on_it else 0)
+        v = _job_hold_value_at(unit, obj, prospective, their_oc[id(obj)],
+                               projectors, map_, srr, own_is_a, chosen)
+        if v > best_v:
+            best_v = v
+            best_obj = obj
+    return best_v, best_obj
+
+
+def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr):
+    """Best KILL value over reachable firing/charging positions via value_offense.
+    Returns (value, dest, intent). Candidate cells:
+      * stationary (fire from the current cell — Heavy +1 applies, melee charges
+        from here priced by the 2D6 reach gradient),
+      * a Normal move toward each enemy (capped at the Normal move so the mover
+        reaches it WITHOUT an Advance and keeps its charge),
+      * an Advance toward each enemy, but ONLY when a shoot-after-Advance or
+        charge-after-Advance exemption applies (the full eligibility web via
+        _offense_eligibility).
+    Never consults classify(): melee output is priced by value_offense's reach
+    arithmetic, ranged by its range/cover arithmetic. When nothing is killable
+    this turn the unit still closes on the nearest enemy so it advances into
+    relevance next turn instead of standing idle."""
+    if not enemy_alive:
+        return 0.0, unit.position, _REPOSITION_INTENT
+    move = float(effective_move(unit))
+    rok_s, hb_s, mok_s = _offense_eligibility(unit, friendly, battle, "stationary")
+    best_v = value_offense(unit, unit.position, rok_s, hb_s, mok_s,
+                           enemy_alive, map_, srr)
+    best_dest = unit.position
+    best_intent = _REPOSITION_INTENT          # stay and shoot / hold to charge
+    rok_n, hb_n, mok_n = _offense_eligibility(unit, friendly, battle, "normal")
+    rok_a, hb_a, mok_a = _offense_eligibility(unit, friendly, battle, "advance")
+    adv_ok = rok_a or mok_a
+    for e in sorted(enemy_alive, key=lambda u: u.uid):
+        cell_n = _job_step_toward(unit.position, e.position, move, map_)
+        v_n = value_offense(unit, cell_n, rok_n, hb_n, mok_n,
+                            enemy_alive, map_, srr)
+        if v_n > best_v:
+            best_v, best_dest, best_intent = v_n, cell_n, _ENGAGE_INTENT
+        if adv_ok:
+            cell_a = _job_step_toward(unit.position, e.position,
+                                      move + _OFFENSE_MAX_ADVANCE, map_)
+            v_a = value_offense(unit, cell_a, rok_a, hb_a, mok_a,
+                                enemy_alive, map_, srr)
+            if v_a > best_v:
+                best_v, best_dest, best_intent = v_a, cell_a, _ENGAGE_INTENT
+    if best_v <= 0.0:
+        nearest = min(enemy_alive, key=lambda e: _dist(unit.position, e.position))
+        best_dest = _job_step_toward(unit.position, nearest.position, move, map_)
+        best_intent = _ENGAGE_INTENT
+    return best_v, best_dest, best_intent
+
+
+def _job_survive_candidates(unit, map_):
+    """Deterministic retreat-cell samples: the current cell plus a ring of
+    full-Normal-move steps in eight fixed compass directions. No RNG."""
+    yield unit.position
+    move = float(effective_move(unit))
+    if move <= 0.0:
+        return
+    for k in range(8):
+        ang = math.pi * k / 4.0
+        cell = (unit.position[0] + move * math.cos(ang),
+                unit.position[1] + move * math.sin(ang))
+        if map_ is not None:
+            cell = (max(0.0, min(getattr(map_, "width", cell[0]), cell[0])),
+                    max(0.0, min(getattr(map_, "height", cell[1]), cell[1])))
+        yield cell
+
+
+def _job_channel_survive(unit, projectors, map_, srr):
+    """SURVIVE channel value: the value-at-risk reduction the unit can buy by
+    repositioning — (frac_at_risk at the current cell minus the best achievable
+    frac_at_risk over reachable retreat cells) times the unit's whole VP value.
+    Returns (value, dest). frac_at_risk = min(1, T(p) / current wounds), read
+    from the same threat field the value channel uses (cover already folded in)."""
+    health = max(1.0, unit.current_health)
+    unit_val = _job_unit_value_vp(unit.profile, srr)
+    t_cur = _threat_field_at(unit, projectors, unit.position, map_)
+    frac_cur = min(1.0, t_cur / health)
+    best_frac = frac_cur
+    best_dest = unit.position
+    for cell in _job_survive_candidates(unit, map_):
+        t = _threat_field_at(unit, projectors, cell, map_)
+        frac = min(1.0, t / health)
+        if frac < best_frac:
+            best_frac = frac
+            best_dest = cell
+    value = max(0.0, frac_cur - best_frac) * unit_val
+    return value, best_dest
+
+
+def assign_jobs(army, enemy, map_, cur_round) -> None:
+    """PART 2 — the deterministic greedy army-level HOLD assignment, run once per
+    player turn BEFORE that army's movement (from the simulator's move loop).
+    Populates army.job_assignments (uid -> id(objective)) with the units
+    committed to hold each marker. Zero random draws; iteration is sorted by uid.
+
+    Greedy by priced HOLD value; STOP assigning holders to a marker once the
+    assigned objective control suffices to hold it (the pile-on fix). Units left
+    unassigned fall to their KILL or SURVIVE channel at move time. Commitment
+    persistence: a prior-round commitment is KEPT unless the unit's current HOLD
+    value there is STRICTLY dominated by its KILL or SURVIVE value (no hysteresis
+    constant — strict domination only). Off path: early-returns, leaving
+    job_assignments untouched (byte-identical)."""
+    if os.environ.get("SWEG_JOB_LAYER") != "1":
+        return
+    objectives = map_.objectives
+    if not objectives:
+        army.job_assignments = {}
+        return
+    battle = getattr(army, "_battle_ref", None)
+    srr = _value_scoring_rounds_remaining(cur_round)
+    own_is_a = battle is not None and army is getattr(battle, "a", None)
+    chosen = getattr(army, "chosen_secondaries", ()) or ()
+    friendly_alive = sorted(army.alive_units, key=lambda u: u.uid)
+    enemy_alive = enemy.alive_units
+    projectors = _threat_projectors(enemy)
+    our_oc = {id(o): _oc_on_objective(army.alive_units, o) for o in objectives}
+    their_oc = {id(o): _oc_on_objective(enemy_alive, o) for o in objectives}
+    enemy_eff = {id(o): _effective_oc_on_objective(enemy_alive, o)
+                 for o in objectives}
+    unit_on = {u.uid: {id(o) for o in objectives
+                       if _dist(u.position, (o.x, o.y)) <= o.control_radius}
+               for u in friendly_alive}
+
+    def _reach(u, o):
+        return (id(o) in unit_on[u.uid]
+                or _dist(u.position, (o.x, o.y)) <= _job_reachable_move(u))
+
+    def _hold_v(u, o):
+        own = u.profile.oc or 0
+        on_it = id(o) in unit_on[u.uid]
+        prospective = our_oc[id(o)] + (own if not on_it else 0)
+        return _job_hold_value_at(u, o, prospective, their_oc[id(o)],
+                                  projectors, map_, srr, own_is_a, chosen)
+
+    prev = getattr(army, "job_assignments", None) or {}
+    new_assign: Dict = {}
+    assigned_oc = {id(o): 0 for o in objectives}
+    assigned_units = set()
+
+    # Persistence: carry a prior commitment forward unless it is strictly
+    # dominated by the unit's KILL or SURVIVE value now.
+    for u in friendly_alive:
+        oid = prev.get(u.uid)
+        if oid is None:
+            continue
+        obj = next((o for o in objectives if id(o) == oid), None)
+        if obj is None or not _reach(u, obj):
+            continue
+        hv = _hold_v(u, obj)
+        kv, _kd, _ki = _job_channel_kill(u, army, battle, enemy_alive, map_, srr)
+        sv, _sd = _job_channel_survive(u, projectors, map_, srr)
+        if max(kv, sv) > hv:
+            continue                    # dominated — release the commitment
+        new_assign[u.uid] = oid
+        assigned_units.add(u.uid)
+        assigned_oc[oid] += _effective_oc_value(u)
+
+    # Greedy assignment of the remaining OC-bearing units to markers that still
+    # need objective control, highest priced HOLD value first.
+    cand = []
+    for u in friendly_alive:
+        if u.uid in assigned_units or (u.profile.oc or 0) <= 0:
+            continue
+        for o in objectives:
+            if not _reach(u, o):
+                continue
+            v = _hold_v(u, o)
+            if v > 0.0:
+                cand.append((v, u, o))
+    cand.sort(key=lambda t: (-t[0], t[1].uid, id(t[2])))
+    for v, u, o in cand:
+        if u.uid in assigned_units:
+            continue
+        if assigned_oc[id(o)] > enemy_eff[id(o)]:
+            continue                    # already sufficiently held — pile-on fix
+        new_assign[u.uid] = id(o)
+        assigned_units.add(u.uid)
+        assigned_oc[id(o)] += _effective_oc_value(u)
+
+    army.job_assignments = new_assign
+
+
+def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
+                           phase_our_oc=None, phase_their_oc=None):
+    """SWEG_JOB_LAYER v1 move decision for an UNENGAGED unit. Returns
+    (dest, intent), or None to fall through to the existing move path.
+
+    Returns None (category B — the existing path is KEPT) when the unit is
+    currently ENGAGED: fall-back / fight-legality decisions stay on the legacy
+    path in v1, so the job layer only decides for unengaged units. Also routes
+    the Aeldari Battle Focus advance trigger (a real token mechanic) BEFORE the
+    channels. Never consults classify() — channels are priced from arithmetic."""
+    enemy_alive = enemy.alive_units
+    if not enemy_alive:
+        return None
+    # Category B: engaged units keep the existing fall-back / fight path.
+    if any(_er_gap(unit.position, unit.profile, e.position, e.profile)
+           <= _ENGAGEMENT_RANGE for e in enemy_alive):
+        return None
+
+    # Aeldari Battle Focus token trigger (real ASURYANI mechanic — routed BEFORE
+    # the channels, category B keep). A unit with a token available that is out of
+    # weapon range advances toward the nearest enemy so the resolution Advance +
+    # token-spend fires; the token is READ here, never spent.
+    kw = unit.profile.unit_keywords or ()
+    if ("ASURYANI" in kw and getattr(friendly, "battle_focus_tokens", 0) > 0):
+        nearest = min(enemy_alive, key=lambda e: _dist(unit.position, e.position))
+        if _dist(unit.position, nearest.position) > (unit.profile.range_inches or 24):
+            return nearest.position, _ENGAGE_INTENT
+
+    objectives = map_.objectives
+    srr = _value_scoring_rounds_remaining(cur_round)
+    own_is_a = battle is not None and friendly is getattr(battle, "a", None)
+    chosen = getattr(friendly, "chosen_secondaries", ()) or ()
+    projectors = _threat_projectors(enemy)
+    friendly_alive = friendly.alive_units
+    own_oc = unit.profile.oc or 0
+    if phase_our_oc is not None:
+        our_oc = phase_our_oc
+    else:
+        our_oc = {id(o): _oc_on_objective(friendly_alive, o) for o in objectives}
+    if phase_their_oc is not None:
+        their_oc = phase_their_oc
+    else:
+        their_oc = {id(o): _oc_on_objective(enemy_alive, o) for o in objectives}
+    unit_on_obj_ids = {id(o) for o in objectives
+                       if _dist(unit.position, (o.x, o.y)) <= o.control_radius}
+
+    kill_v, kill_dest, kill_intent = _job_channel_kill(
+        unit, friendly, battle, enemy_alive, map_, srr)
+    survive_v, survive_dest = _job_channel_survive(unit, projectors, map_, srr)
+
+    # HOLD is available only to a unit the army-level pass COMMITTED to a marker
+    # (the pile-on fix — unassigned units do not pile onto held markers). Price
+    # the committed marker at CURRENT objective control (it shifts as units move).
+    assignments = getattr(friendly, "job_assignments", None) or {}
+    committed_id = assignments.get(unit.uid)
+    committed_hold_v = None
+    committed_obj = None
+    if committed_id is not None:
+        for o in objectives:
+            if id(o) == committed_id:
+                committed_obj = o
+                break
+        if committed_obj is not None:
+            on_it = id(committed_obj) in unit_on_obj_ids
+            prospective = our_oc[id(committed_obj)] + (own_oc if not on_it else 0)
+            committed_hold_v = _job_hold_value_at(
+                unit, committed_obj, prospective, their_oc[id(committed_obj)],
+                projectors, map_, srr, own_is_a, chosen)
+
+    # Channel argmax. A committed holder keeps HOLD unless KILL or SURVIVE
+    # STRICTLY exceeds the committed HOLD value (persistence — strict domination,
+    # no hysteresis constant). An unassigned unit takes argmax(KILL, SURVIVE).
+    if committed_hold_v is not None:
+        if kill_v >= survive_v:
+            alt_v, alt_dest, alt_intent, alt_ch = (
+                kill_v, kill_dest, kill_intent, _JOB_KILL)
+        else:
+            alt_v, alt_dest, alt_intent, alt_ch = (
+                survive_v, survive_dest, _REPOSITION_INTENT, _JOB_SURVIVE)
+        if alt_v > committed_hold_v:
+            channel, dest, intent = alt_ch, alt_dest, alt_intent
+        else:
+            channel = _JOB_HOLD
+            dest = _best_nearby_cover_point(
+                map_, (committed_obj.x, committed_obj.y),
+                search_radius=committed_obj.control_radius)
+            intent = _CAPTURE_INTENT
+    elif kill_v >= survive_v:
+        channel, dest, intent = _JOB_KILL, kill_dest, kill_intent
+    else:
+        channel, dest, intent = _JOB_SURVIVE, survive_dest, _REPOSITION_INTENT
+
+    if os.environ.get("SWEG_JOB_LAYER_DIAG") == "1":
+        _job_diag_record(unit.profile.faction, channel)
+
+    return dest, intent
+
+
 def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, float]]:
     """Pick a point up to ``M`` inches from ``unit`` that sits outside the
     engagement range (1.5") of every enemy in ``enemies``.
@@ -4310,6 +4700,33 @@ def pick_move_intent(
     _pt = getattr(unit, "pursue_target", None)
     if _pt is not None:
         return _pt, "pursue_card"
+
+    # ----- SWEG_JOB_LAYER (job/commitment layer, movement scope v1) ----------
+    # When ON, route UNENGAGED units through the channel argmax (HOLD / KILL /
+    # SURVIVE) + the army-level assignment pass, BYPASSING the category-A movement
+    # reflexes below (posture / FACTION_POSTURE, shimmy / alpha-strike, the ranged-
+    # hold / advance-discipline selection, staging, kiting, the objective cluster
+    # SWEG_MASS / FREECONTEST / CONTEST / M4, wounded-seek-obscuring, sacrificial
+    # chaff, the classify() role dispatch, DUAL engage and the marginal-holder
+    # hold) — none of them run because this returns first. The reflex CODE is left
+    # untouched; the gate just chooses the path, placed BEFORE `role = classify()`
+    # so the label is never read on the job path (the Mortarion case). KEPT active
+    # (category B, handled inside _job_layer_move_intent by returning None or
+    # routing first): the fall-back / fight path for currently-ENGAGED units, and
+    # the Aeldari Battle Focus advance trigger. SWEG_MELEE_CAGING, make-way /
+    # collision, transport disembark, deep-strike arrival and _we_glory_charge_bonus
+    # live elsewhere and are unaffected. Default OFF, byte-identical off (the env
+    # check short-circuits before anything runs).
+    if os.environ.get("SWEG_JOB_LAYER") == "1":
+        _jb = getattr(friendly, "_battle_ref", None)
+        _jcur = getattr(_jb, "_current_round", 0) if _jb is not None else 0
+        if _jcur < 1:
+            _jcur = 1
+        _job = _job_layer_move_intent(
+            unit, friendly, enemy, map_, _jb, _jcur,
+            _phase_our_oc, _phase_their_oc)
+        if _job is not None:
+            return _job
 
     role = classify(_score_profile(unit))   # Stage 5: a unit's OWN movement role is its
     own_oc = unit.profile.oc or 0            # SQUAD role, not one per-model model's gun

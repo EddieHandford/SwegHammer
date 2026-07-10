@@ -24,7 +24,7 @@ from .factions import is_marine_faction
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
 from .strategy import (
-    _is_melee_class, _melee_target_score, _oc_on_objective,
+    _is_melee_class, _melee_target_score, _oc_on_objective, assign_jobs,
     decide_deepstrike_drops, pick_army_plan, pick_doctrina_imperative,
     pick_mass_arrival_anchor, pick_move_intent, should_declare_waaagh,
     should_fire_stratagem,
@@ -597,6 +597,11 @@ class Battle:
         self._custodes_mots_used: set = set()
         self.a._battle_ref = self
         self.b._battle_ref = self
+        # SWEG_JOB_LAYER (job/commitment layer v1) — clear per-round HOLD
+        # commitments at battle start so a reused Army object carries none in.
+        # Rebuilt each round by strategy.assign_jobs before that army moves.
+        self.a.job_assignments = {}
+        self.b.job_assignments = {}
         # Current battle round (1..MAX_ROUNDS). Updated at the top of each
         # _run_round; read by Unit.attack for round-gated faction rules
         # like the Orks WAAAGH! +1 to wound melee window.
@@ -12731,6 +12736,13 @@ class Battle:
             # toward the card's geographic goal this activation. No-op when the
             # secondary gate is off (SWEG_SECONDARY). Active army only.
             self._assign_card_dedication(active, other)
+            # SWEG_JOB_LAYER (job/commitment layer v1) — run the deterministic
+            # greedy HOLD-assignment pass ONCE for the active army, before its
+            # movement, so pick_move_intent's job path can read each unit's
+            # commitment during its activation. Internally gated (early-returns
+            # when SWEG_JOB_LAYER is unset), so the OFF path is byte-identical.
+            # Active army only (it is the active army's movement phase).
+            assign_jobs(active, other, self.map, self._current_round)
             # Squad rebuild Stage A (gate SWEG_SQUADACT): reset the per-phase
             # squad move-decision cache so each army's move phase starts fresh.
             # Because the cache only ever holds the active army's squads (it is
@@ -13653,6 +13665,12 @@ class Battle:
             _phase_their_oc=_phase_their_oc,
             _phase_our_oc=_phase_our_oc,
         )
+        # SWEG_JOB_LAYER (job/commitment layer v1): when ON, the destination came
+        # from the channel argmax, which already prices the shoot-vs-move trade
+        # per the register's "ranged-hold / advance-discipline chain" retirement.
+        # Bypass the downstream advance-suppression reflex so the job layer's pick
+        # executes on the plain advance logic. Byte-identical off (gate unset).
+        _job_on = os.environ.get("SWEG_JOB_LAYER") == "1"
         # Avenue-2 Stage 2 make-way (distinct-slot spread): on an objective move,
         # redirect this model to its own slot in the marker's control ring so the
         # squad fans out under collision instead of stacking on the centre. No-op
@@ -14021,6 +14039,7 @@ class Battle:
                   and (attacker.profile.faction or "") == "Emperor's Children")
         if ((_ad_generic or _ad_am or _ad_ck or _ad_votann or _ad_tsons
                 or _ad_soror or _ad_tyranids or _ad_astartes or _ad_ec)
+                and not _job_on          # SWEG_JOB_LAYER: channel argmax subsumes it
                 and intent in ("CAPTURE", "STEAL")
                 # Units that can shoot AFTER Advancing (ASSAULT weapons, or a
                 # transient ASSAULT grant) lose nothing by it — never suppress them
