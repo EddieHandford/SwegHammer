@@ -1982,17 +1982,18 @@ def _threat_projectors(enemy_army):
     return projectors
 
 
-def _cover_attenuation(me_unit, enemy_ap: int, map_, dest) -> float:
-    """Multiplicative reduction in expected RANGED wounds on `me_unit` from the
-    positional cover at `dest`, via the audited `save_probability` (Benefit of
-    Cover = +1 save pip, with the 10e INFANTRY 'cannot better 3+ vs AP0' cap).
-    Returns 1.0 when there is no map, no cover, or cover cannot help (a better
-    invulnerable save, or the save is negated regardless). Reuses the exact save
-    math the shooting resolution uses, so there is no divergence."""
-    if map_ is None:
-        return 1.0
+def _cover_attenuation_for(me_unit, enemy_ap: int, cover) -> float:
+    """The save-math tail of `_cover_attenuation`, given an ALREADY-LOOKED-UP
+    cover type at the destination. Pure extraction (perf pass) — copy-identical
+    arithmetic to `_cover_attenuation`'s body after its `map_.cover_at` call —
+    so a caller that evaluates many enemies at the SAME destination in one pass
+    (`_threat_field_at`'s per-enemy loop, priced against one candidate cell)
+    can look up `map_.cover_at(dest)` ONCE instead of once per enemy, since the
+    terrain lookup does not depend on the enemy at all. `cover` may be `None`
+    (map-less callers): `None` is not a cover TerrainType, so the early-exit
+    below returns 1.0 exactly as `_cover_attenuation`'s `map_ is None` branch
+    does."""
     from .map import TerrainType
-    cover = map_.cover_at(dest)
     if cover not in (TerrainType.LIGHT_COVER, TerrainType.HEAVY_COVER,
                      TerrainType.RUIN):
         return 1.0
@@ -2009,6 +2010,18 @@ def _cover_attenuation(me_unit, enemy_ap: int, map_, dest) -> float:
     if open_fail <= 1e-12:
         return 1.0
     return cover_fail / open_fail
+
+
+def _cover_attenuation(me_unit, enemy_ap: int, map_, dest) -> float:
+    """Multiplicative reduction in expected RANGED wounds on `me_unit` from the
+    positional cover at `dest`, via the audited `save_probability` (Benefit of
+    Cover = +1 save pip, with the 10e INFANTRY 'cannot better 3+ vs AP0' cap).
+    Returns 1.0 when there is no map, no cover, or cover cannot help (a better
+    invulnerable save, or the save is negated regardless). Reuses the exact save
+    math the shooting resolution uses, so there is no divergence."""
+    if map_ is None:
+        return 1.0
+    return _cover_attenuation_for(me_unit, enemy_ap, map_.cover_at(dest))
 
 
 def _charge_end_spot(attacker, target):
@@ -2495,17 +2508,28 @@ def _threat_field_at(me_unit, projectors, dest, map_) -> float:
     the cell) plus the melee half (expected wounds times the real 2D6 reach
     probability) — MINUS the charge-specific target subtraction. This is the
     generic field the value consumer reads for contestability and exposure; no
-    RNG, no new geometry."""
+    RNG, no new geometry.
+
+    Perf: the positional cover at `dest` (`map_.cover_at(dest)`, an O(terrain
+    features) scan) does not depend on which enemy is being priced — only on
+    `map_` and `dest`, both fixed for this whole call — so it is looked up
+    ONCE here and reused for every projector via `_cover_attenuation_for`,
+    instead of `_cover_attenuation` re-deriving it per enemy (the profiled
+    per-activation candidate fan-out: HOLD's per-marker check, SURVIVE's 9
+    retreat candidates, and the zero-value-routing fallback each call this
+    once per enemy). Bit-identical: `map_.cover_at` is a pure function of
+    (map_, dest), so hoisting it changes only how many times it runs."""
     from .simulator import Battle          # lazy: avoid strategy<->simulator cycle
     me_profile = _score_profile(me_unit)
     field = 0.0
+    cover_here = map_.cover_at(dest) if map_ is not None else None
     for (e, ep, epos, emove, erange, melee_capable, ignores_cover) in projectors:
         d_ed = _dist(epos, dest)
         if erange > 0.0 and d_ed <= emove + erange:
             rw = Battle._ranged_expected_wounds(ep, me_unit)
             if rw > 0.0:
-                atten = 1.0 if ignores_cover else _cover_attenuation(
-                    me_unit, getattr(ep, "ap", 0) or 0, map_, dest)
+                atten = 1.0 if ignores_cover else _cover_attenuation_for(
+                    me_unit, getattr(ep, "ap", 0) or 0, cover_here)
                 field += rw * atten
         if melee_capable:
             needed = d_ed - emove - _THREAT_ENGAGE_RANGE
@@ -3214,6 +3238,91 @@ def _job_channel_hold(unit, own_oc, objectives, our_oc, their_oc,
     return best_v, best_obj
 
 
+def _job_kill_precompute(me_unit, enemy_alive, map_, srr):
+    """Per-activation KILL-channel scratch cache (perf pass, docs/
+    THREAT_LAYER_PROPOSAL.md cost-control note — the `_precompute_staging_
+    envelope` caching pattern, applied here at the observer-pair level rather
+    than the round level because these values depend on the ACTIVATING unit,
+    not just the enemy).
+
+    `_job_channel_kill` prices 2N+1 candidate destinations (stationary, a
+    Normal-move cell per living enemy, an Advance cell per living enemy) via
+    `value_offense`, which itself scans every living enemy per candidate — the
+    profiled O(candidates x enemies) blowup that made SWEG_JOB_LAYER=1 run
+    roughly 2x baseline. For the Normal/Advance candidates, `_offense_
+    eligibility` ALWAYS returns heavy_bonus=False (Heavy never applies once
+    the unit has moved), so every per-enemy quantity value_offense computes
+    EXCEPT the destination-to-enemy distance is destination-invariant: the
+    ranged expected-wounds pair (attacker profile, target profile, hit_mod=0),
+    the target's OWN-position cover attenuation (my AP against the enemy's
+    terrain at the enemy's fixed position — never the shooter's own cell), the
+    melee expected-wounds pair, and the victory-point-per-wound conversion.
+    Building this ONCE per `_job_channel_kill` call and sharing it across all
+    2N Normal/Advance candidates turns that inner scan from a fresh recompute
+    into a cheap distance-only lookup (`_job_offense_scan`).
+
+    Every cached number is the return value of a PURE function call with the
+    SAME arguments the uncached path would have passed at each candidate —
+    caching cannot change any result, only how many times it runs (the
+    stationary candidate, which CAN carry heavy_bonus=True, is untouched:
+    it still calls `value_offense` directly, exactly as before).
+
+    Returns (my_range, melee_capable, rows) where rows is a list of
+    (enemy, rw_atten, mw_base, vp_per_wound, target_health) in `enemy_alive`
+    order (preserved so `_job_offense_scan`'s best-single-target tie-breaking
+    matches `value_offense`'s iteration order exactly)."""
+    from .simulator import Battle          # lazy: avoid strategy<->simulator cycle
+    me_p = _score_profile(me_unit)
+    my_ap = getattr(me_p, "ap", 0) or 0
+    my_ignores_cover = bool(getattr(me_p, "ignores_cover", False))
+    melee_capable = (getattr(me_p, "melee_attacks", 0) or 0) > 0
+    my_range = float(getattr(me_p, "range_inches", 0.0) or 0.0)
+    rows = []
+    for e in enemy_alive:
+        ep = _score_profile(e)
+        rw = Battle._ranged_expected_wounds(me_p, e)
+        if rw > 0.0:
+            atten = 1.0 if my_ignores_cover else _cover_attenuation(
+                e, my_ap, map_, e.position)
+            rw *= atten
+        mw_base = _kill_potential_wounds(me_p, ep) if melee_capable else 0.0
+        vp = _trade_vp_per_wound(ep, srr)
+        target_health = float(getattr(e, "current_health", 0.0) or 0.0)
+        rows.append((e, rw, mw_base, vp, target_health))
+    return my_range, melee_capable, rows
+
+
+def _job_offense_scan(rows, dest, ranged_ok, melee_ok, my_range, melee_capable):
+    """Fast KILL-channel candidate scan for a Normal-move or Advance
+    destination (hit_mod always 0, mirroring value_offense's non-heavy
+    branch), reusing the per-activation cache from `_job_kill_precompute`
+    instead of recomputing the per-enemy expected-wounds pairs at every
+    candidate. Only the destination-dependent pieces are computed here — the
+    range/reach distance gates and the real 2D6 melee-reach probability —
+    with the exact same best-single-target arithmetic and iteration order as
+    value_offense, so the result is bit-identical to calling
+    value_offense(unit, dest, ranged_ok, False, melee_ok, enemy_alive, map_,
+    srr) directly."""
+    best = 0.0
+    for (e, rw_atten, mw_base, vp, target_health) in rows:
+        d = _dist(dest, e.position)
+        ew = 0.0
+        if ranged_ok and my_range > 0.0 and d <= my_range and rw_atten > ew:
+            ew = rw_atten
+        if melee_ok and melee_capable:
+            needed = d - _THREAT_ENGAGE_RANGE
+            if needed <= 12.0:
+                mv = mw_base * _p_2d6_at_least(needed)
+                if mv > ew:
+                    ew = mv
+        if ew <= 0.0:
+            continue
+        removed = min(ew, target_health) * vp
+        if removed > best:
+            best = removed
+    return best
+
+
 def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr):
     """Best KILL value over reachable firing/charging positions via value_offense.
     Returns (value, dest, intent). Candidate cells:
@@ -3229,7 +3338,14 @@ def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr):
     this turn the channel prices ZERO and returns the current cell — the
     decision point then routes the unit through the value field's marker argmax
     instead (the correction-pass zero-value routing; the earlier nearest-enemy
-    march inverted the combined-arms gunline factions on the N=40 screen)."""
+    march inverted the combined-arms gunline factions on the N=40 screen).
+
+    Perf: the Normal/Advance candidates (2N of the 2N+1 total) are priced via
+    `_job_kill_precompute` + `_job_offense_scan` rather than calling
+    `value_offense` fresh per candidate — see `_job_kill_precompute`'s
+    docstring for the invariance argument and the bit-identity proof. The
+    stationary candidate still calls `value_offense` directly (heavy_bonus can
+    be True there, and it only runs once, so caching buys nothing)."""
     if not enemy_alive:
         return 0.0, unit.position, _REPOSITION_INTENT
     move = float(effective_move(unit))
@@ -3241,17 +3357,19 @@ def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr):
     rok_n, hb_n, mok_n = _offense_eligibility(unit, friendly, battle, "normal")
     rok_a, hb_a, mok_a = _offense_eligibility(unit, friendly, battle, "advance")
     adv_ok = rok_a or mok_a
+    my_range, melee_capable, rows = _job_kill_precompute(
+        unit, enemy_alive, map_, srr)
     for e in sorted(enemy_alive, key=lambda u: u.uid):
         cell_n = _job_step_toward(unit.position, e.position, move, map_)
-        v_n = value_offense(unit, cell_n, rok_n, hb_n, mok_n,
-                            enemy_alive, map_, srr)
+        v_n = _job_offense_scan(rows, cell_n, rok_n, mok_n, my_range,
+                                melee_capable)
         if v_n > best_v:
             best_v, best_dest, best_intent = v_n, cell_n, _ENGAGE_INTENT
         if adv_ok:
             cell_a = _job_step_toward(unit.position, e.position,
                                       move + _OFFENSE_MAX_ADVANCE, map_)
-            v_a = value_offense(unit, cell_a, rok_a, hb_a, mok_a,
-                                enemy_alive, map_, srr)
+            v_a = _job_offense_scan(rows, cell_a, rok_a, mok_a, my_range,
+                                    melee_capable)
             if v_a > best_v:
                 best_v, best_dest, best_intent = v_a, cell_a, _ENGAGE_INTENT
     return best_v, best_dest, best_intent
@@ -3279,19 +3397,35 @@ def _job_channel_survive(unit, projectors, map_, srr):
     repositioning — (frac_at_risk at the current cell minus the best achievable
     frac_at_risk over reachable retreat cells) times the unit's whole VP value.
     Returns (value, dest). frac_at_risk = min(1, T(p) / current wounds), read
-    from the same threat field the value channel uses (cover already folded in)."""
+    from the same threat field the value channel uses (cover already folded in).
+
+    Perf, both provably result-preserving:
+      * `_job_survive_candidates` always yields the CURRENT cell first, which
+        would recompute the exact same `_threat_field_at` call already made
+        for `t_cur`/`frac_cur` above — an unconditional no-op (`frac ==
+        best_frac`, so the strict `frac < best_frac` can never fire on it).
+        Skipped via one `next()` on the generator.
+      * `frac_at_risk` is `min(1, T(p) / health)` and `T(p)` sums only
+        non-negative expected-wounds terms, so frac_at_risk is bounded below
+        by 0. When the current cell already reads zero risk, no retreat
+        candidate can beat it (`frac < best_frac=0.0` can never hold), so the
+        whole ring scan (the remaining 8 `_threat_field_at` calls) is skipped
+        — same (0.0, unit.position) result the full loop would return."""
     health = max(1.0, unit.current_health)
     unit_val = _job_unit_value_vp(unit.profile, srr)
     t_cur = _threat_field_at(unit, projectors, unit.position, map_)
     frac_cur = min(1.0, t_cur / health)
     best_frac = frac_cur
     best_dest = unit.position
-    for cell in _job_survive_candidates(unit, map_):
-        t = _threat_field_at(unit, projectors, cell, map_)
-        frac = min(1.0, t / health)
-        if frac < best_frac:
-            best_frac = frac
-            best_dest = cell
+    if frac_cur > 0.0:
+        candidates = _job_survive_candidates(unit, map_)
+        next(candidates, None)     # discard the current-cell candidate (see above)
+        for cell in candidates:
+            t = _threat_field_at(unit, projectors, cell, map_)
+            frac = min(1.0, t / health)
+            if frac < best_frac:
+                best_frac = frac
+                best_dest = cell
     value = max(0.0, frac_cur - best_frac) * unit_val
     return value, best_dest
 
