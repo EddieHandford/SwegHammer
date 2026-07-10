@@ -69,6 +69,24 @@ class UnitActivated:
 
 
 @dataclass(frozen=True)
+class PlayerTurnStarted:
+    """One player's complete turn (Movement through Fight) is beginning.
+
+    Emitted once per player-turn under vanilla I-go-U-go
+    (`Battle._run_round_vanilla_turns`) so a renderer can group a round's
+    events by which player's turn they happened in, instead of only by
+    event type — without this boundary, a replay that aggregates "all
+    moves this round" before "all shots this round" makes a correct
+    full-turn I-go-U-go simulation look like a phase-by-phase alternating
+    ruleset. NOT emitted by `_run_round_alternating` (that model has no
+    discrete per-player turn to mark); renderers that don't see this event
+    should fall back to their prior whole-round grouping.
+    """
+    army_name: str
+    round_num: int
+
+
+@dataclass(frozen=True)
 class UnitMoved:
     unit_uid: str
     from_pos: Tuple[float, float]
