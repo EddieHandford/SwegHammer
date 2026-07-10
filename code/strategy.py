@@ -2852,10 +2852,13 @@ def trade_exchange(me_unit, dest, threat_at_dest, enemy_alive,
 # It ADDS to the value net score and ONLY composes with SWEG_VALUE_MOVE=1 acting
 # on the unit (folded into `_net` before the argmax in pick_move_intent); with
 # either gate off the fold never runs, so the OFF path is byte-identical and
-# SWEG_VALUE_MOVE=1 alone is digest-identical to base. Sum (not max like
-# _trade_our_return): the owner-specified positional-coverage pricing — a cell
-# that can threaten more valuable targets is worth more; per-target value is
-# capped at the target's remaining wounds so no single target is over-credited.
+# SWEG_VALUE_MOVE=1 alone is digest-identical to base. BEST SINGLE TARGET
+# (iteration 2, mirroring _trade_our_return's one-target commitment): the v1
+# sum-over-reachable-targets over-credited high-volume multi-target platforms
+# into central coverage cells (N=40 cell-1 screen 2.60 -> 2.81: Imperial Knights
+# +5.30, Tyranids +6.59, World Eaters +3.92, Necrons +3.90 wrong-direction), so
+# the offense is the best single reachable target's converted value, capped at
+# that target's remaining wounds.
 
 # The maximum face of the Advance d6 — mirrors simulator._STAGING_MAX_ADVANCE
 # (= 6.0, the sprint-reach bound the staging envelope uses). NOT a new tunable: a
@@ -3031,8 +3034,12 @@ def value_offense(me_unit, dest, ranged_ok, heavy_bonus, melee_ok,
             charge-reach probability _p_2d6_at_least(dist(dest, E) - engagement).
 
     Per-enemy expected wounds are capped at that enemy's remaining wounds and
-    converted with _trade_vp_per_wound, then SUMMED over reachable enemies. No new
-    random number is drawn."""
+    converted with _trade_vp_per_wound; the offense is the BEST SINGLE target's
+    converted value (mirroring _trade_our_return's one-target commitment — the
+    unit commits to ONE target next activation; ranged and melee likewise compete
+    via max within a target, exactly as _trade_our_return prices them). Iteration
+    2: the v1 sum form over-credited multi-target platforms (see the section
+    header for the cell-1 screen numbers). No new random number is drawn."""
     from .simulator import Battle          # lazy: avoid strategy<->simulator cycle
     me_p = _score_profile(me_unit)
     my_range = float(getattr(me_p, "range_inches", 0.0) or 0.0)
@@ -3040,29 +3047,36 @@ def value_offense(me_unit, dest, ranged_ok, heavy_bonus, melee_ok,
     my_ignores_cover = bool(getattr(me_p, "ignores_cover", False))
     melee_capable = (getattr(me_p, "melee_attacks", 0) or 0) > 0
     hit_mod = 1 if heavy_bonus else 0
-    total = 0.0
+    best = 0.0
     for e in enemy_alive:
         ep = _score_profile(e)
         d = _dist(dest, e.position)
+        # BEST single target, not sum — the N=40 cell-1 screen showed the sum
+        # over-credits multi-target platforms (Imperial Knights +5.30, Tyranids
+        # +6.59 wrong-direction); mirror _trade_our_return.
         ew = 0.0
         if ranged_ok and my_range > 0.0 and d <= my_range:
             rw = Battle._ranged_expected_wounds(me_p, e, extra_hit_mod=hit_mod)
             if rw > 0.0:
                 atten = 1.0 if my_ignores_cover else _cover_attenuation(
                     e, my_ap, map_, e.position)
-                ew += rw * atten
+                rw *= atten
+                if rw > ew:
+                    ew = rw
         if melee_ok and melee_capable:
             needed = d - _THREAT_ENGAGE_RANGE
             if needed <= 12.0:
                 mw = _kill_potential_wounds(me_p, ep) * _p_2d6_at_least(needed)
-                if mw > 0.0:
-                    ew += mw
+                if mw > ew:
+                    ew = mw
         if ew <= 0.0:
             continue
         target_health = float(getattr(e, "current_health", 0.0) or 0.0)
-        total += min(ew, target_health) * _trade_vp_per_wound(
+        removed = min(ew, target_health) * _trade_vp_per_wound(
             ep, scoring_rounds_remaining)
-    return total
+        if removed > best:
+            best = removed
+    return best
 
 
 def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, float]]:

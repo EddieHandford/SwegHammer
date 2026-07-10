@@ -4,9 +4,11 @@ SWEG_VALUE_MOVE consumer, strategy.value_offense / _offense_eligibility).
 Mechanism: a candidate move destination is priced not only by the marker's
 value and the body's exposure but by the OUTPUT the unit can deliver from that
 cell — expected wounds dealt, converted to victory points with the SAME
-exchange rate the trade evaluator uses (_trade_vp_per_wound), summed over
-reachable enemies, discounted over the scoring horizon. See the value_offense
-section header in code/strategy.py for the full derivation.
+exchange rate the trade evaluator uses (_trade_vp_per_wound), taken as the BEST
+single reachable target (iteration 2, mirroring _trade_our_return — the v1
+sum-over-targets form over-credited multi-target platforms in the cell-1
+screen), discounted over the scoring horizon. See the value_offense section
+header in code/strategy.py for the full derivation.
 
 These fixtures are hand-computed to 1e-9 against the universal 10e helpers
 (wound_probability / save_probability / _prob_to_target), and check the
@@ -158,16 +160,38 @@ class ValueOffenseArithmetic(unittest.TestCase):
         self.assertAlmostEqual(adv, norm, delta=1e-9)   # melee inert at 20"
         self.assertGreater(adv, 0.0)
 
-    def test_offense_sums_over_multiple_reachable_targets(self):
-        """The term SUMS over reachable enemies (owner spec), each capped at its
-        own remaining wounds."""
+    def test_offense_identical_targets_price_as_one_not_double(self):
+        """Iteration 2 (best single target): two identical reachable targets
+        price exactly the same as one — no multi-target over-credit."""
         mp, tp = _mover(), _target()
         me = _Stand(mp, (0.0, 0.0), 10.0)
         e1 = _Stand(_target(), (18.0, 0.0), 10.0)
         e2 = _Stand(_target(), (0.0, 20.0), 10.0)
         one = value_offense(me, me.position, True, False, True, [e1], None, SRR)
         both = value_offense(me, me.position, True, False, True, [e1, e2], None, SRR)
-        self.assertAlmostEqual(both, 2.0 * one, delta=1e-9)
+        self.assertAlmostEqual(both, one, delta=1e-9)
+
+    def test_offense_equals_better_single_target_not_sum(self):
+        """Iteration 2 (cell-1 screen reprice): with two reachable targets of
+        different value, the offense equals the BETTER single target's converted
+        value — never the sum (the v1 form that over-credited multi-target
+        platforms: Imperial Knights +5.30, Tyranids +6.59 wrong-direction)."""
+        import dataclasses
+        mp, tp = _mover(), _target()
+        me = _Stand(mp, (0.0, 0.0), 10.0)
+        cheap = _target()                       # 100 points, 10 wounds
+        dear = dataclasses.replace(_target(), points_override=300)  # 3x pts/wound
+        e_cheap = _Stand(cheap, (18.0, 0.0), 10.0)
+        e_dear = _Stand(dear, (0.0, 20.0), 10.0)
+        got = value_offense(
+            me, me.position, True, False, True, [e_cheap, e_dear], None, SRR)
+        cheap_only = value_offense(
+            me, me.position, True, False, True, [e_cheap], None, SRR)
+        dear_only = value_offense(
+            me, me.position, True, False, True, [e_dear], None, SRR)
+        self.assertGreater(dear_only, cheap_only)
+        self.assertAlmostEqual(got, dear_only, delta=1e-9)      # the better one
+        self.assertLess(got, cheap_only + dear_only - 1e-12)    # never the sum
 
     def test_per_target_capped_at_remaining_wounds(self):
         """A nearly-dead target caps removable value at its remaining wounds."""
