@@ -16,7 +16,7 @@ from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, DeadlyDemiseExploded,
     InitialUnit, JudgementTokenAwarded, OathTargetChosen, ObjectiveScored,
     RoundEnded, RoundStarted, StratagemFired, Subscriber, TransportDisembarked,
-    TransportEmbarked, UnitActivated, UnitAdvanced, UnitCharged,
+    TransportEmbarked, TurnStarted, UnitActivated, UnitAdvanced, UnitCharged,
     UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled, UnitMoved,
     UnitReanimated, UnitScouted, UnitShot, WaaaghDeclared,
 )
@@ -12637,6 +12637,13 @@ class Battle:
         # per-turn phase blocks below. Byte-identical when gate is off.
         _aof_per_phase: bool = __import__("os").environ.get("SWEG_AOF_PER_PHASE", "1") == "1"
         for active, other in ((first, second), (second, first)):
+            # Presentation-only marker for the replay recap (see `TurnStarted`
+            # in code/events.py): fires before any of this army's phases so a
+            # subscriber can split the round overview into one sub-chapter per
+            # player's turn, in true resolution order. No random-number draws,
+            # no game-state mutation — a no-op when there are no subscribers
+            # (the evaluation paths), same pattern as RoundStarted above.
+            self._emit(TurnStarted(round_num=self._current_round, army_name=active.name))
             # Per-Command-phase primary scoring (wave 116, env-gated SWEG_CMDSCORE).
             # 10e scores Primary VP at the end of each player's Command phase —
             # i.e. at the START of that player's turn, on the objectives it

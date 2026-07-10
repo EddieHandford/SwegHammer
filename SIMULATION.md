@@ -21,6 +21,20 @@ total damage and models destroyed, arrivals, losses, the end-of-round
 objective scoring, and each side's points remaining on the table —
 beside one board snapshot per round.
 
+Under the default vanilla battle-round structure, each player's turn emits
+its own `TurnStarted` event (round number and army name; presentation-only,
+no random-number draws, no effect on game state) at the moment that player's
+Movement phase begins, and `round_overview` uses it to split each battle
+round's recap into two sub-chapters — one per player's turn, in true
+resolution order — instead of merging both players' moves, shots, charges,
+and fights into a single per-round chapter bucketed by event type. A round's
+losses, objective-scoring lines, and points-remaining trend line are round-
+level tallies, not turn-level ones, so they appear once, on the round's
+final sub-chapter, alongside the running score. Event logs recorded before
+this change, or recorded under the alternating-activation ruleset (which has
+no player-turn concept and so never emits `TurnStarted`), still render as
+one chapter per round.
+
 ## Role in the two-stage pipeline
 
 This document describes the **Stage 1** apparatus: the simulator whose

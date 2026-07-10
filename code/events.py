@@ -63,6 +63,22 @@ class RoundStarted:
 
 
 @dataclass(frozen=True)
+class TurnStarted:
+    """A player's turn began within a vanilla (I-go-you-go) battle round.
+
+    Emitted once per army per round from `_run_round_vanilla_turns`, before
+    that army's Movement phase begins. Presentation-only: it carries no game
+    state and gates no behaviour — it exists solely so a replay renderer
+    (`round_overview` in `code/renderer.py`) can split a battle round's recap
+    into one sub-chapter per player's turn, in true resolution order, instead
+    of bucketing both players' events together by phase type. Not emitted
+    from `_run_round_alternating`, which has no player-turn concept.
+    """
+    round_num: int
+    army_name: str
+
+
+@dataclass(frozen=True)
 class UnitActivated:
     unit_uid: str
     army_name: str
