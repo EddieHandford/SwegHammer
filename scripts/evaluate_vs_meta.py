@@ -347,8 +347,8 @@ def _pick_primary_mission(pair_seed: int) -> Optional[str]:
 
 
 def _run_battle_job(
-    args: Tuple[str, str, int, int, Optional[RulesConfig], bool, Optional[Dict[str, float]]],
-) -> Tuple[str, str, int, Optional[str]]:
+    args: Tuple[str, str, int, int, Optional[RulesConfig], bool, Optional[Dict[str, float]], bool],
+) -> Tuple[str, str, int, Optional[str], Optional[Tuple[float, float, float, float, int]]]:
     """Worker: build armies + run one battle for (a_fac, b_fac, seed).
 
     Performs the entire build-and-run inside the worker process. We pass
@@ -361,10 +361,25 @@ def _run_battle_job(
     process so the global random module is seeded in each worker before
     army building (random.seed is process-local).
 
-    Returns (a_fac, b_fac, seed, winner) where winner is "A"/"B"/None.
-    None indicates the pairing was skipped (empty army on either side).
+    Returns (a_fac, b_fac, seed, winner, margins) where winner is
+    "A"/"B"/None (None indicates the pairing was skipped — empty army on
+    either side) and margins is None unless the job's `log_margins` flag is
+    set, in which case it is the 5-tuple ``(a_vp, b_vp, a_points_lost,
+    b_points_lost, rounds)`` — the kill-margin / victory-point-margin
+    exchange-rate lane's per-game evidence (docs/AUTO_LOOP_PROCEDURE.md,
+    the "job-layer lane stop" note on the ungrounded `_trade_vp_per_wound`
+    rate). `a_vp`/`b_vp` are the final CAPPED victory points (primary <= 50,
+    secondary <= 40, challenger <= 12 — `Battle._capped_vp_pair`, the same
+    single source of truth the winner decision itself reads); `a_points_lost`/
+    `b_points_lost` are each side's starting fielded points (on-board +
+    reserves, `Army.starting_points`, snapshotted after deployment) minus its
+    surviving points at battle end (`BattleResult.a/b_points_remaining`).
+    Both are re-oriented to the (a_fac, b_fac) caller-facing perspective the
+    same way `winner` already is, undoing the SIDE ROLL-OFF slot swap below.
+    Pure read-only accounting AFTER `Battle.run()` resolves — zero extra
+    random draws.
     """
-    a_fac, b_fac, s, pair_seed, rules, use_archetype, price_overrides = args
+    a_fac, b_fac, s, pair_seed, rules, use_archetype, price_overrides, log_margins = args
     random.seed(pair_seed)
     # SIDE ROLL-OFF (SWEG_SIDE_ROLLOFF, default-off -> byte-identical). The
     # frame audit (docs/PROTOCOL_REVIEW_2026-07.md) measured per-faction
@@ -397,15 +412,36 @@ def _run_battle_job(
         price_overrides=price_overrides,
     )
     if not a.units or not b.units:
-        return (a_fac, b_fac, s, None)
+        return (a_fac, b_fac, s, None, None)
     battle_map = _pick_rotation_map(s)
     primary = _pick_primary_mission(pair_seed)
-    r = Battle(a, b, map_=battle_map, rules=rules,
-               primary_mission=primary).run()
+    # Keep the Battle instance (not just its result) so a margins request can
+    # read `_capped_vp_pair()` after `.run()` resolves — the capped VP view is
+    # not on BattleResult (which only carries the UNCAPPED running totals),
+    # and `_capped_vp_pair` is the same single source of truth `_decide_winner`
+    # itself reads, so this avoids re-deriving the cap logic (and its
+    # SWEG_PRIMARY_CAP_50 gate) a second time here.
+    battle = Battle(a, b, map_=battle_map, rules=rules, primary_mission=primary)
+    r = battle.run()
     _winner = r.winner
     if _swap and _winner in ("A", "B"):
         _winner = "B" if _winner == "A" else "A"
-    return (a_fac, b_fac, s, _winner)
+    margins = None
+    if log_margins:
+        # `a`/`b` are the Battle's slot-A/slot-B armies (_slot_a_fac /
+        # _slot_b_fac above), which are SWAPPED relative to (a_fac, b_fac)
+        # whenever `_swap` fired. Read both sides' capped VP and points-lost
+        # off the slot-A/slot-B objects, then re-orient to the (a_fac, b_fac)
+        # perspective the exact same way `_winner` was above, so a caller
+        # never has to know the swap happened.
+        _a_vp_slot, _b_vp_slot = battle._capped_vp_pair()
+        _a_lost_slot = max(0.0, a.starting_points - r.a_points_remaining)
+        _b_lost_slot = max(0.0, b.starting_points - r.b_points_remaining)
+        if _swap:
+            _a_vp_slot, _b_vp_slot = _b_vp_slot, _a_vp_slot
+            _a_lost_slot, _b_lost_slot = _b_lost_slot, _a_lost_slot
+        margins = (_a_vp_slot, _b_vp_slot, _a_lost_slot, _b_lost_slot, r.rounds)
+    return (a_fac, b_fac, s, _winner, margins)
 
 
 def _job_in_scope(a_fac: str, b_fac: str, scope: Optional[set]) -> bool:
@@ -420,7 +456,9 @@ def _job_in_scope(a_fac: str, b_fac: str, scope: Optional[set]) -> bool:
 
 
 def _write_game_log(path: str, n: int,
-                    games: List[Tuple[str, str, int, Optional[str]]]) -> None:
+                    games: List[Tuple[str, str, int, Optional[str]]],
+                    margins: Optional[List[Tuple[float, float, float, float, int]]] = None,
+                    ) -> None:
     """Persist every per-game winner for a paired / Common-Random-Numbers join.
 
     Format: a JSON object ``{"n": N, "games": [[a_fac, b_fac, seed, winner], …]}``
@@ -429,10 +467,27 @@ def _write_game_log(path: str, n: int,
     produces the SAME ``(a_fac, b_fac, seed)`` keys, so ``scripts/paired_delta.py``
     can join the two logs game-for-game and read the low-variance paired delta.
     Written once at the end of ``run_matrix`` so the hot loop stays light.
+
+    ``margins`` (default ``None``, wired to ``--log-margins``): the per-game
+    kill-margin / victory-point-margin evidence, index-aligned with ``games``
+    (``margins[i]`` describes the same game as ``games[i]``), as
+    ``[a_vp, b_vp, a_points_lost, b_points_lost, rounds]``. Kept as a SEPARATE
+    top-level key rather than appended onto each ``games`` row because both
+    existing consumers (``scripts/paired_delta.py``'s ``_load_log``,
+    ``scripts/diag_frame.py``'s ``_cells``) do a strict 4-element unpack
+    (``for a, b, s, w in d["games"]``) that a longer row would break; a
+    parallel list leaves ``games`` — and therefore every existing consumer —
+    completely untouched. When ``margins`` is ``None`` (the default, i.e.
+    ``--log-margins`` unset) the written payload has no ``"margins"`` key at
+    all and is BYTE-IDENTICAL to the pre-existing format — the anchor-log
+    frame this file also serves does not drift.
     """
     import json as _json
+    payload = {"n": n, "games": games}
+    if margins is not None:
+        payload["margins"] = margins
     with open(path, "w", encoding="utf-8") as fh:
-        _json.dump({"n": n, "games": games}, fh)
+        _json.dump(payload, fh)
 
 
 def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
@@ -440,7 +495,8 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
                price_overrides: Optional[Dict[str, float]] = None,
                log_games_path: Optional[str] = None,
                seed_start: int = 0,
-               scope_factions: Optional[set] = None) -> Dict[str, float]:
+               scope_factions: Optional[set] = None,
+               log_margins: bool = False) -> Dict[str, float]:
     """Average win-rate per faction across all opponents in the FACTIONS list.
 
     Seeds the global random module per battle so the same code base produces
@@ -462,11 +518,21 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
     multi-core hardware. PYTHONHASHSEED=0 is set at module import time
     above; workers inherit the env via the os.execvpe re-exec, so set
     iteration order is reproducible inside workers too.
+
+    `log_margins` (default False, wired to `--log-margins`): only takes
+    effect when `log_games_path` is also set — see `_write_game_log`'s
+    docstring for the exact payload shape. A no-op (jobs never ask the
+    worker to do the extra accounting) when `log_games_path` is falsy, so
+    calling `run_matrix(log_margins=True)` without a log path stays exactly
+    as cheap as today.
     """
     fac_idx = {f: i for i, f in enumerate(FACTIONS)}
+    # Only actually request the per-game margin accounting from workers when
+    # there's somewhere to write it — otherwise it's dead weight on every job.
+    _want_margins = bool(log_games_path) and log_margins
 
     # Build the full job list upfront so the executor can stream them.
-    jobs: List[Tuple[str, str, int, int, Optional[RulesConfig], bool]] = []
+    jobs: List[Tuple[str, str, int, int, Optional[RulesConfig], bool, Optional[Dict[str, float]], bool]] = []
     for a_fac in FACTIONS:
         for b_fac in FACTIONS:
             if a_fac == b_fac:
@@ -487,7 +553,8 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
             for s in range(seed_start, seed_start + n):
                 ai, bi = fac_idx[a_fac], fac_idx[b_fac]
                 pair_seed = (ai * 1000 + bi) * 100 + s
-                jobs.append((a_fac, b_fac, s, pair_seed, rules, use_archetype, price_overrides))
+                jobs.append((a_fac, b_fac, s, pair_seed, rules, use_archetype,
+                             price_overrides, _want_margins))
 
     # Aggregate winners per (a_fac, b_fac) pair. Job-completion order does
     # not affect the per-pair Counter because each pair_seed is unique.
@@ -503,6 +570,14 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
     # default eval frame is unchanged.
     game_log: Optional[List[Tuple[str, str, int, Optional[str]]]] = (
         [] if log_games_path else None
+    )
+    # Index-aligned with `game_log`: both are appended exactly once per
+    # completed job, in the same loop iteration, so `margins_log[i]` always
+    # describes the same game as `game_log[i]`. None (not merely empty) when
+    # margins weren't requested, matching `_write_game_log`'s "omit the key
+    # entirely" contract for the byte-identical default path.
+    margins_log: Optional[List[Tuple[float, float, float, float, int]]] = (
+        [] if _want_margins else None
     )
     if max_workers is None:
         # Reserve ~30% of cores for the user's other work — use ~70%.
@@ -523,7 +598,7 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
         results_iter = executor.map(_run_battle_job, jobs, chunksize=64)
 
     try:
-        for a_fac, b_fac, _s, winner in results_iter:
+        for a_fac, b_fac, _s, winner, _margins in results_iter:
             key = (a_fac, b_fac)
             if key not in pair_winners:
                 pair_winners[key] = Counter()
@@ -531,12 +606,14 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
                 pair_winners[key][winner] += 1
             if game_log is not None:
                 game_log.append((a_fac, b_fac, _s, winner))
+            if margins_log is not None:
+                margins_log.append(_margins)
     finally:
         if max_workers > 1:
             executor.shutdown(wait=True)
 
     if log_games_path:
-        _write_game_log(log_games_path, n, game_log)
+        _write_game_log(log_games_path, n, game_log, margins_log)
 
     sim_wr: Dict[Tuple[str, str], float] = {}
     for a_fac in FACTIONS:
@@ -756,6 +833,19 @@ def main() -> None:
              "is unchanged whether or not this flag is set.",
     )
     p.add_argument(
+        "--log-margins",
+        action="store_true",
+        help="Requires --log-games. Additionally record, per game, each "
+             "side's final capped victory points and the points-value of "
+             "units it lost (plus the round count), as a separate "
+             "index-aligned 'margins' list in the --log-games file — "
+             "evidence for regressing win outcomes on kill-margin versus "
+             "victory-point-margin (grounding the _trade_vp_per_wound "
+             "exchange rate). Default off, and with --log-games's own "
+             "format completely unchanged when off — the written file is "
+             "byte-identical to today's output for the same run.",
+    )
+    p.add_argument(
         "--seed-start",
         type=int,
         default=0,
@@ -781,6 +871,8 @@ def main() -> None:
     args = p.parse_args()
     if args.seed_start + args.battles > 100:
         raise SystemExit("--seed-start + --battles must be <= 100 (pair_seed packing).")
+    if args.log_margins and not args.log_games:
+        raise SystemExit("--log-margins requires --log-games (nothing to attach margins to).")
     # EVAL-LOCK (protocol review 2026-07-07): the eval protocol mandates SERIAL
     # evaluations — parallel runs have repeatedly clobbered each other's logs
     # and produced confounded screens (two background agents once wrote the
@@ -916,7 +1008,7 @@ def main() -> None:
     sim = run_matrix(args.battles, rules=rules, use_archetype=args.use_archetype,
                      max_workers=workers, price_overrides=price_overrides,
                      log_games_path=args.log_games, seed_start=args.seed_start,
-                     scope_factions=scope_factions)
+                     scope_factions=scope_factions, log_margins=args.log_margins)
     if args.log_games:
         print(f"Per-game winners written to {args.log_games} "
               f"(join with scripts/paired_delta.py).")
