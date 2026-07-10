@@ -368,6 +368,88 @@ class CounterOffensiveTests(unittest.TestCase):
         )
         self.assertEqual(b.command_points, 3, "should have spent 2 CP")
 
+    def test_counter_offensive_does_not_reuse_retaliator_within_one_phase(self):
+        """Regression test: `_try_counter_offensive` used to re-select the
+        single best-melee-DPA candidate on EVERY trigger with no memory of
+        earlier picks, so one unit could fight via Counter-Offensive more
+        than once in the same Fight-phase pass. Wahapedia's Counter-
+        Offensive text restricts the TARGET to a unit "that has not
+        already been selected to fight this phase" — with only one
+        eligible retaliator in range of two separate kill triggers, the
+        stratagem must fire at most once, not twice against the same unit.
+        """
+        random.seed(0)
+
+        glass_cannon_profile = UnitProfile(
+            name="Glass Cannon",
+            health=4, damage=0, hit_probability=2 / 3,
+            ap=-2, save=4, strength=10, toughness=4,
+            attacks=0, weapon_damage_per_shot=0.0,
+            move=12.0,
+            melee_attacks=8, melee_damage_per_shot=3.0,
+            melee_hit_probability=5 / 6, melee_strength=10,
+            melee_ap=-3,
+            range_inches=1,
+        )
+        retaliator = UnitProfile(
+            name="Big Brawler",
+            health=10, damage=0, hit_probability=2 / 3,
+            ap=-2, save=3, strength=8, toughness=8,
+            attacks=0, weapon_damage_per_shot=0.0,
+            move=6.0,
+            melee_attacks=6, melee_damage_per_shot=2.0,
+            melee_hit_probability=5 / 6, melee_strength=8,
+            melee_ap=-2,
+            range_inches=1,
+        )
+        frail_profile = UnitProfile(
+            name="Frail",
+            health=1, damage=0, hit_probability=2 / 3,
+            ap=0, save=6, strength=3, toughness=3,
+            attacks=0, weapon_damage_per_shot=0.0,
+            melee_attacks=1, melee_damage_per_shot=1.0,
+            melee_hit_probability=1 / 2, melee_strength=3,
+            range_inches=1,
+        )
+
+        # Two attackers on A, each about to kill their own frail defender
+        # on B — two independent Counter-Offensive triggers this phase.
+        # B's ONLY melee-capable unit besides the two frail defenders is
+        # the single retaliator, positioned in range of both attackers.
+        a = _build_army("A", [glass_cannon_profile, glass_cannon_profile])
+        b = _build_army("B", [frail_profile, frail_profile, retaliator])
+
+        events: list = []
+
+        class Recorder:
+            def on_event(self, e):
+                events.append(e)
+
+        battle = Battle(a, b, subscribers=[Recorder()])
+        battle._assign_uids()
+        b.command_points = 6   # enough CP for two 2-CP fires if the bug is present
+
+        a.units[0].position = (10.0, 10.0)
+        a.units[1].position = (12.0, 10.0)
+        b.units[0].position = (10.0, 10.5)    # frail #1, in melee w/ attacker #1
+        b.units[1].position = (12.0, 10.5)    # frail #2, in melee w/ attacker #2
+        b.units[2].position = (11.0, 10.5)    # retaliator, within 1.5" of both
+
+        battle._do_fight(a.units[0], a, b)
+        battle._do_fight(a.units[1], a, b)
+
+        fired = [
+            e for e in events
+            if isinstance(e, StratagemFired) and e.stratagem_name == "Counter-Offensive"
+        ]
+        self.assertEqual(
+            len(fired), 1,
+            f"Big Brawler is the only eligible retaliator for both triggers — "
+            f"Counter-Offensive must fire at most once this phase, not "
+            f"re-select it a second time; got {fired}",
+        )
+        self.assertEqual(b.command_points, 4, "should have spent exactly 2 CP, once")
+
 
 class TankShockTests(unittest.TestCase):
 

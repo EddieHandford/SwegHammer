@@ -15,10 +15,10 @@ from .pathfind import find_path
 from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, DeadlyDemiseExploded,
     InitialUnit, JudgementTokenAwarded, OathTargetChosen, ObjectiveScored,
-    RoundEnded, RoundStarted, StratagemFired, Subscriber, TransportDisembarked,
-    TransportEmbarked, UnitActivated, UnitAdvanced, UnitCharged,
-    UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled, UnitMoved,
-    UnitReanimated, UnitScouted, UnitShot, WaaaghDeclared,
+    PlayerTurnStarted, RoundEnded, RoundStarted, StratagemFired, Subscriber,
+    TransportDisembarked, TransportEmbarked, UnitActivated, UnitAdvanced,
+    UnitCharged, UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled,
+    UnitMoved, UnitReanimated, UnitScouted, UnitShot, WaaaghDeclared,
 )
 from .factions import is_marine_faction
 from .map import Map, TerrainType
@@ -474,6 +474,15 @@ class Battle:
         # UIDs of units that successfully charged this round (Fights First in
         # the Fight sub-phase). Reset each round.
         self._charging_this_round: set = set()
+        # UIDs of units that have fought (via the normal Fight-phase pass OR
+        # an out-of-sequence reactive strike, e.g. Counter-Offensive) in the
+        # CURRENT Fight-phase pass. Reset at the start of each Fight-phase
+        # pass (twice per round under vanilla I-go-U-go: once per player's
+        # turn). Enforces Counter-Offensive's own "Target: ... that has not
+        # already been selected to fight this phase" restriction (Wahapedia
+        # Core Stratagems) — see `_try_counter_offensive`. Cited as
+        # `Stratagem.Counter-Offensive`.
+        self._fought_this_fight_phase: set = set()
         # Fire Overwatch (10e core stratagem, env-gated SWEG_OVERWATCH). Set of
         # army NAMES that have already used the Fire Overwatch stratagem this
         # battle round. The core rule reads "you can only use this Stratagem
@@ -12562,6 +12571,12 @@ class Battle:
             # phase flag immediately before each sub-phase block. Byte-identical
             # when the gate is off. Cited as `simulator.acts_of_faith`.
             _aof_pp = __import__("os").environ.get("SWEG_AOF_PER_PHASE", "1") == "1"
+            # Same "no global phase boundary" reasoning applies to Counter-
+            # Offensive's same-unit-twice guard: this activation model has no
+            # discrete Fight phase to reset against, so treat each pair's
+            # fight resolution as its own atomic fight event. See
+            # `_fought_this_fight_phase` in __init__ / `_try_counter_offensive`.
+            self._fought_this_fight_phase = set()
 
             if self.rules.simultaneous_movement:
                 # Both units complete each sub-phase before either moves on
@@ -12637,6 +12652,9 @@ class Battle:
         # per-turn phase blocks below. Byte-identical when gate is off.
         _aof_per_phase: bool = __import__("os").environ.get("SWEG_AOF_PER_PHASE", "1") == "1"
         for active, other in ((first, second), (second, first)):
+            self._emit(PlayerTurnStarted(
+                army_name=active.name, round_num=self._current_round,
+            ))
             # Per-Command-phase primary scoring (wave 116, env-gated SWEG_CMDSCORE).
             # 10e scores Primary VP at the end of each player's Command phase —
             # i.e. at the START of that player's turn, on the objectives it
@@ -12876,6 +12894,11 @@ class Battle:
                 if unit.is_alive:
                     self._do_charge(unit, active, other)
             bump_buffs_generation()
+            # Fresh Fight-phase pass starting now (this player's turn's one
+            # Fight phase) — no unit has been selected to fight yet, so clear
+            # last pass's bookkeeping. See `_fought_this_fight_phase` in
+            # __init__ / `_try_counter_offensive`.
+            self._fought_this_fight_phase = set()
             # SOROR-AOF-PER-PHASE (gate SWEG_AOF_PER_PHASE): reset each
             # Sororitas unit's per-phase Acts of Faith flag at the start of
             # the Fight phase, allowing units that spent in the Shooting phase
@@ -17572,6 +17595,7 @@ class Battle:
         dmg = attacker.attack(
             target, distance=1.0, mode="melee", is_charging=is_charging,
         )
+        self._fought_this_fight_phase.add(attacker.uid)
         alive_after = target.is_alive
         # Displacement Stage-0 tap: melee damage by `attacker_army` against `target`.
         self._displace_tap(attacker_army, target, dmg)
@@ -19076,10 +19100,19 @@ class Battle:
         within 1.5" of `winner_unit`, and fire its `_do_fight` against
         winner_unit right now (before the rest of the fight sequence).
         """
-        # Find a friendly unit in engagement range of the winner.
+        # Find a friendly unit in engagement range of the winner that has not
+        # already been selected to fight this phase — Counter-Offensive's own
+        # TARGET restriction (Wahapedia: "...that has not already been
+        # selected to fight this phase"). Without this exclusion, the
+        # highest-DPA candidate got re-picked on every trigger this phase,
+        # letting one unit fight via Counter-Offensive more than once in the
+        # same Fight-phase pass — a real bug, not a legal repeat use (a
+        # second, legal Counter-Offensive fire this phase is still possible,
+        # but only against a DIFFERENT not-yet-fought unit).
         candidates = [
             u for u in loser_army.alive_units
             if u is not loser_unit
+            and u.uid not in self._fought_this_fight_phase
             and u.profile.melee_attacks > 0
             and _er_gap_units(u, winner_unit) <= 1.0
         ]
@@ -19103,6 +19136,7 @@ class Battle:
         # Out-of-sequence fight: hit the enemy unit that just struck us,
         # not whatever the retaliator's nearest happens to be.
         dmg = retaliator.attack(winner_unit, distance=1.0, mode="melee")
+        self._fought_this_fight_phase.add(retaliator.uid)
         alive_after = winner_unit.is_alive
         # Displacement Stage-0 tap: counter-offensive melee by `loser_army` against the
         # original attacker (`winner_unit`). Observation-only.

@@ -23,11 +23,11 @@ from PIL import Image, ImageDraw, ImageFont
 
 from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, DeadlyDemiseExploded,
-    ObjectiveScored, RoundEnded, RoundStarted, StratagemFired,
-    TransportDisembarked, TransportEmbarked, UnitActivated, UnitAdvanced,
-    UnitCharged, UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled,
-    UnitMoved, UnitReanimated, UnitScouted, UnitShot, WaaaghDeclared,
-    OathTargetChosen,
+    ObjectiveScored, PlayerTurnStarted, RoundEnded, RoundStarted,
+    StratagemFired, TransportDisembarked, TransportEmbarked, UnitActivated,
+    UnitAdvanced, UnitCharged, UnitDeepStrike, UnitFought, UnitInfiltrated,
+    UnitKilled, UnitMoved, UnitReanimated, UnitScouted, UnitShot,
+    WaaaghDeclared, OathTargetChosen,
 )
 from .map import Map, TerrainType
 
@@ -895,13 +895,31 @@ def round_overview(events: List) -> List[dict]:
     chapters: List[dict] = []
 
     # --- Per-chapter accumulators ---
-    moves: Dict[tuple, dict] = {}          # skey -> {first: {uid: pos}, last: {uid: pos}, advanced}
-    shots: Dict[Tuple[tuple, tuple], List] = {}    # (att, tgt) -> [dmg, kills]
-    fights: Dict[Tuple[tuple, tuple], List] = {}
-    charges: Dict[Tuple[tuple, tuple], dict] = {}  # keeps the successful roll if any
+    # Action buckets are TURN-scoped, not round-scoped: `PlayerTurnStarted`
+    # (emitted once per player-turn by `Battle._run_round_vanilla_turns`)
+    # starts a fresh block so a round's actions are grouped by WHICH TURN
+    # they happened in. Without this, aggregating "every move this round"
+    # ahead of "every shot this round" made a correct full-turn I-go-U-go
+    # simulation read, in the replay, as a phase-by-phase alternating
+    # ruleset (moves for both sides, then shots for both sides, ...) — the
+    # simulator was never wrong, the recap was misfiling it. Event logs
+    # that never emit `PlayerTurnStarted` (legacy logs, or
+    # `_run_round_alternating`, which has no discrete per-player turn to
+    # mark) fall back to one unlabelled block per round: identical output
+    # to the pre-turn-block renderer.
+    def _new_turn_block(label: Optional[str] = None) -> dict:
+        return {
+            "label": label,
+            "declarations": [],   # WAAAGH! / Oath / Deadly Demise lines
+            "strats": {},         # (army, stratagem) -> [uses, cp_total]
+            "moves": {},          # skey -> {first: {uid: pos}, last: {uid: pos}, advanced}
+            "shots": {},          # (att, tgt) -> [dmg, kills]
+            "charges": {},        # (att, tgt) -> {succeeded, roll, distance}
+            "fights": {},         # (att, tgt) -> [dmg, kills]
+        }
+
+    turn_blocks: List[dict] = [_new_turn_block()]
     arrivals: List[str] = []               # deep strike / disembark / reanimation lines
-    declarations: List[str] = []           # WAAAGH! / Oath / Deadly Demise lines
-    strats: Dict[Tuple[str, str], List] = {}   # (army, stratagem) -> [uses, cp_total]
     losses: Dict[tuple, int] = {}
     shocked: Dict[tuple, int] = {}
     # Objectives score once per player turn, so the same marker can emit two
@@ -915,50 +933,57 @@ def round_overview(events: List) -> List[dict]:
 
     def flush(end_tick: int) -> None:
         lines: List[str] = []
-        lines += declarations
-        for (army, name), (uses, cp) in strats.items():
-            times = f" ×{uses}" if uses > 1 else ""
-            lines.append(
-                f"{army_mark(army)} {army} used {name}{times} "
-                f"({cp} command point{'s' if cp != 1 else ''})"
-            )
+        nonempty = [
+            b for b in turn_blocks
+            if any(b[k] for k in ("declarations", "strats", "moves", "shots", "charges", "fights"))
+        ]
+        for blk in nonempty:
+            if blk["label"] and len(nonempty) > 1:
+                lines.append(f"{army_mark(blk['label'])} — {blk['label']} turn —")
+            lines += blk["declarations"]
+            for (army, name), (uses, cp) in blk["strats"].items():
+                times = f" ×{uses}" if uses > 1 else ""
+                lines.append(
+                    f"{army_mark(army)} {army} used {name}{times} "
+                    f"({cp} command point{'s' if cp != 1 else ''})"
+                )
+            for skey, m in blk["moves"].items():
+                if not m["first"]:
+                    continue
+                fx, fy = _centroid(list(m["first"].values()))
+                tx, ty = _centroid(list(m["last"].values()))
+                dist = math.hypot(tx - fx, ty - fy)
+                if dist < 0.5:
+                    continue    # positional jitter, not a real redeploy
+                suffix = "  (Advanced — no shooting)" if m["advanced"] else ""
+                lines.append(
+                    f"{mark(skey)} {squad_name[skey]} moved {dist:.0f}\" — "
+                    f"({fx:.0f}, {fy:.0f}) → ({tx:.0f}, {ty:.0f}){suffix}"
+                )
+            for (att, tgt), (dmg, kills) in blk["shots"].items():
+                out = f"{kills} model{'s' if kills != 1 else ''} destroyed" if kills \
+                    else (f"{dmg:.1f} damage" if dmg >= 0.05 else "no damage")
+                extra = f" ({dmg:.1f} damage)" if kills else ""
+                lines.append(f"{mark(att)} {squad_name[att]} shot {squad_name[tgt]} — {out}{extra}")
+            for (att, tgt), c in blk["charges"].items():
+                verdict = "made it" if c["succeeded"] else "failed"
+                lines.append(
+                    f"{mark(att)} {squad_name[att]} charged {squad_name[tgt]} — "
+                    f"{verdict} (rolled {c['roll']} vs {c['distance']:.1f}\")"
+                )
+            for (att, tgt), (dmg, kills) in blk["fights"].items():
+                out = f"{kills} model{'s' if kills != 1 else ''} destroyed" if kills \
+                    else (f"{dmg:.1f} damage" if dmg >= 0.05 else "no damage")
+                extra = f" ({dmg:.1f} damage)" if kills else ""
+                # 10e: a unit that made a Charge move fights in the Fights First
+                # step (simulator.fights_first_chargers) — surface that in the
+                # recap so the strike order is visible.
+                c = blk["charges"].get((att, tgt))
+                first = "  (charged — fights first)" if c and c["succeeded"] else ""
+                lines.append(
+                    f"{mark(att)} {squad_name[att]} fought {squad_name[tgt]} — {out}{extra}{first}"
+                )
         lines += arrivals
-        for skey, m in moves.items():
-            if not m["first"]:
-                continue
-            fx, fy = _centroid(list(m["first"].values()))
-            tx, ty = _centroid(list(m["last"].values()))
-            dist = math.hypot(tx - fx, ty - fy)
-            if dist < 0.5:
-                continue    # positional jitter, not a real redeploy
-            suffix = "  (Advanced — no shooting)" if m["advanced"] else ""
-            lines.append(
-                f"{mark(skey)} {squad_name[skey]} moved {dist:.0f}\" — "
-                f"({fx:.0f}, {fy:.0f}) → ({tx:.0f}, {ty:.0f}){suffix}"
-            )
-        for (att, tgt), (dmg, kills) in shots.items():
-            out = f"{kills} model{'s' if kills != 1 else ''} destroyed" if kills \
-                else (f"{dmg:.1f} damage" if dmg >= 0.05 else "no damage")
-            extra = f" ({dmg:.1f} damage)" if kills else ""
-            lines.append(f"{mark(att)} {squad_name[att]} shot {squad_name[tgt]} — {out}{extra}")
-        for (att, tgt), c in charges.items():
-            verdict = "made it" if c["succeeded"] else "failed"
-            lines.append(
-                f"{mark(att)} {squad_name[att]} charged {squad_name[tgt]} — "
-                f"{verdict} (rolled {c['roll']} vs {c['distance']:.1f}\")"
-            )
-        for (att, tgt), (dmg, kills) in fights.items():
-            out = f"{kills} model{'s' if kills != 1 else ''} destroyed" if kills \
-                else (f"{dmg:.1f} damage" if dmg >= 0.05 else "no damage")
-            extra = f" ({dmg:.1f} damage)" if kills else ""
-            # 10e: a unit that made a Charge move fights in the Fights First
-            # step (simulator.fights_first_chargers) — surface that in the
-            # recap so the strike order is visible.
-            c = charges.get((att, tgt))
-            first = "  (charged — fights first)" if c and c["succeeded"] else ""
-            lines.append(
-                f"{mark(att)} {squad_name[att]} fought {squad_name[tgt]} — {out}{extra}{first}"
-            )
         for skey, n in shocked.items():
             lines.append(f"{mark(skey)} {squad_name[skey]} failed Battleshock — objective control 0 this round")
         for skey, n in losses.items():
@@ -1003,11 +1028,12 @@ def round_overview(events: List) -> List[dict]:
             "end_tick": end_tick,
             "lines": lines,
         })
-        moves.clear(); shots.clear(); fights.clear(); charges.clear()
-        arrivals.clear(); declarations.clear(); losses.clear()
-        shocked.clear(); obj_scores.clear(); obj_order.clear(); strats.clear()
+        turn_blocks.clear(); turn_blocks.append(_new_turn_block())
+        arrivals.clear(); losses.clear()
+        shocked.clear(); obj_scores.clear(); obj_order.clear()
 
     for tick, ev in enumerate(events):
+        blk = turn_blocks[-1]
         if isinstance(ev, RoundStarted):
             flush(max(chapter_start_tick, tick - 1))
             round_num = ev.round_num
@@ -1015,29 +1041,31 @@ def round_overview(events: List) -> List[dict]:
             end_scores = None
         elif isinstance(ev, RoundEnded):
             end_scores = (ev.a_vp_capped, ev.b_vp_capped)
+        elif isinstance(ev, PlayerTurnStarted):
+            turn_blocks.append(_new_turn_block(ev.army_name))
         elif isinstance(ev, (UnitMoved, UnitScouted)):
-            m = moves.setdefault(sq(ev.unit_uid), {"first": {}, "last": {}, "advanced": False})
+            m = blk["moves"].setdefault(sq(ev.unit_uid), {"first": {}, "last": {}, "advanced": False})
             m["first"].setdefault(ev.unit_uid, ev.from_pos)
             m["last"][ev.unit_uid] = ev.to_pos
         elif isinstance(ev, UnitAdvanced):
-            m = moves.setdefault(sq(ev.unit_uid), {"first": {}, "last": {}, "advanced": False})
+            m = blk["moves"].setdefault(sq(ev.unit_uid), {"first": {}, "last": {}, "advanced": False})
             m["advanced"] = True
         elif isinstance(ev, UnitShot):
-            agg = shots.setdefault((sq(ev.attacker_uid), sq(ev.target_uid)), [0.0, 0])
+            agg = blk["shots"].setdefault((sq(ev.attacker_uid), sq(ev.target_uid)), [0.0, 0])
             agg[0] += ev.damage
             if not ev.target_alive_after:
                 agg[1] += 1
         elif isinstance(ev, UnitFought):
-            agg = fights.setdefault((sq(ev.attacker_uid), sq(ev.target_uid)), [0.0, 0])
+            agg = blk["fights"].setdefault((sq(ev.attacker_uid), sq(ev.target_uid)), [0.0, 0])
             agg[0] += ev.damage
             if not ev.target_alive_after:
                 agg[1] += 1
         elif isinstance(ev, UnitCharged):
             key = (sq(ev.unit_uid), sq(ev.target_uid))
-            prev = charges.get(key)
+            prev = blk["charges"].get(key)
             if prev is None or (ev.succeeded and not prev["succeeded"]):
-                charges[key] = {"succeeded": ev.succeeded, "roll": ev.roll,
-                                "distance": ev.distance}
+                blk["charges"][key] = {"succeeded": ev.succeeded, "roll": ev.roll,
+                                        "distance": ev.distance}
         elif isinstance(ev, UnitKilled):
             skey = sq(ev.unit_uid)
             losses[skey] = losses.get(skey, 0) + 1
@@ -1076,21 +1104,21 @@ def round_overview(events: List) -> List[dict]:
                 arrivals.append(line)
         elif isinstance(ev, DeadlyDemiseExploded):
             skey = sq(ev.unit_uid)
-            declarations.append(
+            blk["declarations"].append(
                 f"💥 {squad_name[skey]} detonated (Deadly Demise) — "
                 f"{ev.mortals} mortal wounds to {len(ev.victims)} nearby unit"
                 f"{'s' if len(ev.victims) != 1 else ''}"
             )
         elif isinstance(ev, WaaaghDeclared):
-            declarations.append(f"{army_mark(ev.army_name)} {ev.army_name} declared WAAAGH!")
+            blk["declarations"].append(f"{army_mark(ev.army_name)} {ev.army_name} declared WAAAGH!")
         elif isinstance(ev, OathTargetChosen):
             tkey = sq(ev.target_uid)
-            declarations.append(
+            blk["declarations"].append(
                 f"{army_mark(ev.army_name)} {ev.army_name} swore its Oath of Moment "
                 f"against {squad_name[tkey]}"
             )
         elif isinstance(ev, StratagemFired):
-            agg = strats.setdefault((ev.army_name, ev.stratagem_name), [0, 0])
+            agg = blk["strats"].setdefault((ev.army_name, ev.stratagem_name), [0, 0])
             agg[0] += 1
             agg[1] += ev.cp_cost
         elif isinstance(ev, ObjectiveScored):
