@@ -182,6 +182,35 @@ def _melee_monster():
     )
 
 
+def _heavy_gunline():
+    """A Heavy-weapon fire platform with no melee — the zero-value-routing
+    gunline archetype for fixture (g)."""
+    return UnitProfile(
+        name="GunlineHeavy", health=8, damage=1, hit_probability=0.5,
+        ap=-1, save=3, strength=6, toughness=5, move=6.0, oc=2,
+        attacks=6, weapon_damage_per_shot=2.0, range_inches=24,
+        leadership=7, faction="Generic", unit_keywords=("INFANTRY",),
+        melee_attacks=0, melee_damage_per_shot=0.0,
+        melee_hit_probability=0.0, melee_strength=3, melee_ap=0,
+        heavy=True, points_override=150,
+    )
+
+
+def _melee_brute():
+    """A melee-only high-OC brute used as the distant enemy in fixture (g):
+    it projects no threat at long range and makes its own marker unappealing
+    (contested at high objective control, lethal to stand next to)."""
+    return UnitProfile(
+        name="Brute", health=10, damage=1, hit_probability=0.0,
+        ap=0, save=4, strength=8, toughness=8, move=6.0, oc=8,
+        attacks=0, weapon_damage_per_shot=0.0, range_inches=0,
+        leadership=7, faction="Generic", unit_keywords=("MONSTER",),
+        melee_attacks=8, melee_damage_per_shot=2.0,
+        melee_hit_probability=0.667, melee_strength=8, melee_ap=-2,
+        points_override=200,
+    )
+
+
 CUR_ROUND = 1
 SRR = _value_scoring_rounds_remaining(CUR_ROUND)
 
@@ -335,6 +364,78 @@ class AssignmentAndPersistence(unittest.TestCase):
             self.assertEqual(intent, "CAPTURE")
         finally:
             del os.environ["SWEG_JOB_LAYER"]
+
+
+class ZeroValueRouting(unittest.TestCase):
+    """Correction pass (the pre-registered single fix): channels all <= 0 for an
+    unassigned unit route via the value field's marker argmax — never a
+    nearest-enemy march."""
+
+    def test_g_out_of_range_gunline_stays_near_held_marker(self):
+        """(g) An out-of-range Heavy gunline unit with zero-priced channels whose
+        current position is near a held marker STAYS (routes to that marker via
+        the value argmax) instead of advancing toward the enemy."""
+        u = _Unit(_heavy_gunline(), (10.0, 10.0), uid=1)
+        brute = _Unit(_melee_brute(), (50.0, 10.0), uid=99)   # 40" away
+        friendly = _Army([u])
+        enemy = _Army([brute], is_a=False)
+        marker_a = _Obj(10.0, 10.0)               # the unit stands on it — held
+        marker_b = _Obj(50.0, 10.0)               # the brute's marker — lethal
+        map_ = _Map([marker_a, marker_b])
+        proj = _threat_projectors(enemy)
+        # Zero-priced channels: no cell within Move (+ no Advance exemption)
+        # reaches the 24" gun; the melee-only brute projects no threat at 40".
+        kill_v, _kd, _ki = _job_channel_kill(
+            u, friendly, None, enemy.alive_units, None, SRR)
+        survive_v, _sd = _job_channel_survive(u, proj, None, SRR)
+        self.assertEqual(kill_v, 0.0)
+        self.assertEqual(survive_v, 0.0)
+        dest, intent = _job_layer_move_intent(
+            u, friendly, enemy, map_, None, CUR_ROUND)
+        # Routed to the value argmax: the held marker it already stands on.
+        self.assertEqual(intent, "CAPTURE")
+        self.assertLessEqual(
+            ((dest[0] - marker_a.x) ** 2 + (dest[1] - marker_a.y) ** 2) ** 0.5,
+            marker_a.control_radius + 1e-9)
+        # It does NOT advance toward the enemy (the pre-fix march was a full
+        # Normal move at the brute; staying keeps the whole 40" separation
+        # minus at most the marker's control radius).
+        d_before = ((u.position[0] - brute.position[0]) ** 2
+                    + (u.position[1] - brute.position[1]) ** 2) ** 0.5
+        d_after = ((dest[0] - brute.position[0]) ** 2
+                   + (dest[1] - brute.position[1]) ** 2) ** 0.5
+        self.assertGreaterEqual(
+            d_after, d_before - marker_a.control_radius - 1e-9)
+
+    def test_h_melee_at_long_range_routes_to_marker_not_enemy(self):
+        """(h) A melee unit at long range with zero-priced KILL routes toward a
+        marker, not the nearest enemy."""
+        u = _Unit(_melee_monster(), (5.0, 5.0), uid=1)
+        prey = _Unit(_fragile_target(), (55.0, 5.0), uid=99)   # 50" — out of reach
+        friendly = _Army([u])
+        enemy = _Army([prey], is_a=False)
+        marker = _Obj(20.0, 25.0)                 # off the enemy's axis
+        map_ = _Map([marker])
+        proj = _threat_projectors(enemy)
+        kill_v, _kd, _ki = _job_channel_kill(
+            u, friendly, None, enemy.alive_units, None, SRR)
+        survive_v, _sd = _job_channel_survive(u, proj, None, SRR)
+        self.assertEqual(kill_v, 0.0)             # nothing killable this turn
+        self.assertEqual(survive_v, 0.0)          # nothing threatens it either
+        dest, intent = _job_layer_move_intent(
+            u, friendly, enemy, map_, None, CUR_ROUND)
+        # Routes to the marker (value argmax), not the nearest enemy.
+        self.assertEqual(intent, "CAPTURE")
+        self.assertLessEqual(
+            ((dest[0] - marker.x) ** 2 + (dest[1] - marker.y) ** 2) ** 0.5,
+            marker.control_radius + 1e-9)
+        # The pre-fix march destination was a full Normal move straight at the
+        # prey: (13, 5). The routed destination must not be on that heading.
+        pre_fix_march = (13.0, 5.0)
+        self.assertGreater(
+            ((dest[0] - pre_fix_march[0]) ** 2
+             + (dest[1] - pre_fix_march[1]) ** 2) ** 0.5,
+            1.0)
 
 
 if __name__ == "__main__":

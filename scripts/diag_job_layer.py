@@ -54,7 +54,7 @@ from code.maps import PARIAH_NEXUS_2K_ROTATION, STOCK_MAPS         # noqa: E402
 from code.simulator import Battle                                  # noqa: E402
 import code.strategy as strategy                                   # noqa: E402
 from code.strategy import (                                        # noqa: E402
-    _JOB_HOLD, _JOB_KILL, _JOB_SURVIVE,
+    _JOB_HOLD, _JOB_KILL, _JOB_SURVIVE, _JOB_VALUE,
     _effective_oc_on_objective, _effective_oc_value,
 )
 
@@ -158,17 +158,21 @@ def main():
           f"{POINTS} points, use_archetype=True\n")
 
     dist = run_distribution()
-    print("1) PER-FACTION JOB DISTRIBUTION (gate ON, fractions of move decisions)")
-    hdr = f"  {'faction':18s} {'decisions':>9s} {'HOLD':>7s} {'KILL':>7s} {'SURVIVE':>8s}"
+    print("1) PER-FACTION JOB DISTRIBUTION (gate ON, fractions of move decisions;")
+    print("   VALUE = zero-priced channels routed via the value-field marker argmax)")
+    hdr = (f"  {'faction':18s} {'decisions':>9s} {'HOLD':>7s} {'KILL':>7s} "
+           f"{'SURVIVE':>8s} {'VALUE':>7s}")
     print(hdr)
     print("  " + "-" * (len(hdr) - 2))
     for fac in sorted(dist):
         c = dist[fac]
-        n = c[_JOB_HOLD] + c[_JOB_KILL] + c[_JOB_SURVIVE]
+        n = (c[_JOB_HOLD] + c[_JOB_KILL] + c[_JOB_SURVIVE]
+             + c.get(_JOB_VALUE, 0))
         if n == 0:
             continue
         print(f"  {fac:18s} {n:9d} {c[_JOB_HOLD]/n:7.3f} "
-              f"{c[_JOB_KILL]/n:7.3f} {c[_JOB_SURVIVE]/n:8.3f}")
+              f"{c[_JOB_KILL]/n:7.3f} {c[_JOB_SURVIVE]/n:8.3f} "
+              f"{c.get(_JOB_VALUE, 0)/n:7.3f}")
 
     print("\n2) PILE-ON RATE (redundant-holder markers / controlled markers)")
     off_p, off_c = run_pileon(gate_on=False)

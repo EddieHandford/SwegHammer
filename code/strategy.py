@@ -3112,9 +3112,28 @@ def value_offense(me_unit, dest, ranged_ok, heavy_bonus, melee_ok,
 # role tag it would misclassify (the recorded Mortarion / tank-screen precedent).
 # There are NO faction names anywhere in this layer; playstyle differences fall
 # out of list composition.
+#
+# ZERO-VALUE ROUTING (correction pass — the ONE pre-registered pricing/routing
+# fix the proposal's stop rule allows; docs/DECISION_LEDGER.md "JOB/COMMITMENT
+# LAYER v1"): when an UNASSIGNED unit's channels all price <= 0 (KILL <= 0, no
+# HOLD commitment, SURVIVE <= 0), it must NOT march at the nearest enemy — the
+# v1 default that the N=40 screen isolated as the falsifier trigger (the
+# combined-arms gunline factions cratered because out-of-range shooters
+# abandoned their firing lines: Adeptus Astartes -14.92, Astra Militarum -4.69;
+# the aggression-rewarded factions inflated symmetrically: Tyranids +12.06,
+# World Eaters +10.82). Instead the unit falls back to the VALUE FIELD's
+# destination choice: the existing SWEG_VALUE_MOVE consumer arithmetic
+# (value_net_score argmax over markers), invoked DIRECTLY regardless of that
+# env gate — the layer's own machinery-not-gates pattern. Approach happens
+# through the objective game: an out-of-range gunline whose best marker IS its
+# current area holds naturally (the argmax includes the marker it stands on),
+# and melee armies advance marker-to-marker instead of straight at the enemy.
 _JOB_HOLD = "HOLD"
 _JOB_KILL = "KILL"
 _JOB_SURVIVE = "SURVIVE"
+# Not a channel: the zero-value routing fallback above. Diagnosed separately so
+# the mechanism instrument reports the routed-to-value fraction as its own column.
+_JOB_VALUE = "VALUE"
 
 # Read-only mechanism instrument (SWEG_JOB_LAYER_DIAG): per-faction channel
 # distribution across a gate-ON battle. Pure measurement — no events, no RNG, no
@@ -3128,7 +3147,8 @@ def reset_job_diag() -> None:
 
 def _job_diag_record(faction, channel) -> None:
     d = _JOB_DIAG.setdefault(faction or "?",
-                             {_JOB_HOLD: 0, _JOB_KILL: 0, _JOB_SURVIVE: 0})
+                             {_JOB_HOLD: 0, _JOB_KILL: 0, _JOB_SURVIVE: 0,
+                              _JOB_VALUE: 0})
     d[channel] += 1
 
 
@@ -3206,8 +3226,10 @@ def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr):
         _offense_eligibility).
     Never consults classify(): melee output is priced by value_offense's reach
     arithmetic, ranged by its range/cover arithmetic. When nothing is killable
-    this turn the unit still closes on the nearest enemy so it advances into
-    relevance next turn instead of standing idle."""
+    this turn the channel prices ZERO and returns the current cell — the
+    decision point then routes the unit through the value field's marker argmax
+    instead (the correction-pass zero-value routing; the earlier nearest-enemy
+    march inverted the combined-arms gunline factions on the N=40 screen)."""
     if not enemy_alive:
         return 0.0, unit.position, _REPOSITION_INTENT
     move = float(effective_move(unit))
@@ -3232,10 +3254,6 @@ def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr):
                                 enemy_alive, map_, srr)
             if v_a > best_v:
                 best_v, best_dest, best_intent = v_a, cell_a, _ENGAGE_INTENT
-    if best_v <= 0.0:
-        nearest = min(enemy_alive, key=lambda e: _dist(unit.position, e.position))
-        best_dest = _job_step_toward(unit.position, nearest.position, move, map_)
-        best_intent = _ENGAGE_INTENT
     return best_v, best_dest, best_intent
 
 
@@ -3380,7 +3398,10 @@ def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
     currently ENGAGED: fall-back / fight-legality decisions stay on the legacy
     path in v1, so the job layer only decides for unengaged units. Also routes
     the Aeldari Battle Focus advance trigger (a real token mechanic) BEFORE the
-    channels. Never consults classify() — channels are priced from arithmetic."""
+    channels. Never consults classify() — channels are priced from arithmetic.
+    When an unassigned unit's channels all price <= 0, routing falls back to the
+    value field's marker argmax (the correction-pass zero-value routing — see
+    the section header), never a nearest-enemy march."""
     enemy_alive = enemy.alive_units
     if not enemy_alive:
         return None
@@ -3458,6 +3479,34 @@ def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
                 map_, (committed_obj.x, committed_obj.y),
                 search_radius=committed_obj.control_radius)
             intent = _CAPTURE_INTENT
+    elif kill_v <= 0.0 and survive_v <= 0.0:
+        # ZERO-VALUE ROUTING (correction pass, the pre-registered single fix —
+        # see the section header): every channel priced zero for an UNASSIGNED
+        # unit. Do NOT march at the nearest enemy; fall back to the value
+        # field's destination choice — the SWEG_VALUE_MOVE consumer arithmetic
+        # (value_net_score argmax over ALL markers, no reach filter), invoked
+        # directly regardless of that env gate. An out-of-range gunline whose
+        # best marker is its current area stays put naturally; a melee army
+        # advances marker-to-marker through the objective game.
+        channel = _JOB_VALUE
+        best_net = None
+        best_obj = None
+        for o in objectives:
+            on_it = id(o) in unit_on_obj_ids
+            prospective = our_oc[id(o)] + (own_oc if not on_it else 0)
+            net = value_net_score(unit, o, prospective, their_oc[id(o)],
+                                  projectors, map_, srr, own_is_a, chosen)
+            if best_net is None or net > best_net:
+                best_net = net
+                best_obj = o
+        if best_obj is not None:
+            dest = _best_nearby_cover_point(
+                map_, (best_obj.x, best_obj.y),
+                search_radius=best_obj.control_radius)
+            intent = _CAPTURE_INTENT
+        else:
+            dest = unit.position          # no markers on the map — stand
+            intent = _REPOSITION_INTENT
     elif kill_v >= survive_v:
         channel, dest, intent = _JOB_KILL, kill_dest, kill_intent
     else:
