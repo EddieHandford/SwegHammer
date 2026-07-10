@@ -14655,7 +14655,8 @@ class Battle:
     _FOCUSFIRE_CRACK_FRAC = 0.85
 
     @staticmethod
-    def _ranged_expected_wounds(attacker_profile, target_unit) -> float:
+    def _ranged_expected_wounds(attacker_profile, target_unit,
+                                extra_hit_mod: int = 0) -> float:
         """Expected wounds one round of SHOOTING from `attacker_profile`
         inflicts on `target_unit`. The ranged analogue of strategy.py's
         melee `_kill_potential_wounds`, used to decide whether the firing
@@ -14671,6 +14672,19 @@ class Battle:
             damage/shot  = per_shot_damage
         Returns 0.0 for a weapon that cannot wound the target at all (e.g.
         a bolter into a Knight: it is never redirected, so no wasted fire).
+
+        `extra_hit_mod` (default 0 -> BYTE-IDENTICAL for every existing caller,
+        verified by grep of all call sites) is an optional to-hit modifier. The
+        SWEG_VALUE_OFFENSE move-intent rider (strategy.value_offense) passes
+        extra_hit_mod=+1 to price the Heavy keyword's +1-to-Hit on a STATIONARY
+        shooter — exactly the bonus the shooting resolution grants at
+        `p.heavy and not self.moved_this_round and not indirect_fire_attack`
+        (code/units.py ~3465). A modifier shifts the underlying to-hit target
+        and re-derives the fraction through the SAME inversion the resolution
+        clamp uses (units._prob_to_target, then the 10e natural-1-always-fails /
+        target clamp: a modified to-hit target is never better than 2+, so the
+        fraction is capped at 5/6). Torrent auto-hits, so a modifier can never
+        change its 1.0 fraction. No new random draw is introduced.
         """
         from .units import save_probability, wound_probability
         p = attacker_profile
@@ -14682,6 +14696,13 @@ class Battle:
         )
         if hit_frac <= 0.0:
             return 0.0
+        if extra_hit_mod and not getattr(p, "torrent", False):
+            from .units import _prob_to_target
+            base_target = _prob_to_target(hit_frac)
+            mod_target = max(2, min(7, base_target - extra_hit_mod))
+            hit_frac = (7 - mod_target) / 6.0
+            if hit_frac <= 0.0:
+                return 0.0
         tp = target_unit.profile
         raw_wound_frac = wound_probability(
             getattr(p, "strength", 4) or 4, tp.toughness

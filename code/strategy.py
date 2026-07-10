@@ -2813,6 +2813,258 @@ def trade_exchange(me_unit, dest, threat_at_dest, enemy_alive,
     return our_return - reply
 
 
+# ===========================================================================
+# SWEG_VALUE_OFFENSE — the OUTPUT term of the value field (rider on Layer A)
+# ===========================================================================
+# MEASURED DEFECT this closes (docs/DECISION_LEDGER.md, 2026-07-10 mask grid):
+# the value field prices a move destination's marker worth and body exposure but
+# its OWN DAMAGE OUTPUT at ZERO — a unit walking to a marker surrenders its firing
+# position for free, so the durable trio (Death Guard / Imperial Knights / Chaos
+# Knights) is fixed by global-on SWEG_VALUE_MOVE while the five kill-tempo factions
+# whose win condition IS output positioning (Emperor's Children, Chaos Space
+# Marines, Adeptus Custodes, Leagues of Votann, Drukhari) break. This rider adds
+# the missing offense term: the victory-point value of the damage the unit can
+# deal from a candidate destination, on the SAME axis as the marker's value.
+#
+#     offense(p) = SUM over reachable enemy E of
+#                    min(expected_wounds(me -> E from p), E.current_health)
+#                    * _trade_vp_per_wound(E's profile, scoring_rounds_remaining)
+#
+# KNOB-FREE, everything inherited:
+#   * EXCHANGE RATE (wounds -> victory points): _trade_vp_per_wound (strategy.py,
+#     the SWEG_TRADE_EVAL evaluator above) — points-per-wound of the TARGET times
+#     the value field's relevance (_VALUE_VP_PER_ROUND_REF * srr) / _TRADE_POINTS_REF.
+#     No new constant; the exact currency OUR RETURN already uses.
+#   * HORIZON (scoring_rounds_remaining): carried by _trade_vp_per_wound's
+#     relevance factor, which scales linearly in srr exactly as marker_vp does.
+#   * GEOMETRY: mirrors _threat_field_at in reverse (me -> enemy) — the same
+#     weapon-range reach, the same _cover_attenuation save tax (applied to the
+#     TARGET at its own cell against MY ap, the reverse direction), and the same
+#     real 2D6 melee reach gradient _p_2d6_at_least. No new random draw.
+#
+# It is DESTINATION-ANCHORED, which is the whole point and the difference from
+# _trade_our_return: the unit has SPENT its Movement reaching p, so it fires from
+# p at weapon range with NO further move budget (unlike the threat field, which
+# grants the enemy its upcoming move, and unlike _trade_our_return, which treats
+# p as a marker to approach with move + range). This is what lets the move-class
+# conditioning below be coherent.
+#
+# It ADDS to the value net score and ONLY composes with SWEG_VALUE_MOVE=1 acting
+# on the unit (folded into `_net` before the argmax in pick_move_intent); with
+# either gate off the fold never runs, so the OFF path is byte-identical and
+# SWEG_VALUE_MOVE=1 alone is digest-identical to base. Sum (not max like
+# _trade_our_return): the owner-specified positional-coverage pricing — a cell
+# that can threaten more valuable targets is worth more; per-target value is
+# capped at the target's remaining wounds so no single target is over-credited.
+
+# The maximum face of the Advance d6 — mirrors simulator._STAGING_MAX_ADVANCE
+# (= 6.0, the sprint-reach bound the staging envelope uses). NOT a new tunable: a
+# d6's ceiling is 6. Used only to classify whether reaching a marker centre needs
+# an Advance for the move-class pricing below.
+_OFFENSE_MAX_ADVANCE = 6.0
+
+# Shadow diagnostic counters (SWEG_VALUE_OFFENSE_DIAG), mirroring _VALUE_MOVE_DIAG
+# / _TRADE_EVAL_DIAG. Pure measurement — no events, no RNG, no control-flow
+# change, so they never perturb the event digest. `_VALUE_OFFENSE_DIAG` counts how
+# often adding the offense term re-routes the unit to a different marker than the
+# value field alone (mechanism instrument A). `_OFFENSE_HEAVY_HOLD` counts, for
+# units carrying at least one Heavy weapon, how often the value-only vs the
+# value+offense pick is a STATIONARY hold (mechanism instrument B, the gunline
+# hold-rate — heavy_holds_on should exceed heavy_holds_off if the term expresses).
+_VALUE_OFFENSE_DIAG = {"decisions": 0, "changes": 0}
+_OFFENSE_HEAVY_HOLD = {"heavy_decisions": 0, "heavy_holds_off": 0,
+                       "heavy_holds_on": 0}
+
+
+def reset_value_offense_diag() -> None:
+    _VALUE_OFFENSE_DIAG["decisions"] = 0
+    _VALUE_OFFENSE_DIAG["changes"] = 0
+    _OFFENSE_HEAVY_HOLD["heavy_decisions"] = 0
+    _OFFENSE_HEAVY_HOLD["heavy_holds_off"] = 0
+    _OFFENSE_HEAVY_HOLD["heavy_holds_on"] = 0
+
+
+def _offense_shoot_after_advance_ok(me_unit, army, battle) -> bool:
+    """True iff `me_unit` would be ELIGIBLE TO SHOOT in a turn it Advanced,
+    mirroring the resolution advance-shoot lockout exemptions in Battle._do_shoot
+    (code/simulator.py ~15188-15266) EXACTLY — the same attribute reads and the
+    same _gladius_active_doctrine call. Reads ONLY state present at move-decision
+    time and never mutates (the Star Engines token is READ, not spent). Every
+    mirrored transient/detachment flag is set at round start
+    (Battle._apply_detachment_stratagems, ~12240) or is static per army/round,
+    strictly BEFORE the movement phase (~12432/12434), so all reads are
+    plan-aware (see the exemption-web note in the commit body). Reads the
+    squad-AGGREGATE profile (_score_profile) — the same isolation every other AI
+    scoring function here uses so a per-model loadout does not mis-value the
+    squad; for a non-per-model unit this is exactly unit.profile, the read the
+    resolution gate uses."""
+    p = _score_profile(me_unit)
+    kw = p.unit_keywords or ()
+    faction = p.faction or ""
+    # [ASSAULT] weapon (units.py:641) — _do_shoot:15188 gate `not p.assault`.
+    if getattr(p, "assault", False):
+        return True
+    # Transient [ASSAULT] already granted this round (Feigned Retreat / Matchless
+    # Agility / Aggressive Mobility / Mont'ka dispatchers) — _do_shoot:15247.
+    if getattr(me_unit, "transient_assault_this_round", False):
+        return True
+    det = army.resolve_detachment() if hasattr(army, "resolve_detachment") else None
+    r = getattr(battle, "_current_round", 0) if battle is not None else 0
+    # Mont'ka Killing Blow rounds 1-3 army-wide [ASSAULT] — _do_shoot:15191.
+    if (det is not None and getattr(det, "army_wide_assault_rounds_1_3", False)
+            and r <= 3 and faction.lower() in ("t'au empire", "tau empire")):
+        return True
+    # Bold Gallantry (Imperial Knights Valourstrike Lance) — _do_shoot:15205.
+    if (det is not None and getattr(det, "bold_gallantry", False)
+            and faction == "Imperial Knights"):
+        return True
+    # Relentless Onslaught (Necrons Cursed Legion) — _do_shoot:15222.
+    if (det is not None and getattr(det, "relentless_onslaught", False)
+            and faction == "Necrons"
+            and ("VEHICLE" in kw or "MOUNTED" in kw) and "TITANIC" not in kw):
+        return True
+    # Bringers of Flame (Adepta Sororitas) Fervent Purgation — _do_shoot:15241
+    # (gated SWEG_BOF_ASSAULT, default on; mirror the same env read).
+    if (os.environ.get("SWEG_BOF_ASSAULT", "1") != "0"
+            and det is not None and getattr(det, "army_wide_assault", False)
+            and faction == "Adepta Sororitas"):
+        return True
+    # Gladius Devastator Doctrine — _do_shoot:15259.
+    if battle is not None and battle._gladius_active_doctrine(me_unit, army) == "Devastator":
+        return True
+    # Star Engines: ASURYANI VEHICLE with a Battle Focus token available —
+    # _do_shoot:15261. READ-ONLY (the token is spent inside resolution, never here).
+    if ("ASURYANI" in kw and "VEHICLE" in kw
+            and getattr(army, "battle_focus_tokens", 0) > 0):
+        return True
+    return False
+
+
+def _offense_charge_after_advance_ok(me_unit, army, battle) -> bool:
+    """True iff `me_unit` would be ELIGIBLE TO DECLARE A CHARGE in a turn it
+    Advanced, mirroring Battle._do_charge's advance-charge lockout exemptions
+    (code/simulator.py ~17174-17180) EXACTLY. Reads only decision-time state."""
+    # Gladius Assault Doctrine — _do_charge:17176.
+    if battle is not None and battle._gladius_active_doctrine(me_unit, army) == "Assault":
+        return True
+    # Murderer's Cowl (Khorne Daemons army rule, profile flag units.py:718) —
+    # _do_charge:17177. Squad-aggregate profile read (see the shoot helper).
+    if getattr(_score_profile(me_unit), "murderers_cowl", False):
+        return True
+    # Apoplectic Frenzy transient (Berzerker Warband, units.py:1465) —
+    # _do_charge:17178. Set at round start, before movement.
+    if getattr(me_unit, "transient_charge_after_advance", False):
+        return True
+    return False
+
+
+def _offense_eligibility(me_unit, army, battle, move_class):
+    """Per-move-class (ranged_ok, heavy_bonus, melee_ok) for value_offense,
+    mirroring the resolution shoot/charge gates rather than the rulebook classes:
+
+      'stationary' -> the unit did NOT move: ranged always allowed, Heavy +1
+        applies to Heavy weapons (units.py:3465
+        `p.heavy and not self.moved_this_round`), melee/charge allowed.
+      'normal'     -> a Normal Move: ranged allowed, Heavy does NOT apply (moved),
+        charge allowed.
+      'advance'    -> an Advance: ranged allowed ONLY under a shoot-after-advance
+        exemption (_do_shoot:15188-15266); NEVER Heavy (advanced == moved); charge
+        allowed ONLY under an advance-charge exemption (_do_charge:17174-17180).
+
+    Prices ONLY state readable at decision time — transient stratagem flags not
+    yet set this round do not count (no speculation about stratagems that might
+    fire later; the round-start dispatch guarantees the ones that DID fire are
+    already visible)."""
+    if move_class == "stationary":
+        return True, bool(getattr(_score_profile(me_unit), "heavy", False)), True
+    if move_class == "normal":
+        return True, False, True
+    return (_offense_shoot_after_advance_ok(me_unit, army, battle),
+            False,
+            _offense_charge_after_advance_ok(me_unit, army, battle))
+
+
+def _offense_move_class(me_unit, obj, unit_on_obj_ids, my_move):
+    """Classify how `me_unit` would reach objective `obj`'s priced cell, and
+    return (move_class, fire_from_cell):
+
+      'stationary': the unit already holds this marker (id(obj) in
+        unit_on_obj_ids) — it stays put and fires FROM ITS CURRENT CELL
+        (me_unit.position); Heavy applies (it did not move).
+      'normal':  the centre is within one Normal Move — fires from the centre.
+      'advance': the centre is beyond a Normal Move but within Move + a max
+        Advance (_OFFENSE_MAX_ADVANCE) — fires from the centre.
+      None:      the centre is beyond Move + max Advance — unreachable this turn,
+        so no offense is priced (the unit cannot fire from a cell it cannot reach
+        this activation).
+
+    The value/threat fields price the marker CENTRE; a stationary holder instead
+    fires from where it stands (it does not walk to the centre to hold)."""
+    centre = (obj.x, obj.y)
+    if id(obj) in unit_on_obj_ids:
+        return "stationary", me_unit.position
+    d = _dist(me_unit.position, centre)
+    if d <= my_move:
+        return "normal", centre
+    if d <= my_move + _OFFENSE_MAX_ADVANCE:
+        return "advance", centre
+    return None, centre
+
+
+def value_offense(me_unit, dest, ranged_ok, heavy_bonus, melee_ok,
+                  enemy_alive, map_, scoring_rounds_remaining) -> float:
+    """SWEG_VALUE_OFFENSE — the OUTPUT value of ending a move at cell `dest`,
+    priced in victory points on the SAME axis as the value field's marker_vp
+    (see the section header for the mechanism and the inherited exchange rate).
+
+    `ranged_ok` / `heavy_bonus` / `melee_ok` are the move-class eligibility
+    booleans from _offense_eligibility (so this function is pure and testable in
+    isolation). For each LIVING enemy reachable from `dest`:
+
+        ranged (if ranged_ok):  dist(dest, E) <= my weapon range -> the audited
+            Battle._ranged_expected_wounds(me -> E), with extra_hit_mod=+1 when
+            heavy_bonus (Heavy +1 on a stationary shooter), attenuated by the
+            SAME _cover_attenuation save tax the threat field applies, in reverse
+            (the TARGET's cover at its own cell against MY ap; skipped when MY
+            weapon Ignores Cover).
+        melee (if melee_ok):    _kill_potential_wounds(me -> E) * the real 2D6
+            charge-reach probability _p_2d6_at_least(dist(dest, E) - engagement).
+
+    Per-enemy expected wounds are capped at that enemy's remaining wounds and
+    converted with _trade_vp_per_wound, then SUMMED over reachable enemies. No new
+    random number is drawn."""
+    from .simulator import Battle          # lazy: avoid strategy<->simulator cycle
+    me_p = _score_profile(me_unit)
+    my_range = float(getattr(me_p, "range_inches", 0.0) or 0.0)
+    my_ap = getattr(me_p, "ap", 0) or 0
+    my_ignores_cover = bool(getattr(me_p, "ignores_cover", False))
+    melee_capable = (getattr(me_p, "melee_attacks", 0) or 0) > 0
+    hit_mod = 1 if heavy_bonus else 0
+    total = 0.0
+    for e in enemy_alive:
+        ep = _score_profile(e)
+        d = _dist(dest, e.position)
+        ew = 0.0
+        if ranged_ok and my_range > 0.0 and d <= my_range:
+            rw = Battle._ranged_expected_wounds(me_p, e, extra_hit_mod=hit_mod)
+            if rw > 0.0:
+                atten = 1.0 if my_ignores_cover else _cover_attenuation(
+                    e, my_ap, map_, e.position)
+                ew += rw * atten
+        if melee_ok and melee_capable:
+            needed = d - _THREAT_ENGAGE_RANGE
+            if needed <= 12.0:
+                mw = _kill_potential_wounds(me_p, ep) * _p_2d6_at_least(needed)
+                if mw > 0.0:
+                    ew += mw
+        if ew <= 0.0:
+            continue
+        target_health = float(getattr(e, "current_health", 0.0) or 0.0)
+        total += min(ew, target_health) * _trade_vp_per_wound(
+            ep, scoring_rounds_remaining)
+    return total
+
+
 def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, float]]:
     """Pick a point up to ``M`` inches from ``unit`` that sits outside the
     engagement range (1.5") of every enemy in ``enemies``.
@@ -4511,6 +4763,50 @@ def pick_move_intent(
                 _their_oc[id(_o)], _vproj, map_, _srr, _own_is_a, _chosen)
             for (_s, _i, _o, _d) in objs
         ]
+        # ----- SWEG_VALUE_OFFENSE (offense rider on the value field) -----------
+        # Add the destination's OUTPUT value (victory points of damage the unit
+        # can deal from the candidate cell) to each objective's value-field net
+        # score, then let the argmax below see it. Composes ON SWEG_VALUE_MOVE
+        # acting for this unit (this whole block only runs when the value gate
+        # does), and is FOLDED INTO `_net` only when SWEG_VALUE_OFFENSE=1 — with
+        # either gate off nothing is added, so the OFF path is byte-identical and
+        # SWEG_VALUE_MOVE=1 alone is digest-identical to base. See the value_offense
+        # section header for the mechanism, the inherited exchange rate, and the
+        # move-class conditioning. SWEG_VALUE_OFFENSE_DIAG is the gate-OFF shadow
+        # counter (mechanism instruments A/B): it measures the re-route and the
+        # Heavy-unit hold-rate WITHOUT acting on them (no events, no RNG).
+        _use_offense = os.environ.get("SWEG_VALUE_OFFENSE", "0") == "1"
+        _offense_diag = os.environ.get("SWEG_VALUE_OFFENSE_DIAG") == "1"
+        if _use_offense or _offense_diag:
+            _my_move = float(effective_move(unit))
+            _off = []
+            for (_s, _i, _o, _d) in objs:
+                _mc, _fire_from = _offense_move_class(
+                    unit, _o, unit_on_obj_ids, _my_move)
+                if _mc is None:          # unreachable this turn -> no offense
+                    _off.append(0.0)
+                    continue
+                _rok, _hb, _mok = _offense_eligibility(unit, friendly, battle, _mc)
+                _off.append(value_offense(
+                    unit, _fire_from, _rok, _hb, _mok, enemy_alive, map_, _srr))
+            if _offense_diag:
+                _idx_voff = max(range(len(objs)), key=lambda k: _net[k])
+                _idx_von = max(range(len(objs)), key=lambda k: _net[k] + _off[k])
+                _VALUE_OFFENSE_DIAG["decisions"] += 1
+                if objs[_idx_von][2] is not objs[_idx_voff][2]:
+                    _VALUE_OFFENSE_DIAG["changes"] += 1
+                if bool(getattr(_score_profile(unit), "heavy", False)):
+                    _OFFENSE_HEAVY_HOLD["heavy_decisions"] += 1
+                    if _offense_move_class(
+                            unit, objs[_idx_voff][2],
+                            unit_on_obj_ids, _my_move)[0] == "stationary":
+                        _OFFENSE_HEAVY_HOLD["heavy_holds_off"] += 1
+                    if _offense_move_class(
+                            unit, objs[_idx_von][2],
+                            unit_on_obj_ids, _my_move)[0] == "stationary":
+                        _OFFENSE_HEAVY_HOLD["heavy_holds_on"] += 1
+            if _use_offense:
+                _net = [_net[k] + _off[k] for k in range(len(_net))]
         _idx_net = max(range(len(objs)), key=lambda k: _net[k])
         _idx_legacy = max(range(len(objs)), key=lambda k: objs[k][0])
         _idx_final = _idx_net          # what the value-move consumer acts on
