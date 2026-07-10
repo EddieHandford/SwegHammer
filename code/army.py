@@ -149,6 +149,17 @@ class Army:
         # _add_live_unit(). Rebuilt lazily on next alive_units access.
         self._alive_cache: Optional[List[Unit]] = None
         self._squad_count_cache: Optional[Dict[str, int]] = None
+        # Cached result of `is_votann_army` (a full `self.units` scan). Same
+        # invalidation lifecycle as `_alive_cache` above — cleared by
+        # `_invalidate_alive_cache()`, the single choke point every
+        # `self.units.append(...)` site already calls, so the cache can never
+        # go stale: it is rebuilt on the next access after any roster change
+        # (army build, deepstrike/reserve arrival), identically to today's
+        # per-call rescan. PERF: `is_votann_army` is checked on the per-shot
+        # targeting hot path (`strategy._votann_pe_target_bonus`) for EVERY
+        # army regardless of faction, so a non-Votann army was paying an O(n)
+        # scan of its whole roster on every attack just to learn "no" again.
+        self._is_votann_cache: Optional[bool] = None
         # SQUAD-ACTIVATION (Lever 1, P1): monotonic counter handing out a unique
         # squad_id to each instantiated codex squad via add_squad(). Starts at 0.
         self._next_squad_id: int = 0
@@ -812,8 +823,18 @@ class Army:
         The detection scans all units (not just `units[0]`) so an army that
         leads with a Codex Agents allied character still resolves correctly
         as long as the bulk of the roster is Votann.
+
+        PERF: cached in `_is_votann_cache`, invalidated by
+        `_invalidate_alive_cache()` alongside `_alive_cache` (called at every
+        `self.units.append(...)` site), so a roster change always forces a
+        fresh scan on next access — byte-identical to rescanning every call,
+        just skipping the redundant rescans in between.
         """
-        return any(u.profile.faction == VOTANN_FACTION_TAG for u in self.units)
+        if self._is_votann_cache is None:
+            self._is_votann_cache = any(
+                u.profile.faction == VOTANN_FACTION_TAG for u in self.units
+            )
+        return self._is_votann_cache
 
     # ------------------------------------------------------------------
     # Army construction
@@ -925,6 +946,7 @@ class Army:
     def _invalidate_alive_cache(self) -> None:
         self._alive_cache = None
         self._squad_count_cache = None
+        self._is_votann_cache = None
 
     def resolve_detachment(self) -> Optional[Detachment]:
         """Return the detachment in effect — explicit if set, else faction default."""

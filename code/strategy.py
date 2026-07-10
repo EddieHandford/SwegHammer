@@ -40,6 +40,23 @@ from .sim.geometry import _bc_model_radius_in, _charge_path_screen_gap, _er_gap
 from .units import _unflatten_model_loadouts, save_probability, wound_probability
 
 
+def _base_edge_for(unit) -> Optional[bool]:
+    """PERF (no behaviour change): resolve the current battle's cached
+    SWEG_CHARGE_BASEEDGE value — `Battle._charge_baseedge`, read once per
+    battle in `Battle.__init__` the same way `Battle._cmd_score` caches
+    SWEG_CMDSCORE — via `unit.army_ref._battle_ref`, so the `_er_gap` calls
+    below can skip their per-call `os.environ.get` (see `_er_gap`'s
+    docstring in code/sim/geometry.py; this function is on the hottest path
+    in the AI's targeting/movement scoring). Returns None when no battle
+    context is reachable (e.g. a standalone Unit built directly in a test,
+    with no Army/Battle around it), which makes `_er_gap` fall back to its
+    original fresh-env-read-per-call behaviour — so this is byte-identical
+    whether or not a live battle is attached."""
+    army = getattr(unit, "army_ref", None)
+    battle = getattr(army, "_battle_ref", None)
+    return getattr(battle, "_charge_baseedge", None)
+
+
 _HOLD_INTENT = "HOLD"
 _CAPTURE_INTENT = "CAPTURE"
 _STEAL_INTENT = "STEAL"
@@ -1118,7 +1135,8 @@ def _kite_target_bonus(defender, attacker_army) -> float:
         return 1.0
     for f in attacker_army.alive_units:
         if _er_gap(f.position, f.profile,
-                   defender.position, defender.profile) <= _ENGAGEMENT_RANGE:
+                   defender.position, defender.profile,
+                   base_edge=_base_edge_for(f)) <= _ENGAGEMENT_RANGE:
             return 1.0  # still tarpitted by a friendly — move (1) un-sticks first
     return _KITE_TARGET_BONUS
 
@@ -2178,9 +2196,10 @@ def pick_charge_target(attacker, enemy, map_=None):
     candidates_field = [] if threat_diag else None
 
     candidates = []
+    _base_edge = _base_edge_for(attacker)
     for e in alive_enemies:
         d_er = _er_gap(attacker.position, attacker.profile,
-                       e.position, e.profile)
+                       e.position, e.profile, base_edge=_base_edge)
         if d_er > 12.0 or d_er <= 1.0:
             continue   # out of charge range / already engaged
         # The number the 2D6 must meet: the move that brings the bases
@@ -2378,7 +2397,8 @@ def pick_charge_target(attacker, enemy, map_=None):
                 # approximate end spot is within Engagement Range of a
                 # non-target enemy, exclude this candidate.
                 end_gap = _er_gap(end_pos, attacker.profile,
-                                  screen.position, screen.profile)
+                                  screen.position, screen.profile,
+                                  base_edge=_base_edge)
                 if end_gap <= 1.0:
                     _path_blocked = True
                     break
@@ -3700,9 +3720,11 @@ def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, fl
         # SWEG_CHARGE_BASEEDGE (`_er_gap`, default ON since wave 240), so the
         # destination must clear the WIDER base-aware bubble or the unit
         # re-pins itself against a big-based enemy.
+        _base_edge = _base_edge_for(unit)
         for e in enemies:
             if _er_gap((cx, cy), unit.profile,
-                       e.position, e.profile) <= _ENGAGEMENT_RANGE + 0.01:
+                       e.position, e.profile,
+                       base_edge=_base_edge) <= _ENGAGEMENT_RANGE + 0.01:
                 return None
         return (cx, cy)
 
@@ -3882,9 +3904,10 @@ def _unit_is_caged(unit, enemies) -> bool:
     all enemies, so cannot Fall Back" surround rule (see the block header)."""
     ux, uy = unit.position
     bearings = []
+    _base_edge = _base_edge_for(unit)
     for e in enemies:
         if _er_gap(unit.position, unit.profile,
-                   e.position, e.profile) <= _ENGAGEMENT_RANGE:
+                   e.position, e.profile, base_edge=_base_edge) <= _ENGAGEMENT_RANGE:
             bearings.append(math.atan2(e.position[1] - uy, e.position[0] - ux))
     n = len(bearings)
     if n < 2:
@@ -4671,9 +4694,10 @@ def _m4_cluster_intent(unit, own_oc, enemy_alive, objectives, map_):
         return None   # no Objective Control to contribute — leave it to shoot
     # Locked in melee: leave it to the existing fight / fall-back logic, do not
     # waltz onto a marker while in Engagement Range.
+    _base_edge = _base_edge_for(unit)
     for e in enemy_alive:
         if _er_gap(unit.position, unit.profile,
-                   e.position, e.profile) <= _ENGAGEMENT_RANGE:
+                   e.position, e.profile, base_edge=_base_edge) <= _ENGAGEMENT_RANGE:
             return None
     PULL_IN = 6.0          # only tighten models already committed near a marker
     INNER = 1.5            # already tight on the centre — no move needed
@@ -4992,6 +5016,10 @@ def pick_move_intent(
     # is handed the objective context so it steers toward a wanted marker while
     # dodging the charge. No rule citation (same class as the kite-target / screen
     # / synapse / tarpit AI biases).
+    # PERF: resolved once and reused by every _er_gap call in this function —
+    # see _base_edge_for's docstring (byte-identical; None falls back to
+    # _er_gap's own fresh env read when no battle is attached).
+    _base_edge = _base_edge_for(unit)
     if (
         _kite_move_enabled()
         and role in ("SHOOTY", "HEAVY")
@@ -4999,7 +5027,7 @@ def pick_move_intent(
         and not _is_chaff_unit(unit)
         and not any(
             _er_gap(unit.position, unit.profile,
-                    e.position, e.profile) <= _ENGAGEMENT_RANGE
+                    e.position, e.profile, base_edge=_base_edge) <= _ENGAGEMENT_RANGE
             for e in enemy.alive_units
         )
         and _displace_no_control_consequence(
@@ -5050,7 +5078,7 @@ def pick_move_intent(
         # the Fall Back lockout and the Desperate Escape test entirely.
         in_engagement = any(
             _er_gap(unit.position, unit.profile,
-                    e.position, e.profile) <= _ENGAGEMENT_RANGE
+                    e.position, e.profile, base_edge=_base_edge) <= _ENGAGEMENT_RANGE
             for e in enemies
         )
         if in_engagement and enemies:
@@ -5088,7 +5116,7 @@ def pick_move_intent(
                 _engaged = [
                     e for e in _e_alive
                     if _er_gap(unit.position, unit.profile,
-                               e.position, e.profile) <= _ENGAGEMENT_RANGE
+                               e.position, e.profile, base_edge=_base_edge) <= _ENGAGEMENT_RANGE
                 ]
                 if (
                     _displace_no_control_consequence(
