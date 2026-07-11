@@ -3496,6 +3496,111 @@ def _job_unit_value_vp(profile, srr) -> float:
     return _trade_vp_per_wound(profile, srr) * health
 
 
+def _job_squad_health(unit) -> float:
+    """SQUAD-SURVIVAL DENOMINATOR (iteration-4 root fix of the canary loop,
+    docs/DECISION_LEDGER.md "THE DENIAL PROGRAM + CANARY LOOP"). The simulator
+    represents a 10e squad as N single-model Units sharing a squad_id
+    (Army.add_squad; a lone model is a one-model squad). The job layer decides
+    per MODEL, so every frac_at_risk it priced divided the incoming threat by
+    ONE model's health — 1 for Guard infantry — and any threat of one expected
+    wound or more saturated to certain-death, zeroing the whole marker set
+    (the step-1 instrument's finding: every contested marker read frac 1.000
+    from round two, and the battle line turtled on micro-scale KILL and
+    SURVIVE values). The real question is SQUAD survival: a ten-model squad
+    facing 2.2 expected wounds loses two models and keeps the marker. This
+    helper returns the summed current_health of the unit's ALIVE squad members
+    — the survival pool the job path prices frac_at_risk against. A unit with
+    no squad context (hand-built test units; defensive default) returns its
+    own health; a real lone model is a one-model squad and sums to its own
+    health, so solo behaviour is unchanged. The THREAT NUMERATOR is untouched
+    everywhere (T at a cell is the squad's expected incoming — the allocation
+    field already prices per-target; aggregating the numerator too would
+    double-count)."""
+    sid = getattr(unit, "squad_id", -1)
+    army = getattr(unit, "army_ref", None)
+    if sid >= 0 and army is not None:
+        total = 0.0
+        for u in army.alive_units:
+            if u.squad_id == sid:
+                total += u.current_health or 0.0
+        if total > 0.0:
+            return total
+    return unit.current_health or 0.0
+
+
+def _job_squad_value_vp(unit, srr) -> float:
+    """The SQUAD's whole remaining value on the victory-point axis — the sum
+    of `_job_unit_value_vp` over the unit's alive squad members (its own value
+    when it has no squad context). The SURVIVE channel's value-at-risk and the
+    job path's fallback exposure dual price the squad's points at stake, not
+    one model's — the same aggregation, and the same alive-member scan, as the
+    squad-survival denominator above."""
+    sid = getattr(unit, "squad_id", -1)
+    army = getattr(unit, "army_ref", None)
+    if sid >= 0 and army is not None:
+        total = 0.0
+        for u in army.alive_units:
+            if u.squad_id == sid:
+                total += _job_unit_value_vp(u.profile, srr)
+        if total > 0.0:
+            return total
+    return _job_unit_value_vp(unit.profile, srr)
+
+
+class _JobSquadHealthView:
+    """Job-path wrapper presenting a unit with its SQUAD's pooled health as
+    `current_health`, so value_projection's frac_at_risk denominator prices
+    squad survival WITHOUT editing value_projection itself — the shared
+    default path belongs to SWEG_VALUE_MOVE and must stay byte-identical
+    (scope guard: wrap, never edit the shared code). Every other attribute
+    delegates to the wrapped unit (value_projection reads only current_health
+    for the denominator; the threat field reads profile / position / uid, all
+    delegated unchanged, so T is identical with or without the view)."""
+    __slots__ = ("_unit", "current_health")
+
+    def __init__(self, unit, squad_health):
+        self._unit = unit
+        self.current_health = squad_health
+
+    def __getattr__(self, name):
+        return getattr(self._unit, name)
+
+
+def _job_squad_view(unit):
+    """The unit as value_projection should see it on the JOB PATH: wrapped
+    with its squad's pooled health when it has squad context, itself when the
+    pool equals its own health (the view would be an identity there — returning
+    the unit keeps the common lone-model case allocation-free and exactly on
+    the old code path)."""
+    sq_h = _job_squad_health(unit)
+    if sq_h != (unit.current_health or 0.0):
+        return _JobSquadHealthView(unit, sq_h)
+    return unit
+
+
+def _job_value_fallback_net(view, squad_vp, obj, prospective_our_oc, their_oc,
+                            projectors, map_, srr, own_is_a, chosen) -> float:
+    """The JOB PATH's zero-value-routing net for one marker (iteration-4 root
+    fix — replaces value_net_score on this path only):
+
+        net(p) = V(p) - squad_points_at_stake x _MEASURED_VP_PER_POINT x frac
+
+    with V and frac from value_projection evaluated on the unit's squad-health
+    view (`_job_squad_view`), so frac prices SQUAD survival, and the exposure
+    dual is the squad's measured victory-point worth (via `_job_squad_value_vp`,
+    passed in as `squad_vp`) instead of value_net_score's flat per-unit dual
+    (_VALUE_VP_PER_ROUND_REF x srr — about twenty-five victory points, which
+    priced a six-point Guard model's exposure at roughly two hundred fifty
+    times its measured worth and made every threatened marker net-negative).
+    Applies on the job path only: value_net_score and value_projection's own
+    default paths are untouched — they belong to the SWEG_VALUE_MOVE consumer
+    (scope guard: that arm's fingerprint must not move)."""
+    v, _t, frac = value_projection(
+        view, obj, prospective_our_oc, their_oc, projectors, map_, srr,
+        own_is_a, chosen)
+    return v - squad_vp * frac
+
+
 def _job_reachable_move(unit) -> float:
     """Distance a unit can cover this activation (Normal move + a max Advance) —
     the reach used to filter HOLD markers and greedy-assignment candidates."""
@@ -3545,10 +3650,19 @@ def _job_hold_value_and_threat_at(unit, obj, prospective_our_oc, their_oc,
     includes it — off the marker the caller adds it, on the marker the area sum
     counts it); None, zero, or gate off prices no denial, keeping every
     pre-existing arm byte-identical. Zero new constants: obj.vp_per_round x srr
-    (the real primary rule) and the frac already computed."""
+    (the real primary rule) and the frac already computed.
+
+    SQUAD-SURVIVAL DENOMINATOR (iteration-4 root fix): value_projection is
+    called on the unit's `_job_squad_view`, so frac_at_risk divides the threat
+    field by the SQUAD's pooled health rather than one model's — a ten-model
+    squad facing 2.2 expected wounds prices frac 0.22 and contestability 0.78
+    (25 x 1.0 x 0.78 = 19.5 for an uncontested marker), instead of the
+    certain-death saturation that zeroed every contested marker for one-wound
+    bodies. Job-path only: value_projection's own default path (the
+    SWEG_VALUE_MOVE consumer) is untouched."""
     v, t, frac = value_projection(
-        unit, obj, prospective_our_oc, their_oc, projectors, map_, srr,
-        own_is_a, chosen)
+        _job_squad_view(unit), obj, prospective_our_oc, their_oc, projectors,
+        map_, srr, own_is_a, chosen)
     if own_oc and _job_deny_on():
         our_other = prospective_our_oc - own_oc
         if their_oc > our_other and their_oc <= prospective_our_oc:
@@ -3590,10 +3704,14 @@ def _job_hold_urgency_bonus(obj, t, unit, srr) -> float:
     health the incoming threat field represents, counteracting the discount
     only for the unit already committed to the job. Reuses obj.vp_per_round
     (the real Take-and-Hold rule) and value_projection's own T — no new
-    constant. Exactly 0.0 when the gate is off."""
+    constant. Exactly 0.0 when the gate is off.
+
+    Denominator is the SQUAD's pooled health (iteration-4 root fix), matching
+    the contestability discount this bonus counteracts — both sides of the
+    urgency arithmetic price the same survival pool."""
     if not _hold_reactive_on():
         return 0.0
-    health = max(1.0, unit.current_health)
+    health = max(1.0, _job_squad_health(unit))
     return obj.vp_per_round * srr * min(1.0, t / health)
 
 
@@ -3849,7 +3967,9 @@ def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr,
     if not enemy_alive:
         return 0.0, unit.position, _REPOSITION_INTENT
     move = float(effective_move(unit))
-    health = max(1.0, unit.current_health)
+    # Squad-survival denominator (iteration-4 root fix): the risk discount
+    # divides by the SQUAD's pooled health, same as HOLD's contestability.
+    health = max(1.0, _job_squad_health(unit))
     threat_rows = None                        # built lazily on first scan
     alloc = None                              # SWEG_THREAT_ALLOC denominators
     # Gate read ONCE per channel evaluation (never in the candidate loop) —
@@ -3943,8 +4063,15 @@ def _job_channel_survive(unit, projectors, map_, srr):
         candidate can beat it (`frac < best_frac=0.0` can never hold), so the
         whole ring scan (the remaining 8 `_threat_field_at` calls) is skipped
         — same (0.0, unit.position) result the full loop would return."""
-    health = max(1.0, unit.current_health)
-    unit_val = _job_unit_value_vp(unit.profile, srr)
+    # Squad-survival pricing (iteration-4 root fix): frac_at_risk divides by
+    # the SQUAD's pooled health, and the value at stake is the SQUAD's points
+    # on the victory-point axis, not one model's — the same aggregation the
+    # HOLD contestability and the KILL risk discount now use. For a uniform
+    # squad the product (delta-frac x squad value) equals the old per-model
+    # arithmetic away from saturation; the change is that a survivable threat
+    # no longer reads as certain death.
+    health = max(1.0, _job_squad_health(unit))
+    unit_val = _job_squad_value_vp(unit, srr)
     t_cur = _threat_field_at(unit, projectors, unit.position, map_)
     frac_cur = min(1.0, t_cur / health)
     best_frac = frac_cur
@@ -4518,12 +4645,24 @@ def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
                     cand_objs = objectives   # all claimed — plain argmax
             else:
                 cand_objs = objectives
+            # JOB-PATH exposure pricing (iteration-4 root fix): the fallback
+            # net is priced by `_job_value_fallback_net`, NOT value_net_score
+            # — squad-survival frac and the MEASURED exposure dual. The flat
+            # dual (_VALUE_VP_PER_ROUND_REF x srr, ~25 victory points) priced
+            # a six-point model's exposure at ~250x its measured worth and
+            # made every threatened marker net-negative; on the job path the
+            # dual is the squad's points at stake times the measured exchange
+            # rate. value_net_score itself is untouched — it belongs to the
+            # SWEG_VALUE_MOVE consumer (scope guard).
+            _fb_view = _job_squad_view(unit)
+            _fb_squad_vp = _job_squad_value_vp(unit, srr)
             best_net = None
             for o in cand_objs:
                 on_it = id(o) in unit_on_obj_ids
                 prospective = our_oc[id(o)] + (own_oc if not on_it else 0)
-                net = value_net_score(unit, o, prospective, their_oc[id(o)],
-                                      projectors, map_, srr, own_is_a, chosen)
+                net = _job_value_fallback_net(
+                    _fb_view, _fb_squad_vp, o, prospective, their_oc[id(o)],
+                    projectors, map_, srr, own_is_a, chosen)
                 if best_net is None or net > best_net:
                     best_net = net
                     best_obj = o

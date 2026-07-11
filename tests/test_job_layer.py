@@ -32,11 +32,16 @@ from code.strategy import (
     _job_hold_urgency_bonus,
     _job_hold_value_and_threat_at,
     _job_layer_move_intent,
+    _job_squad_health,
+    _job_squad_value_vp,
+    _job_squad_view,
+    _job_value_fallback_net,
     _threat_field_at,
     _threat_projectors,
     _value_scoring_rounds_remaining,
     assign_jobs,
     classify,
+    value_net_score,
     value_offense,
 )
 from code.units import UnitProfile
@@ -1138,6 +1143,118 @@ class DenialAndReactive(unittest.TestCase):
             self.assertTrue(_near(d2, mk_a))       # the pile the fix removes
         finally:
             del os.environ["SWEG_JOB_LAYER"]
+
+
+def _one_wound_body():
+    """A one-wound, six-point Guard-infantry-like body — the profile whose
+    per-model frac_at_risk always saturated to certain death (the iteration-4
+    root defect)."""
+    return UnitProfile(
+        name="OneWound", health=1, damage=1, hit_probability=0.5,
+        ap=0, save=5, strength=3, toughness=3, move=6.0, oc=2,
+        attacks=1, weapon_damage_per_shot=1.0, range_inches=12,
+        leadership=7, faction="Generic", unit_keywords=("INFANTRY",),
+        melee_attacks=1, melee_damage_per_shot=1.0,
+        melee_hit_probability=0.5, melee_strength=3, melee_ap=0,
+        points_override=6,
+    )
+
+
+def _light_gun():
+    """A shooter whose expected wounds onto _one_wound_body are EXACTLY 2.0:
+    8 attacks x 0.5 hit x wound_probability(3,3)=0.5 x (1 -
+    save_probability(5,-2)=0) x damage 1 = 2.0. No melee (melee_attacks 0),
+    so the threat field at the marker is the ranged term alone."""
+    return UnitProfile(
+        name="LightGun", health=4, damage=1, hit_probability=0.5,
+        ap=-2, save=4, strength=3, toughness=4, move=6.0, oc=1,
+        attacks=8, weapon_damage_per_shot=1.0, range_inches=24,
+        leadership=7, faction="Generic", unit_keywords=("INFANTRY",),
+        melee_attacks=0, melee_damage_per_shot=0.0,
+        melee_hit_probability=0.0, melee_strength=3, melee_ap=0,
+        points_override=50,
+    )
+
+
+class SquadSurvivalPricing(unittest.TestCase):
+    """Iteration-4 root fix: the job path prices frac_at_risk against the
+    SQUAD's pooled health (and the squad's points at stake), not one model's.
+    All numbers hand-computed to 1e-9."""
+
+    def _board(self, squad_size):
+        """`squad_size` one-wound bodies sharing squad_id 7 on the marker at
+        (30,22), a LightGun 20 inches away (within its move 6 + range 24
+        reach), no terrain. T at the marker = 2.0 exactly."""
+        friendly = _Army([])
+        members = []
+        for i in range(squad_size):
+            u = _Unit(_one_wound_body(), (30.0, 22.0), uid=10 + i)
+            u.squad_id = 7
+            u.army_ref = friendly
+            members.append(u)
+        friendly.units = list(members)
+        gun = _Unit(_light_gun(), (30.0, 42.0), uid=99)
+        enemy = _Army([gun], is_a=False)
+        marker = _Obj(30.0, 22.0)
+        map_ = _Map([marker])
+        proj = _threat_projectors(enemy)
+        return members, marker, map_, proj
+
+    def test_h_squad_contestability_exact(self):
+        """(h) HAND COMPUTATION (srr=5, vp_per_round=5, T=2.0, our 20 vs
+        their 0 -> control 1.0):
+
+          SQUAD of 10 (pooled health 10): frac = 2.0/10 = 0.2,
+            contestability 0.8 -> V = 25 x 1.0 x 0.8 = 20.0 exactly.
+            The 330-point-equivalent marker trade is finally visible.
+          ONE-MODEL squad (the real lone-model convention, pooled health 1):
+            frac = min(1, 2.0/1) = 1 -> V = 0.0 exactly — identical to the
+            old per-model behaviour (solo unchanged).
+          Hand-built unit (no army back-reference, defensive default):
+            V = 0.0 exactly, same as before."""
+        members, marker, map_, proj = self._board(10)
+        self.assertAlmostEqual(_job_squad_health(members[0]), 10.0, delta=1e-9)
+        v, t = _job_hold_value_and_threat_at(
+            members[0], marker, 20, 0, proj, map_, SRR, True, ())
+        self.assertAlmostEqual(t, 2.0, delta=1e-9)
+        self.assertAlmostEqual(v, 20.0, delta=1e-9)
+
+        solo_members, marker_s, map_s, proj_s = self._board(1)
+        self.assertAlmostEqual(_job_squad_health(solo_members[0]), 1.0,
+                               delta=1e-9)
+        v_solo, _t = _job_hold_value_and_threat_at(
+            solo_members[0], marker_s, 20, 0, proj_s, map_s, SRR, True, ())
+        self.assertAlmostEqual(v_solo, 0.0, delta=1e-9)   # old behaviour
+
+        bare = _Unit(_one_wound_body(), (30.0, 22.0), uid=50)  # no refs
+        v_bare, _t = _job_hold_value_and_threat_at(
+            bare, marker_s, 20, 0, proj_s, map_s, SRR, True, ())
+        self.assertAlmostEqual(v_bare, 0.0, delta=1e-9)   # defensive default
+
+    def test_i_fallback_net_measured_dual_exact(self):
+        """(i) The job path's fallback net prices the squad's MEASURED points
+        at stake, not the flat twenty-five-victory-point dual:
+
+          squad_vp = 10 x 6 points x _MEASURED_VP_PER_POINT = 0.91488
+          net = V - squad_vp x frac = 20.0 - 0.91488 x 0.2 = 19.817024
+
+        while the untouched SWEG_VALUE_MOVE consumer (value_net_score on the
+        raw per-model unit) still prices the same marker at
+        0 - 25 x 1.0 = -25.0 — the ~250x exposure overprice the instrument
+        measured, preserved on its own path (scope guard)."""
+        members, marker, map_, proj = self._board(10)
+        view = _job_squad_view(members[0])
+        squad_vp = _job_squad_value_vp(members[0], SRR)
+        self.assertAlmostEqual(squad_vp, 60.0 * _MEASURED_VP_PER_POINT,
+                               delta=1e-9)
+        net = _job_value_fallback_net(
+            view, squad_vp, marker, 20, 0, proj, map_, SRR, True, ())
+        self.assertAlmostEqual(
+            net, 20.0 - 60.0 * _MEASURED_VP_PER_POINT * 0.2, delta=1e-9)
+
+        old_net = value_net_score(
+            members[0], marker, 20, 0, proj, map_, SRR, True, ())
+        self.assertAlmostEqual(old_net, -25.0, delta=1e-9)  # shared path intact
 
 
 if __name__ == "__main__":
