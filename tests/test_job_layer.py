@@ -37,6 +37,7 @@ from code.strategy import (
     _job_squad_value_vp,
     _job_squad_view,
     _job_threat_precompute,
+    _job_threat_scan,
     _job_transit_survival,
     _job_value_fallback_net,
     _threat_field_at,
@@ -1573,6 +1574,50 @@ class TemporalMarkerPricing(unittest.TestCase):
                 u0, _job_squad_view(u0), _job_squad_value_vp(u0, srr4), 10.0,
                 marker, 2, 0, proj, map_, srr4, turns, _boom, True, ())
             self.assertAlmostEqual(got, it5, delta=1e-9)
+
+    def test_o_enemy_projection_expands_waypoint_reach(self):
+        """(m-new, iteration 7) The j-new synthetic with the PistolBody moved
+        to (36,22): TWENTY inches from waypoint one — JUST outside its
+        18-inch current-position reach (6 move + 12 range) but inside it
+        after ONE turn of its own move (18 + 6 = 24) — and 14 inches from
+        waypoint two (inside either way).
+
+        HAND-PINNED, both pricings:
+          iteration-6 (current-position reach at every waypoint):
+            waypoint one COLD (T = 0), waypoint two hot with NO prior
+            depletion -> survival = 1 x (1 - (1/6)/10) = 59/60.
+          iteration-7 (reach expanded by t x enemy move at waypoint t):
+            waypoint one HOT at t=1 (20 <= 24) -> frac 1/60;
+            health depletes to 59/6 -> waypoint-two frac 1/59;
+            survival = (59/60) x (58/59) = 29/30."""
+        members, marker, friendly, enemy, map_ = self._board()
+        u0 = members[0]
+        # Move the pistol to the m-new position (just outside wp1's reach).
+        pistol = enemy.units[0]
+        pistol.position = (36.0, 22.0)
+        proj = _threat_projectors(enemy)
+        rows = _job_threat_precompute(u0, proj)
+        wp1 = (16.0, 22.0)
+
+        # The reach expansion itself, pinned at the scan level.
+        self.assertEqual(
+            _job_threat_scan(rows, u0, wp1, map_, None), 0.0)      # cold at t=0
+        self.assertAlmostEqual(
+            _job_threat_scan(rows, u0, wp1, map_, None, advance_turns=1),
+            1.0 / 6.0, delta=1e-9)                                 # hot at t=1
+
+        # The iteration-6 product (current-position reach), reconstructed
+        # from the unexpanded scans: 1 x (1 - (1/6)/10) = 59/60.
+        t1_old = _job_threat_scan(rows, u0, wp1, map_, None)
+        t2_old = _job_threat_scan(rows, u0, (22.0, 22.0), map_, None)
+        old_surv = (1.0 - min(1.0, t1_old / 10.0)) * (
+            1.0 - min(1.0, t2_old / (10.0 - t1_old)))
+        self.assertAlmostEqual(old_surv, 59.0 / 60.0, delta=1e-9)
+
+        # The iteration-7 transit survival prices the waypoint hot.
+        surv = _job_transit_survival(
+            u0, (marker.x, marker.y), 3, map_, rows, None, 10.0)
+        self.assertAlmostEqual(surv, 29.0 / 30.0, delta=1e-9)
 
 
 if __name__ == "__main__":

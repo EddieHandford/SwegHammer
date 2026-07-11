@@ -3641,7 +3641,13 @@ def _job_transit_survival(unit, dest, turns, map_, threat_rows, alloc,
         if health <= 1e-9:
             return 0.0        # the squad is expected dead before this leg
         wp = _job_step_toward(unit.position, dest, move * t, map_)
-        t_wp = _job_threat_scan(threat_rows, unit, wp, map_, alloc)
+        # ENEMY PROJECTION (iteration 7): at waypoint turn t each enemy's
+        # reach is expanded by t turns of its own Move — "they will have
+        # closed by the time I am there" — with no pathing guess; see
+        # _job_threat_scan's advance_turns. Waypoints only: the destination
+        # term and all non-transit pricing are untouched.
+        t_wp = _job_threat_scan(threat_rows, unit, wp, map_, alloc,
+                                advance_turns=t)
         frac = min(1.0, t_wp / health)
         survival *= (1.0 - frac)
         if survival <= 0.0:
@@ -3938,7 +3944,7 @@ def _job_threat_precompute(me_unit, projectors):
     return rows
 
 
-def _job_threat_scan(rows, me_unit, dest, map_, alloc=None):
+def _job_threat_scan(rows, me_unit, dest, map_, alloc=None, advance_turns=0):
     """Fast incoming-threat evaluation T(dest) for one candidate cell, reusing
     the per-activation cache from `_job_threat_precompute` instead of
     recomputing the per-enemy expected-wounds pairs at every candidate. Only
@@ -3958,19 +3964,34 @@ def _job_threat_scan(rows, me_unit, dest, map_, alloc=None):
     measured propensity step curve _attack_propensity(opp_E) with the
     identical arithmetic shape, so the scan stays bit-identical to the gated
     field too. None (the default) is the summed field, byte-identical to the
-    pre-gate scan."""
+    pre-gate scan.
+
+    `advance_turns` (iteration 7 of the canary loop): ENEMY PROJECTION AT
+    TRANSIT WAYPOINTS as a REACH EXPANSION, not a position guess. When the
+    transit-survival pricing evaluates waypoint turn t, each enemy's threat
+    contribution keeps its CURRENT position but grows its distance budget by
+    t turns of its own Move characteristic — the ranged in-range test becomes
+    d <= (move + range) + t x move, and the melee reach gradient's
+    move + 2D6 becomes t x move + move + 2D6. This prices "they will have
+    closed by the time I am there" with no pathing assumption, reusing the
+    cached per-enemy parameters (the expansion is a per-t distance offset,
+    never a recompute). Default 0 leaves every existing caller's arithmetic
+    exactly as before (adding a 0.0 offset is value-identical in IEEE floats
+    and the melee probability argument is unchanged)."""
     field = 0.0
     cover_here = map_.cover_at(dest) if map_ is not None else None
     if alloc is None:
         for (e_uid, epos, emove, erange, rw, e_ap, melee_capable, mw,
              ignores_cover) in rows:
             d_ed = _dist(epos, dest)
-            if erange > 0.0 and d_ed <= emove + erange and rw > 0.0:
+            reach_bonus = advance_turns * emove
+            if erange > 0.0 and d_ed <= emove + erange + reach_bonus \
+                    and rw > 0.0:
                 atten = 1.0 if ignores_cover else _cover_attenuation_for(
                     me_unit, e_ap, cover_here)
                 field += rw * atten
             if melee_capable:
-                needed = d_ed - emove - _THREAT_ENGAGE_RANGE
+                needed = d_ed - emove - reach_bonus - _THREAT_ENGAGE_RANGE
                 if needed <= 12.0 and mw > 0.0:
                     field += mw * _p_2d6_at_least(needed)
         return field
@@ -3979,13 +4000,15 @@ def _job_threat_scan(rows, me_unit, dest, map_, alloc=None):
     for (e_uid, epos, emove, erange, rw, e_ap, melee_capable, mw,
          ignores_cover) in rows:
         d_ed = _dist(epos, dest)
+        reach_bonus = advance_turns * emove
         c = 0.0
-        if erange > 0.0 and d_ed <= emove + erange and rw > 0.0:
+        if erange > 0.0 and d_ed <= emove + erange + reach_bonus \
+                and rw > 0.0:
             atten = 1.0 if ignores_cover else _cover_attenuation_for(
                 me_unit, e_ap, cover_here)
             c += rw * atten
         if melee_capable:
-            needed = d_ed - emove - _THREAT_ENGAGE_RANGE
+            needed = d_ed - emove - reach_bonus - _THREAT_ENGAGE_RANGE
             if needed <= 12.0 and mw > 0.0:
                 c += mw * _p_2d6_at_least(needed)
         if c <= 0.0:
