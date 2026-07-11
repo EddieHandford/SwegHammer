@@ -4994,14 +4994,30 @@ def _shoot_value_score(attacker, target, attacker_army, defender_army, map_,
     unit's incoming share weighted by the allocation form c x (c / sum of c)
     and the measured attack propensity keyed on the target's best
     opportunity, capped at that unit's remaining wounds and converted at ITS
-    measured value per wound — then times P(kill this activation)
-    (`min(1, achievable wounds / target.current_health)`). Removing a
-    closing Daemon Prince protects the line: the threat-charge
-    kill-removes-threat term applied to shooting. Computed directly from the
-    projector row (never through the allocation caches, so the movement
-    path's cached denominators are untouched). `threat_vp_cache` (uid ->
-    threat value) lets one activation's argmax reuse the attacker-independent
-    half across candidate targets."""
+    measured value per wound — times scoring_rounds_remaining, times the
+    removal fraction P(kill this activation)
+    (`min(1, achievable wounds / target.current_health)`).
+
+    HORIZON (iteration 10, owner option (a) from the holdout memo — ledger
+    6e5cfae): the threat a kill removes persists for every remaining round
+    the target would have projected it, so the per-round threat value
+    carries the SAME scoring_rounds_remaining convention the marker term
+    already uses. The first build priced only the threat removable THIS
+    activation, which read a few percent against Disgustingly-Resilient
+    chassis — value-shooters stopped chipping closing durable monsters and
+    the holdout broke World Eaters (+6.13) and Chaos Knights (+4.56) while
+    proving the term's structure right (Adeptus Astartes, Adeptus
+    Mechanicus, Chaos Daemons all moved toward real). With the horizon, a
+    five percent chip on a monster projecting twenty victory-points-
+    equivalent per round for three more rounds prices three victory points —
+    competitive with eviction, which is what real target priority looks
+    like. Chip damage and eviction coexist in the argmax across different
+    shooters' weapon profiles. Removing a closing Daemon Prince protects the
+    line: the threat-charge kill-removes-threat term applied to shooting.
+    Computed directly from the projector row (never through the allocation
+    caches, so the movement path's cached denominators are untouched).
+    `threat_vp_cache` (uid -> threat value) lets one activation's argmax
+    reuse the attacker-independent half across candidate targets."""
     from .simulator import Battle          # lazy: avoid strategy<->simulator cycle
     srr = _value_scoring_rounds_remaining(max(1, cur_round))
     ap_profile = attacker.profile
@@ -5082,7 +5098,10 @@ def _shoot_value_score(attacker, target, attacker_army, defender_army, map_,
                                   * _trade_vp_per_wound(u.profile, srr))
             if threat_vp_cache is not None:
                 threat_vp_cache[target.uid] = threat_vp
-        score += p_kill * threat_vp
+        # HORIZON (iteration 10): the removed threat persists for every
+        # remaining scoring round — the same srr convention the marker term
+        # carries. See the docstring's holdout provenance.
+        score += p_kill * threat_vp * srr
     return score
 
 

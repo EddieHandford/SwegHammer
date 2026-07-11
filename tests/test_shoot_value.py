@@ -41,6 +41,39 @@ RATE = _MEASURED_VP_PER_POINT
 CUR_ROUND = 1        # srr = 5
 
 
+def _chip_gun():
+    """A 100-point one-wound gunner for fixture (u): four S4 AP0 shots at
+    0.5 hit and 24-inch range (0.5 expected wounds onto a T4/4+ chassis — a
+    1/24 chip on twelve wounds), T3/5+ so the beast's guns delete it
+    wholesale (its high per-wound value is what makes the beast's projected
+    threat expensive)."""
+    return UnitProfile(
+        name="ChipGunner", health=1, damage=1, hit_probability=0.5,
+        ap=0, save=5, strength=4, toughness=3, move=6.0, oc=2,
+        attacks=4, weapon_damage_per_shot=1.0, range_inches=24,
+        leadership=7, faction="Generic", unit_keywords=("INFANTRY",),
+        melee_attacks=0, melee_damage_per_shot=0.0,
+        melee_hit_probability=0.0, melee_strength=4, melee_ap=0,
+        points_override=100,
+    )
+
+
+def _cheap_beast():
+    """A 120-point twelve-wound T4/4+ monster for fixture (u): CHEAP per
+    wound (10 points), so its raw kill value trails a six-point chaff kill —
+    only the horizoned threat term makes chipping it the right call. Twelve
+    S6 AP-2 shots at 0.5 hit: 5.0 expected wounds onto each T3/5+ gunner."""
+    return UnitProfile(
+        name="CheapBeast", health=12, damage=1, hit_probability=0.5,
+        ap=-2, save=4, strength=6, toughness=4, move=6.0, oc=2,
+        attacks=12, weapon_damage_per_shot=1.0, range_inches=24,
+        leadership=8, faction="Generic", unit_keywords=("MONSTER",),
+        melee_attacks=0, melee_damage_per_shot=0.0,
+        melee_hit_probability=0.0, melee_strength=6, melee_ap=0,
+        points_override=120,
+    )
+
+
 def _closing_monster():
     """A closing high-threat monster for fixture (p): twelve S6 AP-2 shots at
     0.5 hit (5.0 expected wounds onto a T3/5+ one-wound body; 10/3 onto the
@@ -99,9 +132,10 @@ class ShootValueScore(unittest.TestCase):
         (1 inch from my three bodies) projects c = 1/6 ranged + 1/6 melee
         = 1/3 onto each; allocation share (1/3)/1 = 1/3, propensity keyed on
         its best opportunity 1/3; per body min((1/3)(1/3)prop, 1 wound) x
-        6 x rate; P(kill) = min(1, 2/1) = 1:
-          THREAT = 3 x (prop/9) x 6 x rate = 2 x rate x prop(1/3)
-          total  = 25 + 6 x rate + 2 x rate x prop(1/3)   >  total(n)"""
+        6 x rate; P(kill) = min(1, 2/1) = 1; times the iteration-10 horizon
+        (scoring rounds remaining = 5 at round one):
+          THREAT = 3 x (prop/9) x 6 x rate x 5 = 10 x rate x prop(1/3)
+          total  = 25 + 6 x rate + 10 x rate x prop(1/3)   >  total(n)"""
         attacker = _Unit(_light_gun(), (0.0, 0.0), uid=1)
         my_bodies = [_Unit(_one_wound_body(), (60.0, 22.0), uid=2 + i)
                      for i in range(3)]
@@ -124,7 +158,7 @@ class ShootValueScore(unittest.TestCase):
         got = _shoot_value_score(attacker, targets[0], attacker_army,
                                  defender_army, map_, CUR_ROUND)
         prop = _attack_propensity(1.0 / 3.0)
-        expected = 25.0 + 6.0 * RATE + 2.0 * RATE * prop
+        expected = 25.0 + 6.0 * RATE + 10.0 * RATE * prop
         self.assertAlmostEqual(got, expected, delta=1e-9)
 
         # The eviction preference: (o) towers over (n).
@@ -132,8 +166,11 @@ class ShootValueScore(unittest.TestCase):
         self.assertGreater(got, n_total)
 
     def test_p_closing_monster_scores_threat_relevance(self):
-        """(p) A closing high-threat monster scores its threat-relevance
-        term: killing it removes the threat it projects onto the line.
+        """(p, re-pinned for the iteration-10 horizon) A closing high-threat
+        monster scores its threat-relevance term times the scoring rounds
+        remaining: the same monster prices its threat component four times
+        higher at srr=4 than at srr=1 — the late-game deprioritisation
+        falling out of the horizon naturally.
 
         HAND COMPUTATION (attacker's expected wounds onto the T3/4+ monster:
         8 x 0.5 x wound(3,3)=0.5 x fail(4+ save at AP-2 -> 6+) = 5/6 -> ew =
@@ -145,7 +182,7 @@ class ShootValueScore(unittest.TestCase):
             = 5.0; gunner share (10/3)/(70/3) = 1/7 -> allocated (10/21)prop
             (under its 4 wounds) x (50/4) x rate; each body share 5/(70/3) =
             3/14 -> allocated (15/14)prop, capped at its 1 wound, x 6 x rate;
-            P(kill) = min(1, (5/3)/12) = 5/36."""
+            P(kill) = min(1, (5/3)/12) = 5/36; times srr."""
         attacker = _Unit(_light_gun(), (0.0, 0.0), uid=1)
         bodies = [_Unit(_one_wound_body(), (10.0, 0.0), uid=2 + i)
                   for i in range(4)]
@@ -154,15 +191,77 @@ class ShootValueScore(unittest.TestCase):
         defender_army = _Army([monster], is_a=False)
         map_ = _Map([])
 
-        got = _shoot_value_score(attacker, monster, attacker_army,
-                                 defender_army, map_, CUR_ROUND)
         prop = _attack_propensity(5.0)
         kill = (5.0 / 3.0) * 25.0 * RATE
         threat_vp = (min((10.0 / 21.0) * prop, 4.0) * 12.5 * RATE
                      + 4.0 * min((15.0 / 14.0) * prop, 1.0) * 6.0 * RATE)
-        expected = kill + (5.0 / 36.0) * threat_vp
-        self.assertAlmostEqual(got, expected, delta=1e-9)
-        self.assertGreater(got, kill)     # the threat term is priced, not zero
+
+        got4 = _shoot_value_score(attacker, monster, attacker_army,
+                                  defender_army, map_, 2)   # srr = 4
+        expected4 = kill + (5.0 / 36.0) * threat_vp * 4.0
+        self.assertAlmostEqual(got4, expected4, delta=1e-9)
+
+        got1 = _shoot_value_score(attacker, monster, attacker_army,
+                                  defender_army, map_, 5)   # srr = 1
+        expected1 = kill + (5.0 / 36.0) * threat_vp * 1.0
+        self.assertAlmostEqual(got1, expected1, delta=1e-9)
+
+        # The horizon is the only difference: exactly 4x the threat component.
+        self.assertAlmostEqual(got4 - kill, 4.0 * (got1 - kill), delta=1e-9)
+        self.assertGreater(got1, kill)    # priced even in the last round
+
+    def test_u_chip_on_monster_outprices_chaff_kill(self):
+        """(u, iteration 10) A chip shot on a high-threat monster at four
+        scoring rounds remaining must outprice a FULL kill on a low-threat
+        one-wound chaff model off-marker — the exact behaviour the holdout
+        showed missing (value-shooters stopped chipping closing durable
+        monsters because the un-horizoned term read a few percent).
+
+        The brief's illustrative 0.6 expected wounds is not exactly
+        constructible from sixths-based dice arithmetic at damage one; 0.5
+        (a 1/24 chip on twelve wounds) pins the same behaviour.
+
+        HAND COMPUTATION (srr=4; five 100-point one-wound gunners in my
+        line; the beast is 120 points for 12 wounds — CHEAP per wound, so
+        the kill term alone PREFERS the chaff):
+          chip gun onto the T4/4+ beast: 4 x 0.5 x 0.5 x fail(4+ at AP0
+            = 0.5) = 0.5 -> p_kill = 1/24
+          KILL(beast) = 0.5 x (120/12) x rate = 5 x rate
+          KILL(chaff) = min(4 x 0.5 x wound(4,3)=2/3 x fail(5+,0)=2/3
+            = 8/9, 1 wound) x 6 x rate = (16/3) x rate   > KILL(beast)
+          THREAT(beast): 12 x 0.5 x wound(6,3)=5/6 x fail(5+ at AP-2) = 5.0
+            onto each of my five one-wound gunners (all within its 30-inch
+            reach); equal shares 0.2 -> allocated 5 x 0.2 x prop(5.0) =
+            prop each, capped at 1 wound -> threat_vp = 5 x prop x 100 x
+            rate = 500 x rate x prop
+          score(beast) = 5 x rate + (1/24) x 500 x rate x prop x 4
+          score(chaff) = (16/3) x rate   (no marker, no reach to my line)"""
+        gunners = [_Unit(_chip_gun(), (2.0 * i, 0.0), uid=1 + i)
+                   for i in range(5)]
+        attacker = gunners[0]
+        attacker_army = _Army(gunners)
+        beast = _Unit(_cheap_beast(), (20.0, 0.0), uid=98)
+        chaff = _Unit(_one_wound_body(), (100.0, 0.0), uid=99)
+        defender_army = _Army([beast, chaff], is_a=False)
+        map_ = _Map([])
+
+        prop = _attack_propensity(5.0)
+        got_beast = _shoot_value_score(attacker, beast, attacker_army,
+                                       defender_army, map_, 2)   # srr = 4
+        expected_beast = (5.0 * RATE
+                          + (1.0 / 24.0) * (500.0 * RATE * min(prop, 1.0))
+                          * 4.0)
+        self.assertAlmostEqual(got_beast, expected_beast, delta=1e-9)
+
+        got_chaff = _shoot_value_score(attacker, chaff, attacker_army,
+                                       defender_army, map_, 2)
+        expected_chaff = (16.0 / 3.0) * RATE
+        self.assertAlmostEqual(got_chaff, expected_chaff, delta=1e-9)
+
+        # Kill value alone prefers the chaff; the horizoned threat term
+        # flips the argmax to the monster chip.
+        self.assertLess(5.0 * RATE, expected_chaff)
+        self.assertGreater(got_beast, got_chaff)
 
     def test_q_gate_reader_default_off(self):
         """(q) The gate is off by default and reads on only at exactly "1".
