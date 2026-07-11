@@ -4338,6 +4338,15 @@ def assign_jobs(army, enemy, map_, cur_round) -> None:
         our_with = our_oc[oid] + (own if not on_it else 0)
         believed[uid] = our_with > their_oc[oid]
     army.job_believed_held = believed
+    # FALLBACK-SPREAD claim state (SWEG_JOB_DENY; iteration-3 fix 2): reset the
+    # per-turn VALUE-fallback marker claims, seeded with the objective control
+    # the assignment pass just committed per marker (a marker with enough
+    # assigned holders is already sufficiently claimed — fallback units go
+    # elsewhere). `job_value_squad_pick` is the squad-sticky follow map. Both
+    # are plain attributes never read while the gate is off.
+    if deny_on:
+        army.job_value_claims = dict(assigned_oc)
+        army.job_value_squad_pick = {}
 
 
 def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
@@ -4458,16 +4467,76 @@ def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
         # best marker is its current area stays put naturally; a melee army
         # advances marker-to-marker through the objective game.
         channel = _JOB_VALUE
-        best_net = None
+        # FALLBACK SPREAD (SWEG_JOB_DENY; iteration-3 fix 2, indicted by the
+        # step-1 instrument's pile-up count: EVERY fallback decision in a
+        # game-round picked the SAME argmax marker — fifteen squads on one
+        # marker while the midfield went uncontested). The assignment pass's
+        # pile-on cap is extended to the VALUE fallback: each squad's first
+        # model to decide claims its argmax marker with the squad's whole
+        # effective objective control; markers whose accumulated claims
+        # already exceed the enemy's effective objective control there are
+        # skipped by later squads (they take the next-best marker); when every
+        # marker is sufficiently claimed the plain unfiltered argmax returns
+        # (the last resort is the old pile). Squad-sticky: the move loop
+        # decides per MODEL, so squadmates of a squad that already claimed
+        # this turn follow the squad's marker rather than re-running the
+        # argmax — the spread is at squad grain and never splits a squad.
+        # Claims are seeded by assign_jobs each player turn (the committed
+        # holders' objective control counts as claims) and reset there. Gate
+        # off: `spread` is False, the filter list IS `objectives`, no claim
+        # state is touched — the argmax below is byte-identical.
+        spread = _job_deny_on()
+        squad_pick = None
+        claims = None
+        skey = None
+        if spread:
+            claims = getattr(friendly, "job_value_claims", None)
+            if claims is None:
+                claims = {}
+                friendly.job_value_claims = claims
+            squad_pick = getattr(friendly, "job_value_squad_pick", None)
+            if squad_pick is None:
+                squad_pick = {}
+                friendly.job_value_squad_pick = squad_pick
+            _sid = getattr(unit, "squad_id", -1)
+            skey = _sid if _sid >= 0 else ("lone", unit.uid)
         best_obj = None
-        for o in objectives:
-            on_it = id(o) in unit_on_obj_ids
-            prospective = our_oc[id(o)] + (own_oc if not on_it else 0)
-            net = value_net_score(unit, o, prospective, their_oc[id(o)],
-                                  projectors, map_, srr, own_is_a, chosen)
-            if best_net is None or net > best_net:
-                best_net = net
-                best_obj = o
+        if spread and skey in squad_pick:
+            # Squad-sticky follow: this squad already claimed its marker.
+            _oid_pick = squad_pick[skey]
+            for o in objectives:
+                if id(o) == _oid_pick:
+                    best_obj = o
+                    break
+        if best_obj is None:
+            if spread:
+                cand_objs = [
+                    o for o in objectives
+                    if claims.get(id(o), 0)
+                    <= _effective_oc_on_objective(enemy_alive, o)]
+                if not cand_objs:
+                    cand_objs = objectives   # all claimed — plain argmax
+            else:
+                cand_objs = objectives
+            best_net = None
+            for o in cand_objs:
+                on_it = id(o) in unit_on_obj_ids
+                prospective = our_oc[id(o)] + (own_oc if not on_it else 0)
+                net = value_net_score(unit, o, prospective, their_oc[id(o)],
+                                      projectors, map_, srr, own_is_a, chosen)
+                if best_net is None or net > best_net:
+                    best_net = net
+                    best_obj = o
+            if spread and best_obj is not None:
+                if isinstance(skey, tuple):
+                    _claim_oc = _effective_oc_value(unit)
+                else:
+                    _claim_oc = sum(
+                        _effective_oc_value(u) for u in friendly.alive_units
+                        if getattr(u, "squad_id", -1) == skey)
+                _oid = id(best_obj)
+                claims[_oid] = claims.get(_oid, 0) + _claim_oc
+                squad_pick[skey] = _oid
         if best_obj is not None:
             dest = _best_nearby_cover_point(
                 map_, (best_obj.x, best_obj.y),

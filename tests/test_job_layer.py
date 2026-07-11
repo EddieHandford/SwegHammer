@@ -1081,6 +1081,64 @@ class DenialAndReactive(unittest.TestCase):
             u, marker, 5, 5, proj, map_, SRR, True, (), own_oc=5)
         self.assertAlmostEqual(v_off, 12.5, delta=1e-9)
 
+    def test_g_value_fallback_spreads_across_markers(self):
+        """(g, iteration-3 fix 2) Two zero-channel units whose VALUE fallback
+        argmax agrees on the same best marker SPREAD when SWEG_JOB_DENY is on:
+        the first claims marker A (its effective objective control 5 exceeds
+        the enemy's 0 there — sufficiently claimed), the second is filtered to
+        the next-best marker B. With the gate off both pile onto A.
+
+        Geometry (all channels priced zero): markers ~20 inches away — beyond
+        the move+6 hold/deny reach and the 12-inch gun (after a 6-inch move,
+        14 inches to the nearest enemy: out of range and out of the 2D6+1.5
+        melee reach), the blocker projects no threat (zero attacks), the far
+        enemy is at 200 inches, and there are no reserves. Fallback nets:
+        A uncontested = 25 exactly; B enemy-blocked (their 8 > prospective 5)
+        = 0.2 x 25 = 5 exactly. Both positive, A strictly best."""
+        def _build():
+            u1 = _Unit(_cheap_holder(), (10.0, 10.0), uid=1)
+            u2 = _Unit(_cheap_holder(), (10.0, 14.0), uid=2)
+            blocker = _Unit(_oc_blocker(), (30.0, 30.0), uid=98)  # on B, inert
+            far = _Unit(_fragile_target(), (200.0, 200.0), uid=99)
+            friendly = _Army([u1, u2])
+            enemy = _Army([blocker, far], is_a=False)
+            mk_a = _Obj(30.0, 10.0)               # uncontested, net 25
+            mk_b = _Obj(30.0, 30.0)               # blocked (oc 8), net 5
+            map_ = _Map([mk_a, mk_b])
+            return u1, u2, mk_a, mk_b, friendly, enemy, map_
+
+        def _near(dest, mk):
+            return (((dest[0] - mk.x) ** 2 + (dest[1] - mk.y) ** 2) ** 0.5
+                    <= mk.control_radius + 1e-9)
+
+        # Gate ON: u1 claims A; u2 is filtered to B (next-best).
+        os.environ["SWEG_JOB_LAYER"] = "1"
+        os.environ["SWEG_JOB_DENY"] = "1"
+        try:
+            u1, u2, mk_a, mk_b, friendly, enemy, map_ = _build()
+            d1, i1 = _job_layer_move_intent(u1, friendly, enemy, map_, None, 1)
+            d2, i2 = _job_layer_move_intent(u2, friendly, enemy, map_, None, 1)
+            self.assertEqual(i1, "CAPTURE")
+            self.assertEqual(i2, "CAPTURE")
+            self.assertTrue(_near(d1, mk_a))
+            self.assertTrue(_near(d2, mk_b))       # spread, not pile
+            self.assertEqual(friendly.job_value_claims[id(mk_a)], 5)
+            self.assertEqual(friendly.job_value_claims[id(mk_b)], 5)
+        finally:
+            del os.environ["SWEG_JOB_DENY"]
+            del os.environ["SWEG_JOB_LAYER"]
+
+        # Gate OFF (JOB_LAYER only): both pile onto A — the legacy argmax.
+        os.environ["SWEG_JOB_LAYER"] = "1"
+        try:
+            u1, u2, mk_a, mk_b, friendly, enemy, map_ = _build()
+            d1, _i1 = _job_layer_move_intent(u1, friendly, enemy, map_, None, 1)
+            d2, _i2 = _job_layer_move_intent(u2, friendly, enemy, map_, None, 1)
+            self.assertTrue(_near(d1, mk_a))
+            self.assertTrue(_near(d2, mk_a))       # the pile the fix removes
+        finally:
+            del os.environ["SWEG_JOB_LAYER"]
+
 
 if __name__ == "__main__":
     unittest.main()
