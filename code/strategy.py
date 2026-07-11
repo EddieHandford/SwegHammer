@@ -4854,6 +4854,164 @@ def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
     return dest, intent
 
 
+# ===========================================================================
+# SWEG_SHOOT_VALUE — the shooting-phase target-value consumer (iteration 8 of
+# the canary loop, docs/DECISION_LEDGER.md "THE DENIAL PROGRAM + CANARY LOOP":
+# the registered-in-reserve shoot-value build, activated after the iteration-7
+# victory-point ledger indicted the shooting economy — 13.4 of ~42 Astra
+# Militarum ranged activations per game into Poxwalkers, damage-optimal but
+# zero marker leverage, while Death Guard's marker-holders sat unevicted at a
+# structural 1.2-versus-3.0 markers-held split).
+# ===========================================================================
+# score(target) in the MEASURED victory-point currency, zero new constants:
+#   1. KILL VALUE      — capped expected wounds x the measured exchange rate
+#                        (the exact value_offense ranged form).
+#   2. MARKER RELEVANCE — the eviction term: the enemy victory points their
+#                        control drops by if this shot's expected models
+#                        killed removes the target squad's contribution
+#                        (the `_deny_marker_value` bracket math, per shot).
+#   3. THREAT RELEVANCE — the target's own projected threat onto MY units
+#                        (the allocated threat machinery, reversed) times the
+#                        probability this activation kills it.
+# The chosen target is the ARGMAX of the summed score — a REPLACEMENT argmax
+# when the gate is on, never a multiplier folded into the legacy
+# health-divisor chain (the additive-into-multiplicative fold would force an
+# arbitrary normalizer; the job layer's equal-weight cancellation history is
+# the precedent against it). Independent of SWEG_JOB_LAYER (shooting phase).
+# Default off, byte-identical off. AI-piloting heuristic composed from
+# already-cited mechanics (the strictly-greater objective scorer, the threat
+# field, the measured exchange rate) — no rule citation of its own, the
+# value/threat-layer precedent.
+def _shoot_value_on() -> bool:
+    """SWEG_SHOOT_VALUE gate. Default off — the legacy target pickers
+    (squad split-fire greedy and the per-model lowest-effective-health
+    argmin) run byte-identically."""
+    return os.environ.get("SWEG_SHOOT_VALUE") == "1"
+
+
+def _shoot_value_score(attacker, target, attacker_army, defender_army, map_,
+                       cur_round, threat_vp_cache=None) -> float:
+    """The SWEG_SHOOT_VALUE target score, in measured victory points.
+
+    KILL VALUE: `min(achievable expected wounds, target.current_health) x
+    _trade_vp_per_wound(target.profile, srr)` — achievable wounds via
+    `Battle._ranged_expected_wounds(attacker.profile, target)` times the
+    cover attenuation at the target's own position, the exact value_offense
+    ranged form (the firing model's REAL per-model weapons, matching the
+    shooting path's own expected-wounds calls).
+
+    MARKER RELEVANCE (the eviction term): for each marker whose control
+    radius contains the target, if the enemy currently HOLDS it (their
+    effective objective control strictly above ours — the same brackets as
+    `_deny_marker_value`), the flip needs
+    `ceil((their - ours) / target's per-model effective objective control)`
+    of the target squad's models dead; this activation's expected models
+    killed is `achievable wounds / the target's per-model starting wounds`
+    (one-Unit-per-model: each model is a Unit), and the term prices
+    obj.vp_per_round x srr prorated by expected-models-killed over
+    models-needed-to-flip, capped at one. No invented constants — the real
+    per-round primary value times a probability proxy built from the two
+    model counts.
+
+    THREAT RELEVANCE: the target's own projected threat onto MY units — the
+    allocated threat machinery REVERSED: the exact per-pair field arithmetic
+    (`_threat_field_at`'s ranged + melee terms) with the TARGET as the single
+    projector onto each of my alive units at their current positions, each
+    unit's incoming share weighted by the allocation form c x (c / sum of c)
+    and the measured attack propensity keyed on the target's best
+    opportunity, capped at that unit's remaining wounds and converted at ITS
+    measured value per wound — then times P(kill this activation)
+    (`min(1, achievable wounds / target.current_health)`). Removing a
+    closing Daemon Prince protects the line: the threat-charge
+    kill-removes-threat term applied to shooting. Computed directly from the
+    projector row (never through the allocation caches, so the movement
+    path's cached denominators are untouched). `threat_vp_cache` (uid ->
+    threat value) lets one activation's argmax reuse the attacker-independent
+    half across candidate targets."""
+    from .simulator import Battle          # lazy: avoid strategy<->simulator cycle
+    srr = _value_scoring_rounds_remaining(max(1, cur_round))
+    ap_profile = attacker.profile
+    rw = Battle._ranged_expected_wounds(ap_profile, target)
+    if rw > 0.0:
+        atten = (1.0 if bool(getattr(ap_profile, "ignores_cover", False))
+                 else _cover_attenuation(target, getattr(ap_profile, "ap", 0) or 0,
+                                         map_, target.position))
+        ew = rw * atten
+    else:
+        ew = 0.0
+    if ew <= 0.0:
+        return 0.0
+
+    # 1. KILL VALUE — the exact value_offense ranged form.
+    score = min(ew, target.current_health) * _trade_vp_per_wound(
+        target.profile, srr)
+
+    # 2. MARKER RELEVANCE — the eviction term.
+    per_model_oc = _effective_oc_value(target)
+    if per_model_oc > 0:
+        per_model_wounds = float(getattr(target.profile, "health", 1.0) or 1.0)
+        models_killed = ew / max(1.0, per_model_wounds)
+        if models_killed > 0.0:
+            for obj in (getattr(map_, "objectives", ()) or ()):
+                dx = target.position[0] - obj.x
+                dy = target.position[1] - obj.y
+                if dx * dx + dy * dy > obj.control_radius * obj.control_radius:
+                    continue
+                their = _effective_oc_on_objective(
+                    defender_army.alive_units, obj)
+                ours = _effective_oc_on_objective(
+                    attacker_army.alive_units, obj)
+                if their <= ours:
+                    continue          # not enemy-held — nothing to evict
+                needed = math.ceil((their - ours) / per_model_oc)
+                score += (obj.vp_per_round * srr
+                          * min(1.0, models_killed / needed))
+
+    # 3. THREAT RELEVANCE — kill-removes-threat, reversed field.
+    p_kill = min(1.0, ew / max(1e-9, target.current_health))
+    if p_kill > 0.0:
+        threat_vp = (threat_vp_cache.get(target.uid)
+                     if threat_vp_cache is not None else None)
+        if threat_vp is None:
+            threat_vp = 0.0
+            tp = _score_profile(target)
+            epos = target.position
+            emove = float(effective_move(target))
+            erange = float(getattr(tp, "range_inches", 0.0) or 0.0)
+            melee_capable = (getattr(tp, "melee_attacks", 0) or 0) > 0
+            t_ignores_cover = bool(getattr(tp, "ignores_cover", False))
+            t_ap = getattr(tp, "ap", 0) or 0
+            contribs = []
+            for u in attacker_army.alive_units:
+                d = _dist(epos, u.position)
+                c = 0.0
+                if erange > 0.0 and d <= emove + erange:
+                    rw_u = Battle._ranged_expected_wounds(tp, u)
+                    if rw_u > 0.0:
+                        c += rw_u * (1.0 if t_ignores_cover
+                                     else _cover_attenuation(
+                                         u, t_ap, map_, u.position))
+                if melee_capable:
+                    needed_m = d - emove - _THREAT_ENGAGE_RANGE
+                    if needed_m <= 12.0:
+                        mw = _kill_potential_wounds(tp, _score_profile(u))
+                        if mw > 0.0:
+                            c += mw * _p_2d6_at_least(needed_m)
+                if c > 0.0:
+                    contribs.append((u, c))
+            if contribs:
+                total_c = sum(c for _u, c in contribs)
+                prop = _attack_propensity(max(c for _u, c in contribs))
+                for u, c in contribs:
+                    allocated = c * (c / total_c) * prop
+                    threat_vp += (min(allocated, u.current_health)
+                                  * _trade_vp_per_wound(u.profile, srr))
+            if threat_vp_cache is not None:
+                threat_vp_cache[target.uid] = threat_vp
+        score += p_kill * threat_vp
+    return score
+
+
 def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, float]]:
     """Pick a point up to ``M`` inches from ``unit`` that sits outside the
     engagement range (1.5") of every enemy in ``enemies``.

@@ -15059,11 +15059,24 @@ class Battle:
             _drukhari_fragile_flyer_bonus,
             _kite_target_bonus,
             _screen_target_bonus,
+            _shoot_value_on,
+            _shoot_value_score,
             _synapse_target_bonus,
             _transport_target_bonus,
         )
         focus_uid = getattr(attacker_army, "_focus_target_uid", None)
         ff_uid = getattr(attacker_army, "_focusfire_target_uid", None)
+        # SWEG_SHOOT_VALUE (iteration 8 of the canary loop): when ON, the
+        # squad plan's greedy key becomes the measured-currency target-value
+        # ARGMAX (kill value + marker eviction + threat relevance) — a
+        # REPLACEMENT for the health-per-bonus argmin, never folded into it.
+        # The anti-armour focus-fire nomination precedence above the greedy
+        # (`_focusfire_target_uid` / `_focus_target_uid`) is left overriding
+        # as-is. The split-fire committed/remaining bookkeeping is kept so
+        # the squad still spreads instead of over-killing one target. Gate
+        # off: `_sv_on` False, the legacy loop below is byte-identical.
+        _sv_on = _shoot_value_on()
+        _sv_cache: dict = {}
         committed: dict = {}
         for model in members:
             p = model.profile
@@ -15078,7 +15091,25 @@ class Battle:
                     if cand is not None and self._ranged_expected_wounds(p, cand) > 0.0:
                         target = cand
                         break
-            if target is None:
+            if target is None and _sv_on:
+                # SWEG_SHOOT_VALUE replacement argmax over the same
+                # not-lethally-committed candidate set.
+                best = None
+                best_key = None
+                for e in enemies:
+                    if self._ranged_expected_wounds(p, e) <= 0.0:
+                        continue
+                    remaining = e.current_health - committed.get(e.uid, 0.0)
+                    if remaining <= 0.0:
+                        continue   # already has lethal fire assigned — move on
+                    s = _shoot_value_score(
+                        model, e, attacker_army, defender_army, self.map,
+                        self._current_round, _sv_cache)
+                    if best is None or s > best_key:
+                        best = e
+                        best_key = s
+                target = best
+            elif target is None:
                 # Greedy split: lowest effective health REMAINING after the fire
                 # already committed, among enemies this model can hurt and that
                 # are not yet lethally committed. Same target-priority bonuses as
@@ -15603,6 +15634,8 @@ class Battle:
             _drukhari_fragile_flyer_bonus,
             _kite_target_bonus,
             _screen_target_bonus,
+            _shoot_value_on,
+            _shoot_value_score,
             _synapse_target_bonus,
             _transport_target_bonus,
         )
@@ -15667,6 +15700,22 @@ class Battle:
             shoot_target = _assigned   # Stage D split-fire assignment (legal here)
         elif _focus_target is not None:
             shoot_target = _focus_target
+        elif _shoot_value_on():
+            # SWEG_SHOOT_VALUE (iteration 8 of the canary loop): the
+            # per-model fallback becomes the measured-currency target-value
+            # ARGMAX (kill value + marker eviction + threat relevance) — a
+            # REPLACEMENT for the health-per-bonus argmin below, never a
+            # multiplier folded into it. The focus-fire nomination precedence
+            # (`_pft` / `_assigned` / `_focus_target` above) is left
+            # overriding for anti-armour as-is. Gate off: this branch is
+            # never taken and the legacy argmin below is byte-identical.
+            _sv_cache: dict = {}
+            shoot_target = max(
+                pool,
+                key=lambda u: _shoot_value_score(
+                    attacker, u, attacker_army, defender_army, self.map,
+                    self._current_round, _sv_cache),
+            )
         else:
             shoot_target = min(
                 pool,
