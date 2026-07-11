@@ -2520,6 +2520,91 @@ def _value_scoring_rounds_remaining(cur_round: int) -> int:
     return r
 
 
+def _threat_alloc_on(me_unit) -> bool:
+    """SWEG_THREAT_ALLOC gate (default OFF, screening convention == "1"),
+    cached per battle on the Battle object — the SWEG_CHARGE_BASEEDGE
+    precedent — so the hot candidate loops never re-read the environment.
+    Falls back to a direct environment read when no battle context exists
+    (unit-test stand-ins)."""
+    army = getattr(me_unit, "army_ref", None)
+    battle = getattr(army, "_battle_ref", None) if army is not None else None
+    if battle is not None:
+        cached = getattr(battle, "_threat_alloc_gate", None)
+        if cached is None:
+            cached = os.environ.get("SWEG_THREAT_ALLOC") == "1"
+            battle._threat_alloc_gate = cached
+        return cached
+    return os.environ.get("SWEG_THREAT_ALLOC") == "1"
+
+
+# Per-board-state cache for the allocation denominators (SWEG_THREAT_ALLOC).
+# The denominator Sum over my units t of ew(E -> t at t's current position)
+# is invariant across candidate cells within one activation AND across my
+# units' decisions while the board stands still — only the mover's own term
+# is conditional on the candidate cell, and the query subtracts/adds it.
+# Signature-keyed exactly like _threat_proj_cache: positions and the alive
+# sets on BOTH sides (the per-pair terms are health-independent — they read
+# profiles and positions only — so health is deliberately NOT in the
+# signature and damage alone never forces a rebuild). Single slot; within
+# one army's turn every query is for that army, so there is no thrash.
+_THREAT_ALLOC_CACHE: Dict = {"sig": None, "sums": None, "terms": None}
+
+
+def _threat_alloc_denominators(me_unit, projectors, map_):
+    """(sums, terms) for the allocation weights: terms[(enemy_uid, my_uid)] =
+    ew(E -> t at t's current position) — the SAME per-pair math the field's
+    loop computes (ranged gated by Move + weapon range with the cover
+    attenuation at t's own cell, melee weighted by the real 2D6 reach
+    probability) — and sums[enemy_uid] = the total over ALL my alive units
+    (the caller subtracts the mover's own current-position term). Returns
+    None when `me_unit` has no army context (test stand-ins without
+    army_ref): the field then degenerates to the summed form, which is the
+    owner's isolated-unit case."""
+    army = getattr(me_unit, "army_ref", None)
+    if army is None:
+        return None
+    from .simulator import Battle          # lazy: avoid strategy<->simulator cycle
+    mine = army.alive_units
+    sig = (
+        id(army),
+        tuple((t.uid, round(t.position[0], 3), round(t.position[1], 3))
+              for t in mine),
+        tuple((e.uid, round(epos[0], 3), round(epos[1], 3))
+              for (e, ep, epos, emove, erange, mc, ic) in projectors),
+    )
+    cache = _THREAT_ALLOC_CACHE
+    if cache["sig"] == sig:
+        return cache["sums"], cache["terms"]
+    sums: Dict = {e.uid: 0.0 for (e, ep, epos, em, er, mc, ic) in projectors}
+    terms: Dict = {}
+    for t in mine:
+        t_profile = _score_profile(t)
+        cover_t = map_.cover_at(t.position) if map_ is not None else None
+        for (e, ep, epos, emove, erange, melee_capable, ignores_cover) \
+                in projectors:
+            d_et = _dist(epos, t.position)
+            ew = 0.0
+            if erange > 0.0 and d_et <= emove + erange:
+                rw = Battle._ranged_expected_wounds(ep, t)
+                if rw > 0.0:
+                    atten = 1.0 if ignores_cover else _cover_attenuation_for(
+                        t, getattr(ep, "ap", 0) or 0, cover_t)
+                    ew += rw * atten
+            if melee_capable:
+                needed = d_et - emove - _THREAT_ENGAGE_RANGE
+                if needed <= 12.0:
+                    mw = _kill_potential_wounds(ep, t_profile)
+                    if mw > 0.0:
+                        ew += mw * _p_2d6_at_least(needed)
+            if ew > 0.0:
+                terms[(e.uid, t.uid)] = ew
+                sums[e.uid] += ew
+    cache["sig"] = sig
+    cache["sums"] = sums
+    cache["terms"] = terms
+    return sums, terms
+
+
 def _threat_field_at(me_unit, projectors, dest, map_) -> float:
     """Raw incoming threat field T(dest): the expected wounds every LIVING enemy
     projects onto `me_unit` standing at `dest`, summed. Reuses the threat-field
@@ -2529,6 +2614,34 @@ def _threat_field_at(me_unit, projectors, dest, map_) -> float:
     probability) — MINUS the charge-specific target subtraction. This is the
     generic field the value consumer reads for contestability and exposure; no
     RNG, no new geometry.
+
+    SWEG_THREAT_ALLOC (default OFF, byte-identical off — the owner-funded
+    allocation-aware form, docs/DECISION_LEDGER.md "ALLOCATION-AWARE THREAT
+    FIELD"): the summed field counts every enemy's FULL output against every
+    cell, which the calibration instrument measured as a 6x-301x
+    predicted-to-realized bias (scripts/diag_threat_calibration.py) — the
+    saturation that collapsed the job layer's risk-discounted KILL channel.
+    The owner's design rule: an enemy with ONE eligible target sends
+    everything at it; an enemy with several splits the RISK across them.
+    When ON, each enemy E's contribution c is weighted by the
+    attractiveness-proportional allocation
+
+        w_E(me@p) = c / (c + Sum over my OTHER alive units t of
+                              ew(E -> t at t's current position))
+        contribution = c * w_E(me@p)
+
+    where c = ew(E -> me@p) is exactly the per-enemy term the summed field
+    already computes, and the denominator terms come from the per-board-state
+    cache (_threat_alloc_denominators). Degeneracy: when I am E's only
+    eligible target every other term is zero, w = 1, and the summed field is
+    reproduced EXACTLY. Zero guard: c <= 0 contributes nothing, so the
+    denominator is never touched at zero (no division by zero). Weights sum
+    to at most 1 over E's eligible targets by construction. Every consumer of
+    this field (value contestability, the SURVIVE channel, the job KILL
+    discount via _job_threat_scan, the trade-eval reply) inherits the gate's
+    effect; all are themselves default-off. NOTE the SWEG_THREAT_CHARGE
+    denominator (_charge_field_post_denominator) builds its own per-pair loop
+    and does NOT route through this function — it is unaffected by this gate.
 
     Perf: the positional cover at `dest` (`map_.cover_at(dest)`, an O(terrain
     features) scan) does not depend on which enemy is being priced — only on
@@ -2541,22 +2654,55 @@ def _threat_field_at(me_unit, projectors, dest, map_) -> float:
     (map_, dest), so hoisting it changes only how many times it runs."""
     from .simulator import Battle          # lazy: avoid strategy<->simulator cycle
     me_profile = _score_profile(me_unit)
-    field = 0.0
     cover_here = map_.cover_at(dest) if map_ is not None else None
-    for (e, ep, epos, emove, erange, melee_capable, ignores_cover) in projectors:
+    if not _threat_alloc_on(me_unit):
+        field = 0.0
+        for (e, ep, epos, emove, erange, melee_capable, ignores_cover) \
+                in projectors:
+            d_ed = _dist(epos, dest)
+            if erange > 0.0 and d_ed <= emove + erange:
+                rw = Battle._ranged_expected_wounds(ep, me_unit)
+                if rw > 0.0:
+                    atten = 1.0 if ignores_cover else _cover_attenuation_for(
+                        me_unit, getattr(ep, "ap", 0) or 0, cover_here)
+                    field += rw * atten
+            if melee_capable:
+                needed = d_ed - emove - _THREAT_ENGAGE_RANGE
+                if needed <= 12.0:
+                    mw = _kill_potential_wounds(ep, me_profile)
+                    if mw > 0.0:
+                        field += mw * _p_2d6_at_least(needed)
+        return field
+    # --- SWEG_THREAT_ALLOC=1: attractiveness-proportional risk allocation ---
+    alloc = _threat_alloc_denominators(me_unit, projectors, map_)
+    my_uid = getattr(me_unit, "uid", None)
+    field = 0.0
+    for (e, ep, epos, emove, erange, melee_capable, ignores_cover) \
+            in projectors:
         d_ed = _dist(epos, dest)
+        c = 0.0
         if erange > 0.0 and d_ed <= emove + erange:
             rw = Battle._ranged_expected_wounds(ep, me_unit)
             if rw > 0.0:
                 atten = 1.0 if ignores_cover else _cover_attenuation_for(
                     me_unit, getattr(ep, "ap", 0) or 0, cover_here)
-                field += rw * atten
+                c += rw * atten
         if melee_capable:
             needed = d_ed - emove - _THREAT_ENGAGE_RANGE
             if needed <= 12.0:
                 mw = _kill_potential_wounds(ep, me_profile)
                 if mw > 0.0:
-                    field += mw * _p_2d6_at_least(needed)
+                    c += mw * _p_2d6_at_least(needed)
+        if c <= 0.0:
+            continue                       # zero-eligibility guard: no division
+        if alloc is None:
+            field += c                     # no army context -> summed (isolated)
+            continue
+        sums, terms = alloc
+        others = sums.get(e.uid, 0.0) - terms.get((e.uid, my_uid), 0.0)
+        if others < 0.0:
+            others = 0.0                   # float-subtraction safety clamp
+        field += c * (c / (c + others))
     return field
 
 
@@ -3405,22 +3551,22 @@ def _job_threat_precompute(me_unit, projectors):
     sharing them across all candidate threat evaluations keeps the risk
     discount's added cost to a distance-only scan per candidate.
 
-    Returns rows of (enemy_position, enemy_move, enemy_range, ranged_wounds,
-    enemy_ap, melee_capable, melee_wounds, ignores_cover), in `projectors`
-    order (preserved so `_job_threat_scan`'s float accumulation order matches
-    `_threat_field_at` exactly)."""
+    Returns rows of (enemy_uid, enemy_position, enemy_move, enemy_range,
+    ranged_wounds, enemy_ap, melee_capable, melee_wounds, ignores_cover), in
+    `projectors` order (preserved so `_job_threat_scan`'s float accumulation
+    order matches `_threat_field_at` exactly)."""
     from .simulator import Battle          # lazy: avoid strategy<->simulator cycle
     me_profile = _score_profile(me_unit)
     rows = []
     for (e, ep, epos, emove, erange, melee_capable, ignores_cover) in projectors:
         rw = Battle._ranged_expected_wounds(ep, me_unit) if erange > 0.0 else 0.0
         mw = _kill_potential_wounds(ep, me_profile) if melee_capable else 0.0
-        rows.append((epos, emove, erange, rw, getattr(ep, "ap", 0) or 0,
+        rows.append((e.uid, epos, emove, erange, rw, getattr(ep, "ap", 0) or 0,
                      melee_capable, mw, ignores_cover))
     return rows
 
 
-def _job_threat_scan(rows, me_unit, dest, map_):
+def _job_threat_scan(rows, me_unit, dest, map_, alloc=None):
     """Fast incoming-threat evaluation T(dest) for one candidate cell, reusing
     the per-activation cache from `_job_threat_precompute` instead of
     recomputing the per-enemy expected-wounds pairs at every candidate. Only
@@ -3429,19 +3575,50 @@ def _job_threat_scan(rows, me_unit, dest, map_):
     the cell (hoisted exactly as `_threat_field_at` hoists it via
     `_cover_attenuation_for`) — with the same per-enemy term arithmetic and
     accumulation order as `_threat_field_at`, so the result is bit-identical
-    to calling _threat_field_at(me_unit, projectors, dest, map_) directly."""
+    to calling _threat_field_at(me_unit, projectors, dest, map_) directly.
+
+    `alloc` mirrors the SWEG_THREAT_ALLOC branch of `_threat_field_at`: pass
+    the (sums, terms) pair from `_threat_alloc_denominators` when the gate is
+    on (the caller reads the gate ONCE per channel evaluation, never here in
+    the inner loop) and each enemy's contribution c is weighted by
+    c / (c + others) with the identical arithmetic shape, so the scan stays
+    bit-identical to the gated field too. None (the default) is the summed
+    field, byte-identical to the pre-gate scan."""
     field = 0.0
     cover_here = map_.cover_at(dest) if map_ is not None else None
-    for (epos, emove, erange, rw, e_ap, melee_capable, mw, ignores_cover) in rows:
+    if alloc is None:
+        for (e_uid, epos, emove, erange, rw, e_ap, melee_capable, mw,
+             ignores_cover) in rows:
+            d_ed = _dist(epos, dest)
+            if erange > 0.0 and d_ed <= emove + erange and rw > 0.0:
+                atten = 1.0 if ignores_cover else _cover_attenuation_for(
+                    me_unit, e_ap, cover_here)
+                field += rw * atten
+            if melee_capable:
+                needed = d_ed - emove - _THREAT_ENGAGE_RANGE
+                if needed <= 12.0 and mw > 0.0:
+                    field += mw * _p_2d6_at_least(needed)
+        return field
+    sums, terms = alloc
+    my_uid = getattr(me_unit, "uid", None)
+    for (e_uid, epos, emove, erange, rw, e_ap, melee_capable, mw,
+         ignores_cover) in rows:
         d_ed = _dist(epos, dest)
+        c = 0.0
         if erange > 0.0 and d_ed <= emove + erange and rw > 0.0:
             atten = 1.0 if ignores_cover else _cover_attenuation_for(
                 me_unit, e_ap, cover_here)
-            field += rw * atten
+            c += rw * atten
         if melee_capable:
             needed = d_ed - emove - _THREAT_ENGAGE_RANGE
             if needed <= 12.0 and mw > 0.0:
-                field += mw * _p_2d6_at_least(needed)
+                c += mw * _p_2d6_at_least(needed)
+        if c <= 0.0:
+            continue
+        others = sums.get(e_uid, 0.0) - terms.get((e_uid, my_uid), 0.0)
+        if others < 0.0:
+            others = 0.0
+        field += c * (c / (c + others))
     return field
 
 
@@ -3506,12 +3683,26 @@ def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr,
     move = float(effective_move(unit))
     health = max(1.0, unit.current_health)
     threat_rows = None                        # built lazily on first scan
+    alloc = None                              # SWEG_THREAT_ALLOC denominators
+    # Gate read ONCE per channel evaluation (never in the candidate loop) —
+    # the scan inherits the allocated field via the `alloc` argument so the
+    # KILL discount prices the same field every other consumer reads.
+    alloc_on = _threat_alloc_on(unit)
+
+    def _threat_ctx():
+        nonlocal threat_rows, alloc
+        if threat_rows is None:
+            threat_rows = _job_threat_precompute(unit, projectors)
+            if alloc_on:
+                alloc = _threat_alloc_denominators(unit, projectors, map_)
+        return threat_rows, alloc
+
     rok_s, hb_s, mok_s = _offense_eligibility(unit, friendly, battle, "stationary")
     best_v = value_offense(unit, unit.position, rok_s, hb_s, mok_s,
                            enemy_alive, map_, srr)
     if best_v > 0.0:
-        threat_rows = _job_threat_precompute(unit, projectors)
-        t_s = _job_threat_scan(threat_rows, unit, unit.position, map_)
+        rows_t, al = _threat_ctx()
+        t_s = _job_threat_scan(rows_t, unit, unit.position, map_, al)
         best_v *= (1.0 - min(1.0, t_s / health))
     best_dest = unit.position
     best_intent = _REPOSITION_INTENT          # stay and shoot / hold to charge
@@ -3525,9 +3716,8 @@ def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr,
         v_n = _job_offense_scan(rows, cell_n, rok_n, mok_n, my_range,
                                 melee_capable)
         if v_n > best_v:                       # raw bound: discount only shrinks
-            if threat_rows is None:
-                threat_rows = _job_threat_precompute(unit, projectors)
-            t_n = _job_threat_scan(threat_rows, unit, cell_n, map_)
+            rows_t, al = _threat_ctx()
+            t_n = _job_threat_scan(rows_t, unit, cell_n, map_, al)
             v_n *= (1.0 - min(1.0, t_n / health))
             if v_n > best_v:
                 best_v, best_dest, best_intent = v_n, cell_n, _ENGAGE_INTENT
@@ -3537,9 +3727,8 @@ def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr,
             v_a = _job_offense_scan(rows, cell_a, rok_a, mok_a, my_range,
                                     melee_capable)
             if v_a > best_v:                   # raw bound: discount only shrinks
-                if threat_rows is None:
-                    threat_rows = _job_threat_precompute(unit, projectors)
-                t_a = _job_threat_scan(threat_rows, unit, cell_a, map_)
+                rows_t, al = _threat_ctx()
+                t_a = _job_threat_scan(rows_t, unit, cell_a, map_, al)
                 v_a *= (1.0 - min(1.0, t_a / health))
                 if v_a > best_v:
                     best_v, best_dest, best_intent = v_a, cell_a, _ENGAGE_INTENT

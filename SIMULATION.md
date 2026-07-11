@@ -218,6 +218,28 @@ shooting resolution actually enforces, not by line-of-sight occlusion (a
 separate rules-fidelity question). Only charge scoring (consumer 1) is built;
 move-intent destinations and reserve placement (consumers 2-3) are not.
 
+The generic incoming threat field itself (`strategy._threat_field_at`, the
+form read by the value field's contestability, the trade evaluator's reply,
+and the job layer's SURVIVE channel and KILL-channel risk discount) has an
+optional ALLOCATION-AWARE form, gate `SWEG_THREAT_ALLOC` (default-OFF,
+byte-identical off). The summed field counts every enemy's full projected
+output against every cell, which the calibration instrument
+(`scripts/diag_threat_calibration.py`) measured as a six-to-three-hundred-fold
+predicted-to-realized bias — the saturation that made every risk-priced
+decision read "lethal everywhere". When the gate is on, each enemy's
+contribution is weighted by an attractiveness-proportional allocation: the
+enemy's expected wounds onto the measured unit at the candidate cell, divided
+by that same quantity plus the enemy's expected wounds onto every OTHER
+friendly unit at its current position (the same audited per-pair math,
+cached per board state). An enemy with one eligible target therefore sends
+everything at it — the summed field is reproduced exactly in the isolated
+case — while an enemy with several splits the priced risk across them. The
+realized fire-concentration curve backing the weight form is measured by
+`scripts/diag_fire_allocation.py`. Note the charge-scoring denominator above
+(`_charge_field_post_denominator`) builds its own per-pair loop and does not
+route through `_threat_field_at`, so `SWEG_THREAT_CHARGE` is unaffected by
+this gate.
+
 #### Value field and trade evaluator (move-intent layers, default-OFF)
 
 Two further decision-substrate layers (`docs/LAYERS_RESEARCH.md`) price the
