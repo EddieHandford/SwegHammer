@@ -4433,6 +4433,70 @@ def _job_channel_deny(unit, friendly, enemy, battle, objectives, our_oc,
     return best_v, best_dest, _REPOSITION_INTENT
 
 
+def _job_projected_contest_oc(obj, enemy_alive, my_alive, battle,
+                              enemy_army) -> int:
+    """PROJECTED eviction pressure on one marker (iteration 9 of the canary
+    loop, docs/DECISION_LEDGER.md "THE DENIAL PROGRAM + CANARY LOOP") — the
+    enemy objective control that can REACH the marker, not just the control
+    standing on it now. The old sufficiency test read the enemy's control AT
+    the marker — zero for a home marker — so every garrison was one thin
+    squad, and the ledger measured 0.7 to 1.0 home-marker losses per game
+    with 60 to 94 percent never retaken. Two rule-derived terms, no
+    constants:
+
+      ON-BOARD: the summed effective objective control of enemy models whose
+      NEXT Normal move can stand within the control radius (distance to the
+      centre <= control radius + that model's Move). The horizon is ONE enemy
+      turn on purpose: this assignment re-runs every player turn, so pressure
+      farther out is re-priced next turn before it can contest — projecting
+      the whole scoring horizon would count the entire board against every
+      marker and recreate the deployment-zone turtle (the guard). Contest
+      means STANDING in range (the control rule); charges do not add reach
+      here.
+
+      RESERVES: the summed effective objective control of the enemy's units
+      still in reserve, counted IN FULL when the marker's control disc has a
+      legal deep-strike arrival cell — arrival placement is the enemy's
+      choice, so any legally reachable marker is under the whole reserve
+      pool's threat. Legality is the more-than-nine-inch rule of
+      Battle._pick_arrival_point, sampled at the centre plus eight compass
+      rim points of the control disc against MY alive units (the same
+      eight-direction sampling convention as _job_survive_candidates). The
+      term self-extinguishes when there are no reserves, and self-regulates
+      once a garrison stands on the disc: its own presence denies the
+      arrival cells, so a garrisoned marker stops attracting further
+      reserve-driven depth."""
+    centre = (obj.x, obj.y)
+    projected = 0
+    for e in enemy_alive:
+        if _dist(e.position, centre) <= (obj.control_radius
+                                         + float(effective_move(e))):
+            projected += _effective_oc_value(e)
+    if battle is not None:
+        reserves = getattr(battle, "_reserves", None)
+        waiting = (reserves.get(getattr(enemy_army, "name", None), None)
+                   if reserves else None) or []
+        if waiting:
+            r = obj.control_radius
+            sample_cells = [centre] + [
+                (centre[0] + r * math.cos(math.pi * k / 4.0),
+                 centre[1] + r * math.sin(math.pi * k / 4.0))
+                for k in range(8)
+            ]
+            min_gap2 = 9.0 * 9.0
+            def _legal(cell):
+                for u in my_alive:
+                    dx = cell[0] - u.position[0]
+                    dy = cell[1] - u.position[1]
+                    if dx * dx + dy * dy <= min_gap2:
+                        return False
+                return True
+            if any(_legal(c) for c in sample_cells):
+                for ru in waiting:
+                    projected += _effective_oc_value(ru)
+    return projected
+
+
 def assign_jobs(army, enemy, map_, cur_round) -> None:
     """PART 2 — the deterministic greedy army-level HOLD assignment, run once per
     player turn BEFORE that army's movement (from the simulator's move loop).
@@ -4440,12 +4504,17 @@ def assign_jobs(army, enemy, map_, cur_round) -> None:
     committed to hold each marker. Zero random draws; iteration is sorted by uid.
 
     Greedy by priced HOLD value; STOP assigning holders to a marker once the
-    assigned objective control suffices to hold it (the pile-on fix). Units left
-    unassigned fall to their KILL or SURVIVE channel at move time. Commitment
-    persistence: a prior-round commitment is KEPT unless the unit's current HOLD
-    value there is STRICTLY dominated by its KILL or SURVIVE value (no hysteresis
-    constant — strict domination only). Off path: early-returns, leaving
-    job_assignments untouched (byte-identical)."""
+    assigned objective control exceeds the PROJECTED contest pressure there
+    (iteration 9: `_job_projected_contest_oc` — the enemy control that can
+    REACH the marker within one enemy turn plus the reserve pool where a
+    legal deep-strike arrival exists — replacing the enemy control standing
+    on the marker NOW, which read zero for home markers and capped every
+    garrison at one thin squad). Units left unassigned fall to their KILL or
+    SURVIVE channel at move time. Commitment persistence: a prior-round
+    commitment is KEPT unless the unit's current HOLD value there is STRICTLY
+    dominated by its KILL or SURVIVE value (no hysteresis constant — strict
+    domination only). Off path: early-returns, leaving job_assignments
+    untouched (byte-identical)."""
     if os.environ.get("SWEG_JOB_LAYER") != "1":
         return
     objectives = map_.objectives
@@ -4461,8 +4530,13 @@ def assign_jobs(army, enemy, map_, cur_round) -> None:
     projectors = _threat_projectors(enemy)
     our_oc = {id(o): _oc_on_objective(army.alive_units, o) for o in objectives}
     their_oc = {id(o): _oc_on_objective(enemy_alive, o) for o in objectives}
-    enemy_eff = {id(o): _effective_oc_on_objective(enemy_alive, o)
-                 for o in objectives}
+    # Garrison sufficiency (iteration 9): the greedy cap compares against the
+    # PROJECTED contest pressure, not the enemy control standing on the marker
+    # now — see _job_projected_contest_oc. A superset of the old reading (a
+    # model on the marker is trivially within one move of it), identical when
+    # no enemy can reach and no reserves threaten (fixture-pinned).
+    contest_oc = {id(o): _job_projected_contest_oc(
+        o, enemy_alive, army.alive_units, battle, enemy) for o in objectives}
     unit_on = {u.uid: {id(o) for o in objectives
                        if _dist(u.position, (o.x, o.y)) <= o.control_radius}
                for u in friendly_alive}
@@ -4554,8 +4628,8 @@ def assign_jobs(army, enemy, map_, cur_round) -> None:
     for v, u, o in cand:
         if u.uid in assigned_units:
             continue
-        if assigned_oc[id(o)] > enemy_eff[id(o)]:
-            continue                    # already sufficiently held — pile-on fix
+        if assigned_oc[id(o)] > contest_oc[id(o)]:
+            continue    # holds against the PROJECTED pressure — pile-on fix
         new_assign[u.uid] = id(o)
         assigned_units.add(u.uid)
         assigned_oc[id(o)] += _effective_oc_value(u)

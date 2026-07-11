@@ -33,6 +33,7 @@ from code.strategy import (
     _job_hold_value_and_threat_at,
     _job_layer_move_intent,
     _job_marker_transit_net,
+    _job_projected_contest_oc,
     _job_squad_health,
     _job_squad_value_vp,
     _job_squad_view,
@@ -1618,6 +1619,128 @@ class TemporalMarkerPricing(unittest.TestCase):
         surv = _job_transit_survival(
             u0, (marker.x, marker.y), 3, map_, rows, None, 10.0)
         self.assertAlmostEqual(surv, 29.0 / 30.0, delta=1e-9)
+
+
+def _reserve_evictor():
+    """A 250-point, objective-control-8 reserve unit for the garrison-depth
+    fixtures: two of them are the brief's five hundred points of enemy
+    reserves pending, projecting sixteen effective objective control onto
+    every reserve-contestable marker."""
+    return UnitProfile(
+        name="ReserveEvictor", health=6, damage=1, hit_probability=0.5,
+        ap=0, save=4, strength=4, toughness=5, move=6.0, oc=8,
+        attacks=3, weapon_damage_per_shot=1.0, range_inches=12,
+        leadership=7, faction="Generic", unit_keywords=("INFANTRY",),
+        melee_attacks=2, melee_damage_per_shot=1.0,
+        melee_hit_probability=0.5, melee_strength=4, melee_ap=0,
+        points_override=250,
+    )
+
+
+class GarrisonDepth(unittest.TestCase):
+    """Iteration-9 garrison sufficiency: the greedy pile-on cap compares the
+    assigned objective control against the PROJECTED contest pressure
+    (`_job_projected_contest_oc`) — enemy control that can reach the marker
+    within one enemy move, plus the whole reserve pool where a legal
+    deep-strike arrival cell exists — instead of the enemy control standing
+    on the marker now (zero for home markers, hence the measured
+    single-squad garrisons evicted 0.7 to 1.0 times per game)."""
+
+    def test_r_reserves_deepen_the_garrison(self):
+        """(r) A marker with five hundred points of enemy reserves pending
+        (two objective-control-8 units -> projected contest 16) deepens the
+        garrison beyond one squad: three OC-5 holders assign (5 <= 16,
+        10 <= 16, 15 <= 16 — candidates run out), where iteration-8's cap
+        (enemy control AT the marker = 0) stopped after one."""
+        marker = _Obj(30.0, 22.0)
+        map_ = _Map([marker])
+        holders = [_Unit(_cheap_holder(), (30.0, 12.0), uid=1 + i)
+                   for i in range(3)]           # 10 inches: reachable (6+6)
+        far_enemy = _Unit(_fragile_target(), (200.0, 200.0), uid=99)
+        friendly = _Army(holders)
+        enemy = _Army([far_enemy], is_a=False)
+        enemy.name = "Enemy"
+        reserves = [_Unit(_reserve_evictor(), (0.0, 0.0), uid=201),
+                    _Unit(_reserve_evictor(), (0.0, 0.0), uid=202)]
+        battle = _Battle(friendly, enemy, {"Enemy": reserves})
+        friendly._battle_ref = battle
+
+        projected = _job_projected_contest_oc(
+            marker, enemy.alive_units, friendly.alive_units, battle, enemy)
+        self.assertEqual(projected, 16)         # the pinned arithmetic
+
+        os.environ["SWEG_JOB_LAYER"] = "1"
+        try:
+            assign_jobs(friendly, enemy, map_, CUR_ROUND)
+            assigned = [uid for uid, oid in friendly.job_assignments.items()
+                        if oid == id(marker)]
+            self.assertEqual(len(assigned), 3)  # deepened, candidates ran out
+        finally:
+            del os.environ["SWEG_JOB_LAYER"]
+
+    def test_s_no_pressure_single_squad_unchanged(self):
+        """(s) No reserves and the only enemy three-plus turns away (38
+        inches, move 6 — outside the one-enemy-move projection horizon):
+        projected contest is exactly 0 and the garrison stays ONE squad —
+        identical to the iteration-8 behaviour (the guard: real pressure
+        deepens garrisons, absent pressure must not recreate the turtle)."""
+        marker = _Obj(30.0, 22.0)
+        map_ = _Map([marker])
+        holders = [_Unit(_cheap_holder(), (30.0, 12.0), uid=1 + i)
+                   for i in range(3)]
+        slow_enemy = _Unit(_fragile_target(), (30.0, 60.0), uid=99)  # 38 in
+        friendly = _Army(holders)
+        enemy = _Army([slow_enemy], is_a=False)
+        enemy.name = "Enemy"
+        battle = _Battle(friendly, enemy, {"Enemy": []})
+        friendly._battle_ref = battle
+
+        projected = _job_projected_contest_oc(
+            marker, enemy.alive_units, friendly.alive_units, battle, enemy)
+        self.assertEqual(projected, 0)
+
+        os.environ["SWEG_JOB_LAYER"] = "1"
+        try:
+            assign_jobs(friendly, enemy, map_, CUR_ROUND)
+            assigned = [uid for uid, oid in friendly.job_assignments.items()
+                        if oid == id(marker)]
+            self.assertEqual(len(assigned), 1)  # iteration-8 behaviour intact
+        finally:
+            del os.environ["SWEG_JOB_LAYER"]
+
+    def test_t_deepening_never_evicts_the_midfield_claim(self):
+        """(t) The deepened garrison's extra squad comes from the next-best
+        candidates — a third squad standing on the midfield marker keeps its
+        own assignment (the midfield disc is arrival-denied by that squad
+        standing on it, so the reserve pressure deepens only the home
+        garrison)."""
+        home = _Obj(30.0, 12.0)
+        mid = _Obj(30.0, 40.0)
+        map_ = _Map([home, mid])
+        # Ten inches from home: within assignment reach (move 6 + 6) AND far
+        # enough that the home disc keeps a legal arrival cell (the garrison
+        # standing closer would deny it — the projection's self-regulation,
+        # exercised by the s3/midfield half of this fixture).
+        s1 = _Unit(_cheap_holder(), (30.0, 2.0), uid=1)    # near home only
+        s2 = _Unit(_cheap_holder(), (30.0, 2.0), uid=2)
+        s3 = _Unit(_cheap_holder(), (30.0, 40.0), uid=3)   # ON the midfield
+        far_enemy = _Unit(_fragile_target(), (200.0, 200.0), uid=99)
+        friendly = _Army([s1, s2, s3])
+        enemy = _Army([far_enemy], is_a=False)
+        enemy.name = "Enemy"
+        reserves = [_Unit(_reserve_evictor(), (0.0, 0.0), uid=201),
+                    _Unit(_reserve_evictor(), (0.0, 0.0), uid=202)]
+        battle = _Battle(friendly, enemy, {"Enemy": reserves})
+        friendly._battle_ref = battle
+
+        os.environ["SWEG_JOB_LAYER"] = "1"
+        try:
+            assign_jobs(friendly, enemy, map_, CUR_ROUND)
+            self.assertEqual(friendly.job_assignments.get(s1.uid), id(home))
+            self.assertEqual(friendly.job_assignments.get(s2.uid), id(home))
+            self.assertEqual(friendly.job_assignments.get(s3.uid), id(mid))
+        finally:
+            del os.environ["SWEG_JOB_LAYER"]
 
 
 if __name__ == "__main__":
