@@ -284,12 +284,18 @@ composition with a per-unit argmax over three channels priced in one shared
 victory-point currency: **HOLD** (best `value_projection` over reachable
 markers — the real Take-and-Hold scoring rule, independent of the exchange
 rate), **KILL** (best `value_offense` over reachable firing/charging
-positions, priced through the exchange rate above), and **SURVIVE** (the
-unit's value-at-risk reduction from repositioning, also priced through the
-same exchange rate, so KILL and SURVIVE are currency-unified with each other
-by construction). An army-level greedy pass assigns HOLD commitments once per
-marker so labour divides instead of piling on. Not yet adopted; parked on the
-layer branch pending a re-screen with the measured rate.
+positions, priced through the exchange rate above and RISK-DISCOUNTED: each
+candidate cell's offense is multiplied by the same survival factor the HOLD
+channel's `value_projection` applies to its marker value — one minus the
+fraction of the unit's remaining wounds the incoming threat field at that
+cell puts at risk — so the cross-channel argmax compares consistently priced
+quantities instead of a risk-discounted HOLD against a risk-blind KILL), and
+**SURVIVE** (the unit's value-at-risk reduction from repositioning, also
+priced through the same exchange rate, so KILL and SURVIVE are
+currency-unified with each other by construction). An army-level greedy pass
+assigns HOLD commitments once per marker so labour divides instead of piling
+on. Not yet adopted; parked on the layer branch pending a re-screen with the
+measured rate and the risk discount.
 
 ### Activation Sequence
 

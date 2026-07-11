@@ -3172,9 +3172,13 @@ def value_offense(me_unit, dest, ranged_ok, heavy_bonus, melee_ok,
 # 2026-07-11 from 18,480 logged games — NO new constants added by this layer):
 #   HOLD    = best V(p) over reachable markers (value_projection, marginal-holder
 #             logic: prospective objective-control counts).
-#   KILL    = best offense value over reachable firing/charging positions (the
-#             iteration-2 value_offense machinery: best-single-target, move-class
-#             conditional, full advance-shoot/advance-charge exemption web). For a
+#   KILL    = best RISK-DISCOUNTED offense value over reachable firing/charging
+#             positions (the iteration-2 value_offense machinery: best-single-
+#             target, move-class conditional, full advance-shoot/advance-charge
+#             exemption web), each candidate multiplied by the SAME survival
+#             factor HOLD's value_projection applies (1 - frac_at_risk at the
+#             cell) so the cross-channel argmax compares like with like — see
+#             _job_channel_kill's docstring for the consistency argument. For a
 #             melee unit this inherently prices charges via the 2D6 reach gradient.
 #   SURVIVE = the unit's value-at-risk reduction: frac-at-risk at the current cell
 #             minus the best achievable frac-at-risk over reachable retreat cells,
@@ -3388,9 +3392,63 @@ def _job_offense_scan(rows, dest, ranged_ok, melee_ok, my_range, melee_capable):
     return best
 
 
-def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr):
-    """Best KILL value over reachable firing/charging positions via value_offense.
-    Returns (value, dest, intent). Candidate cells:
+def _job_threat_precompute(me_unit, projectors):
+    """Per-activation cache of the DESTINATION-INVARIANT halves of
+    `_threat_field_at` for the KILL channel's risk discount — the incoming
+    mirror of `_job_kill_precompute`'s outgoing cache, same pattern, same
+    invariance argument: for a fixed activating unit, each enemy projector's
+    ranged expected wounds onto me (`Battle._ranged_expected_wounds(ep, me)`)
+    and melee expected wounds onto me (`_kill_potential_wounds(ep, my
+    profile)`) do not depend on which candidate cell is being priced — only
+    the distance gates, the 2D6 reach probability, and the destination's own
+    cover lookup do. Building these ONCE per `_job_channel_kill` call and
+    sharing them across all candidate threat evaluations keeps the risk
+    discount's added cost to a distance-only scan per candidate.
+
+    Returns rows of (enemy_position, enemy_move, enemy_range, ranged_wounds,
+    enemy_ap, melee_capable, melee_wounds, ignores_cover), in `projectors`
+    order (preserved so `_job_threat_scan`'s float accumulation order matches
+    `_threat_field_at` exactly)."""
+    from .simulator import Battle          # lazy: avoid strategy<->simulator cycle
+    me_profile = _score_profile(me_unit)
+    rows = []
+    for (e, ep, epos, emove, erange, melee_capable, ignores_cover) in projectors:
+        rw = Battle._ranged_expected_wounds(ep, me_unit) if erange > 0.0 else 0.0
+        mw = _kill_potential_wounds(ep, me_profile) if melee_capable else 0.0
+        rows.append((epos, emove, erange, rw, getattr(ep, "ap", 0) or 0,
+                     melee_capable, mw, ignores_cover))
+    return rows
+
+
+def _job_threat_scan(rows, me_unit, dest, map_):
+    """Fast incoming-threat evaluation T(dest) for one candidate cell, reusing
+    the per-activation cache from `_job_threat_precompute` instead of
+    recomputing the per-enemy expected-wounds pairs at every candidate. Only
+    the destination-dependent pieces are computed here — the reach distance
+    gates, the real 2D6 melee-reach probability, and the ONE cover lookup at
+    the cell (hoisted exactly as `_threat_field_at` hoists it via
+    `_cover_attenuation_for`) — with the same per-enemy term arithmetic and
+    accumulation order as `_threat_field_at`, so the result is bit-identical
+    to calling _threat_field_at(me_unit, projectors, dest, map_) directly."""
+    field = 0.0
+    cover_here = map_.cover_at(dest) if map_ is not None else None
+    for (epos, emove, erange, rw, e_ap, melee_capable, mw, ignores_cover) in rows:
+        d_ed = _dist(epos, dest)
+        if erange > 0.0 and d_ed <= emove + erange and rw > 0.0:
+            atten = 1.0 if ignores_cover else _cover_attenuation_for(
+                me_unit, e_ap, cover_here)
+            field += rw * atten
+        if melee_capable:
+            needed = d_ed - emove - _THREAT_ENGAGE_RANGE
+            if needed <= 12.0 and mw > 0.0:
+                field += mw * _p_2d6_at_least(needed)
+    return field
+
+
+def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr,
+                      projectors):
+    """Best RISK-DISCOUNTED KILL value over reachable firing/charging positions
+    via value_offense. Returns (value, dest, intent). Candidate cells:
       * stationary (fire from the current cell — Heavy +1 applies, melee charges
         from here priced by the 2D6 reach gradient),
       * a Normal move toward each enemy (capped at the Normal move so the mover
@@ -3398,6 +3456,28 @@ def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr):
       * an Advance toward each enemy, but ONLY when a shoot-after-Advance or
         charge-after-Advance exemption applies (the full eligibility web via
         _offense_eligibility).
+
+    RISK DISCOUNT (consistency pass — docs/DECISION_LEDGER.md "JOB LAYER +
+    MEASURED EXCHANGE RATE" failure entry): the exchange-rate reprice left the
+    KILL channel RISK-BLIND — HOLD prices its marker through a survival factor
+    (value_projection's contestability = 1 - frac_at_risk) while KILL priced
+    raw offense with no threat term, so the cross-channel argmax systematically
+    preferred the risk-blind channel and every kill-job unit stood in its
+    maximum-offense cell regardless of exposure. Each candidate's offense is
+    therefore multiplied by the IDENTICAL survival factor HOLD already uses:
+
+        discounted(p) = offense(p) * (1 - frac_at_risk(p))
+        frac_at_risk(p) = min(1, T(p) / max(1, current wounds))
+
+    with T(p) the same incoming threat field `_threat_field_at` computes (via
+    the `_job_threat_precompute`/`_job_threat_scan` cache below — bit-identical
+    arithmetic, same clamps as value_projection's line). Applied to ALL
+    candidates INCLUDING the stationary one (standing still in a lethal cell
+    must price the risk too). The argmax runs on the DISCOUNTED values, and the
+    returned channel value (consumed by the cross-channel argmax and the
+    assignment pass's domination check) is the discounted one. Not a knob: no
+    new constant, the exact discount shape the HOLD channel already applies.
+
     Never consults classify(): melee output is priced by value_offense's reach
     arithmetic, ranged by its range/cover arithmetic. When nothing is killable
     this turn the channel prices ZERO and returns the current cell — the
@@ -3410,13 +3490,29 @@ def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr):
     `value_offense` fresh per candidate — see `_job_kill_precompute`'s
     docstring for the invariance argument and the bit-identity proof. The
     stationary candidate still calls `value_offense` directly (heavy_bonus can
-    be True there, and it only runs once, so caching buys nothing)."""
+    be True there, and it only runs once, so caching buys nothing). The risk
+    discount's threat evaluations share the `_job_threat_precompute` cache the
+    same way — built LAZILY on the first candidate that actually needs a
+    threat scan, so a unit whose every candidate prices zero raw offense (the
+    common out-of-range case that routes to the value fallback) pays nothing —
+    and a candidate's threat is only evaluated when its RAW offense exceeds
+    the current best DISCOUNTED value: since discounting can only shrink a
+    value, a candidate whose raw offense already fails the strict argmax
+    comparison can never win after discounting, so skipping its threat scan is
+    result-identical and keeps the added cost near zero for dominated
+    candidates."""
     if not enemy_alive:
         return 0.0, unit.position, _REPOSITION_INTENT
     move = float(effective_move(unit))
+    health = max(1.0, unit.current_health)
+    threat_rows = None                        # built lazily on first scan
     rok_s, hb_s, mok_s = _offense_eligibility(unit, friendly, battle, "stationary")
     best_v = value_offense(unit, unit.position, rok_s, hb_s, mok_s,
                            enemy_alive, map_, srr)
+    if best_v > 0.0:
+        threat_rows = _job_threat_precompute(unit, projectors)
+        t_s = _job_threat_scan(threat_rows, unit, unit.position, map_)
+        best_v *= (1.0 - min(1.0, t_s / health))
     best_dest = unit.position
     best_intent = _REPOSITION_INTENT          # stay and shoot / hold to charge
     rok_n, hb_n, mok_n = _offense_eligibility(unit, friendly, battle, "normal")
@@ -3428,15 +3524,25 @@ def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr):
         cell_n = _job_step_toward(unit.position, e.position, move, map_)
         v_n = _job_offense_scan(rows, cell_n, rok_n, mok_n, my_range,
                                 melee_capable)
-        if v_n > best_v:
-            best_v, best_dest, best_intent = v_n, cell_n, _ENGAGE_INTENT
+        if v_n > best_v:                       # raw bound: discount only shrinks
+            if threat_rows is None:
+                threat_rows = _job_threat_precompute(unit, projectors)
+            t_n = _job_threat_scan(threat_rows, unit, cell_n, map_)
+            v_n *= (1.0 - min(1.0, t_n / health))
+            if v_n > best_v:
+                best_v, best_dest, best_intent = v_n, cell_n, _ENGAGE_INTENT
         if adv_ok:
             cell_a = _job_step_toward(unit.position, e.position,
                                       move + _OFFENSE_MAX_ADVANCE, map_)
             v_a = _job_offense_scan(rows, cell_a, rok_a, mok_a, my_range,
                                     melee_capable)
-            if v_a > best_v:
-                best_v, best_dest, best_intent = v_a, cell_a, _ENGAGE_INTENT
+            if v_a > best_v:                   # raw bound: discount only shrinks
+                if threat_rows is None:
+                    threat_rows = _job_threat_precompute(unit, projectors)
+                t_a = _job_threat_scan(threat_rows, unit, cell_a, map_)
+                v_a *= (1.0 - min(1.0, t_a / health))
+                if v_a > best_v:
+                    best_v, best_dest, best_intent = v_a, cell_a, _ENGAGE_INTENT
     return best_v, best_dest, best_intent
 
 
@@ -3555,7 +3661,8 @@ def assign_jobs(army, enemy, map_, cur_round) -> None:
         if obj is None or not _reach(u, obj):
             continue
         hv = _hold_v(u, obj)
-        kv, _kd, _ki = _job_channel_kill(u, army, battle, enemy_alive, map_, srr)
+        kv, _kd, _ki = _job_channel_kill(u, army, battle, enemy_alive, map_,
+                                         srr, projectors)
         sv, _sd = _job_channel_survive(u, projectors, map_, srr)
         if max(kv, sv) > hv:
             continue                    # dominated — release the commitment
@@ -3638,7 +3745,7 @@ def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
                        if _dist(unit.position, (o.x, o.y)) <= o.control_radius}
 
     kill_v, kill_dest, kill_intent = _job_channel_kill(
-        unit, friendly, battle, enemy_alive, map_, srr)
+        unit, friendly, battle, enemy_alive, map_, srr, projectors)
     survive_v, survive_dest = _job_channel_survive(unit, projectors, map_, srr)
 
     # HOLD is available only to a unit the army-level pass COMMITTED to a marker

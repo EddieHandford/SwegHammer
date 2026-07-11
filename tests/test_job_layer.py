@@ -25,10 +25,12 @@ from code.strategy import (
     _job_channel_kill,
     _job_channel_survive,
     _job_layer_move_intent,
+    _threat_field_at,
     _threat_projectors,
     _value_scoring_rounds_remaining,
     assign_jobs,
     classify,
+    value_offense,
 )
 from code.units import UnitProfile
 
@@ -243,6 +245,52 @@ def _modest_prize():
     )
 
 
+def _flanker():
+    """A 12"-gun skirmisher with no melee — used by the risk-discount fixture
+    (j): out of range standing still, it must pick a move cell, and two cells
+    offer IDENTICAL raw offense against identical prey."""
+    return UnitProfile(
+        name="Flanker", health=6, damage=1, hit_probability=0.5,
+        ap=0, save=4, strength=4, toughness=4, move=6.0, oc=1,
+        attacks=6, weapon_damage_per_shot=1.0, range_inches=12,
+        leadership=7, faction="Generic", unit_keywords=("INFANTRY",),
+        melee_attacks=0, melee_damage_per_shot=0.0,
+        melee_hit_probability=0.0, melee_strength=3, melee_ap=0,
+        points_override=80,
+    )
+
+
+def _inert_prey():
+    """A harmless, identical target pair for fixture (j): zero guns, zero
+    melee, so it projects NO threat and only exists to be shot. Two of these
+    at mirrored positions give two candidate cells the SAME raw offense."""
+    return UnitProfile(
+        name="InertPrey", health=4, damage=1, hit_probability=0.0,
+        ap=0, save=4, strength=3, toughness=4, move=6.0, oc=1,
+        attacks=0, weapon_damage_per_shot=0.0, range_inches=0,
+        leadership=7, faction="Generic", unit_keywords=("INFANTRY",),
+        melee_attacks=0, melee_damage_per_shot=0.0,
+        melee_hit_probability=0.0, melee_strength=3, melee_ap=0,
+        points_override=100,
+    )
+
+
+def _guard_brute():
+    """A melee-only T8 bodyguard for fixture (j): the Flanker's S4 gun cannot
+    wound it better than 6s (the no-wasted-fire exclusion prices it at zero as
+    a TARGET), but its melee reach projects heavy threat over the cells near
+    the prey it guards — the asymmetry the risk discount must price."""
+    return UnitProfile(
+        name="GuardBrute", health=12, damage=1, hit_probability=0.0,
+        ap=0, save=3, strength=8, toughness=8, move=6.0, oc=2,
+        attacks=0, weapon_damage_per_shot=0.0, range_inches=0,
+        leadership=7, faction="Generic", unit_keywords=("MONSTER",),
+        melee_attacks=8, melee_damage_per_shot=2.0,
+        melee_hit_probability=0.5, melee_strength=8, melee_ap=-2,
+        points_override=200,
+    )
+
+
 CUR_ROUND = 1
 SRR = _value_scoring_rounds_remaining(CUR_ROUND)
 
@@ -286,7 +334,7 @@ class ChannelDerivation(unittest.TestCase):
             u, u.profile.oc, [marker], {id(marker): 0}, {id(marker): 0},
             set(), proj, None, SRR, True, ())
         kill_v, _d, _i = _job_channel_kill(u, friendly, None, enemy.alive_units,
-                                           None, SRR)
+                                           None, SRR, proj)
         survive_v, _sd = _job_channel_survive(u, proj, None, SRR)
         self.assertIsNone(hold_obj)               # nothing holdable in reach
         self.assertEqual(hold_v, 0.0)
@@ -312,7 +360,7 @@ class ChannelDerivation(unittest.TestCase):
         map_ = _Map([])                           # no markers -> HOLD unavailable
         proj = _threat_projectors(enemy)
         kill_v, _d, _i = _job_channel_kill(u, friendly, None, enemy.alive_units,
-                                           None, SRR)
+                                           None, SRR, proj)
         survive_v, sdest = _job_channel_survive(u, proj, None, SRR)
         self.assertGreater(survive_v, 0.0)
         self.assertGreater(survive_v, kill_v)     # can't reach the gun -> KILL ~ 0
@@ -337,8 +385,9 @@ class ChannelDerivation(unittest.TestCase):
         friendly = _Army([u])
         enemy = _Army([prey], is_a=False)
         map_ = _Map([])
+        proj = _threat_projectors(enemy)
         kill_v, kdest, kintent = _job_channel_kill(
-            u, friendly, None, enemy.alive_units, None, SRR)
+            u, friendly, None, enemy.alive_units, None, SRR, proj)
         self.assertGreater(kill_v, 0.0)           # melee arithmetic priced it
 
         # Assert the label is not read on the job path: make classify() explode.
@@ -418,7 +467,7 @@ class ZeroValueRouting(unittest.TestCase):
         # Zero-priced channels: no cell within Move (+ no Advance exemption)
         # reaches the 24" gun; the melee-only brute projects no threat at 40".
         kill_v, _kd, _ki = _job_channel_kill(
-            u, friendly, None, enemy.alive_units, None, SRR)
+            u, friendly, None, enemy.alive_units, None, SRR, proj)
         survive_v, _sd = _job_channel_survive(u, proj, None, SRR)
         self.assertEqual(kill_v, 0.0)
         self.assertEqual(survive_v, 0.0)
@@ -450,7 +499,7 @@ class ZeroValueRouting(unittest.TestCase):
         map_ = _Map([marker])
         proj = _threat_projectors(enemy)
         kill_v, _kd, _ki = _job_channel_kill(
-            u, friendly, None, enemy.alive_units, None, SRR)
+            u, friendly, None, enemy.alive_units, None, SRR, proj)
         survive_v, _sd = _job_channel_survive(u, proj, None, SRR)
         self.assertEqual(kill_v, 0.0)             # nothing killable this turn
         self.assertEqual(survive_v, 0.0)          # nothing threatens it either
@@ -506,6 +555,19 @@ class ExchangeRateReprice(unittest.TestCase):
               vp_per_wound_NEW = 150.0 * 0.015248 = 2.2872
               kill_v_NEW = 1.333333... * 2.2872 = 3.0496
 
+        RISK DISCOUNT on KILL (the consistency pass — the channel value is the
+        raw offense times the SAME survival factor HOLD's value_projection
+        applies, 1 - frac_at_risk at the chosen cell; stationary is the argmax
+        cell here, the farthest candidate from the Prize hence least
+        threatened):
+          incoming threat at (10,10): the Prize's gun (1 shot * 0.5 hit *
+          wound_probability(4,3)=2/3 * save-fail(save=5,ap=0)=2/3 * 1 dmg
+          = 2/9) plus its melee reach (kill-potential 1*0.5*2/3*2/3 = 2/9,
+          charge needed 10-6-1 = 3.0" -> P(2D6>=3) = 35/36):
+              T = 2/9 + (2/9)(35/36) = 71/162 = 0.438271...
+              frac_at_risk = T / wounds(5) = 71/810 = 0.087654...
+              kill_v = 3.0496 * (739/810) = 2.782289382716049
+
         HOLD (exchange-rate-INDEPENDENT — value_projection's own real
         Take-and-Hold rule, unaffected by this reprice):
           marker_vp = vp_per_round(5.0) * srr(5) = 25.0; own OC 4 beats the
@@ -516,10 +578,10 @@ class ExchangeRateReprice(unittest.TestCase):
           threat-field arithmetic is untouched by this change and is not
           re-derived here): hold_v = 22.808641975308642.
 
-        28.571 (kill_v_OLD) > 22.809 (hold_v) > 3.050 (kill_v_NEW): the OLD
-        asserted rate would have priced this MODEST kill ABOVE the marker's
-        real value (unit derives KILL); the MEASURED rate prices it well
-        BELOW (unit derives HOLD instead) — the reprice's named signature
+        28.571 (kill_v_OLD, raw) > 22.809 (hold_v) > 2.782 (kill_v_NEW): the
+        OLD asserted rate would have priced this MODEST kill ABOVE the
+        marker's real value (unit derives KILL); the MEASURED rate prices it
+        well BELOW (unit derives HOLD instead) — the reprice's named signature
         behaviour (docs/DECISION_LEDGER.md: "the HOLD share rises from ~2
         percent to material double digits")."""
         os.environ["SWEG_JOB_LAYER"] = "1"
@@ -536,17 +598,25 @@ class ExchangeRateReprice(unittest.TestCase):
                 u, u.profile.oc, [marker], {id(marker): 0}, {id(marker): 0},
                 set(), proj, map_, SRR, True, ())
             kill_v, _kd, _ki = _job_channel_kill(
-                u, friendly, None, enemy.alive_units, map_, SRR)
+                u, friendly, None, enemy.alive_units, map_, SRR, proj)
             survive_v, _sd = _job_channel_survive(u, proj, map_, SRR)
 
             # Pin the hand-computed numbers above against the production code.
+            # The RAW offense (pre-discount) is the reprice's own number; the
+            # channel value carries the risk discount on top.
+            raw_offense = value_offense(
+                u, u.position, True, False, True, enemy.alive_units, map_, SRR)
             self.assertAlmostEqual(hold_v, 22.808641975308642, delta=1e-9)
-            self.assertAlmostEqual(kill_v, 3.0496, delta=1e-9)
+            self.assertAlmostEqual(raw_offense, 3.0496, delta=1e-9)
+            self.assertAlmostEqual(kill_v, 3.0496 * (739.0 / 810.0),
+                                   delta=1e-9)
 
-            # Reconstruct the OLD (retired) rate from the NEW one — same ew,
-            # same points-per-wound, only the multiplicative constant differs
-            # — to show what the pre-reprice code would have priced.
-            kill_v_old_rate = kill_v * ((5.0 * SRR) / 175.0) / 0.015248
+            # Reconstruct the OLD (retired) rate from the RAW offense — same
+            # ew, same points-per-wound, only the multiplicative constant
+            # differs — to show what the pre-reprice code would have priced
+            # (the pre-reprice code was also risk-blind, so the raw value is
+            # the honest reconstruction).
+            kill_v_old_rate = raw_offense * ((5.0 * SRR) / 175.0) / 0.015248
             self.assertAlmostEqual(kill_v_old_rate, 28.571428571428573,
                                    delta=1e-6)
 
@@ -567,6 +637,161 @@ class ExchangeRateReprice(unittest.TestCase):
             self.assertEqual(intent, "CAPTURE")
         finally:
             del os.environ["SWEG_JOB_LAYER"]
+
+
+class KillChannelRiskDiscount(unittest.TestCase):
+    """The KILL channel's risk discount (consistency pass — docs/
+    DECISION_LEDGER.md "JOB LAYER + MEASURED EXCHANGE RATE" failure entry):
+    each candidate cell's offense is multiplied by the SAME survival factor
+    HOLD's value_projection applies to its marker value,
+
+        discounted(p) = offense(p) * (1 - min(1, T(p) / max(1, wounds))),
+
+    so the cross-channel argmax compares like with like instead of a
+    risk-discounted HOLD against risk-blind KILL. These two fixtures pin the
+    discount's two signature behaviours: equal-offense cells rank by safety
+    (j), and an all-lethal offense collapses the channel to zero so the
+    routing falls elsewhere (k)."""
+
+    def test_j_equal_offense_cells_rank_by_safety(self):
+        """(j) Two candidate cells with EQUAL raw offense — one under heavy
+        melee threat, one safe — the safe cell must win the KILL argmax.
+
+        HAND-COMPUTATION (round 1, SRR=5). Flanker at (30,20), move 6, gun
+        12". Identical InertPrey at (46,20) [uid 12, east] and (14,20)
+        [uid 13, west], both 16" away — OUT of range standing still, IN range
+        (10") from the Normal-move cell toward either: east cell (36,20),
+        west cell (24,20). A GuardBrute [uid 11] at (50,20) guards the east
+        prey; its T8 makes it worthless as a target for the S4 gun (wound
+        fraction 1/6, the no-wasted-fire exclusion prices it at zero) so it
+        contributes ONLY threat.
+
+        RAW OFFENSE at either cell (identical by symmetry):
+          ew = attacks(6) * hit(0.5) * wound_probability(4,4)=1/2
+               * (1 - save_probability(4,0)) = 1/2 * dmg(1.0)
+             = 6 * 0.5 * 0.5 * 0.5 = 0.75, capped at prey health 4 -> 0.75
+          vp_per_wound = (100/4) * 0.015248 = 0.3812
+          O = 0.75 * 0.3812 = 0.2859        (both cells, exactly)
+
+        THREAT at the east cell (36,20): the brute at (50,20) is 14" away;
+        charge needed = 14 - move(6) - engage(1.0) = 7.0 -> P(2D6>=7) = 21/36.
+          melee kill-potential = 8 attacks * 0.5 hit
+              * wound_probability(8,4) = 5/6
+              * (1 - save_probability(4,-2)) = 5/6 * dmg 2
+              = 4 * (5/6) * (5/6) * 2 = 50/9
+          T = (50/9) * (21/36) = 175/54 = 3.240740...
+          frac_at_risk = min(1, T / wounds(6)) = 175/324 = 0.540123...
+          discounted east = 0.2859 * (149/324) = 0.131478...
+        THREAT at the west cell (24,20): brute 26" away, charge needed
+        19 > 12 -> unreachable -> T = 0 -> discounted west = 0.2859 (raw).
+
+        PRE-FIX the east cell won on ITERATION ORDER (uid 11 brute's step
+        cell (36,20) reaches raw 0.2859 first; the west cell's equal raw
+        cannot strictly beat it) — the unit walked into the brute's charge
+        reach for zero gain. The discount makes the safe cell strictly
+        better: 0.2859 > 0.131478."""
+        u = _Unit(_flanker(), (30.0, 20.0), uid=1)
+        brute = _Unit(_guard_brute(), (50.0, 20.0), uid=11)
+        prey_e = _Unit(_inert_prey(), (46.0, 20.0), uid=12)
+        prey_w = _Unit(_inert_prey(), (14.0, 20.0), uid=13)
+        friendly = _Army([u])
+        enemy = _Army([brute, prey_e, prey_w], is_a=False)
+        map_ = _Map([])
+        proj = _threat_projectors(enemy)
+
+        # The two cells' RAW offense is identical (pinned to the hand number).
+        raw_e = value_offense(u, (36.0, 20.0), True, False, True,
+                              enemy.alive_units, map_, SRR)
+        raw_w = value_offense(u, (24.0, 20.0), True, False, True,
+                              enemy.alive_units, map_, SRR)
+        self.assertAlmostEqual(raw_e, 0.2859, delta=1e-9)
+        self.assertAlmostEqual(raw_w, 0.2859, delta=1e-9)
+
+        # Threat asymmetry (pinned): east cell under the brute's reach.
+        t_e = _threat_field_at(u, proj, (36.0, 20.0), map_)
+        t_w = _threat_field_at(u, proj, (24.0, 20.0), map_)
+        self.assertAlmostEqual(t_e, 175.0 / 54.0, delta=1e-9)
+        self.assertEqual(t_w, 0.0)
+
+        # The channel picks the SAFE cell at its undiscounted value.
+        kill_v, kill_dest, kill_intent = _job_channel_kill(
+            u, friendly, None, enemy.alive_units, map_, SRR, proj)
+        self.assertEqual(kill_dest, (24.0, 20.0))     # west (safe), not east
+        self.assertEqual(kill_intent, "ENGAGE")
+        self.assertAlmostEqual(kill_v, 0.2859, delta=1e-9)
+        # ... and the east cell's discounted value is the hand number.
+        self.assertAlmostEqual(raw_e * (149.0 / 324.0), 0.13147870370370368,
+                               delta=1e-9)
+
+        # End to end: the KILL channel wins the argmax (nothing threatens the
+        # current cell, so SURVIVE prices zero) and the move goes west.
+        dest, intent = _job_layer_move_intent(
+            u, friendly, enemy, map_, None, CUR_ROUND)
+        self.assertEqual(intent, "ENGAGE")
+        self.assertEqual(dest, (24.0, 20.0))
+
+    def test_k_all_lethal_offense_collapses_kill_to_zero(self):
+        """(k) A kill-job unit whose EVERY offense cell is lethal (frac_at_risk
+        == 1 everywhere it could fire from) must see its KILL value collapse
+        to zero so the routing falls to another channel or the value fallback.
+
+        HAND-COMPUTATION (round 1, SRR=5). GunlineHeavy at (10,20) (8 wounds,
+        move 6, 24" Heavy gun). A Softie prey at (28,20) [18", in range] and a
+        Sniper battery at (28,24) guarding it. The battery's incoming fire is
+
+          12 shots * 0.667 hit * wound_probability(10,5) = 5/6 (S >= 2T)
+          * (1 - save_probability(3,-3)) = 5/6 * dmg 3 = 16.675 expected
+          wounds >= the unit's 8 -> frac_at_risk = 1 at EVERY cell within its
+          reach (move 6 + range 24 = 30").
+
+        Geometry check: the battery is 18.4" from the unit, 12.7" from the
+        Normal cell toward the prey (16,20) — every kill candidate AND every
+        SURVIVE retreat cell (max 18.4 + 6 = 24.4") sits inside the 30"
+        reach, so frac_at_risk = 1 everywhere:
+          KILL    = raw * (1 - 1) = 0.0 exactly, at every candidate
+          SURVIVE = (frac_cur 1 - best_frac 1) * value = 0.0
+
+        The RAW stationary offense the discount collapses (best single
+        target = the battery itself: Heavy-bonus hit 2/3, wound_probability
+        (6,5) = 2/3, save-fail(3,-1) = 1/2, dmg 2 -> 6*(2/3)*(2/3)*(1/2)*2
+        = 8/3 wounds, times (150/6)*0.015248 = 0.3812/wound):
+          raw = (8/3) * 0.3812 = 1.016533...
+
+        Pre-fix the unit stood at its maximum-offense cell and traded 8
+        wounds for one shooting phase; post-fix the zero-value routing sends
+        it to the safe marker at (54,42) (31.6" from the battery, outside
+        the 30" reach) through the value-field argmax."""
+        u = _Unit(_heavy_gunline(), (10.0, 20.0), uid=1)
+        prey = _Unit(_fragile_target(), (28.0, 20.0), uid=21)
+        battery = _Unit(_long_range_gun(), (28.0, 24.0), uid=22)
+        marker = _Obj(54.0, 42.0)                 # outside the battery's reach
+        friendly = _Army([u])
+        enemy = _Army([prey, battery], is_a=False)
+        map_ = _Map([marker])
+        proj = _threat_projectors(enemy)
+
+        # The raw offense the discount collapses (pinned to the hand number).
+        raw_stationary = value_offense(u, u.position, True, True, True,
+                                       enemy.alive_units, map_, SRR)
+        self.assertAlmostEqual(raw_stationary, (8.0 / 3.0) * 0.3812,
+                               delta=1e-9)
+        self.assertGreater(raw_stationary, 1.0)   # a real kill was available
+
+        # KILL collapses to exactly zero; SURVIVE has no escape either.
+        kill_v, kill_dest, _ki = _job_channel_kill(
+            u, friendly, None, enemy.alive_units, map_, SRR, proj)
+        survive_v, _sd = _job_channel_survive(u, proj, map_, SRR)
+        self.assertEqual(kill_v, 0.0)
+        self.assertEqual(survive_v, 0.0)
+
+        # Zero-value routing wins the argmax: CAPTURE toward the safe marker,
+        # never a stand-and-shoot in the lethal cell.
+        dest, intent = _job_layer_move_intent(
+            u, friendly, enemy, map_, None, CUR_ROUND)
+        self.assertEqual(intent, "CAPTURE")
+        self.assertLessEqual(
+            ((dest[0] - marker.x) ** 2 + (dest[1] - marker.y) ** 2) ** 0.5,
+            marker.control_radius + 1e-9)
 
 
 if __name__ == "__main__":
