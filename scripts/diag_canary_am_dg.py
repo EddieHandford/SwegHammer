@@ -179,6 +179,16 @@ class CanaryObserver:
         # Death Guard mirror.
         self.dg_charges_made = 0
 
+        # Victory-point ledger (iteration 7 of the canary loop): the
+        # last-written objective-control reading per (round, marker) for ALL
+        # markers (the home-marker dict above filters to the home half), and
+        # the final scores read off the Battle after the run. THE QUESTION
+        # THE LEDGER ANSWERS: when Astra Militarum castles correctly (holds
+        # two markers and shoots), does it lose a DETERMINISTIC two-versus-
+        # three primary race that its shooting cannot change?
+        self.all_marker_status: dict = {}   # (round, obj_name) -> (a_oc, b_oc)
+        self.vp_ledger: dict = {}           # filled by finalize_vp_ledger()
+
     # -- setup ---------------------------------------------------------- #
 
     def _am_is_a(self) -> bool:
@@ -278,6 +288,10 @@ class CanaryObserver:
             self.am_suicide_charger_uids.add(attacker.uid)
 
     def _on_obj_scored(self, ev) -> None:
+        # Victory-point ledger: record EVERY marker's last in-round reading
+        # (same last-write-wins convention as the home-marker dict below).
+        self.all_marker_status[(self.cur_round, ev.objective_name)] = (
+            ev.a_oc, ev.b_oc)
         if ev.objective_name not in self.home_marker_names:
             return
         # Last write per (round, marker) wins — under the default per-player
@@ -320,6 +334,65 @@ class CanaryObserver:
                             self.home_marker_am_loss_reentries += 1
                 if decisive is not None:
                     last_decisive = decisive
+
+    def finalize_vp_ledger(self) -> None:
+        """Read the final scores off the finished Battle and reduce the
+        all-marker objective-control timeline to markers-held-per-scoring-
+        round. Direct attribute access on the Battle internals on purpose
+        (fail loud if the scoring fields are ever renamed): the running
+        `_a_vp`/`_b_vp` totals are UNCAPPED, the secondary and challenger
+        components live in `_a_secondary_vp`/`_a_challenger_vp`, and the
+        capped standing (the winner-deciding view) comes from
+        `_capped_vp_pair`. Primary = total minus secondary minus challenger,
+        exactly as `_capped_vp_pair` derives it."""
+        b = self.battle
+        a_total = b._a_vp
+        b_total = b._b_vp
+        a_sec = b._a_secondary_vp
+        b_sec = b._b_secondary_vp
+        a_chal = b._a_challenger_vp
+        b_chal = b._b_challenger_vp
+        a_primary = a_total - a_sec - a_chal
+        b_primary = b_total - b_sec - b_chal
+        a_capped, b_capped = b._capped_vp_pair()
+        am_is_a = self._am_is_a()
+
+        def _pick(a_val, b_val):
+            return (a_val, b_val) if am_is_a else (b_val, a_val)
+
+        am_primary, dg_primary = _pick(a_primary, b_primary)
+        am_sec, dg_sec = _pick(a_sec, b_sec)
+        am_chal, dg_chal = _pick(a_chal, b_chal)
+        am_capped, dg_capped = _pick(a_capped, b_capped)
+
+        # Markers held per scoring round, from the last recorded
+        # objective-control reading of each (round, marker).
+        rounds_seen = sorted({rnd for (rnd, _n) in self.all_marker_status})
+        am_held_by_round = []
+        dg_held_by_round = []
+        for rnd in rounds_seen:
+            am_held = dg_held = 0
+            for (r2, _name), (a_oc, b_oc) in self.all_marker_status.items():
+                if r2 != rnd:
+                    continue
+                am_oc, dg_oc = _pick(a_oc, b_oc)
+                if am_oc > dg_oc:
+                    am_held += 1
+                elif dg_oc > am_oc:
+                    dg_held += 1
+            am_held_by_round.append(am_held)
+            dg_held_by_round.append(dg_held)
+
+        self.vp_ledger = {
+            "am_capped": am_capped, "dg_capped": dg_capped,
+            "am_primary": am_primary, "dg_primary": dg_primary,
+            "am_secondary": am_sec, "dg_secondary": dg_sec,
+            "am_challenger": am_chal, "dg_challenger": dg_chal,
+            "am_markers_mean": (sum(am_held_by_round) / len(am_held_by_round)
+                                if am_held_by_round else 0.0),
+            "dg_markers_mean": (sum(dg_held_by_round) / len(dg_held_by_round)
+                                if dg_held_by_round else 0.0),
+        }
 
     # -- shooting misallocation -------------------------------------------#
 
@@ -394,6 +467,7 @@ def run_one_game(seed: int, am_slot: str) -> CanaryObserver:
     finally:
         _active_recorder[0] = None
     rec.finalize_home_markers()
+    rec.finalize_vp_ledger()
     return rec
 
 
@@ -459,6 +533,30 @@ def _report(results, n_requested: int) -> None:
     print("  " + "-" * (label_w + 24))
     for lbl, m, s in rows:
         print(f"  {lbl:{label_w}s}   {m:8.3f}   {s:9.3f}")
+
+    # -- Victory-point ledger (iteration 7) ------------------------------ #
+    # The question this section answers: when Astra Militarum castles
+    # correctly (holds two markers and shoots), does it lose a DETERMINISTIC
+    # two-versus-three primary race that its shooting cannot change? A
+    # structural marker split with a matching primary gap means movement
+    # pricing is no longer the binding constraint — the residual is the
+    # kill/scoring economy, escalated to the owner rather than iterated.
+    led = [r.vp_ledger for r in results if r.vp_ledger]
+    if led:
+        def _lmean(key):
+            return sum(l[key] for l in led) / len(led)
+        print()
+        print("  VICTORY-POINT LEDGER (per-game means)")
+        print(f"    final standing (capped):   AM {_lmean('am_capped'):6.2f}"
+              f"   vs   DG {_lmean('dg_capped'):6.2f}")
+        print(f"    primary   (uncapped):      AM {_lmean('am_primary'):6.2f}"
+              f"   vs   DG {_lmean('dg_primary'):6.2f}")
+        print(f"    secondary (uncapped):      AM {_lmean('am_secondary'):6.2f}"
+              f"   vs   DG {_lmean('dg_secondary'):6.2f}")
+        print(f"    challenger:                AM {_lmean('am_challenger'):6.2f}"
+              f"   vs   DG {_lmean('dg_challenger'):6.2f}")
+        print(f"    markers held /scoring rnd: AM {_lmean('am_markers_mean'):6.2f}"
+              f"   vs   DG {_lmean('dg_markers_mean'):6.2f}")
 
     print()
     if total_loss_flips:
