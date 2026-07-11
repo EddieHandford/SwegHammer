@@ -231,14 +231,20 @@ contribution is weighted by an attractiveness-proportional allocation — the
 enemy's expected wounds onto the measured unit at the candidate cell, divided
 by that same quantity plus the enemy's expected wounds onto every OTHER
 friendly unit at its current position (the same audited per-pair math,
-cached per board state) — and by the MEASURED attack propensity
-(`_MEASURED_ATTACK_PROPENSITY` = 0.399, the share of living activated enemy
-roster slots that attempt output, fitted from the zero-damage participation
-decomposition in `scripts/diag_fire_allocation.py`). An enemy with one
-eligible target therefore sends everything at it — the allocation weight
-degenerates to one in the isolated case, though the propensity still applies,
-because an isolated target is only shot if the enemy attempts output at all —
-while an enemy with several splits the priced risk across them. The realized
+cached per board state) — and by the MEASURED opportunity-conditioned
+attack-propensity step curve (`strategy._attack_propensity`: the probability
+a living activated enemy roster slot attempts output, conditioned on the
+enemy's own best expected-wounds opportunity, fitted from the zero-damage
+participation decomposition in `scripts/diag_fire_allocation.py` on the
+seed-base-0 battery — 0.003 at zero opportunity, then 0.393 / 0.525 / 0.510 /
+0.614 by rising opportunity bucket; the measured inversion between the third
+and fourth buckets is kept as measured, not smoothed, and the enemy's
+opportunity at field-evaluation time is the largest of its cached per-pair
+denominator terms). An enemy with one eligible target therefore sends
+everything at it — the allocation weight degenerates to one in the isolated
+case, though the propensity still applies, because an isolated target is only
+shot if the enemy attempts output at all — while an enemy with several splits
+the priced risk across them. The realized
 fire-concentration curve and the participation decomposition backing both
 factors are measured by `scripts/diag_fire_allocation.py`. The charge-scoring
 denominator above (`_charge_field_post_denominator`) builds its own per-pair
