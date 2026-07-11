@@ -2079,9 +2079,27 @@ def _charge_field_post_denominator(attacker, target_unit, target_expected_wounds
     Normalised by the charger's remaining wounds because the reused
     expected-wounds helpers already fold in its save/toughness, so the ratio
     reads as 'fraction of the charger's remaining value forfeited by standing
-    there' — the proposal's derived, knob-free tolerance. No RNG."""
+    there' — the proposal's derived, knob-free tolerance. No RNG.
+
+    SWEG_THREAT_ALLOC (default OFF, byte-identical off): this loop builds the
+    same per-pair math as `_threat_field_at` but does not route through it,
+    so the allocation gate is wired HERE as well (docs/DECISION_LEDGER.md
+    "THREAT-FIELD PARTICIPATION RATE" — registered so consumer screen (a),
+    SWEG_THREAT_CHARGE on the allocated field, is runnable). When on, each
+    enemy's contribution is multiplied by the same attractiveness-
+    proportional weight and measured attack propensity the field applies,
+    reusing the cached `_threat_alloc_denominators` machinery; the target's
+    own tracked contribution is the transformed one, so the kill-probability
+    subtraction stays in the same currency as the field it is subtracted
+    from. Gate read once per call (cached per battle via _threat_alloc_on),
+    never in the loop."""
     from .simulator import Battle          # lazy: avoid strategy<->simulator cycle
     me_profile = _score_profile(attacker)
+    alloc_on = _threat_alloc_on(attacker)
+    if alloc_on:
+        alloc = _threat_alloc_denominators(attacker, projectors, map_)
+        sums, terms = alloc if alloc is not None else ({}, {})
+        my_uid = getattr(attacker, "uid", None)
     field = 0.0
     threat_target_val = 0.0
     for (e, ep, epos, emove, erange, melee_capable, ignores_cover) in projectors:
@@ -2105,6 +2123,11 @@ def _charge_field_post_denominator(attacker, target_unit, target_expected_wounds
                 mw = _kill_potential_wounds(ep, me_profile)
                 if mw > 0.0:
                     te += mw * _p_2d6_at_least(needed)
+        if alloc_on and te > 0.0:
+            others = sums.get(e.uid, 0.0) - terms.get((e.uid, my_uid), 0.0)
+            if others < 0.0:
+                others = 0.0
+            te = te * (te / (te + others)) * _MEASURED_ATTACK_PROPENSITY
         field += te
         if e is target_unit:
             threat_target_val = te
@@ -2537,6 +2560,24 @@ def _threat_alloc_on(me_unit) -> bool:
     return os.environ.get("SWEG_THREAT_ALLOC") == "1"
 
 
+# MEASURED attack propensity (docs/DECISION_LEDGER.md "THREAT-FIELD
+# PARTICIPATION RATE", registered 2026-07-11): the share of living activated
+# enemy roster slots that ATTEMPT output — dealt damage (15.1%) plus attacked
+# but whiffed (24.8%) — fitted from the 8-battle zero-damage participation
+# decomposition battery (scripts/diag_fire_allocation.py section 2, build
+# 37458c2). Whiffs count as attempts because expected-wounds math already
+# prices their failure; the decomposition's exclusive classes guarantee no
+# double-count. Part of the ALLOCATED field form under SWEG_THREAT_ALLOC (no
+# separate gate): each enemy's allocated contribution is multiplied by this
+# rate, pricing the measured fact that ~60 percent of living enemy slots
+# spend their turn on the objective game (out-of-reach-after-real-move
+# 30.0%, chose-not-to 27.0%, melee-locked 3.0%) rather than on output.
+# Behaviour-dependent caveat carried from the exchange-rate precedent: re-fit
+# after any adopted piloting change. Out-of-sample falsifier registered: the
+# allocated-times-rate field must calibrate within [2/3, 3/2] per faction on
+# a FRESH battery (different seeds, same protocol).
+_MEASURED_ATTACK_PROPENSITY = 0.399
+
 # Per-board-state cache for the allocation denominators (SWEG_THREAT_ALLOC).
 # The denominator Sum over my units t of ew(E -> t at t's current position)
 # is invariant across candidate cells within one activation AND across my
@@ -2624,24 +2665,29 @@ def _threat_field_at(me_unit, projectors, dest, map_) -> float:
     The owner's design rule: an enemy with ONE eligible target sends
     everything at it; an enemy with several splits the RISK across them.
     When ON, each enemy E's contribution c is weighted by the
-    attractiveness-proportional allocation
+    attractiveness-proportional allocation times the MEASURED attack
+    propensity (docs/DECISION_LEDGER.md "THREAT-FIELD PARTICIPATION RATE"):
 
         w_E(me@p) = c / (c + Sum over my OTHER alive units t of
                               ew(E -> t at t's current position))
-        contribution = c * w_E(me@p)
+        contribution = c * w_E(me@p) * _MEASURED_ATTACK_PROPENSITY
 
     where c = ew(E -> me@p) is exactly the per-enemy term the summed field
     already computes, and the denominator terms come from the per-board-state
     cache (_threat_alloc_denominators). Degeneracy: when I am E's only
-    eligible target every other term is zero, w = 1, and the summed field is
-    reproduced EXACTLY. Zero guard: c <= 0 contributes nothing, so the
-    denominator is never touched at zero (no division by zero). Weights sum
-    to at most 1 over E's eligible targets by construction. Every consumer of
-    this field (value contestability, the SURVIVE channel, the job KILL
-    discount via _job_threat_scan, the trade-eval reply) inherits the gate's
-    effect; all are themselves default-off. NOTE the SWEG_THREAT_CHARGE
-    denominator (_charge_field_post_denominator) builds its own per-pair loop
-    and does NOT route through this function — it is unaffected by this gate.
+    eligible target every other term is zero and w = 1 — but the propensity
+    STILL applies (an isolated target is only shot if the enemy attempts
+    output at all; the measured rate is the probability of that attempt, the
+    allocation weight is the split GIVEN an attempt). Zero guard: c <= 0
+    contributes nothing, so the denominator is never touched at zero (no
+    division by zero). Weights sum to at most 1 over E's eligible targets by
+    construction. Every consumer of this field (value contestability, the
+    SURVIVE channel, the job KILL discount via _job_threat_scan, the
+    trade-eval reply) inherits the gate's effect; all are themselves
+    default-off. The SWEG_THREAT_CHARGE denominator
+    (_charge_field_post_denominator) builds its own per-pair loop and is
+    wired to the same allocated-times-propensity form under this gate at its
+    own call site.
 
     Perf: the positional cover at `dest` (`map_.cover_at(dest)`, an O(terrain
     features) scan) does not depend on which enemy is being priced — only on
@@ -2673,8 +2719,11 @@ def _threat_field_at(me_unit, projectors, dest, map_) -> float:
                     if mw > 0.0:
                         field += mw * _p_2d6_at_least(needed)
         return field
-    # --- SWEG_THREAT_ALLOC=1: attractiveness-proportional risk allocation ---
+    # --- SWEG_THREAT_ALLOC=1: allocation weights x measured propensity ---
     alloc = _threat_alloc_denominators(me_unit, projectors, map_)
+    # No army context (test stand-ins): empty denominators — every weight
+    # degenerates to 1 (the isolated case) and the propensity still applies.
+    sums, terms = alloc if alloc is not None else ({}, {})
     my_uid = getattr(me_unit, "uid", None)
     field = 0.0
     for (e, ep, epos, emove, erange, melee_capable, ignores_cover) \
@@ -2695,14 +2744,10 @@ def _threat_field_at(me_unit, projectors, dest, map_) -> float:
                     c += mw * _p_2d6_at_least(needed)
         if c <= 0.0:
             continue                       # zero-eligibility guard: no division
-        if alloc is None:
-            field += c                     # no army context -> summed (isolated)
-            continue
-        sums, terms = alloc
         others = sums.get(e.uid, 0.0) - terms.get((e.uid, my_uid), 0.0)
         if others < 0.0:
             others = 0.0                   # float-subtraction safety clamp
-        field += c * (c / (c + others))
+        field += c * (c / (c + others)) * _MEASURED_ATTACK_PROPENSITY
     return field
 
 
@@ -3580,10 +3625,12 @@ def _job_threat_scan(rows, me_unit, dest, map_, alloc=None):
     `alloc` mirrors the SWEG_THREAT_ALLOC branch of `_threat_field_at`: pass
     the (sums, terms) pair from `_threat_alloc_denominators` when the gate is
     on (the caller reads the gate ONCE per channel evaluation, never here in
-    the inner loop) and each enemy's contribution c is weighted by
-    c / (c + others) with the identical arithmetic shape, so the scan stays
-    bit-identical to the gated field too. None (the default) is the summed
-    field, byte-identical to the pre-gate scan."""
+    the inner loop — an empty ({}, {}) pair when the unit has no army
+    context, matching the field's degenerate-weights convention) and each
+    enemy's contribution c is weighted by c / (c + others) times
+    _MEASURED_ATTACK_PROPENSITY with the identical arithmetic shape, so the
+    scan stays bit-identical to the gated field too. None (the default) is
+    the summed field, byte-identical to the pre-gate scan."""
     field = 0.0
     cover_here = map_.cover_at(dest) if map_ is not None else None
     if alloc is None:
@@ -3618,7 +3665,7 @@ def _job_threat_scan(rows, me_unit, dest, map_, alloc=None):
         others = sums.get(e_uid, 0.0) - terms.get((e_uid, my_uid), 0.0)
         if others < 0.0:
             others = 0.0
-        field += c * (c / (c + others))
+        field += c * (c / (c + others)) * _MEASURED_ATTACK_PROPENSITY
     return field
 
 
@@ -3694,7 +3741,11 @@ def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr,
         if threat_rows is None:
             threat_rows = _job_threat_precompute(unit, projectors)
             if alloc_on:
-                alloc = _threat_alloc_denominators(unit, projectors, map_)
+                # Empty denominators when the unit has no army context —
+                # degenerate weights, propensity still applies (the field's
+                # own no-context convention).
+                alloc = (_threat_alloc_denominators(unit, projectors, map_)
+                         or ({}, {}))
         return threat_rows, alloc
 
     rok_s, hb_s, mok_s = _offense_eligibility(unit, friendly, battle, "stationary")

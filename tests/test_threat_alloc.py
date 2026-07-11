@@ -6,16 +6,25 @@ measured 6x-301x predicted-to-realized saturation,
 scripts/diag_threat_calibration.py). The owner's design rule: an enemy with
 ONE eligible target sends everything at it; an enemy with several splits the
 RISK across them. Gate ON, each enemy E's contribution c is weighted
-attractiveness-proportionally:
+attractiveness-proportionally AND by the measured attack propensity
+(docs/DECISION_LEDGER.md "THREAT-FIELD PARTICIPATION RATE": the share of
+living activated enemy slots that ATTEMPT output, 0.399 on the fit battery —
+part of the allocated form, same gate):
 
     w_E(me@p) = c / (c + Sum over my OTHER alive units t of
                          ew(E -> t at t's current position))
+    contribution = c * w_E(me@p) * _MEASURED_ATTACK_PROPENSITY
 
-These fixtures pin the three registered cases by hand computation:
-  (i)   one eligible target  -> identical to the summed field (degeneracy),
-  (ii)  two identical eligible targets -> each contribution halves,
+These fixtures pin the registered cases by hand computation:
+  (i)   one eligible target  -> the summed field TIMES the propensity
+        (allocation degeneracy: w = 1),
+  (ii)  two identical eligible targets -> each contribution halves, times
+        the propensity,
   (iii) the isolated-vs-supported pair (the two-Berzerker scenario class)
-        re-priced: alone soaks the full melee threat, supported splits it.
+        re-priced: alone soaks the full melee threat (times propensity),
+        supported splits it,
+  (iv)  the truly isolated lone-army case: allocation degeneracy times
+        propensity — the rate applies even at one eligible target.
 
 Byte-identity of the OFF path is proved separately by the fixed-seed event
 digest (scripts/sim_motion_proof.py), not here.
@@ -26,7 +35,11 @@ import os
 import unittest
 
 from code.map import TerrainType
-from code.strategy import _threat_field_at, _threat_projectors
+from code.strategy import (
+    _MEASURED_ATTACK_PROPENSITY,
+    _threat_field_at,
+    _threat_projectors,
+)
 from code.units import UnitProfile
 
 
@@ -141,13 +154,16 @@ class ThreatAllocFixtures(unittest.TestCase):
            = 3 * (2/3) * (2/3) = 4/3
     """
 
-    def test_i_single_eligible_target_reproduces_summed_field(self):
-        """(i) DEGENERACY: I am the enemy's only eligible target — a second
-        friendly stands at (55,40), 60.8" from the gun at (10,0), outside its
-        Move(6) + range(24) = 30" reach, so its denominator term is ZERO and
-        w = c/(c+0) = 1. The allocated field must equal the summed field
-        EXACTLY (both = rw = 0.5: the gun 10" from me, within its 30" reach,
-        no melee half)."""
+    def test_i_single_eligible_target_summed_times_propensity(self):
+        """(i) ALLOCATION DEGENERACY: I am the enemy's only eligible target —
+        a second friendly stands at (55,40), 60.8" from the gun at (10,0),
+        outside its Move(6) + range(24) = 30" reach, so its denominator term
+        is ZERO and w = c/(c+0) = 1. The allocated contribution is the summed
+        one times the measured attack propensity:
+
+            summed    = rw = 0.5   (the gun 10" from me, within its 30"
+                                    reach, no melee half)
+            allocated = 0.5 * 1.0 * 0.399 = 0.1995"""
         map_ = _Map()
         mine = _Army("mine")
         enemy = _Army("enemy")
@@ -159,7 +175,10 @@ class ThreatAllocFixtures(unittest.TestCase):
         with _AllocGate():
             allocated = _threat_field_at(me, proj, me.position, map_)
         self.assertAlmostEqual(summed, 0.5, delta=1e-9)          # hand value
-        self.assertAlmostEqual(allocated, summed, delta=1e-9)    # degeneracy
+        self.assertAlmostEqual(allocated, 0.1995, delta=1e-9)    # x 1.0 x rho
+        self.assertAlmostEqual(allocated,
+                               summed * _MEASURED_ATTACK_PROPENSITY,
+                               delta=1e-9)
 
     def test_ii_two_identical_eligible_targets_halve_each_contribution(self):
         """(ii) Two IDENTICAL eligible targets: a twin Body at (0,4) — 10.8"
@@ -167,7 +186,7 @@ class ThreatAllocFixtures(unittest.TestCase):
         OPEN cover, so ew(E->twin) = ew(E->me) = 0.5 (the ranged term is
         range-gated, not distance-scaled). w = 0.5/(0.5+0.5) = 1/2:
 
-            allocated = summed * 1/2 = 0.5 * 0.5 = 0.25"""
+            allocated = summed * 1/2 * 0.399 = 0.5 * 0.5 * 0.399 = 0.09975"""
         map_ = _Map()
         mine = _Army("mine")
         enemy = _Army("enemy")
@@ -179,7 +198,7 @@ class ThreatAllocFixtures(unittest.TestCase):
         with _AllocGate():
             allocated = _threat_field_at(me, proj, me.position, map_)
         self.assertAlmostEqual(summed, 0.5, delta=1e-9)
-        self.assertAlmostEqual(allocated, 0.25, delta=1e-9)      # exactly half
+        self.assertAlmostEqual(allocated, 0.09975, delta=1e-9)   # half x rho
 
     def test_iii_isolated_vs_supported_repriced(self):
         """(iii) The two-Berzerker scenario class, re-priced. A melee
@@ -188,18 +207,19 @@ class ThreatAllocFixtures(unittest.TestCase):
             c = mw(4/3) * P(2D6 >= 10 - Move(6) - engage(1.0) = 3.0)
               = (4/3) * (35/36) = 35/27 = 1.296296...
 
-        ISOLATED (me the only friendly): allocated == summed == 35/27 — an
-        enemy with one eligible target sends everything at it.
+        ISOLATED (me the only friendly): w = 1, so
+            allocated = (35/27) * 0.399 = 0.517222...
 
         SUPPORTED (a friend at (12,0), 2" from the Berzerker — charge needed
         -5 -> reach probability 1, so its term = mw * 1 = 4/3 = 36/27):
 
             w_me      = (35/27) / ((35/27) + (36/27)) = 35/71
-            allocated = (35/27) * (35/71) = 1225/1917 = 0.639019...
+            allocated = (35/27) * (35/71) * 0.399
+                      = (1225/1917) * 0.399 = 0.254968...
 
         Standing next to a supported friend roughly halves the priced threat,
-        while the isolated body soaks the whole projection — the exact
-        asymmetry the summed field was blind to."""
+        while the isolated body soaks the whole (propensity-scaled)
+        projection — the exact asymmetry the summed field was blind to."""
         map_ = _Map()
         # ISOLATED
         mine_a = _Army("mine_a")
@@ -211,7 +231,9 @@ class ThreatAllocFixtures(unittest.TestCase):
         with _AllocGate():
             alloc_alone = _threat_field_at(me_a, proj_a, me_a.position, map_)
         self.assertAlmostEqual(summed_alone, 35.0 / 27.0, delta=1e-9)
-        self.assertAlmostEqual(alloc_alone, summed_alone, delta=1e-9)
+        self.assertAlmostEqual(alloc_alone,
+                               (35.0 / 27.0) * _MEASURED_ATTACK_PROPENSITY,
+                               delta=1e-9)
 
         # SUPPORTED
         mine_b = _Army("mine_b")
@@ -223,8 +245,39 @@ class ThreatAllocFixtures(unittest.TestCase):
         with _AllocGate():
             alloc_supported = _threat_field_at(me_b, proj_b, me_b.position,
                                                map_)
-        self.assertAlmostEqual(alloc_supported, 1225.0 / 1917.0, delta=1e-9)
+        self.assertAlmostEqual(alloc_supported,
+                               (1225.0 / 1917.0) * _MEASURED_ATTACK_PROPENSITY,
+                               delta=1e-9)
         self.assertLess(alloc_supported, alloc_alone)    # support splits risk
+
+    def test_iv_propensity_applies_even_at_one_eligible_target(self):
+        """(iv) DESIGN POINT (docs/DECISION_LEDGER.md "THREAT-FIELD
+        PARTICIPATION RATE"): the propensity is NOT part of the allocation
+        split — it is the probability the enemy attempts output AT ALL, and
+        the allocation weight is the split GIVEN an attempt. So even a truly
+        isolated target (a lone-unit army, n = 1, allocation weight exactly
+        1 by degeneracy) prices the enemy's threat at summed * 1.0 * 0.399:
+        the isolated unit is still only shot if the enemy spends its
+        activation on output rather than the objective game — the measured
+        behaviour the decomposition instrument quantified (only 39.9 percent
+        of living activated slots attempt output).
+
+            summed    = rw = 0.5
+            allocated = 0.5 * 1.0 * 0.399 = 0.1995"""
+        map_ = _Map()
+        mine = _Army("mine")
+        enemy = _Army("enemy")
+        me = mine.add(_Unit(_body(), (0.0, 0.0), "A0"))  # the ONLY friendly
+        enemy.add(_Unit(_gun_enemy(), (10.0, 0.0), "B0"))
+        proj = _threat_projectors(enemy)
+        summed = _threat_field_at(me, proj, me.position, map_)
+        with _AllocGate():
+            allocated = _threat_field_at(me, proj, me.position, map_)
+        self.assertAlmostEqual(summed, 0.5, delta=1e-9)
+        self.assertAlmostEqual(allocated,
+                               summed * 1.0 * _MEASURED_ATTACK_PROPENSITY,
+                               delta=1e-9)
+        self.assertAlmostEqual(allocated, 0.1995, delta=1e-9)
 
 
 if __name__ == "__main__":

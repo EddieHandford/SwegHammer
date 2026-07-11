@@ -33,12 +33,20 @@ Registered falsifier (before any consumer screen): the summed field should
 read far above 1 (above 2 expected); the allocated field must land within
 [2/3, 3/2] per probe faction.
 
+OUT-OF-SAMPLE VALIDATION (the participation-rate registration's falsifier):
+--seed-base N shifts every battle's seed by N — same faction pairs, same
+protocol, different fixed seeds (and hence a different map-rotation draw per
+pair). The measured constants are fitted on the default battery (base 0);
+the registered validation runs this same tool at a fresh base.
+
 USAGE
     PYTHONHASHSEED=0 python scripts/diag_threat_calibration.py
     SWEG_THREAT_ALLOC=1 PYTHONHASHSEED=0 python scripts/diag_threat_calibration.py
+    SWEG_THREAT_ALLOC=1 PYTHONHASHSEED=0 python scripts/diag_threat_calibration.py --seed-base 100
 """
 from __future__ import annotations
 
+import argparse
 import os
 import random
 import sys
@@ -136,11 +144,17 @@ class ThreatCalibrationObserver:
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--seed-base", type=int, default=0,
+                    help="shift every battle seed by N (0 = the fit battery; "
+                         "a non-zero base is the out-of-sample battery)")
+    args = ap.parse_args()
     mode = ("ALLOCATED (SWEG_THREAT_ALLOC=1)"
             if os.environ.get("SWEG_THREAT_ALLOC") == "1" else
             "SUMMED (gate unset)")
     tally = defaultdict(lambda: [0, 0.0, 0.0, 0.0])
-    for (fa, fb, seed) in BATTLES:
+    for (fa, fb, base_seed) in BATTLES:
+        seed = base_seed + args.seed_base
         random.seed(seed)
         a = build_faction_random_army("A", fa, POINTS_BUDGET,
                                       rng=random.Random(seed),
@@ -159,7 +173,9 @@ def main() -> int:
                 t[i] += row[i]
 
     print("threat-field calibration — %d fixed-seed battles, %d points, "
-          "use_archetype=True" % (len(BATTLES), POINTS_BUDGET))
+          "use_archetype=True, seed base %d%s"
+          % (len(BATTLES), POINTS_BUDGET, args.seed_base,
+             "" if args.seed_base == 0 else " (OUT-OF-SAMPLE battery)"))
     print("field mode: %s" % mode)
     print("(per unit per enemy turn: field-predicted incoming at the cell the")
     print(" unit stopped in, versus realized wounds lost that enemy turn —")

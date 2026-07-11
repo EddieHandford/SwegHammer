@@ -86,16 +86,32 @@ roster dead at the start of its own turn, per round 1-5 — the curve a
 structural participation term (survival x reachability x not-locked) would
 need for its survival factor.
 
+CONDITIONAL-PROPENSITY EVIDENCE (sections 4 and 5 — the inputs to the
+registered fallback decision, docs/DECISION_LEDGER.md "THREAT-FIELD
+PARTICIPATION RATE"): per living activated slot, whether the unit ATTEMPTED
+output (dealt damage or whiffed), reported (4) per faction and (5) bucketed
+by the unit's OWN BEST expected-wounds opportunity at its activation — the
+best single-target expected wounds over enemies inside its Move + weapon
+range (cover-attenuated at the target's cell) or melee reach (the real 2D6
+gradient), computed from its pre-move position with the same audited
+per-pair helpers the threat field uses. If the attempt rate rises with the
+unit's own opportunity, propensity conditioned on attractiveness-weighted
+eligibility is the grounded curve the registered fallback would read.
+
 Determinism: PYTHONHASHSEED re-exec mirrors scripts/sim_motion_proof.py.
 Zero-damage activations (all shots saved) carry no allocation information and
 are counted separately. Events are read via the ordinary subscriber stream
 (the diag_walked_into_it live-object pattern); no simulator changes.
+--seed-base N shifts every battle seed (the out-of-sample battery convention
+shared with scripts/diag_threat_calibration.py).
 
 USAGE
     PYTHONHASHSEED=0 python scripts/diag_fire_allocation.py
+    PYTHONHASHSEED=0 python scripts/diag_fire_allocation.py --seed-base 100
 """
 from __future__ import annotations
 
+import argparse
 import os
 import random
 import sys
@@ -122,7 +138,11 @@ from code.strategy import (                                        # noqa: E402
     _cover_attenuation,
     _dist,
     _er_gap,
+    _kill_potential_wounds,
+    _p_2d6_at_least,
     _score_profile,
+    _THREAT_ENGAGE_RANGE,
+    effective_move,
 )
 
 # Eight fixed-seed mixed pairs — the five sim_motion_proof pairings plus three
@@ -293,10 +313,15 @@ class ParticipationObserver:
         self.counts = defaultdict(int)          # class label -> slots
         # round -> [sum of dead-fractions at turn start, turn count]
         self.dead_curve = defaultdict(lambda: [0.0, 0])
+        # Conditional-propensity evidence: per faction and per own-best-ew
+        # bucket, [living activated slots, attempts (damage or whiff)].
+        self.propensity_fac = defaultdict(lambda: [0, 0])
+        self.propensity_ew = defaultdict(lambda: [0, 0])
         self._round = 0
         self._cur_army = None                   # army NAME whose turn is open
         self._cur_side = None                   # "A"/"B" uid prefix
         self._activated = {}                    # uid -> engaged at activation
+        self._best_ew = {}                      # uid -> own best-ew opportunity
         self._attacked = set()                  # acting-side uids that attacked
         self._damage = defaultdict(float)       # acting-side uid -> damage
         self._roster = {"A": {}, "B": {}}       # side -> uid -> unit ref
@@ -340,6 +365,51 @@ class ParticipationObserver:
                 return True
         return False
 
+    def _best_ew_opportunity(self, unit):
+        """The unit's OWN best single-target expected-wounds opportunity at
+        its activation: over living enemies, the better of its ranged
+        expected wounds (if the enemy is inside Move + weapon range,
+        cover-attenuated at the enemy's cell) and its melee kill-potential
+        weighted by the real 2D6 reach gradient — the same audited per-pair
+        helpers the threat field uses, from the unit's pre-move position."""
+        sp = _score_profile(unit)
+        move = float(effective_move(unit))
+        rng = max(float(getattr(sp, "range_inches", 0.0) or 0.0),
+                  float(getattr(unit.profile, "range_inches", 0.0) or 0.0))
+        melee_capable = (getattr(sp, "melee_attacks", 0) or 0) > 0
+        best = 0.0
+        for e in self._enemies_of_unit(unit):
+            d = _dist(unit.position, e.position)
+            ew = 0.0
+            if rng > 0.0 and d <= move + rng:
+                rw = Battle._ranged_expected_wounds(sp, e)
+                if rw > 0.0:
+                    rw *= _cover_attenuation(e, getattr(sp, "ap", 0) or 0,
+                                             self.battle.map, e.position)
+                ew = rw
+            if melee_capable:
+                needed = d - move - _THREAT_ENGAGE_RANGE
+                if needed <= 12.0:
+                    mw = (_kill_potential_wounds(sp, _score_profile(e))
+                          * _p_2d6_at_least(needed))
+                    if mw > ew:
+                        ew = mw
+            if ew > best:
+                best = ew
+        return best
+
+    @staticmethod
+    def _ew_bucket(ew):
+        if ew <= 0.0:
+            return "0"
+        if ew <= 0.5:
+            return "(0, 0.5]"
+        if ew <= 1.5:
+            return "(0.5, 1.5]"
+        if ew <= 3.0:
+            return "(1.5, 3]"
+        return "> 3"
+
     # -- event stream ------------------------------------------------------
     def on_event(self, ev) -> None:
         name = type(ev).__name__
@@ -353,6 +423,8 @@ class ParticipationObserver:
             u = self._unit(ev.unit_uid)
             self._activated[ev.unit_uid] = (
                 self._engaged(u) if u is not None else False)
+            self._best_ew[ev.unit_uid] = (
+                self._best_ew_opportunity(u) if u is not None else 0.0)
         elif name in ("UnitShot", "UnitFought"):
             # Credit only attackers on the ACTING side — a defender's
             # overwatch / counter-strike is participation outside its own
@@ -386,10 +458,13 @@ class ParticipationObserver:
         if self._cur_army is None:
             return
         for uid, u in self._roster[self._cur_side].items():
+            attempted = False
             if self._damage.get(uid, 0.0) > 0.0:
                 self.counts[_DAMAGE] += 1
+                attempted = True
             elif uid in self._attacked:
                 self.counts[_WHIFF] += 1
+                attempted = True
             elif uid in self._activated:
                 if self._activated[uid]:
                     self.counts[_LOCKED] += 1
@@ -399,21 +474,41 @@ class ParticipationObserver:
                     self.counts[_UNREACH] += 1
             elif u.current_health <= 0:
                 self.counts[_DEAD] += 1
+                continue
             else:
                 self.counts[_NOACT] += 1
+                continue
+            # Conditional-propensity evidence over LIVING ACTIVATED slots.
+            if uid in self._activated:
+                fac = self.propensity_fac[u.profile.faction]
+                fac[0] += 1
+                fac[1] += 1 if attempted else 0
+                bucket = self.propensity_ew[
+                    self._ew_bucket(self._best_ew.get(uid, 0.0))]
+                bucket[0] += 1
+                bucket[1] += 1 if attempted else 0
         self._cur_army = None
         self._cur_side = None
         self._activated = {}
+        self._best_ew = {}
         self._attacked = set()
         self._damage = defaultdict(float)
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--seed-base", type=int, default=0,
+                    help="shift every battle seed by N (0 = the fit battery; "
+                         "a non-zero base is the out-of-sample battery)")
+    args = ap.parse_args()
     agg = defaultdict(lambda: [0, 0.0, 0.0, 0.0, 0.0, 0])
     zero = 0
     part_counts = defaultdict(int)
     dead_curve = defaultdict(lambda: [0.0, 0])
-    for (fa, fb, seed) in BATTLES:
+    prop_fac = defaultdict(lambda: [0, 0])
+    prop_ew = defaultdict(lambda: [0, 0])
+    for (fa, fb, base_seed) in BATTLES:
+        seed = base_seed + args.seed_base
         random.seed(seed)
         a = build_faction_random_army("A", fa, POINTS_BUDGET,
                                       rng=random.Random(seed),
@@ -437,9 +532,17 @@ def main() -> int:
         for r, row in part.dead_curve.items():
             dead_curve[r][0] += row[0]
             dead_curve[r][1] += row[1]
+        for k, v in part.propensity_fac.items():
+            prop_fac[k][0] += v[0]
+            prop_fac[k][1] += v[1]
+        for k, v in part.propensity_ew.items():
+            prop_ew[k][0] += v[0]
+            prop_ew[k][1] += v[1]
 
     print("fire-allocation concentration curve — %d fixed-seed battles, "
-          "%d points, use_archetype=True" % (len(BATTLES), POINTS_BUDGET))
+          "%d points, use_archetype=True, seed base %d%s"
+          % (len(BATTLES), POINTS_BUDGET, args.seed_base,
+             "" if args.seed_base == 0 else " (OUT-OF-SAMPLE battery)"))
     print("(per shooting activation: n = live range-eligible enemy SQUADS at")
     print(" the first shot, unioned with squads actually shot; 'measured")
     print(" top-1' = realized damage share on the activation's top squad —")
@@ -487,6 +590,23 @@ def main() -> int:
         s, n = dead_curve.get(r, [0.0, 0])
         frac = s / n if n else float("nan")
         print(f"  round {r}: {frac:6.3f}   ({n} army-turns)")
+
+    print("\n4) ATTEMPT PROPENSITY PER FACTION")
+    print("   (living activated slots that attempted output — dealt damage")
+    print("    or whiffed; the per-faction spread of the flat measured rate)")
+    for fac in sorted(prop_fac):
+        slots, attempts = prop_fac[fac]
+        rate = attempts / slots if slots else float("nan")
+        print(f"  {fac:22s} {slots:6d} slots   propensity {rate:6.3f}")
+
+    print("\n5) ATTEMPT PROPENSITY vs OWN BEST EXPECTED WOUNDS")
+    print("   (bucketed by the unit's own best single-target expected-wounds")
+    print("    opportunity at its activation — the conditional-propensity")
+    print("    curve the registered fallback would read)")
+    for k in ("0", "(0, 0.5]", "(0.5, 1.5]", "(1.5, 3]", "> 3"):
+        slots, attempts = prop_ew.get(k, [0, 0])
+        rate = attempts / slots if slots else float("nan")
+        print(f"  best-ew {k:11s} {slots:6d} slots   propensity {rate:6.3f}")
     return 0
 
 
