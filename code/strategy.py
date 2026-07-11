@@ -3448,6 +3448,12 @@ def value_offense(me_unit, dest, ranged_ok, heavy_bonus, melee_ok,
 _JOB_HOLD = "HOLD"
 _JOB_KILL = "KILL"
 _JOB_SURVIVE = "SURVIVE"
+# Fourth channel (SWEG_JOB_DENY, default off): denial — deep-strike-space
+# exclusion + enemy-held-marker contest. Priced in the SAME measured
+# victory-point currency as the other channels (see `_job_channel_deny`), so it
+# enters the cross-channel argmax as a peer. Default off is byte-identical: the
+# channel is never priced and never wins the argmax when the gate is unset.
+_JOB_DENY = "DENY"
 # Not a channel: the zero-value routing fallback above. Diagnosed separately so
 # the mechanism instrument reports the routed-to-value fraction as its own column.
 _JOB_VALUE = "VALUE"
@@ -3465,7 +3471,7 @@ def reset_job_diag() -> None:
 def _job_diag_record(faction, channel) -> None:
     d = _JOB_DIAG.setdefault(faction or "?",
                              {_JOB_HOLD: 0, _JOB_KILL: 0, _JOB_SURVIVE: 0,
-                              _JOB_VALUE: 0})
+                              _JOB_DENY: 0, _JOB_VALUE: 0})
     d[channel] += 1
 
 
@@ -3513,15 +3519,58 @@ def _job_step_toward(src, dst, dist, map_):
     return p
 
 
+def _job_hold_value_and_threat_at(unit, obj, prospective_our_oc, their_oc,
+                                  projectors, map_, srr, own_is_a, chosen):
+    """(V, T) for one marker from value_projection: the HOLD value AND the threat
+    field T at the marker centre (value_projection's second return). SURVIVE and
+    KILL already discount by T; the HOLD channel discarded it, which is what the
+    SWEG_HOLD_REACTIVE urgency term below reads back to counteract the
+    contestability discount for a COMMITTED holder. Marginal-holder logic lives
+    in `prospective_our_oc` (the caller adds this unit's OC off the marker)."""
+    v, t, _frac = value_projection(
+        unit, obj, prospective_our_oc, their_oc, projectors, map_, srr,
+        own_is_a, chosen)
+    return v, t
+
+
 def _job_hold_value_at(unit, obj, prospective_our_oc, their_oc, projectors,
                        map_, srr, own_is_a, chosen) -> float:
     """HOLD channel value for one marker: V(p) from value_projection. The
     marginal-holder logic lives in `prospective_our_oc` (the caller adds this
     unit's OC when it is not already on the marker)."""
-    v, _t, _frac = value_projection(
+    v, _t = _job_hold_value_and_threat_at(
         unit, obj, prospective_our_oc, their_oc, projectors, map_, srr,
         own_is_a, chosen)
     return v
+
+
+def _hold_reactive_on() -> bool:
+    """SWEG_HOLD_REACTIVE gate (requires SWEG_JOB_LAYER=1). Default off, and the
+    two changes it enables (the committed-holder urgency bonus and the flipped-
+    marker force-release) are both exact no-ops when it is off, so the
+    SWEG_JOB_LAYER-only path stays byte-identical."""
+    return os.environ.get("SWEG_HOLD_REACTIVE") == "1"
+
+
+def _job_hold_urgency_bonus(obj, t, unit, srr) -> float:
+    """SWEG_HOLD_REACTIVE urgency term for the COMMITTED holder (never for a
+    prospective candidate).
+
+        urgency = obj.vp_per_round * srr * min(1, T / max(1, current health))
+
+    value_projection discounts a marker's HOLD value by its contestability
+    (1 - frac_at_risk), so a threatened marker reads as LESS valuable and the
+    cross-channel argmax pushes the committed holder AWAY exactly when the
+    marker is under pressure and most needs digging in. This term adds the
+    marker's own per-round primary value scaled by how much of the holder's
+    health the incoming threat field represents, counteracting the discount
+    only for the unit already committed to the job. Reuses obj.vp_per_round
+    (the real Take-and-Hold rule) and value_projection's own T — no new
+    constant. Exactly 0.0 when the gate is off."""
+    if not _hold_reactive_on():
+        return 0.0
+    health = max(1.0, unit.current_health)
+    return obj.vp_per_round * srr * min(1.0, t / health)
 
 
 def _job_channel_hold(unit, own_oc, objectives, our_oc, their_oc,
@@ -3888,6 +3937,237 @@ def _job_channel_survive(unit, projectors, map_, srr):
     return value, best_dest
 
 
+# ===========================================================================
+# SWEG_JOB_DENY — the fourth job channel: DENIAL (deep-strike space + markers)
+# ===========================================================================
+# docs/DECISION_LEDGER.md "THE DENIAL PROGRAM + CANARY LOOP". The three existing
+# channels (HOLD / KILL / SURVIVE) all price what a unit can DO; none price what
+# it can DENY. The canary board-read (Astra Militarum vs Death Guard) found the
+# gap concretely: Astra Militarum vacates its own deployment zone, so Death Guard
+# deep-strikes unopposed into the backfield (7.5 arrivals inside the Astra
+# Militarum zone per game), and lost home-half markers are never recontested (69
+# percent). Both are DENIAL failures — value from OCCUPYING space the enemy
+# needs, not from acting.
+#
+# DENY(p) = DENY_DS(p) + DENY_MARKER(p), priced in the SAME measured victory-
+# point currency as the other channels, with ZERO new constants:
+#
+#   DENY_DS(p)     — deep-strike-space exclusion. The simulator enforces the
+#                    more-than-nine-inch Deep Strike rule in
+#                    Battle._pick_arrival_point (validity tested on a 3-inch grid
+#                    against ALL alive enemies). This channel RE-RUNS the enemy's
+#                    own legality test locally and prices standing at p by the
+#                    FRACTION of the enemy's currently-legal landing cells that p
+#                    newly removes, times the victory-point worth of the enemy's
+#                    pending reserves:
+#                       DENY_DS(p) = fraction_denied(p)
+#                                    * enemy_reserve_points_pending
+#                                    * _MEASURED_VP_PER_POINT
+#                    fraction_denied(p) = (currently-legal grid cells within 9" of
+#                    p) / (total currently-legal grid cells). "Currently legal" is
+#                    tested against my army's OTHER alive units (the mover
+#                    excluded), so the legality grid is invariant across one
+#                    unit's candidate scan (precomputed once per activation) and
+#                    each candidate only adds its own nine-inch disk. The term
+#                    self-extinguishes to exactly 0 when the enemy has no reserves.
+#
+#   DENY_MARKER(p) — enemy-held-marker contest. Standing within contest range of
+#                    an ENEMY-HELD objective denies the enemy that marker's per-
+#                    round primary victory points. Mirrors value_projection's
+#                    control-bracket comparison for the ENEMY side (their margin,
+#                    less my objective control): the denial is the enemy's score
+#                    DROP — obj.vp_per_round * srr when my presence flips their
+#                    hold to contested (the 10e scorer awards only on STRICTLY-
+#                    greater objective control, so a tie is enough to deny the
+#                    tick), and 0 when I cannot change the bracket.
+#
+# Charge-lane blocking is OUT OF SCOPE (deferred by the spec — no path geometry
+# exists in the sim to reuse). This is an AI-piloting heuristic (the same class as
+# the tarpit / kite / displacement biases), composed only from already-cited
+# mechanics (the Deep Strike more-than-nine-inch rule, the strictly-greater
+# objective scorer, the measured exchange rate), so it carries no rule citation of
+# its own. Default OFF: SWEG_JOB_DENY unset or "0" leaves the channel unpriced and
+# out of every argmax, so the SWEG_JOB_LAYER-only path stays byte-identical.
+def _job_deny_on() -> bool:
+    """SWEG_JOB_DENY gate (requires SWEG_JOB_LAYER=1). Default off → the DENY
+    channel is never priced and never enters any argmax."""
+    return os.environ.get("SWEG_JOB_DENY") == "1"
+
+
+def _deny_reserve_factor(battle, enemy) -> float:
+    """enemy_reserve_points_pending * _MEASURED_VP_PER_POINT — the victory-point
+    worth of the enemy units still waiting in reserve (read once per activation,
+    O(reserve count)). `battle._reserves` is keyed by army name (simulator.py).
+    Zero (so the whole DS term self-extinguishes) when the enemy has no
+    reserves — the common mid/late-game case."""
+    if battle is None:
+        return 0.0
+    reserves = getattr(battle, "_reserves", None)
+    if not reserves:
+        return 0.0
+    waiting = reserves.get(getattr(enemy, "name", None), None) or []
+    pts = 0.0
+    for u in waiting:
+        prof = getattr(u, "profile", None)
+        if prof is not None:
+            pts += float(getattr(prof, "points_cost", 0.0) or 0.0)
+    return pts * _MEASURED_VP_PER_POINT
+
+
+def _job_deny_ds_precompute(unit, friendly, enemy, battle, map_):
+    """Per-activation deep-strike-denial context, or None when the term self-
+    extinguishes (no enemy reserves, or no board). Returns
+    (x0, y0, step, nx, ny, legal, total, factor) where `legal[ix][iy]` is True
+    iff that 3-inch grid cell is currently a legal enemy arrival point: on-board,
+    not impassable, and more than nine inches from EVERY one of my OTHER alive
+    units (the mover excluded, so a unit staying put shows the space it denies).
+    This mirrors Battle._pick_arrival_point's grid (np.arange(2, w-1, 3) /
+    np.arange(2, h-1, 3)) and its `dist > 9` validity, tested from the arriving
+    ENEMY's perspective (its legality is measured against MY units). The grid is
+    invariant across the mover's candidate scan, so it is built ONCE here."""
+    factor = _deny_reserve_factor(battle, enemy)
+    if factor <= 0.0 or map_ is None:
+        return None
+    width = float(getattr(map_, "width", 0.0) or 0.0)
+    height = float(getattr(map_, "height", 0.0) or 0.0)
+    if width <= 0.0 or height <= 0.0:
+        return None
+    x0, y0, step = 2.0, 2.0, 3.0
+    # Cell counts match numpy's arange(start, stop, step) length: the number of
+    # multiples of `step` strictly below (stop - start). The 1e-9 guard keeps an
+    # exact boundary (e.g. width 60 -> stop 59 -> 19 columns) from tipping over.
+    nx = int(math.ceil((width - 1.0 - x0) / step - 1e-9))
+    ny = int(math.ceil((height - 1.0 - y0) / step - 1e-9))
+    if nx <= 0 or ny <= 0:
+        return None
+    # My OTHER alive units define the enemy's exclusion zones (>9" from each).
+    opos = [(float(u.position[0]), float(u.position[1]))
+            for u in friendly.alive_units if u is not unit]
+    legal = [[False] * ny for _ in range(nx)]
+    total = 0
+    min_gap2 = 9.0 * 9.0
+    for ix in range(nx):
+        cx = x0 + ix * step
+        col = legal[ix]
+        for iy in range(ny):
+            cy = y0 + iy * step
+            if map_.is_blocked((cx, cy)):
+                continue
+            ok = True
+            for (ux, uy) in opos:
+                ddx = cx - ux
+                ddy = cy - uy
+                if ddx * ddx + ddy * ddy <= min_gap2:   # not > 9" -> illegal
+                    ok = False
+                    break
+            if ok:
+                col[iy] = True
+                total += 1
+    return (x0, y0, step, nx, ny, legal, total, factor)
+
+
+def _deny_ds_value(p, ctx) -> float:
+    """DENY_DS(p) — fraction of the enemy's currently-legal landing cells that a
+    unit standing at p newly excludes, times the reserve-points factor. The
+    numerator scans only the ~28 grid cells inside the nine-inch disk around p
+    (the exclusion radius); the denominator (total currently-legal cells) is the
+    precomputed invariant. Returns 0 when the context self-extinguished."""
+    if ctx is None:
+        return 0.0
+    x0, y0, step, nx, ny, legal, total, factor = ctx
+    if total <= 0:
+        return 0.0
+    px, py = float(p[0]), float(p[1])
+    r = 9.0
+    imin = int(math.ceil((px - r - x0) / step))
+    imax = int(math.floor((px + r - x0) / step))
+    jmin = int(math.ceil((py - r - y0) / step))
+    jmax = int(math.floor((py + r - y0) / step))
+    if imin < 0:
+        imin = 0
+    if jmin < 0:
+        jmin = 0
+    if imax > nx - 1:
+        imax = nx - 1
+    if jmax > ny - 1:
+        jmax = ny - 1
+    r2 = r * r
+    count = 0
+    for ix in range(imin, imax + 1):
+        cx = x0 + ix * step
+        ddx = cx - px
+        col = legal[ix]
+        for iy in range(jmin, jmax + 1):
+            cy = y0 + iy * step
+            ddy = cy - py
+            if ddx * ddx + ddy * ddy <= r2 and col[iy]:   # legal & within 9" -> newly denied
+                count += 1
+    return (count / total) * factor
+
+
+def _deny_marker_value(p, own_oc, objectives, our_oc, their_oc,
+                       unit_on_obj_ids, srr) -> float:
+    """DENY_MARKER(p) — the enemy score dropped by a unit standing at p contesting
+    each ENEMY-HELD objective within contest range of p. Mirrors
+    value_projection's strict-majority control bracket for the enemy side: the
+    enemy holds a marker only on STRICTLY-greater objective control, so priced at
+    obj.vp_per_round * srr the denial is that full per-round primary value when my
+    objective control flips the enemy's hold to contested (their margin, less my
+    OC, drops to a tie or a loss), and 0 when I cannot change the bracket. `our_oc`
+    already counts this mover when it currently sits on the marker; `on_it`
+    subtracts it back out so `our_other` is the OTHER units' objective control and
+    the flip is measured as the marginal effect of THIS unit."""
+    if own_oc <= 0:
+        return 0.0        # no objective control to contest with
+    total = 0.0
+    px, py = float(p[0]), float(p[1])
+    for o in objectives:
+        dx = px - o.x
+        dy = py - o.y
+        if dx * dx + dy * dy > o.control_radius * o.control_radius:
+            continue        # p is not within contest range of this marker
+        on_it = id(o) in unit_on_obj_ids
+        our_other = our_oc[id(o)] - (own_oc if on_it else 0)
+        their = their_oc[id(o)]
+        holds_before = their > our_other
+        holds_after = their > our_other + own_oc
+        if holds_before and not holds_after:
+            total += o.vp_per_round * srr
+    return total
+
+
+def _job_channel_deny(unit, friendly, enemy, battle, objectives, our_oc,
+                      their_oc, unit_on_obj_ids, map_, srr):
+    """Best DENY value over candidate destinations. Returns (value, dest, intent).
+
+    Candidates: the current cell (staying to deny deep-strike space — the canary
+    fix, since HOLD/KILL/SURVIVE otherwise route a spare unit AWAY from its own
+    backfield) and every reachable objective marker centre (moving onto an enemy-
+    held marker to contest it). Each candidate is priced DENY_DS(p) +
+    DENY_MARKER(p); the best wins. The DS legality grid is precomputed once
+    (invariant across candidates), and the whole DS half is skipped when the enemy
+    has no reserves pending. Intent is REPOSITION (denial is holding ground, not a
+    capture claim or an engage), so the move executor drives the unit toward the
+    chosen cell without triggering the capture / staging reflexes."""
+    own_oc = unit.profile.oc or 0
+    ds_ctx = _job_deny_ds_precompute(unit, friendly, enemy, battle, map_)
+    candidates = [unit.position]
+    reach = _job_reachable_move(unit)
+    for o in objectives:
+        on_it = id(o) in unit_on_obj_ids
+        if on_it or _dist(unit.position, (o.x, o.y)) <= reach:
+            candidates.append((o.x, o.y))
+    best_v = 0.0
+    best_dest = unit.position
+    for p in candidates:
+        v = _deny_ds_value(p, ds_ctx) + _deny_marker_value(
+            p, own_oc, objectives, our_oc, their_oc, unit_on_obj_ids, srr)
+        if v > best_v:
+            best_v = v
+            best_dest = p
+    return best_v, best_dest, _REPOSITION_INTENT
+
+
 def assign_jobs(army, enemy, map_, cur_round) -> None:
     """PART 2 — the deterministic greedy army-level HOLD assignment, run once per
     player turn BEFORE that army's movement (from the simulator's move loop).
@@ -3933,13 +4213,31 @@ def assign_jobs(army, enemy, map_, cur_round) -> None:
         return _job_hold_value_at(u, o, prospective, their_oc[id(o)],
                                   projectors, map_, srr, own_is_a, chosen)
 
+    def _hold_vt(u, o):
+        # (V, T) for the persistence check — T feeds the SWEG_HOLD_REACTIVE
+        # committed-holder urgency bonus. Same prospective objective control as
+        # _hold_v, so V matches it exactly (byte-identical when reactive is off).
+        own = u.profile.oc or 0
+        on_it = id(o) in unit_on[u.uid]
+        prospective = our_oc[id(o)] + (own if not on_it else 0)
+        return _job_hold_value_and_threat_at(
+            u, o, prospective, their_oc[id(o)], projectors, map_, srr,
+            own_is_a, chosen)
+
     prev = getattr(army, "job_assignments", None) or {}
+    # SWEG_HOLD_REACTIVE flip-release reads last turn's believed-controller state.
+    prev_believed = getattr(army, "job_believed_held", None) or {}
+    reactive = _hold_reactive_on()
+    deny_on = _job_deny_on()
     new_assign: Dict = {}
     assigned_oc = {id(o): 0 for o in objectives}
     assigned_units = set()
 
     # Persistence: carry a prior commitment forward unless it is strictly
-    # dominated by the unit's KILL or SURVIVE value now.
+    # dominated by the unit's KILL, SURVIVE (or, when SWEG_JOB_DENY is on, DENY)
+    # value now — OR (SWEG_HOLD_REACTIVE) the marker it believed it held has
+    # flipped to the enemy, which force-releases regardless of the discounted
+    # HOLD value so the greedy pass re-tasks from scratch.
     for u in friendly_alive:
         oid = prev.get(u.uid)
         if oid is None:
@@ -3947,11 +4245,28 @@ def assign_jobs(army, enemy, map_, cur_round) -> None:
         obj = next((o for o in objectives if id(o) == oid), None)
         if obj is None or not _reach(u, obj):
             continue
-        hv = _hold_v(u, obj)
+        # FLIP RELEASE (SWEG_HOLD_REACTIVE): a marker we believed ours that has
+        # flipped (our objective control here, WITH this unit counted, no longer
+        # strictly exceeds theirs) is released so a fresh greedy re-task can add
+        # enough control to reclaim it rather than clinging on a contestability-
+        # discounted HOLD that may still dominate KILL/SURVIVE.
+        if reactive and prev_believed.get(u.uid):
+            own = u.profile.oc or 0
+            on_it = oid in unit_on[u.uid]
+            our_with = our_oc[oid] + (own if not on_it else 0)
+            if our_with <= their_oc[oid]:
+                continue                # flipped — force-release the commitment
+        hv, hv_t = _hold_vt(u, obj)
+        hv += _job_hold_urgency_bonus(obj, hv_t, u, srr)
         kv, _kd, _ki = _job_channel_kill(u, army, battle, enemy_alive, map_,
                                          srr, projectors)
         sv, _sd = _job_channel_survive(u, projectors, map_, srr)
-        if max(kv, sv) > hv:
+        dv = 0.0
+        if deny_on:
+            dv, _dd, _di = _job_channel_deny(
+                u, army, enemy, battle, objectives, our_oc, their_oc,
+                unit_on[u.uid], map_, srr)
+        if max(kv, sv, dv) > hv:
             continue                    # dominated — release the commitment
         new_assign[u.uid] = oid
         assigned_units.add(u.uid)
@@ -3980,6 +4295,23 @@ def assign_jobs(army, enemy, map_, cur_round) -> None:
         assigned_oc[id(o)] += _effective_oc_value(u)
 
     army.job_assignments = new_assign
+    # SWEG_HOLD_REACTIVE believed-controller record: for each assigned holder,
+    # whether our objective control on its marker (WITH that unit counted)
+    # strictly exceeds the enemy's now — i.e. we currently believe we hold it.
+    # Next turn's persistence loop reads this to detect a flip. Written
+    # unconditionally (a plain attribute never read while the gate is off, so it
+    # cannot perturb the byte-identical SWEG_JOB_LAYER-only path).
+    friendly_by_uid = {u.uid: u for u in friendly_alive}
+    believed: Dict = {}
+    for uid, oid in new_assign.items():
+        u = friendly_by_uid.get(uid)
+        if u is None:
+            continue
+        own = u.profile.oc or 0
+        on_it = oid in unit_on[uid]
+        our_with = our_oc[oid] + (own if not on_it else 0)
+        believed[uid] = our_with > their_oc[oid]
+    army.job_believed_held = believed
 
 
 def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
@@ -4034,6 +4366,14 @@ def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
     kill_v, kill_dest, kill_intent = _job_channel_kill(
         unit, friendly, battle, enemy_alive, map_, srr, projectors)
     survive_v, survive_dest = _job_channel_survive(unit, projectors, map_, srr)
+    # DENY channel (SWEG_JOB_DENY, default off → deny_v == 0.0 and it never wins
+    # any argmax below, so the SWEG_JOB_LAYER-only path is byte-identical).
+    if _job_deny_on():
+        deny_v, deny_dest, _deny_intent = _job_channel_deny(
+            unit, friendly, enemy, battle, objectives, our_oc, their_oc,
+            unit_on_obj_ids, map_, srr)
+    else:
+        deny_v, deny_dest = 0.0, unit.position
 
     # HOLD is available only to a unit the army-level pass COMMITTED to a marker
     # (the pile-on fix — unassigned units do not pile onto held markers). Price
@@ -4050,13 +4390,20 @@ def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
         if committed_obj is not None:
             on_it = id(committed_obj) in unit_on_obj_ids
             prospective = our_oc[id(committed_obj)] + (own_oc if not on_it else 0)
-            committed_hold_v = _job_hold_value_at(
+            committed_hold_v, _hv_t = _job_hold_value_and_threat_at(
                 unit, committed_obj, prospective, their_oc[id(committed_obj)],
                 projectors, map_, srr, own_is_a, chosen)
+            # SWEG_HOLD_REACTIVE urgency: raise the COMMITTED holder's value under
+            # threat at the marker (exactly 0.0 off → byte-identical).
+            committed_hold_v += _job_hold_urgency_bonus(
+                committed_obj, _hv_t, unit, srr)
 
-    # Channel argmax. A committed holder keeps HOLD unless KILL or SURVIVE
+    # Channel argmax. A committed holder keeps HOLD unless an alternative channel
     # STRICTLY exceeds the committed HOLD value (persistence — strict domination,
-    # no hysteresis constant). An unassigned unit takes argmax(KILL, SURVIVE).
+    # no hysteresis constant). An unassigned unit takes argmax over the channels.
+    # The alternative is a 4-way max(KILL, SURVIVE, DENY); KILL wins ties with
+    # SURVIVE (legacy >=) and DENY only enters on a strict excess, so deny_v==0.0
+    # off-path never displaces the legacy KILL/SURVIVE pick.
     if committed_hold_v is not None:
         if kill_v >= survive_v:
             alt_v, alt_dest, alt_intent, alt_ch = (
@@ -4064,6 +4411,9 @@ def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
         else:
             alt_v, alt_dest, alt_intent, alt_ch = (
                 survive_v, survive_dest, _REPOSITION_INTENT, _JOB_SURVIVE)
+        if deny_v > alt_v:
+            alt_v, alt_dest, alt_intent, alt_ch = (
+                deny_v, deny_dest, _REPOSITION_INTENT, _JOB_DENY)
         if alt_v > committed_hold_v:
             channel, dest, intent = alt_ch, alt_dest, alt_intent
         else:
@@ -4072,7 +4422,7 @@ def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
                 map_, (committed_obj.x, committed_obj.y),
                 search_radius=committed_obj.control_radius)
             intent = _CAPTURE_INTENT
-    elif kill_v <= 0.0 and survive_v <= 0.0:
+    elif kill_v <= 0.0 and survive_v <= 0.0 and deny_v <= 0.0:
         # ZERO-VALUE ROUTING (correction pass, the pre-registered single fix —
         # see the section header): every channel priced zero for an UNASSIGNED
         # unit. Do NOT march at the nearest enemy; fall back to the value
@@ -4100,10 +4450,19 @@ def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
         else:
             dest = unit.position          # no markers on the map — stand
             intent = _REPOSITION_INTENT
-    elif kill_v >= survive_v:
-        channel, dest, intent = _JOB_KILL, kill_dest, kill_intent
     else:
-        channel, dest, intent = _JOB_SURVIVE, survive_dest, _REPOSITION_INTENT
+        # Unassigned unit with a positive channel: argmax(KILL, SURVIVE, DENY).
+        # KILL wins ties with SURVIVE (legacy >=); DENY only enters on a strict
+        # excess, so deny_v==0.0 off-path reproduces the legacy 2-way pick exactly.
+        if kill_v >= survive_v:
+            channel, dest, intent = _JOB_KILL, kill_dest, kill_intent
+            best_alt = kill_v
+        else:
+            channel, dest, intent = (
+                _JOB_SURVIVE, survive_dest, _REPOSITION_INTENT)
+            best_alt = survive_v
+        if deny_v > best_alt:
+            channel, dest, intent = _JOB_DENY, deny_dest, _REPOSITION_INTENT
 
     if os.environ.get("SWEG_JOB_LAYER_DIAG") == "1":
         _job_diag_record(unit.profile.faction, channel)

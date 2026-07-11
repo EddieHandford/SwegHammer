@@ -21,9 +21,16 @@ import unittest
 
 from code.map import TerrainType
 from code.strategy import (
+    _MEASURED_VP_PER_POINT,
+    _deny_ds_value,
+    _deny_marker_value,
+    _job_channel_deny,
     _job_channel_hold,
     _job_channel_kill,
     _job_channel_survive,
+    _job_deny_ds_precompute,
+    _job_hold_urgency_bonus,
+    _job_hold_value_and_threat_at,
     _job_layer_move_intent,
     _threat_field_at,
     _threat_projectors,
@@ -289,6 +296,63 @@ def _guard_brute():
         melee_hit_probability=0.5, melee_strength=8, melee_ap=-2,
         points_override=200,
     )
+
+
+def _reserve_body():
+    """A 250-point reserve unit for the deep-strike-denial fixtures: two of these
+    make exactly 500 points pending so the DENY_DS reserve factor is exact
+    (500 * _MEASURED_VP_PER_POINT)."""
+    return UnitProfile(
+        name="ReserveBody", health=6, damage=1, hit_probability=0.5,
+        ap=0, save=4, strength=4, toughness=5, move=6.0, oc=2,
+        attacks=3, weapon_damage_per_shot=1.0, range_inches=12,
+        leadership=7, faction="Generic", unit_keywords=("INFANTRY",),
+        melee_attacks=2, melee_damage_per_shot=1.0,
+        melee_hit_probability=0.5, melee_strength=4, melee_ap=0,
+        points_override=250,
+    )
+
+
+def _oc_blocker():
+    """A near-indestructible, weaponless high-OC body used to plant a fixed
+    enemy objective-control total on a marker in the flip-release fixture: OC 8,
+    no ranged or melee output (projects zero threat, so contestability stays 1
+    and the control brackets are clean) and so tanky that the released holder's
+    KILL channel against it stays far below its HOLD value."""
+    return UnitProfile(
+        name="OcBlocker", health=40, damage=1, hit_probability=0.0,
+        ap=0, save=2, strength=3, toughness=14, move=6.0, oc=8,
+        attacks=0, weapon_damage_per_shot=0.0, range_inches=0,
+        leadership=8, faction="Generic", unit_keywords=("VEHICLE",),
+        melee_attacks=0, melee_damage_per_shot=0.0,
+        melee_hit_probability=0.0, melee_strength=3, melee_ap=0,
+        points_override=100,
+    )
+
+
+def _strong_holder():
+    """An OC-10 holder for the flip-release fixture: strong enough that its
+    reclaim of a marker the enemy holds at objective control 8 gives the marker
+    strict majority (5 + 10 > 8), pile-on-skipping the weaker released holder."""
+    return UnitProfile(
+        name="StrongHolder", health=6, damage=1, hit_probability=0.5,
+        ap=0, save=4, strength=3, toughness=4, move=6.0, oc=10,
+        attacks=2, weapon_damage_per_shot=1.0, range_inches=12,
+        leadership=8, faction="Generic", unit_keywords=("INFANTRY",),
+        melee_attacks=2, melee_damage_per_shot=1.0,
+        melee_hit_probability=0.5, melee_strength=3, melee_ap=0,
+        points_override=120,
+    )
+
+
+class _Battle:
+    """Minimal Battle stand-in exposing exactly what the DENY channel reads:
+    the two armies and the reserve dict keyed by army name (as
+    simulator.Battle._reserves is)."""
+    def __init__(self, a, b, reserves):
+        self.a = a
+        self.b = b
+        self._reserves = dict(reserves)
 
 
 CUR_ROUND = 1
@@ -792,6 +856,186 @@ class KillChannelRiskDiscount(unittest.TestCase):
         self.assertLessEqual(
             ((dest[0] - marker.x) ** 2 + (dest[1] - marker.y) ** 2) ** 0.5,
             marker.control_radius + 1e-9)
+
+
+class DenialAndReactive(unittest.TestCase):
+    """SWEG_JOB_DENY (the fourth channel) and SWEG_HOLD_REACTIVE (committed-holder
+    urgency + flipped-marker force-release). All numbers hand-computed to 1e-9."""
+
+    def test_a_deny_ds_fraction_and_value_hand_computed(self):
+        """(a) DENY_DS prices a candidate cell by the fraction of the enemy's
+        currently-legal 3-inch landing grid its nine-inch exclusion disk removes,
+        times the reserve-points factor.
+
+        Synthetic grid: 7x7 all-legal cells at x,y in {2,5,8,11,14,17,20}
+        (x0=2, step=3), total = 49 currently-legal cells; enemy reserves = 500
+        points so factor = 500 * _MEASURED_VP_PER_POINT.
+
+        A BACKFIELD-interior candidate at (11,11) has its full nine-inch disk on
+        the board: the grid cells within 9 inches are those at index offset
+        (di,dj) with (3di)^2+(3dj)^2 <= 81, i.e. di^2+dj^2 <= 9 — exactly 29
+        cells (1 + 4 + 4 + 4 + 8 + 4 + 4). A MIDFIELD/corner candidate at (20,20)
+        has three-quarters of its disk off-board; only 11 grid cells remain
+        within nine inches. So:
+            DENY_DS(11,11) = 29/49 * factor   (backfield denies more)
+            DENY_DS(20,20) = 11/49 * factor
+        """
+        nx = ny = 7
+        legal = [[True] * ny for _ in range(nx)]
+        total = nx * ny                            # 49
+        factor = 500.0 * _MEASURED_VP_PER_POINT
+        ctx = (2.0, 2.0, 3.0, nx, ny, legal, total, factor)
+
+        backfield = _deny_ds_value((11.0, 11.0), ctx)
+        midfield = _deny_ds_value((20.0, 20.0), ctx)
+        self.assertAlmostEqual(backfield, (29.0 / 49.0) * factor, delta=1e-9)
+        self.assertAlmostEqual(midfield, (11.0 / 49.0) * factor, delta=1e-9)
+        self.assertGreater(backfield, midfield)   # the canary fix: deny the backfield
+        # A None context (self-extinguished) prices exactly zero.
+        self.assertEqual(_deny_ds_value((11.0, 11.0), None), 0.0)
+
+    def test_b_deny_ds_self_extinguishes_with_empty_reserves(self):
+        """(b) The DENY_DS term self-extinguishes when the enemy has no reserves:
+        the precompute returns None and the priced value is exactly 0. With 500
+        points pending it returns a real grid with the exact reserve factor and a
+        positive denial for a unit standing on the board."""
+        mover = _Unit(_cheap_holder(), (10.0, 10.0), uid=1)
+        friendly = _Army([mover])
+        enemy = _Army([_Unit(_fragile_target(), (30.0, 30.0), uid=99)],
+                      is_a=False)
+        enemy.name = "Enemy"
+        map_ = _Map([], width=44.0, height=44.0)
+
+        r1 = _Unit(_reserve_body(), (0.0, 0.0), uid=201)   # 250 points
+        r2 = _Unit(_reserve_body(), (0.0, 0.0), uid=202)   # 250 points -> 500
+        battle = _Battle(friendly, enemy, {"Enemy": [r1, r2]})
+        ctx = _job_deny_ds_precompute(mover, friendly, enemy, battle, map_)
+        self.assertIsNotNone(ctx)
+        self.assertAlmostEqual(ctx[7], 500.0 * _MEASURED_VP_PER_POINT, delta=1e-9)
+        self.assertGreater(_deny_ds_value(mover.position, ctx), 0.0)
+        # And the channel as a whole prices a positive denial from a backfield body.
+        dv, _dd, _di = _job_channel_deny(
+            mover, friendly, enemy, battle, [], {}, {}, set(), map_, SRR)
+        self.assertGreater(dv, 0.0)
+
+        # Empty reserves: the term self-extinguishes.
+        battle_empty = _Battle(friendly, enemy, {"Enemy": []})
+        ctx0 = _job_deny_ds_precompute(mover, friendly, enemy, battle_empty, map_)
+        self.assertIsNone(ctx0)
+        self.assertEqual(_deny_ds_value(mover.position, ctx0), 0.0)
+        dv0, _d0, _i0 = _job_channel_deny(
+            mover, friendly, enemy, battle_empty, [], {}, {}, set(), map_, SRR)
+        self.assertEqual(dv0, 0.0)
+
+    def test_c_deny_marker_flip_prices_full_denial(self):
+        """(c) DENY_MARKER prices standing within contest range of an ENEMY-HELD
+        marker by the enemy's score DROP. Enemy objective control 5, my other
+        units 0, my mover OC 5: standing on the marker flips held (5 > 0) to
+        contested (5 is NOT > 5, the strictly-greater scorer denies the tick), so
+        the denial is the full obj.vp_per_round * srr = 5 * 5 = 25. Not standing
+        within range prices 0; a bracket I cannot change (enemy OC 20) prices 0."""
+        marker = _Obj(30.0, 22.0)                  # vp_per_round default 5
+        own_oc = 5
+        our_oc = {id(marker): 0}
+        their_oc = {id(marker): 5}                 # enemy holds (5 > 0)
+
+        v_on = _deny_marker_value((30.0, 22.0), own_oc, [marker], our_oc,
+                                  their_oc, set(), SRR)
+        self.assertAlmostEqual(v_on, marker.vp_per_round * SRR, delta=1e-9)
+        self.assertAlmostEqual(v_on, 25.0, delta=1e-9)
+
+        v_far = _deny_marker_value((100.0, 100.0), own_oc, [marker], our_oc,
+                                   their_oc, set(), SRR)
+        self.assertEqual(v_far, 0.0)               # not touching it -> 0
+
+        their_big = {id(marker): 20}
+        v_nochange = _deny_marker_value((30.0, 22.0), own_oc, [marker], our_oc,
+                                        their_big, set(), SRR)
+        self.assertEqual(v_nochange, 0.0)          # cannot change the bracket -> 0
+
+        # A zero-OC unit cannot contest at all.
+        self.assertEqual(
+            _deny_marker_value((30.0, 22.0), 0, [marker], our_oc, their_oc,
+                               set(), SRR),
+            0.0)
+
+    def test_d_hold_reactive_urgency_bonus_exact(self):
+        """(d) The SWEG_HOLD_REACTIVE urgency bonus for a committed holder on a
+        marker under threat t equal to half its health is exactly
+        obj.vp_per_round * srr * 0.5. Health 12, t = 6 -> min(1, 6/12) = 0.5, so
+        bonus = 5 * 5 * 0.5 = 12.5. Off, it is exactly 0.0 (byte-identical)."""
+        marker = _Obj(30.0, 22.0)                  # vp_per_round 5
+        unit = _Unit(_expensive_fragile(), (30.0, 22.0),
+                     current_health=12.0, uid=1)   # health 12
+        t = 6.0                                     # half of 12
+
+        os.environ["SWEG_HOLD_REACTIVE"] = "1"
+        try:
+            bonus = _job_hold_urgency_bonus(marker, t, unit, SRR)
+        finally:
+            del os.environ["SWEG_HOLD_REACTIVE"]
+        self.assertAlmostEqual(bonus, marker.vp_per_round * SRR * 0.5, delta=1e-9)
+        self.assertAlmostEqual(bonus, 12.5, delta=1e-9)
+
+        # Off -> exactly 0.0 (the SWEG_JOB_LAYER-only path is byte-identical).
+        self.assertEqual(_job_hold_urgency_bonus(marker, t, unit, SRR), 0.0)
+
+        # It threads value_projection's T through _job_hold_value_and_threat_at,
+        # so V is unchanged and T is the field the bonus reads.
+        proj = _threat_projectors(_Army([], is_a=False))
+        v, t_out = _job_hold_value_and_threat_at(
+            unit, marker, own_is_a=True, prospective_our_oc=5, their_oc=0,
+            projectors=proj, map_=_Map([marker]), srr=SRR, chosen=())
+        self.assertGreaterEqual(v, 0.0)
+        self.assertEqual(t_out, 0.0)               # no projectors -> no threat
+
+    def test_e_flip_release_re_tasks_the_flipped_marker(self):
+        """(e) SWEG_HOLD_REACTIVE force-releases a committed holder whose marker
+        has flipped to the enemy, so the greedy pass re-tasks the marker from
+        scratch — here handing it to a stronger holder that can actually reclaim
+        it — rather than the weak holder clinging on a contestability-discounted
+        HOLD that still dominates its KILL/SURVIVE.
+
+        Board: marker M with an enemy objective-control block of 8. Weak holder
+        u1 (OC 5) sits on M and was committed to it last turn while it was ours
+        (believed_held = True); it no longer holds it (5 <= 8 = flipped). Stronger
+        u2 (OC 10) is off M but reachable. With the gate ON, u1 is released and
+        the greedy pass assigns u2 (5+10 = 15 > 8, a real reclaim); u1 is then
+        pile-on-skipped. With the gate OFF, u1 persists (its HOLD 25*0.2 = 5
+        beats its ~0 KILL/SURVIVE) and clings to the lost marker."""
+        def _build():
+            u1 = _Unit(_cheap_holder(), (32.0, 22.0), uid=1)     # OC 5, on M (dist 2)
+            u2 = _Unit(_strong_holder(), (38.0, 22.0), uid=2)    # OC 10, off M, reachable
+            blocker = _Unit(_oc_blocker(), (30.0, 22.0), uid=99)  # enemy OC 8 on M
+            friendly = _Army([u1, u2])
+            enemy = _Army([blocker], is_a=False)
+            marker = _Obj(30.0, 22.0)
+            map_ = _Map([marker])
+            # Simulate last turn's state: u1 committed to M and believed it held it.
+            friendly.job_assignments = {u1.uid: id(marker)}
+            friendly.job_believed_held = {u1.uid: True}
+            return u1, u2, marker, friendly, enemy, map_
+
+        # Gate ON: flip-release + re-task to the stronger holder.
+        os.environ["SWEG_JOB_LAYER"] = "1"
+        os.environ["SWEG_HOLD_REACTIVE"] = "1"
+        try:
+            u1, u2, marker, friendly, enemy, map_ = _build()
+            assign_jobs(friendly, enemy, map_, CUR_ROUND + 1)
+            self.assertNotIn(u1.uid, friendly.job_assignments)      # released
+            self.assertEqual(friendly.job_assignments.get(u2.uid), id(marker))
+        finally:
+            del os.environ["SWEG_HOLD_REACTIVE"]
+            del os.environ["SWEG_JOB_LAYER"]
+
+        # Gate OFF: the weak holder clings to the flipped marker (persistence).
+        os.environ["SWEG_JOB_LAYER"] = "1"
+        try:
+            u1, u2, marker, friendly, enemy, map_ = _build()
+            assign_jobs(friendly, enemy, map_, CUR_ROUND + 1)
+            self.assertEqual(friendly.job_assignments.get(u1.uid), id(marker))
+        finally:
+            del os.environ["SWEG_JOB_LAYER"]
 
 
 if __name__ == "__main__":
