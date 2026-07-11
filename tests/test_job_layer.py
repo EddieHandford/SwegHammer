@@ -211,6 +211,38 @@ def _melee_brute():
     )
 
 
+def _modest_killer():
+    """A MIDDLING shooter — not an Eradicator-class melta brick (contrast
+    _eradicator): OC-4, 6 shots at 4+, S5 AP-1 D1, 12in range, 75 points. Used
+    by the exchange-rate-reprice fixture below: a plausible, modest amount of
+    output, not a dominant one."""
+    return UnitProfile(
+        name="ModestKiller", health=5, damage=1, hit_probability=0.5,
+        ap=-1, save=5, strength=5, toughness=3, move=6.0, oc=4,
+        attacks=6, weapon_damage_per_shot=1.0, range_inches=12,
+        leadership=7, faction="Generic", unit_keywords=("INFANTRY",),
+        melee_attacks=2, melee_damage_per_shot=1.0,
+        melee_hit_probability=0.5, melee_strength=3, melee_ap=0,
+        points_override=75,
+    )
+
+
+def _modest_prize():
+    """A dear, fragile 2-wound target — 300 points over 2 wounds (150
+    points-per-wound), dear enough per wound that the OLD asserted exchange
+    rate over-priced even a MODEST kill above a marker's real HOLD value; the
+    MEASURED rate does not. See ExchangeRateReprice for the hand-computation."""
+    return UnitProfile(
+        name="ModestPrize", health=2, damage=1, hit_probability=0.5,
+        ap=0, save=4, strength=4, toughness=4, move=6.0, oc=1,
+        attacks=1, weapon_damage_per_shot=1.0, range_inches=24,
+        leadership=7, faction="Generic", unit_keywords=("INFANTRY",),
+        melee_attacks=1, melee_damage_per_shot=1.0,
+        melee_hit_probability=0.5, melee_strength=4, melee_ap=0,
+        points_override=300,
+    )
+
+
 CUR_ROUND = 1
 SRR = _value_scoring_rounds_remaining(CUR_ROUND)
 
@@ -436,6 +468,105 @@ class ZeroValueRouting(unittest.TestCase):
             ((dest[0] - pre_fix_march[0]) ** 2
              + (dest[1] - pre_fix_march[1]) ** 2) ** 0.5,
             1.0)
+
+
+class ExchangeRateReprice(unittest.TestCase):
+    """docs/DECISION_LEDGER.md "EXCHANGE-RATE FIT RESULT (2026-07-11...)": the
+    ASSERTED wounds-to-victory-points rate ((_VALUE_VP_PER_ROUND_REF * srr) /
+    _TRADE_POINTS_REF, ~0.114-0.143 across the game) has been replaced by the
+    MEASURED rate (_MEASURED_VP_PER_POINT = 0.015248, fitted from 18,480
+    logged games). The KILL and SURVIVE channels both shrink by the SAME
+    ~9.4x factor at round 1 (both route through _trade_vp_per_wound with the
+    same scoring_rounds_remaining), so their relationship to EACH OTHER is
+    unchanged (see the eight ChannelDerivation/AssignmentAndPersistence/
+    ZeroValueRouting fixtures above, all still green) — but HOLD is priced
+    from the marker's own real Take-and-Hold scoring rule (value_projection),
+    which does NOT go through the exchange rate at all, so HOLD's size
+    RELATIVE TO KILL/SURVIVE changes. This is the reprice's signature effect."""
+
+    def test_i_modest_kill_near_uncontested_marker_now_derives_hold(self):
+        """HAND-COMPUTATION (round 1, SRR=5, ModestKiller at (10,10), an
+        uncontested marker 1.4" away at (11,11), ModestPrize 10" away at
+        (20,10) — well within the ModestKiller's 12" gun range):
+
+        KILL (exchange-rate-dependent — the arithmetic under test):
+          ew = attacks(6) * hit(0.5)
+               * wound_probability(str=5, toughness=4) = 2/3 (S5 > T4, not
+                 >= 2T)
+               * (1 - save_probability(save=4, ap=-1)) = (1 - 1/3) = 2/3
+               * per_shot_damage(1.0)
+             = 6 * 0.5 * (2/3) * (2/3) * 1.0 = 4/3 = 1.333333...
+          points-per-wound of the ModestPrize = 300 / 2 = 150.0
+          OLD (asserted, RETIRED — reconstructed here for illustration only,
+              the formula no longer exists in the code):
+              vp_per_wound_OLD = 150.0 * ((5.0 * 5) / 175.0) = 150.0 / 7
+                               = 21.428571...
+              kill_v_OLD = 1.333333... * 21.428571... = 28.571428...
+          NEW (measured, shipped):
+              vp_per_wound_NEW = 150.0 * 0.015248 = 2.2872
+              kill_v_NEW = 1.333333... * 2.2872 = 3.0496
+
+        HOLD (exchange-rate-INDEPENDENT — value_projection's own real
+        Take-and-Hold rule, unaffected by this reprice):
+          marker_vp = vp_per_round(5.0) * srr(5) = 25.0; own OC 4 beats the
+          Prize's OC 0 on an uncontested marker -> control = 1.0. The Prize's
+          24" gun reaches the marker (9.06" away) and contributes a small
+          threat field, so contestability is a hair under 1. Read directly
+          from the production value_projection/_job_channel_hold (the
+          threat-field arithmetic is untouched by this change and is not
+          re-derived here): hold_v = 22.808641975308642.
+
+        28.571 (kill_v_OLD) > 22.809 (hold_v) > 3.050 (kill_v_NEW): the OLD
+        asserted rate would have priced this MODEST kill ABOVE the marker's
+        real value (unit derives KILL); the MEASURED rate prices it well
+        BELOW (unit derives HOLD instead) — the reprice's named signature
+        behaviour (docs/DECISION_LEDGER.md: "the HOLD share rises from ~2
+        percent to material double digits")."""
+        os.environ["SWEG_JOB_LAYER"] = "1"
+        try:
+            u = _Unit(_modest_killer(), (10.0, 10.0), uid=1)
+            prize = _Unit(_modest_prize(), (20.0, 10.0), uid=99)   # 10" away
+            friendly = _Army([u])
+            enemy = _Army([prize], is_a=False)
+            marker = _Obj(11.0, 11.0)             # 1.4" away, uncontested
+            map_ = _Map([marker])
+            proj = _threat_projectors(enemy)
+
+            hold_v, _hobj = _job_channel_hold(
+                u, u.profile.oc, [marker], {id(marker): 0}, {id(marker): 0},
+                set(), proj, map_, SRR, True, ())
+            kill_v, _kd, _ki = _job_channel_kill(
+                u, friendly, None, enemy.alive_units, map_, SRR)
+            survive_v, _sd = _job_channel_survive(u, proj, map_, SRR)
+
+            # Pin the hand-computed numbers above against the production code.
+            self.assertAlmostEqual(hold_v, 22.808641975308642, delta=1e-9)
+            self.assertAlmostEqual(kill_v, 3.0496, delta=1e-9)
+
+            # Reconstruct the OLD (retired) rate from the NEW one — same ew,
+            # same points-per-wound, only the multiplicative constant differs
+            # — to show what the pre-reprice code would have priced.
+            kill_v_old_rate = kill_v * ((5.0 * SRR) / 175.0) / 0.015248
+            self.assertAlmostEqual(kill_v_old_rate, 28.571428571428573,
+                                   delta=1e-6)
+
+            # MEASURED rate (shipped): HOLD wins.
+            self.assertGreater(hold_v, kill_v)
+            self.assertGreater(hold_v, survive_v)
+            # OLD rate (retired, reconstructed for illustration): KILL would
+            # have out-priced HOLD — the exact defect the reprice fixes.
+            self.assertGreater(kill_v_old_rate, hold_v)
+
+            # End to end: the army-level assignment commits the unit to the
+            # marker, and the move-time decision is CAPTURE (HOLD), not a
+            # KILL-channel engage.
+            assign_jobs(friendly, enemy, map_, CUR_ROUND)
+            self.assertEqual(friendly.job_assignments.get(u.uid), id(marker))
+            dest, intent = _job_layer_move_intent(
+                u, friendly, enemy, map_, None, CUR_ROUND)
+            self.assertEqual(intent, "CAPTURE")
+        finally:
+            del os.environ["SWEG_JOB_LAYER"]
 
 
 if __name__ == "__main__":

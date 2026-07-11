@@ -111,7 +111,15 @@ def _ranged_ew(mp, tp, extra_hit_mod):
 
 
 def _vp_per_wound(tp):
-    return (tp.points_cost / tp.health) * ((5.0 * SRR) / 175.0)
+    """Independent re-derivation of _trade_vp_per_wound's MEASURED exchange
+    rate (docs/DECISION_LEDGER.md "EXCHANGE-RATE FIT RESULT (2026-07-11...)":
+    pooled ordinary-least-squares slope of final victory-point margin on kill
+    margin, 18,480 logged games, sc62a faithful defaults). The rate is now a
+    flat whole-game price — it no longer scales with SRR (the asserted
+    (5.0 * srr) / 175.0 relevance form this replaced did); SRR is kept as a
+    module constant only because value_offense's call signature still takes
+    scoring_rounds_remaining positionally."""
+    return (tp.points_cost / tp.health) * 0.015248
 
 
 class ValueOffenseArithmetic(unittest.TestCase):

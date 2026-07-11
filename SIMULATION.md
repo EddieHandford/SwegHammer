@@ -248,19 +248,48 @@ one-ply exchange `EXCHANGE(p) = OUR RETURN - THEIR REPLY` as a TILT on
 that net score. OUR RETURN is the value the unit expects to remove from its best
 reachable target by shooting or charging from `p` next activation (its own
 expected wounds through the audited helpers, priced points-per-wound times the
-value field's relevance); THEIR REPLY is the unit's expected remaining value at
-stake at `p`: the death probability (the tolerance term's survival ratio,
+wounds-to-victory-points exchange rate, `strategy._trade_vp_per_wound`); THEIR
+REPLY is the unit's expected remaining value at stake at `p`: the death
+probability (the tolerance term's survival ratio,
 `min(1, T / max(1, remaining wounds))`, from the same incoming threat field `T`)
-times the unit's full points cost, with no relevance discount — a death is a
+times the unit's full points cost, with no exchange-rate discount — a death is a
 full-price loss regardless of what the square was worth, so only the return
-carries the relevance weighting (the version-two reply pricing; the symmetric
-relevance-discounted version-one reply measurably under-deterred realized
-exposure per the walked-into-it falsifier). It prices what a
+carries the exchange-rate weighting (the version-two reply pricing; the
+symmetric relevance-discounted version-one reply measurably under-deterred
+realized exposure per the walked-into-it falsifier). It prices what a
 commitment TRADES — trade-poor armies stop over-committing to valuable ground
 they cannot pay for, trade-rich armies punish where the exchange is positive — as
 a tilt, never a veto (the settled blanket-charge-block rejection is respected;
 re-target, never freeze). It reuses the audited expected-wounds math on both
 sides and draws no new random number. Cited `simulator.trade_exchange`.
+
+The wounds-to-victory-points exchange rate itself (`strategy._trade_vp_per_wound`,
+consumed by the trade evaluator above, the value-offense output term, and the
+job/commitment layer's KILL and SURVIVE channels below) was originally an
+ASSERTED constant — points-per-wound times `(_VALUE_VP_PER_ROUND_REF * scoring
+rounds remaining) / _TRADE_POINTS_REF` — and has since been replaced by a
+MEASURED rate, `_MEASURED_VP_PER_POINT = 0.015248` victory points per enemy
+point destroyed: the pooled ordinary-least-squares slope of final
+victory-point margin on kill margin across 18,480 logged games on faithful
+defaults (`scripts/fit_exchange_rate.py`, `docs/DECISION_LEDGER.md`
+"EXCHANGE-RATE FIT RESULT"). The asserted constant over-priced violence
+four-to-seven-fold. The measured rate is a flat WHOLE-GAME price and no longer
+scales with the scoring-rounds-remaining horizon the way the marker's own
+Take-and-Hold value (`marker_vp`, above) still does.
+
+The **job/commitment layer**, gate `SWEG_JOB_LAYER`, is a further move-intent
+substrate (`docs/JOB_LAYER_PROPOSAL.md`, default-OFF, byte-identical off) that
+reuses the value field and value-offense machinery but replaces their additive
+composition with a per-unit argmax over three channels priced in one shared
+victory-point currency: **HOLD** (best `value_projection` over reachable
+markers — the real Take-and-Hold scoring rule, independent of the exchange
+rate), **KILL** (best `value_offense` over reachable firing/charging
+positions, priced through the exchange rate above), and **SURVIVE** (the
+unit's value-at-risk reduction from repositioning, also priced through the
+same exchange rate, so KILL and SURVIVE are currency-unified with each other
+by construction). An army-level greedy pass assigns HOLD commitments once per
+marker so labour divides instead of piling on. Not yet adopted; parked on the
+layer branch pending a re-screen with the measured rate.
 
 ### Activation Sequence
 

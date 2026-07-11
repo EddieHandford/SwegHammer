@@ -2723,6 +2723,23 @@ def value_top_marker_index(unit, friendly, enemy, map_):
 # A): points * relevance = points * (5 * srr) / 175 = 5 * srr at points = 175.
 _TRADE_POINTS_REF = 175.0
 
+# MEASURED exchange rate (docs/DECISION_LEDGER.md "EXCHANGE-RATE FIT RESULT
+# (2026-07-11...)"): pooled ordinary-least-squares slope of final victory-point
+# margin on kill margin (points destroyed differential), fitted across 18,480
+# logged games on the sc62a faithful-defaults frame with no layer gates active
+# (data/_margins_sc62a_n40_log.json, tool scripts/fit_exchange_rate.py, both on
+# the main tree). Replaces the ASSERTED relevance form ((_VALUE_VP_PER_ROUND_REF
+# * srr) / _TRADE_POINTS_REF, ~0.114 at four rounds remaining) that
+# over-priced violence four-to-seven-fold — a 200-point kill was priced at
+# ~23 victory points and actually buys ~3. Sanity: per-faction slopes
+# near-universal (mean 0.0188, standard deviation 0.0023, range
+# 0.0151-0.0241, n=1,680 each) — noted here as a SENSITIVITY band; the pooled
+# headline below is the registered number, not a per-faction knob. This is a
+# WHOLE-GAME price (it already averages over the horizon across the sampled
+# games), so nothing downstream of it scales by scoring_rounds_remaining any
+# more — see _trade_vp_per_wound.
+_MEASURED_VP_PER_POINT = 0.015248
+
 # Shadow diagnostic counters for the mechanism check (SWEG_TRADE_EVAL_DIAG): in a
 # gate-OFF (or value-only) battle, at every objective-destination decision, count
 # how often ADDING the exchange re-routes the unit to a different marker than the
@@ -2738,17 +2755,27 @@ def reset_trade_eval_diag() -> None:
 
 def _trade_vp_per_wound(profile, scoring_rounds_remaining) -> float:
     """Victory points one wound of damage dealt to / suffered by a unit with this
-    profile is worth over the horizon: points-per-wound (points_cost / starting
-    wounds) times the value field's RELEVANCE ((_VALUE_VP_PER_ROUND_REF * srr) /
-    _TRADE_POINTS_REF, victory points per point over the rounds remaining). This
-    is the 'points-per-wound x the value field's relevance' pricing the exchange
-    term is quoted in. Knob-free beyond the one documented reference constant."""
+    profile is worth: points-per-wound (points_cost / starting wounds) times the
+    MEASURED whole-game exchange rate _MEASURED_VP_PER_POINT (victory points per
+    enemy point destroyed, fitted from 18,480 logged games — see the constant's
+    provenance comment above).
+
+    `scoring_rounds_remaining` STAYS in the signature so every caller keeps its
+    existing call shape, but it no longer scales the result: the fitted slope
+    is a whole-game price, so the asserted per-round HORIZON SHAPE
+    ((_VALUE_VP_PER_ROUND_REF * srr) / _TRADE_POINTS_REF) retired along with
+    the assertion it priced. `_VALUE_VP_PER_ROUND_REF` / `_TRADE_POINTS_REF`
+    are UNCHANGED and still read elsewhere — the value field's own marker/dual
+    pricing (value_projection's marker_vp default, value_net_score's
+    unit_future_value) is a different, real victory-point scoring rule
+    (Take-and-Hold's 5-points-per-controlled-marker-per-round) and was never
+    part of this exchange; only this wounds-to-victory-points path stopped
+    reading them."""
     health = getattr(profile, "health", 0.0) or 0.0
     if health <= 0.0:
         return 0.0
     points_per_wound = (getattr(profile, "points_cost", 0.0) or 0.0) / health
-    relevance = (_VALUE_VP_PER_ROUND_REF * scoring_rounds_remaining) / _TRADE_POINTS_REF
-    return points_per_wound * relevance
+    return points_per_wound * _MEASURED_VP_PER_POINT
 
 
 def _trade_our_return(me_unit, dest, enemy_alive, scoring_rounds_remaining) -> float:
@@ -2877,10 +2904,14 @@ def trade_exchange(me_unit, dest, threat_at_dest, enemy_alive,
 # KNOB-FREE, everything inherited:
 #   * EXCHANGE RATE (wounds -> victory points): _trade_vp_per_wound (strategy.py,
 #     the SWEG_TRADE_EVAL evaluator above) — points-per-wound of the TARGET times
-#     the value field's relevance (_VALUE_VP_PER_ROUND_REF * srr) / _TRADE_POINTS_REF.
-#     No new constant; the exact currency OUR RETURN already uses.
-#   * HORIZON (scoring_rounds_remaining): carried by _trade_vp_per_wound's
-#     relevance factor, which scales linearly in srr exactly as marker_vp does.
+#     the MEASURED _MEASURED_VP_PER_POINT (fitted 2026-07-11 from 18,480 logged
+#     games; see the constant's provenance comment). No new constant here; the
+#     exact currency OUR RETURN already uses.
+#   * HORIZON (scoring_rounds_remaining): the parameter is still threaded through
+#     for call-shape compatibility, but no longer scales the exchange — the
+#     fitted rate is a whole-game price (docs/DECISION_LEDGER.md "EXCHANGE-RATE
+#     FIT RESULT"). Unlike marker_vp (which genuinely shrinks as scoring rounds
+#     run out), the OUTPUT term's per-wound price is now flat across the game.
 #   * GEOMETRY: mirrors _threat_field_at in reverse (me -> enemy) — the same
 #     weapon-range reach, the same _cover_attenuation save tax (applied to the
 #     TARGET at its own cell against MY ap, the reverse direction), and the same
@@ -3134,9 +3165,11 @@ def value_offense(me_unit, dest, ranged_ok, heavy_bonus, melee_ok,
 # MACHINERY (value_projection / value_offense / _threat_field_at) but NOT the
 # substrate gates — SWEG_JOB_LAYER activates the whole path on its own.
 #
-# THREE CHANNELS, priced per unit per activation in the value field's victory-
-# point currency (the _trade_vp_per_wound exchange over the scoring_rounds_
-# remaining horizon — NO new constants):
+# THREE CHANNELS, priced per unit per activation in a shared victory-point
+# currency: HOLD reads the marker's own real Take-and-Hold scoring rule
+# (value_projection); KILL and SURVIVE both go through the MEASURED wounds-to-
+# victory-points exchange (_trade_vp_per_wound / _MEASURED_VP_PER_POINT, fitted
+# 2026-07-11 from 18,480 logged games — NO new constants added by this layer):
 #   HOLD    = best V(p) over reachable markers (value_projection, marginal-holder
 #             logic: prospective objective-control counts).
 #   KILL    = best offense value over reachable firing/charging positions (the
@@ -3198,9 +3231,21 @@ def _job_diag_record(faction, channel) -> None:
 
 def _job_unit_value_vp(profile, srr) -> float:
     """The unit's whole remaining value on the victory-point axis: points-per-
-    wound times the value field's relevance times starting wounds (=
-    _trade_vp_per_wound * health = points_cost * relevance). The SURVIVE channel's
-    value-at-risk currency. Knob-free — the exact exchange the offense term uses."""
+    wound times the MEASURED exchange rate times starting wounds (=
+    _trade_vp_per_wound * health = points_cost * _MEASURED_VP_PER_POINT, since
+    points-per-wound IS points_cost / health). The SURVIVE channel's
+    value-at-risk currency.
+
+    CURRENCY UNIFICATION (docs/DECISION_LEDGER.md "EXCHANGE-RATE FIT RESULT"
+    WIRING note): this is the SURVIVE-side half of the job layer's shared
+    victory-point currency — because it routes through the exact same
+    _trade_vp_per_wound the KILL channel's value_offense uses (same function,
+    same _MEASURED_VP_PER_POINT constant, only the profile argument differs:
+    the unit's OWN profile here vs. the TARGET's profile in KILL), SURVIVE and
+    KILL are quoted in the same currency by construction — the reprice in
+    _trade_vp_per_wound repriced both channels together with no separate
+    SURVIVE-side edit required. Knob-free — the exact exchange the offense
+    term uses."""
     health = getattr(profile, "health", 0.0) or 0.0
     return _trade_vp_per_wound(profile, srr) * health
 
