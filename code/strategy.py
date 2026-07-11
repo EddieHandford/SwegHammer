@@ -3520,27 +3520,51 @@ def _job_step_toward(src, dst, dist, map_):
 
 
 def _job_hold_value_and_threat_at(unit, obj, prospective_our_oc, their_oc,
-                                  projectors, map_, srr, own_is_a, chosen):
+                                  projectors, map_, srr, own_is_a, chosen,
+                                  own_oc=None):
     """(V, T) for one marker from value_projection: the HOLD value AND the threat
     field T at the marker centre (value_projection's second return). SURVIVE and
     KILL already discount by T; the HOLD channel discarded it, which is what the
     SWEG_HOLD_REACTIVE urgency term below reads back to counteract the
     contestability discount for a COMMITTED holder. Marginal-holder logic lives
-    in `prospective_our_oc` (the caller adds this unit's OC off the marker)."""
-    v, t, _frac = value_projection(
+    in `prospective_our_oc` (the caller adds this unit's OC off the marker).
+
+    TIE-AND-DENY repricing (SWEG_JOB_DENY; iteration-3 fix 1, indicted by the
+    step-1 instrument's decomposition): value_projection prices only OUR
+    prospective scoring — an enemy-held marker reads 0.2x and a tie 0.5x, as if
+    the only value were winning control. The trade the canary's arithmetic
+    paradox points at is the enemy's LOSS: standing on a marker they held stops
+    their obj.vp_per_round x srr the moment our objective control TIES theirs
+    (the strictly-greater scorer awards nothing on a tie), even when we cannot
+    win control ourselves. Priced with EXACTLY the `_deny_marker_value` bracket
+    arithmetic (their margin less this unit's own objective control — the same
+    held-to-contested flip test), weighted by the survival factor this channel
+    already computes (1 - frac_at_risk: the body must be standing at the
+    scoring tick for the denial to happen), and ADDED to the HOLD value.
+    `own_oc` is this unit's own objective control (`prospective_our_oc` always
+    includes it — off the marker the caller adds it, on the marker the area sum
+    counts it); None, zero, or gate off prices no denial, keeping every
+    pre-existing arm byte-identical. Zero new constants: obj.vp_per_round x srr
+    (the real primary rule) and the frac already computed."""
+    v, t, frac = value_projection(
         unit, obj, prospective_our_oc, their_oc, projectors, map_, srr,
         own_is_a, chosen)
+    if own_oc and _job_deny_on():
+        our_other = prospective_our_oc - own_oc
+        if their_oc > our_other and their_oc <= prospective_our_oc:
+            v += obj.vp_per_round * srr * (1.0 - frac)
     return v, t
 
 
 def _job_hold_value_at(unit, obj, prospective_our_oc, their_oc, projectors,
-                       map_, srr, own_is_a, chosen) -> float:
+                       map_, srr, own_is_a, chosen, own_oc=None) -> float:
     """HOLD channel value for one marker: V(p) from value_projection. The
     marginal-holder logic lives in `prospective_our_oc` (the caller adds this
-    unit's OC when it is not already on the marker)."""
+    unit's OC when it is not already on the marker). `own_oc` feeds the gated
+    tie-and-deny repricing — see _job_hold_value_and_threat_at."""
     v, _t = _job_hold_value_and_threat_at(
         unit, obj, prospective_our_oc, their_oc, projectors, map_, srr,
-        own_is_a, chosen)
+        own_is_a, chosen, own_oc=own_oc)
     return v
 
 
@@ -3585,7 +3609,8 @@ def _job_channel_hold(unit, own_oc, objectives, our_oc, their_oc,
             continue
         prospective = our_oc[id(obj)] + (own_oc if not on_it else 0)
         v = _job_hold_value_at(unit, obj, prospective, their_oc[id(obj)],
-                               projectors, map_, srr, own_is_a, chosen)
+                               projectors, map_, srr, own_is_a, chosen,
+                               own_oc=own_oc)
         if v > best_v:
             best_v = v
             best_obj = obj
@@ -4211,7 +4236,8 @@ def assign_jobs(army, enemy, map_, cur_round) -> None:
         on_it = id(o) in unit_on[u.uid]
         prospective = our_oc[id(o)] + (own if not on_it else 0)
         return _job_hold_value_at(u, o, prospective, their_oc[id(o)],
-                                  projectors, map_, srr, own_is_a, chosen)
+                                  projectors, map_, srr, own_is_a, chosen,
+                                  own_oc=own)
 
     def _hold_vt(u, o):
         # (V, T) for the persistence check — T feeds the SWEG_HOLD_REACTIVE
@@ -4222,7 +4248,7 @@ def assign_jobs(army, enemy, map_, cur_round) -> None:
         prospective = our_oc[id(o)] + (own if not on_it else 0)
         return _job_hold_value_and_threat_at(
             u, o, prospective, their_oc[id(o)], projectors, map_, srr,
-            own_is_a, chosen)
+            own_is_a, chosen, own_oc=own)
 
     prev = getattr(army, "job_assignments", None) or {}
     # SWEG_HOLD_REACTIVE flip-release reads last turn's believed-controller state.
@@ -4392,7 +4418,7 @@ def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
             prospective = our_oc[id(committed_obj)] + (own_oc if not on_it else 0)
             committed_hold_v, _hv_t = _job_hold_value_and_threat_at(
                 unit, committed_obj, prospective, their_oc[id(committed_obj)],
-                projectors, map_, srr, own_is_a, chosen)
+                projectors, map_, srr, own_is_a, chosen, own_oc=own_oc)
             # SWEG_HOLD_REACTIVE urgency: raise the COMMITTED holder's value under
             # threat at the marker (exactly 0.0 off → byte-identical).
             committed_hold_v += _job_hold_urgency_bonus(

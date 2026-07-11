@@ -1037,6 +1037,50 @@ class DenialAndReactive(unittest.TestCase):
         finally:
             del os.environ["SWEG_JOB_LAYER"]
 
+    def test_f_hold_tie_and_deny_repricing_exact(self):
+        """(f, iteration-3 fix 1) The HOLD price for a marker where my presence
+        stops the enemy's scoring adds the denial obj.vp_per_round*srr*(1-frac)
+        on top of value_projection's own-scoring bracket.
+
+        HAND COMPUTATION (no projectors -> t=0, frac=0; srr=5; vp_per_round=5):
+          TIE case: their_oc 5, our_other 0, own_oc 5 -> prospective 5.
+            value_projection: control=0.5 (tie), v = 25*0.5*1.0 = 12.5.
+            Denial bracket: 5 > 0 (they held) and 5 <= 5 (stopped) -> +25*(1-0)
+            = +25.  Total = 37.5 exactly.
+          WIN case: their_oc 3, our_other 0, own_oc 5 -> prospective 5.
+            control=1.0, v = 25.  Denial: 3 > 0 and 3 <= 5 -> +25.  Total = 50
+            (the full swing: our +25 gain and their -25 loss).
+          CANNOT-FLIP case: their_oc 20 -> 20 > 5 after me too -> no denial;
+            control=0.2 -> v = 5 exactly.
+          Gate OFF: the tie case prices 12.5 exactly (byte-identical arm).
+          own_oc None (legacy signature): 12.5 even with the gate on."""
+        u = _Unit(_cheap_holder(), (30.0, 22.0), uid=1)   # OC 5, on the marker
+        marker = _Obj(30.0, 22.0)
+        map_ = _Map([marker])
+        proj = _threat_projectors(_Army([], is_a=False))  # no threat -> frac 0
+
+        os.environ["SWEG_JOB_DENY"] = "1"
+        try:
+            v_tie, _t = _job_hold_value_and_threat_at(
+                u, marker, 5, 5, proj, map_, SRR, True, (), own_oc=5)
+            self.assertAlmostEqual(v_tie, 12.5 + 25.0, delta=1e-9)
+            v_win, _t = _job_hold_value_and_threat_at(
+                u, marker, 5, 3, proj, map_, SRR, True, (), own_oc=5)
+            self.assertAlmostEqual(v_win, 25.0 + 25.0, delta=1e-9)
+            v_cant, _t = _job_hold_value_and_threat_at(
+                u, marker, 5, 20, proj, map_, SRR, True, (), own_oc=5)
+            self.assertAlmostEqual(v_cant, 5.0, delta=1e-9)
+            v_legacy, _t = _job_hold_value_and_threat_at(
+                u, marker, 5, 5, proj, map_, SRR, True, ())   # own_oc omitted
+            self.assertAlmostEqual(v_legacy, 12.5, delta=1e-9)
+        finally:
+            del os.environ["SWEG_JOB_DENY"]
+
+        # Gate off: no denial term even with own_oc supplied.
+        v_off, _t = _job_hold_value_and_threat_at(
+            u, marker, 5, 5, proj, map_, SRR, True, (), own_oc=5)
+        self.assertAlmostEqual(v_off, 12.5, delta=1e-9)
+
 
 if __name__ == "__main__":
     unittest.main()
