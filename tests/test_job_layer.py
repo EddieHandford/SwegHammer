@@ -32,9 +32,12 @@ from code.strategy import (
     _job_hold_urgency_bonus,
     _job_hold_value_and_threat_at,
     _job_layer_move_intent,
+    _job_marker_transit_net,
     _job_squad_health,
     _job_squad_value_vp,
     _job_squad_view,
+    _job_threat_precompute,
+    _job_transit_survival,
     _job_value_fallback_net,
     _threat_field_at,
     _threat_projectors,
@@ -1434,6 +1437,142 @@ class MarkerPeerRouting(unittest.TestCase):
             self.assertEqual(dest, u0.position)   # stays to shoot
         finally:
             del os.environ["SWEG_JOB_LAYER"]
+
+
+def _mine_body():
+    """A short-range lethal blocker for the lethal-waypoint fixture: sixty
+    attacks at 0.5 hit, S3 AP0 D1, THREE-inch range, move 0, no melee. Onto a
+    T3/5+ one-wound body its expected wounds are 60 x 0.5 x 0.5 x (2/3) x 1 =
+    10.0 exactly — the whole ten-model squad pool. The threat projector
+    floors its move at six inches, so its projected reach is 6 + 3 = 9 inches
+    — the fixture places it 8 inches from waypoint one (covered), 10 from
+    waypoint two and 12 from the destination (both uncovered)."""
+    return UnitProfile(
+        name="MineBody", health=4, damage=1, hit_probability=0.5,
+        ap=0, save=4, strength=3, toughness=4, move=0.0, oc=1,
+        attacks=60, weapon_damage_per_shot=1.0, range_inches=3,
+        leadership=7, faction="Generic", unit_keywords=("INFANTRY",),
+        melee_attacks=0, melee_damage_per_shot=0.0,
+        melee_hit_probability=0.0, melee_strength=3, melee_ap=0,
+        points_override=50,
+    )
+
+
+class TemporalMarkerPricing(unittest.TestCase):
+    """Iteration-6 temporal pricing of the marker peer: the arrival-delay
+    discount (vp x max(0, srr - turns), the real scoring rule applied to the
+    itinerary) and the approach-exposure survival product over the transit
+    waypoints. All numbers hand-computed to 1e-9."""
+
+    def _board(self, with_mine=False):
+        """Ten one-wound bodies (squad 7, pooled health 10) at (10,22); a
+        PistolBody at (20,22) projecting T = 1/6 everywhere within its
+        18-inch reach (both waypoints and the destination); the marker at
+        (25,22) is 15 inches away -> turns = ceil(15/6) = 3, i.e. TWO transit
+        waypoints at (16,22) and (22,22). Optional MineBody at (16,30), eight
+        inches above waypoint one: T = 10.0 exactly there (the whole squad
+        pool, inside its 9-inch projected reach), unreachable at waypoint two
+        (10 inches) and the destination (12 inches)."""
+        friendly = _Army([])
+        members = []
+        for i in range(10):
+            u = _Unit(_one_wound_body(), (10.0, 22.0), uid=10 + i)
+            u.squad_id = 7
+            u.army_ref = friendly
+            members.append(u)
+        friendly.units = list(members)
+        enemies = [_Unit(_pistol_body(), (20.0, 22.0), uid=99)]
+        if with_mine:
+            enemies.append(_Unit(_mine_body(), (16.0, 30.0), uid=98))
+        enemy = _Army(enemies, is_a=False)
+        marker = _Obj(25.0, 22.0)
+        map_ = _Map([marker])
+        return members, marker, friendly, enemy, map_
+
+    def test_l_transit_discount_and_survival_exact(self):
+        """(j-new) A marker three move-turns away at srr=4 prices
+        vp x max(0, 4 - 3) = vp x 1, times the two-waypoint survival product —
+        NOT vp x 4.
+
+        HAND COMPUTATION (squad pool 10; T = 1/6 at both waypoints and the
+        destination; prospective 2 vs their 0 -> control 1.0):
+          survival: frac_1 = (1/6)/10 = 1/60; health_2 = 10 - 1/6 = 59/6;
+                    frac_2 = (1/6)/(59/6) = 1/59;
+                    survival = (59/60) x (58/59) = 58/60 = 29/30.
+          net(srr_eff=1) = 5 x 1 x 1.0 x (59/60) - (60 x rate) x (1/60)
+          temporal net  = net x 29/30
+        and the UNdiscounted srr=4 price (5 x 4 x (59/60) - dual) is more than
+        four times larger — the discount is the arithmetic under test."""
+        members, marker, friendly, enemy, map_ = self._board()
+        u0 = members[0]
+        proj = _threat_projectors(enemy)
+        srr4 = _value_scoring_rounds_remaining(2)
+        self.assertEqual(srr4, 4)
+        rows = _job_threat_precompute(u0, proj)
+
+        surv = _job_transit_survival(
+            u0, (marker.x, marker.y), 3, map_, rows, None, 10.0)
+        self.assertAlmostEqual(surv, 29.0 / 30.0, delta=1e-9)
+
+        rate = _MEASURED_VP_PER_POINT
+        expected_net1 = (5.0 * 1.0 * (1.0 - (1.0 / 6.0) / 10.0)
+                         - (60.0 * rate) * ((1.0 / 6.0) / 10.0))
+        expected = expected_net1 * (29.0 / 30.0)
+        got = _job_marker_transit_net(
+            u0, _job_squad_view(u0), _job_squad_value_vp(u0, srr4), 10.0,
+            marker, 2, 0, proj, map_, srr4, 3, lambda: (rows, None),
+            True, ())
+        self.assertAlmostEqual(got, expected, delta=1e-9)
+
+        # NOT vp x 4: the undiscounted iteration-5 net is > 4x the priced one.
+        undiscounted = _job_value_fallback_net(
+            _job_squad_view(u0), _job_squad_value_vp(u0, srr4), marker, 2, 0,
+            proj, map_, srr4, True, ())
+        self.assertGreater(undiscounted, 4.0 * got)
+
+    def test_m_lethal_waypoint_prices_zero(self):
+        """(k-new) The same marker with a LETHAL first waypoint (the MineBody's
+        10.0 expected wounds equal the squad pool -> frac_1 = 1) prices
+        exactly 0: the survival product hits zero and the temporal net with it
+        — even though the destination itself is barely threatened (the mine's
+        9-inch projected reach ends 3 inches short of it, so the pre-survival
+        net is the same positive 4.90 as the j-fixture's)."""
+        members, marker, friendly, enemy, map_ = self._board(with_mine=True)
+        u0 = members[0]
+        proj = _threat_projectors(enemy)
+        srr4 = _value_scoring_rounds_remaining(2)
+        rows = _job_threat_precompute(u0, proj)
+
+        surv = _job_transit_survival(
+            u0, (marker.x, marker.y), 3, map_, rows, None, 10.0)
+        self.assertAlmostEqual(surv, 0.0, delta=1e-9)
+
+        got = _job_marker_transit_net(
+            u0, _job_squad_view(u0), _job_squad_value_vp(u0, srr4), 10.0,
+            marker, 2, 0, proj, map_, srr4, 3, lambda: (rows, None),
+            True, ())
+        self.assertAlmostEqual(got, 0.0, delta=1e-9)
+
+    def test_n_turns_leq_one_identical_to_iteration5(self):
+        """(l-new) turns_to_reach of 0 or 1 is byte-identical to the
+        iteration-5 pricing: full srr, no transit survival, and the lazy
+        threat context is NEVER built (a raising context proves it)."""
+        members, marker, friendly, enemy, map_ = self._board()
+        u0 = members[0]
+        proj = _threat_projectors(enemy)
+        srr4 = _value_scoring_rounds_remaining(2)
+
+        def _boom():
+            raise AssertionError("threat context built for turns <= 1")
+
+        it5 = _job_value_fallback_net(
+            _job_squad_view(u0), _job_squad_value_vp(u0, srr4), marker, 2, 0,
+            proj, map_, srr4, True, ())
+        for turns in (0, 1):
+            got = _job_marker_transit_net(
+                u0, _job_squad_view(u0), _job_squad_value_vp(u0, srr4), 10.0,
+                marker, 2, 0, proj, map_, srr4, turns, _boom, True, ())
+            self.assertAlmostEqual(got, it5, delta=1e-9)
 
 
 if __name__ == "__main__":

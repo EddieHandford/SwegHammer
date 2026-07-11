@@ -3607,6 +3607,90 @@ def _job_value_fallback_net(view, squad_vp, obj, prospective_our_oc, their_oc,
     return v - squad_vp * frac
 
 
+def _job_transit_survival(unit, dest, turns, map_, threat_rows, alloc,
+                          squad_health) -> float:
+    """APPROACH-EXPOSURE SURVIVAL (iteration 6 of the canary loop): the squad's
+    probability of surviving the TRANSIT to a marker `turns` move-turns away,
+    priced with the existing cached threat machinery. Waypoints are the squad's
+    expected positions after each transit turn along the straight-line path
+    (`_job_step_toward` at t x move, t = 1 .. turns-1); at each waypoint the
+    allocated threat field is evaluated through the per-activation cache
+    (`_job_threat_precompute` rows + `_job_threat_scan`, bit-identical to
+    `_threat_field_at`), and
+
+        frac_t   = min(1, T_t / squad_health_remaining_t)
+        survival = product over t of (1 - frac_t)
+        health_{t+1} = health_t - T_t   (floored: expected-dead -> survival 0)
+
+    The DESTINATION's own frac is already inside the marker net (the
+    contestability discount and the exposure dual) and covers the final turn —
+    transit waypoints deliberately stop one short of arrival so it is never
+    double-counted. turns <= 1 is no transit: returns exactly 1.0 (the
+    iteration-5 behaviour unchanged). The melee gradient inside the threat
+    field already prices the advancing charge threat at each waypoint — the
+    instrument-measured "Death Guard walks into the path" effect. Zero new
+    constants; the iteration-4 squad-survival pool is the denominator."""
+    if turns <= 1:
+        return 1.0
+    move = float(effective_move(unit))
+    if move <= 0.0:
+        return 1.0            # cannot move: no transit path to price
+    survival = 1.0
+    health = squad_health
+    for t in range(1, turns):
+        if health <= 1e-9:
+            return 0.0        # the squad is expected dead before this leg
+        wp = _job_step_toward(unit.position, dest, move * t, map_)
+        t_wp = _job_threat_scan(threat_rows, unit, wp, map_, alloc)
+        frac = min(1.0, t_wp / health)
+        survival *= (1.0 - frac)
+        if survival <= 0.0:
+            return 0.0
+        health -= t_wp
+    return survival
+
+
+def _job_marker_transit_net(unit, view, squad_vp, squad_health, obj,
+                            prospective_our_oc, their_oc, projectors, map_,
+                            srr, turns, threat_ctx, own_is_a, chosen) -> float:
+    """The marker peer's TEMPORALLY priced net (iteration 6) — two rule-derived
+    corrections composed on `_job_value_fallback_net`, zero new constants:
+
+      1. ARRIVAL-DELAY DISCOUNT: a marker reached in `turns` move-turns yields
+         vp_per_round x max(0, srr - turns), not x srr — the unit cannot score
+         the rounds it spends walking (the real per-round scoring rule applied
+         to the itinerary; `turns` is the existing fewest-turns integer, and
+         turns <= 1 arrives this activation and keeps the full srr).
+      2. APPROACH-EXPOSURE SURVIVAL: the net is multiplied by
+         `_job_transit_survival` over the transit waypoints. Applied only when
+         the net is positive — transit losses can never make a marker MORE
+         attractive, and scaling a NEGATIVE net toward zero would do exactly
+         that; the lethal-path fixture prices 0, never a bonus.
+
+    `threat_ctx` is a zero-argument callable returning the per-activation
+    (threat_rows, alloc) cache, built lazily by the caller so activations
+    whose candidates all arrive this turn (or price non-positive) never pay
+    for the threat precompute.
+
+    EXPECTED EMERGENT BEHAVIOUR (the real-play pattern this arithmetic
+    produces): early rounds, a distant contested midfield marker prices LOW
+    for infantry — long walk, hot field, few scoring rounds left after
+    arrival — so KILL/SURVIVE win the peer argmax and the gunline holds home
+    and shoots; as the enemy thins and closes, turns-to-reach drops and the
+    field cools, the marker nets rise, and the line contests late. Castle,
+    shoot, take the midfield in the last rounds — emerging from scoring
+    arithmetic plus honest transit pricing, no posture table."""
+    srr_eff = srr if turns <= 1 else max(0, srr - turns)
+    net = _job_value_fallback_net(view, squad_vp, obj, prospective_our_oc,
+                                  their_oc, projectors, map_, srr_eff,
+                                  own_is_a, chosen)
+    if turns > 1 and net > 0.0:
+        threat_rows, alloc = threat_ctx()
+        net *= _job_transit_survival(unit, (obj.x, obj.y), turns, map_,
+                                     threat_rows, alloc, squad_health)
+    return net
+
+
 def _job_reachable_move(unit) -> float:
     """Distance a unit can cover this activation (Normal move + a max Advance) —
     the reach used to filter HOLD markers and greedy-assignment candidates."""
@@ -4670,15 +4754,30 @@ def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
             if cand_objs:
                 _fb_view = _job_squad_view(unit)
                 _fb_squad_vp = _job_squad_value_vp(unit, srr)
+                _fb_sqh = _job_squad_health(unit)
                 _fb_move = float(effective_move(unit))
+                # Lazy per-activation threat cache for the transit waypoints
+                # (iteration 6) — built on the first candidate that actually
+                # needs a transit scan (turns > 1 with a positive net), so
+                # activations whose candidates all arrive this turn pay
+                # nothing. Same pattern as _job_channel_kill's _threat_ctx.
+                _fb_rows = None
+                _fb_alloc = None
+                _fb_alloc_on = _threat_alloc_on(unit)
+
+                def _fb_threat_ctx():
+                    nonlocal _fb_rows, _fb_alloc
+                    if _fb_rows is None:
+                        _fb_rows = _job_threat_precompute(unit, projectors)
+                        if _fb_alloc_on:
+                            _fb_alloc = (_threat_alloc_denominators(
+                                unit, projectors, map_) or ({}, {}, {}))
+                    return _fb_rows, _fb_alloc
+
                 best_turns = None
                 for o in cand_objs:
                     on_it = id(o) in unit_on_obj_ids
                     prospective = our_oc[id(o)] + (own_oc if not on_it else 0)
-                    net = _job_value_fallback_net(
-                        _fb_view, _fb_squad_vp, o, prospective,
-                        their_oc[id(o)], projectors, map_, srr, own_is_a,
-                        chosen)
                     d = _dist(unit.position, (o.x, o.y))
                     if on_it:
                         turns = 0
@@ -4686,6 +4785,12 @@ def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
                         turns = int(math.ceil(d / _fb_move))
                     else:
                         turns = 10 ** 6
+                    # TEMPORAL pricing (iteration 6): arrival-delay discount +
+                    # approach-exposure survival — see _job_marker_transit_net.
+                    net = _job_marker_transit_net(
+                        unit, _fb_view, _fb_squad_vp, _fb_sqh, o, prospective,
+                        their_oc[id(o)], projectors, map_, srr, turns,
+                        _fb_threat_ctx, own_is_a, chosen)
                     if (marker_net is None or net > marker_net
                             or (net == marker_net and turns < best_turns)):
                         marker_net = net
