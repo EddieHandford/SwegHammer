@@ -391,11 +391,23 @@ class ChannelDerivation(unittest.TestCase):
     def test_b_kill_derived_for_eradicator_with_juicy_target(self):
         """(b) An Eradicator-class unit with a juicy in-range target and no
         holdable marker in reach derives KILL: its KILL price beats HOLD and
-        SURVIVE, and (in range) it stays put to shoot."""
+        SURVIVE, and (in range) it stays put to shoot.
+
+        Iteration-5 update: the marker option is now a PEER for unassigned
+        units, and the original bare far marker (uncontested, zero threat)
+        priced net 25 — beating the kill. A Sniper battery guards the far
+        marker so its job-path net goes NEGATIVE (the battery's 13.34 expected
+        wounds against the lone six-wound Eradicator saturate frac to 1, so
+        v = 0 and the net is minus its own value at stake), preserving this
+        fixture's original intent: with no WORTHWHILE marker, the in-range
+        kill wins the peer argmax and the unit stays to shoot. The battery is
+        270 inches from the Eradicator — outside every kill/survive
+        interaction."""
         u = _Unit(_eradicator(), (10.0, 10.0), uid=1)
         target = _Unit(_juicy_tank(), (22.0, 10.0), uid=99)   # 12" -> in 18" range
+        battery = _Unit(_long_range_gun(), (200.0, 206.0), uid=98)  # marker guard
         friendly = _Army([u])
-        enemy = _Army([target], is_a=False)
+        enemy = _Army([target, battery], is_a=False)
         marker = _Obj(200.0, 200.0)              # unreachable -> HOLD unavailable
         map_ = _Map([marker])
         proj = _threat_projectors(enemy)
@@ -1087,11 +1099,13 @@ class DenialAndReactive(unittest.TestCase):
         self.assertAlmostEqual(v_off, 12.5, delta=1e-9)
 
     def test_g_value_fallback_spreads_across_markers(self):
-        """(g, iteration-3 fix 2) Two zero-channel units whose VALUE fallback
-        argmax agrees on the same best marker SPREAD when SWEG_JOB_DENY is on:
-        the first claims marker A (its effective objective control 5 exceeds
-        the enemy's 0 there — sufficiently claimed), the second is filtered to
-        the next-best marker B. With the gate off both pile onto A.
+        """(g, iteration-3 fix 2; updated by the iteration-5 promotion) Two
+        zero-channel units whose marker argmax agrees on the same best marker
+        SPREAD: the first claims marker A (its effective objective control 5
+        exceeds the enemy's 0 there — sufficiently claimed), the second is
+        filtered to the next-best marker B. Since iteration 5 the spread
+        claims are job-path standard, so the dedup applies with or without
+        SWEG_JOB_DENY (both cases below assert the spread).
 
         Geometry (all channels priced zero): markers ~20 inches away — beyond
         the move+6 hold/deny reach and the 12-inch gun (after a 6-inch move,
@@ -1133,14 +1147,17 @@ class DenialAndReactive(unittest.TestCase):
             del os.environ["SWEG_JOB_DENY"]
             del os.environ["SWEG_JOB_LAYER"]
 
-        # Gate OFF (JOB_LAYER only): both pile onto A — the legacy argmax.
+        # JOB_LAYER only (no SWEG_JOB_DENY): since the iteration-5
+        # marker-as-peer routing promoted the spread claims to job-path
+        # standard, the dedup applies on EVERY job arm — both units spread
+        # here too (in iteration 3 this case still piled onto A).
         os.environ["SWEG_JOB_LAYER"] = "1"
         try:
             u1, u2, mk_a, mk_b, friendly, enemy, map_ = _build()
             d1, _i1 = _job_layer_move_intent(u1, friendly, enemy, map_, None, 1)
             d2, _i2 = _job_layer_move_intent(u2, friendly, enemy, map_, None, 1)
             self.assertTrue(_near(d1, mk_a))
-            self.assertTrue(_near(d2, mk_a))       # the pile the fix removes
+            self.assertTrue(_near(d2, mk_b))       # spread on the plain job arm
         finally:
             del os.environ["SWEG_JOB_LAYER"]
 
@@ -1255,6 +1272,168 @@ class SquadSurvivalPricing(unittest.TestCase):
         old_net = value_net_score(
             members[0], marker, 20, 0, proj, map_, SRR, True, ())
         self.assertAlmostEqual(old_net, -25.0, delta=1e-9)  # shared path intact
+
+
+def _pistol_body():
+    """A ranged-only one-wound enemy for the marker-peer fixtures: one attack
+    at 0.5 hit, S3 AP0 D1, 12-inch range, NO melee — so its threat field is
+    the ranged term alone (a clean hand number: expected wounds onto a T3/5+
+    body = 1 x 0.5 x wound_probability(3,3)=0.5 x (1 - save_probability(5,0)
+    = 1/3) x 1 = 1/6 exactly, everywhere within its move 6 + range 12 = 18
+    reach)."""
+    return UnitProfile(
+        name="PistolBody", health=1, damage=1, hit_probability=0.5,
+        ap=0, save=5, strength=3, toughness=3, move=6.0, oc=2,
+        attacks=1, weapon_damage_per_shot=1.0, range_inches=12,
+        leadership=7, faction="Generic", unit_keywords=("INFANTRY",),
+        melee_attacks=0, melee_damage_per_shot=0.0,
+        melee_hit_probability=0.0, melee_strength=3, melee_ap=0,
+        points_override=6,
+    )
+
+
+class MarkerPeerRouting(unittest.TestCase):
+    """Iteration-5 marker-as-peer routing (owner-sanctioned under the
+    canary-loop registration): for an UNASSIGNED unit the argmax is
+    max(KILL, SURVIVE, DENY, MARKER). These pin the two brief-mandated cases —
+    the instrument shape (micro-positive channels lose to a double-digit
+    marker net) and the claimed-marker next-best/micro routing. All numbers
+    hand-computed to 1e-9."""
+
+    def _board(self, with_second_marker=False):
+        """Ten one-wound bodies (squad 7) at (10,22); a PistolBody enemy at
+        (20,22) — 10 inches, inside the squad's 12-inch guns (a REAL positive
+        KILL) and projecting T = 1/6 onto every cell in play (my position,
+        every retreat ring cell, and both markers are within its 18-inch
+        reach, so SURVIVE prices exactly 0). Marker M1 at (30,22) is 20 inches
+        away — APPROACHABLE, not reachable this turn (move 6 + 6 advance = 12
+        < 20), exercising the no-reach-filter rule. Optional M2 at (30,34)
+        carries an inert OC-8 blocker (enemy-held -> 0.2 bracket)."""
+        friendly = _Army([])
+        members = []
+        for i in range(10):
+            u = _Unit(_one_wound_body(), (10.0, 22.0), uid=10 + i)
+            u.squad_id = 7
+            u.army_ref = friendly
+            members.append(u)
+        friendly.units = list(members)
+        pistol = _Unit(_pistol_body(), (20.0, 22.0), uid=99)
+        enemies = [pistol]
+        mk1 = _Obj(30.0, 22.0)
+        objs = [mk1]
+        mk2 = None
+        if with_second_marker:
+            mk2 = _Obj(30.0, 34.0)
+            blocker = _Unit(_oc_blocker(), (30.0, 34.0), uid=98)
+            enemies.append(blocker)
+            objs.append(mk2)
+        enemy = _Army(enemies, is_a=False)
+        map_ = _Map(objs)
+        return members, mk1, mk2, friendly, enemy, map_
+
+    def test_j_marker_peer_beats_micro_channels(self):
+        """(h-new) The instrument case's shape, hand-pinned: an unassigned
+        unit with a small-but-POSITIVE KILL, SURVIVE exactly 0, DENY 0, and a
+        marker netting in the double digits must choose the MARKER — before
+        iteration 5 the positive KILL blocked the marker route entirely (the
+        fallback required every channel <= 0).
+
+        HAND COMPUTATION (srr=5; squad health 10; squad value
+        60 x _MEASURED_VP_PER_POINT = 0.91488):
+          KILL: best target = the PistolBody, expected wounds 1/6 (in the
+            12-inch gun at 10 inches; own melee 1/6 x reach-probability never
+            exceeds it), capped by its 1 wound -> 1/6; times its value per
+            wound 6 x rate; risk discount at the firing cell
+            (1 - (1/6)/10):
+              kill = (1/6) x 6 x rate x (1 - 1/60) = 0.0904 x 59/60 ~ 0.0150
+          SURVIVE: T = 1/6 at the current cell AND at every retreat ring cell
+            (all within the pistol's 18-inch reach) -> delta-frac 0 -> 0.0.
+          DENY: no reserves, no marker within the deny reach -> 0.0.
+          MARKER M1: T at the centre = 1/6 -> frac = 1/60 ->
+              v   = 25 x 1.0 x (59/60) = 24.5833...
+              net = v - 0.91488 x (1/60) = 24.5680...
+        The peer argmax takes M1 (CAPTURE toward it), and the squad claims it
+        with its whole effective objective control (10 x 2 = 20)."""
+        members, mk1, _mk2, friendly, enemy, map_ = self._board()
+        u0 = members[0]
+        proj = _threat_projectors(enemy)
+
+        rate = _MEASURED_VP_PER_POINT
+        expected_kill = ((1.0 / 6.0) * (6.0 * rate)) * (1.0 - (1.0 / 6.0) / 10.0)
+        kill_v, _kd, _ki = _job_channel_kill(
+            u0, friendly, None, enemy.alive_units, map_, SRR, proj)
+        self.assertAlmostEqual(kill_v, expected_kill, delta=1e-9)
+        self.assertGreater(kill_v, 0.0)           # a REAL positive micro-channel
+
+        survive_v, _sd = _job_channel_survive(u0, proj, map_, SRR)
+        self.assertEqual(survive_v, 0.0)
+
+        expected_net = (25.0 * (1.0 - (1.0 / 6.0) / 10.0)
+                        - (60.0 * rate) * ((1.0 / 6.0) / 10.0))
+        net = _job_value_fallback_net(
+            _job_squad_view(u0), _job_squad_value_vp(u0, SRR), mk1, 2, 0,
+            proj, map_, SRR, True, ())
+        self.assertAlmostEqual(net, expected_net, delta=1e-9)
+
+        os.environ["SWEG_JOB_LAYER"] = "1"
+        try:
+            dest, intent = _job_layer_move_intent(
+                u0, friendly, enemy, map_, None, CUR_ROUND)
+        finally:
+            del os.environ["SWEG_JOB_LAYER"]
+        self.assertEqual(intent, "CAPTURE")       # marker beats the positive KILL
+        self.assertLessEqual(
+            ((dest[0] - mk1.x) ** 2 + (dest[1] - mk1.y) ** 2) ** 0.5,
+            mk1.control_radius + 1e-9)
+        self.assertEqual(friendly.job_value_claims[id(mk1)], 20)
+
+    def test_k_marker_peer_claimed_next_best_then_micro(self):
+        """(i-new) With the best marker already claimed by another squad, the
+        unit takes its NEXT-BEST marker; with EVERY marker claimed, it takes
+        its best micro-channel (KILL here — no markers remain).
+
+        HAND COMPUTATION: M2 is enemy-held (blocker objective control 8 >
+        prospective 2 -> 0.2 bracket) and inside the pistol's reach:
+            v(M2) = 25 x 0.2 x (59/60) = 4.9167 - dual 0.91488/60
+            net(M2) = 4.9014... — still far above the 0.0150 kill.
+        M1 claimed by "another squad" (claims 20 > enemy effective 0) -> the
+        unit is filtered to M2. Then M2 claimed too (20 > blocker's 8) -> no
+        markers remain and the positive KILL wins: the unit stays at its own
+        cell to shoot (REPOSITION)."""
+        members, mk1, mk2, friendly, enemy, map_ = self._board(
+            with_second_marker=True)
+        u0 = members[0]
+        proj = _threat_projectors(enemy)
+
+        rate = _MEASURED_VP_PER_POINT
+        expected_net2 = (25.0 * 0.2 * (1.0 - (1.0 / 6.0) / 10.0)
+                         - (60.0 * rate) * ((1.0 / 6.0) / 10.0))
+        net2 = _job_value_fallback_net(
+            _job_squad_view(u0), _job_squad_value_vp(u0, SRR), mk2, 2, 8,
+            proj, map_, SRR, True, ())
+        self.assertAlmostEqual(net2, expected_net2, delta=1e-9)
+
+        # M1 claimed by another squad -> next-best M2.
+        friendly.job_value_claims = {id(mk1): 20}
+        friendly.job_value_squad_pick = {}
+        os.environ["SWEG_JOB_LAYER"] = "1"
+        try:
+            dest, intent = _job_layer_move_intent(
+                u0, friendly, enemy, map_, None, CUR_ROUND)
+            self.assertEqual(intent, "CAPTURE")
+            self.assertLessEqual(
+                ((dest[0] - mk2.x) ** 2 + (dest[1] - mk2.y) ** 2) ** 0.5,
+                mk2.control_radius + 1e-9)
+
+            # EVERY marker claimed -> the positive micro-channel (KILL) wins.
+            friendly.job_value_claims = {id(mk1): 20, id(mk2): 20}
+            friendly.job_value_squad_pick = {}
+            dest, intent = _job_layer_move_intent(
+                u0, friendly, enemy, map_, None, CUR_ROUND)
+            self.assertEqual(intent, "REPOSITION")
+            self.assertEqual(dest, u0.position)   # stays to shoot
+        finally:
+            del os.environ["SWEG_JOB_LAYER"]
 
 
 if __name__ == "__main__":

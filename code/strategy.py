@@ -3430,21 +3430,27 @@ def value_offense(me_unit, dest, ranged_ok, heavy_bonus, melee_ok,
 # There are NO faction names anywhere in this layer; playstyle differences fall
 # out of list composition.
 #
-# ZERO-VALUE ROUTING (correction pass — the ONE pre-registered pricing/routing
-# fix the proposal's stop rule allows; docs/DECISION_LEDGER.md "JOB/COMMITMENT
-# LAYER v1"): when an UNASSIGNED unit's channels all price <= 0 (KILL <= 0, no
-# HOLD commitment, SURVIVE <= 0), it must NOT march at the nearest enemy — the
-# v1 default that the N=40 screen isolated as the falsifier trigger (the
-# combined-arms gunline factions cratered because out-of-range shooters
-# abandoned their firing lines: Adeptus Astartes -14.92, Astra Militarum -4.69;
-# the aggression-rewarded factions inflated symmetrically: Tyranids +12.06,
-# World Eaters +10.82). Instead the unit falls back to the VALUE FIELD's
-# destination choice: the existing SWEG_VALUE_MOVE consumer arithmetic
-# (value_net_score argmax over markers), invoked DIRECTLY regardless of that
-# env gate — the layer's own machinery-not-gates pattern. Approach happens
-# through the objective game: an out-of-range gunline whose best marker IS its
-# current area holds naturally (the argmax includes the marker it stands on),
-# and melee armies advance marker-to-marker instead of straight at the enemy.
+# ZERO-VALUE ROUTING (correction pass — originally the ONE pre-registered
+# pricing/routing fix the v1 proposal's stop rule allowed; docs/DECISION_LEDGER
+# .md "JOB/COMMITMENT LAYER v1"): when an UNASSIGNED unit's channels all price
+# <= 0 (KILL <= 0, no HOLD commitment, SURVIVE <= 0), it must NOT march at the
+# nearest enemy — the v1 default that the N=40 screen isolated as the falsifier
+# trigger (the combined-arms gunline factions cratered because out-of-range
+# shooters abandoned their firing lines: Adeptus Astartes -14.92, Astra
+# Militarum -4.69; the aggression-rewarded factions inflated symmetrically:
+# Tyranids +12.06, World Eaters +10.82). The unit instead routes to a marker.
+#
+# MARKER-AS-PEER (iteration 5 of the canary loop — sanctioned by the owner's
+# later registration, docs/DECISION_LEDGER.md "THE DENIAL PROGRAM + CANARY
+# LOOP", which supersedes the v1 stop rule inside the canary cell): the marker
+# option is no longer only a zero-value fallback — for every UNASSIGNED unit
+# it competes as a PEER in the channel argmax (max(KILL, SURVIVE, DENY,
+# MARKER)), priced by the squad-repriced job-path net (_job_value_fallback_net)
+# over all markers with the per-turn spread claims (one squad claims a marker,
+# later squads take the next-best). The zero-value semantics above are
+# preserved as the floor: when every micro-channel prices <= 0 the unit still
+# routes to the best marker even at a negative net (never a nearest-enemy
+# march, never stand-pat while markers exist).
 _JOB_HOLD = "HOLD"
 _JOB_KILL = "KILL"
 _JOB_SURVIVE = "SURVIVE"
@@ -4465,15 +4471,14 @@ def assign_jobs(army, enemy, map_, cur_round) -> None:
         our_with = our_oc[oid] + (own if not on_it else 0)
         believed[uid] = our_with > their_oc[oid]
     army.job_believed_held = believed
-    # FALLBACK-SPREAD claim state (SWEG_JOB_DENY; iteration-3 fix 2): reset the
-    # per-turn VALUE-fallback marker claims, seeded with the objective control
-    # the assignment pass just committed per marker (a marker with enough
-    # assigned holders is already sufficiently claimed — fallback units go
-    # elsewhere). `job_value_squad_pick` is the squad-sticky follow map. Both
-    # are plain attributes never read while the gate is off.
-    if deny_on:
-        army.job_value_claims = dict(assigned_oc)
-        army.job_value_squad_pick = {}
+    # MARKER-PEER claim state (iteration-3 fix 2, promoted to job-path
+    # standard by the iteration-5 marker-as-peer routing): reset the per-turn
+    # marker claims, seeded with the objective control the assignment pass
+    # just committed per marker (a marker with enough assigned holders is
+    # already sufficiently claimed — peer-routed units go elsewhere).
+    # `job_value_squad_pick` is the squad-sticky follow map.
+    army.job_value_claims = dict(assigned_oc)
+    army.job_value_squad_pick = {}
 
 
 def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
@@ -4584,119 +4589,136 @@ def _job_layer_move_intent(unit, friendly, enemy, map_, battle, cur_round,
                 map_, (committed_obj.x, committed_obj.y),
                 search_radius=committed_obj.control_radius)
             intent = _CAPTURE_INTENT
-    elif kill_v <= 0.0 and survive_v <= 0.0 and deny_v <= 0.0:
-        # ZERO-VALUE ROUTING (correction pass, the pre-registered single fix —
-        # see the section header): every channel priced zero for an UNASSIGNED
-        # unit. Do NOT march at the nearest enemy; fall back to the value
-        # field's destination choice — the SWEG_VALUE_MOVE consumer arithmetic
-        # (value_net_score argmax over ALL markers, no reach filter), invoked
-        # directly regardless of that env gate. An out-of-range gunline whose
-        # best marker is its current area stays put naturally; a melee army
-        # advances marker-to-marker through the objective game.
-        channel = _JOB_VALUE
-        # FALLBACK SPREAD (SWEG_JOB_DENY; iteration-3 fix 2, indicted by the
-        # step-1 instrument's pile-up count: EVERY fallback decision in a
-        # game-round picked the SAME argmax marker — fifteen squads on one
-        # marker while the midfield went uncontested). The assignment pass's
-        # pile-on cap is extended to the VALUE fallback: each squad's first
-        # model to decide claims its argmax marker with the squad's whole
-        # effective objective control; markers whose accumulated claims
-        # already exceed the enemy's effective objective control there are
-        # skipped by later squads (they take the next-best marker); when every
-        # marker is sufficiently claimed the plain unfiltered argmax returns
-        # (the last resort is the old pile). Squad-sticky: the move loop
-        # decides per MODEL, so squadmates of a squad that already claimed
-        # this turn follow the squad's marker rather than re-running the
-        # argmax — the spread is at squad grain and never splits a squad.
-        # Claims are seeded by assign_jobs each player turn (the committed
-        # holders' objective control counts as claims) and reset there. Gate
-        # off: `spread` is False, the filter list IS `objectives`, no claim
-        # state is touched — the argmax below is byte-identical.
-        spread = _job_deny_on()
-        squad_pick = None
-        claims = None
-        skey = None
-        if spread:
-            claims = getattr(friendly, "job_value_claims", None)
-            if claims is None:
-                claims = {}
-                friendly.job_value_claims = claims
-            squad_pick = getattr(friendly, "job_value_squad_pick", None)
-            if squad_pick is None:
-                squad_pick = {}
-                friendly.job_value_squad_pick = squad_pick
-            _sid = getattr(unit, "squad_id", -1)
-            skey = _sid if _sid >= 0 else ("lone", unit.uid)
-        best_obj = None
-        if spread and skey in squad_pick:
-            # Squad-sticky follow: this squad already claimed its marker.
+    else:
+        # MARKER-AS-PEER ROUTING (iteration 5 — owner-sanctioned under the
+        # canary-loop registration, docs/DECISION_LEDGER.md "THE DENIAL
+        # PROGRAM + CANARY LOOP": "iteration is allowed inside the canary
+        # cell", superseding the v1 proposal's one-routing-fix stop rule; the
+        # final full-screen holdout guards against overfitting). The step-1
+        # instrument proved the iteration-4 squad reprice never reached the
+        # argmax: EVERY KILL/SURVIVE decision was by an UNASSIGNED unit, and
+        # an unassigned unit's argmax contained no marker option — HOLD is
+        # assignment-gated, assignment is reach-gated, and the old zero-value
+        # fallback fired only when every channel priced <= 0, so a
+        # 0.16-victory-point SURVIVE blocked a 12-to-25-point marker net.
+        # The marker option is now a PEER: argmax(KILL, SURVIVE, DENY,
+        # MARKER), where MARKER is the squad-repriced _job_value_fallback_net
+        # over ALL markers — reachable this turn or merely APPROACHABLE (a
+        # distant marker's value is the same net; the unit simply moves its
+        # full move toward it; no distance-decay constant, only a fewest-
+        # turns-to-reach INTEGER tiebreak on exact net ties). The iteration-3
+        # spread claims apply (one squad claims a marker, later squads take
+        # the next-best; without the dedup the pile-up returns), promoted
+        # from the SWEG_JOB_DENY gate to job-path standard because the peer
+        # channel needs the dedup on every job arm. DENY's distinct candidate
+        # cells stay its own: DENY competes in the same argmax and whichever
+        # prices higher wins — the marker peer never swallows it.
+
+        # Micro-channel alternative (legacy tie semantics: KILL wins ties
+        # with SURVIVE via >=; DENY enters on a strict excess only).
+        if kill_v >= survive_v:
+            alt_v, alt_dest, alt_intent, alt_ch = (
+                kill_v, kill_dest, kill_intent, _JOB_KILL)
+        else:
+            alt_v, alt_dest, alt_intent, alt_ch = (
+                survive_v, survive_dest, _REPOSITION_INTENT, _JOB_SURVIVE)
+        if deny_v > alt_v:
+            alt_v, alt_dest, alt_intent, alt_ch = (
+                deny_v, deny_dest, _REPOSITION_INTENT, _JOB_DENY)
+
+        # Per-turn claim state (seeded/reset by assign_jobs; initialized here
+        # for battle-less callers). Squad-sticky: the move loop decides per
+        # MODEL, so squadmates of a squad that already claimed this turn
+        # follow the squad's marker rather than re-running the argmax — the
+        # spread stays at squad grain and never splits a squad.
+        claims = getattr(friendly, "job_value_claims", None)
+        if claims is None:
+            claims = {}
+            friendly.job_value_claims = claims
+        squad_pick = getattr(friendly, "job_value_squad_pick", None)
+        if squad_pick is None:
+            squad_pick = {}
+            friendly.job_value_squad_pick = squad_pick
+        _sid = getattr(unit, "squad_id", -1)
+        skey = _sid if _sid >= 0 else ("lone", unit.uid)
+
+        marker_obj = None
+        marker_net = None
+        followed = False
+        if skey in squad_pick:
             _oid_pick = squad_pick[skey]
             for o in objectives:
                 if id(o) == _oid_pick:
-                    best_obj = o
+                    marker_obj = o
+                    followed = True
                     break
-        if best_obj is None:
-            if spread:
-                cand_objs = [
-                    o for o in objectives
-                    if claims.get(id(o), 0)
-                    <= _effective_oc_on_objective(enemy_alive, o)]
-                if not cand_objs:
-                    cand_objs = objectives   # all claimed — plain argmax
-            else:
+        if marker_obj is None:
+            # Candidate markers: unclaimed only (accumulated claims not yet
+            # above the enemy's effective objective control there — the
+            # assignment pass's pile-on cap). When EVERY marker is claimed: a
+            # unit with a positive micro-channel has no marker option (it
+            # fights or retreats — a micro-channel when no markers remain); a
+            # unit with nothing else keeps the legacy zero-value routing over
+            # ALL markers (never stand pat — the pre-registered correction's
+            # semantics, the pile as last resort).
+            cand_objs = [
+                o for o in objectives
+                if claims.get(id(o), 0)
+                <= _effective_oc_on_objective(enemy_alive, o)]
+            if not cand_objs and alt_v <= 0.0:
                 cand_objs = objectives
-            # JOB-PATH exposure pricing (iteration-4 root fix): the fallback
-            # net is priced by `_job_value_fallback_net`, NOT value_net_score
-            # — squad-survival frac and the MEASURED exposure dual. The flat
-            # dual (_VALUE_VP_PER_ROUND_REF x srr, ~25 victory points) priced
-            # a six-point model's exposure at ~250x its measured worth and
-            # made every threatened marker net-negative; on the job path the
-            # dual is the squad's points at stake times the measured exchange
-            # rate. value_net_score itself is untouched — it belongs to the
-            # SWEG_VALUE_MOVE consumer (scope guard).
-            _fb_view = _job_squad_view(unit)
-            _fb_squad_vp = _job_squad_value_vp(unit, srr)
-            best_net = None
-            for o in cand_objs:
-                on_it = id(o) in unit_on_obj_ids
-                prospective = our_oc[id(o)] + (own_oc if not on_it else 0)
-                net = _job_value_fallback_net(
-                    _fb_view, _fb_squad_vp, o, prospective, their_oc[id(o)],
-                    projectors, map_, srr, own_is_a, chosen)
-                if best_net is None or net > best_net:
-                    best_net = net
-                    best_obj = o
-            if spread and best_obj is not None:
+            if cand_objs:
+                _fb_view = _job_squad_view(unit)
+                _fb_squad_vp = _job_squad_value_vp(unit, srr)
+                _fb_move = float(effective_move(unit))
+                best_turns = None
+                for o in cand_objs:
+                    on_it = id(o) in unit_on_obj_ids
+                    prospective = our_oc[id(o)] + (own_oc if not on_it else 0)
+                    net = _job_value_fallback_net(
+                        _fb_view, _fb_squad_vp, o, prospective,
+                        their_oc[id(o)], projectors, map_, srr, own_is_a,
+                        chosen)
+                    d = _dist(unit.position, (o.x, o.y))
+                    if on_it:
+                        turns = 0
+                    elif _fb_move > 0.0:
+                        turns = int(math.ceil(d / _fb_move))
+                    else:
+                        turns = 10 ** 6
+                    if (marker_net is None or net > marker_net
+                            or (net == marker_net and turns < best_turns)):
+                        marker_net = net
+                        marker_obj = o
+                        best_turns = turns
+
+        # Peer argmax. The marker wins on a STRICT excess over the best
+        # micro-channel, or unconditionally when every micro-channel prices
+        # <= 0 (the legacy zero-value routing — even a negative marker net
+        # beats standing pat), or when following the squad's claim.
+        if marker_obj is not None and (followed or marker_net > alt_v
+                                       or alt_v <= 0.0):
+            channel = _JOB_VALUE
+            dest = _best_nearby_cover_point(
+                map_, (marker_obj.x, marker_obj.y),
+                search_radius=marker_obj.control_radius)
+            intent = _CAPTURE_INTENT
+            if not followed:
                 if isinstance(skey, tuple):
                     _claim_oc = _effective_oc_value(unit)
                 else:
                     _claim_oc = sum(
                         _effective_oc_value(u) for u in friendly.alive_units
                         if getattr(u, "squad_id", -1) == skey)
-                _oid = id(best_obj)
+                _oid = id(marker_obj)
                 claims[_oid] = claims.get(_oid, 0) + _claim_oc
                 squad_pick[skey] = _oid
-        if best_obj is not None:
-            dest = _best_nearby_cover_point(
-                map_, (best_obj.x, best_obj.y),
-                search_radius=best_obj.control_radius)
-            intent = _CAPTURE_INTENT
-        else:
+        elif marker_obj is None and alt_v <= 0.0:
+            channel = _JOB_VALUE
             dest = unit.position          # no markers on the map — stand
             intent = _REPOSITION_INTENT
-    else:
-        # Unassigned unit with a positive channel: argmax(KILL, SURVIVE, DENY).
-        # KILL wins ties with SURVIVE (legacy >=); DENY only enters on a strict
-        # excess, so deny_v==0.0 off-path reproduces the legacy 2-way pick exactly.
-        if kill_v >= survive_v:
-            channel, dest, intent = _JOB_KILL, kill_dest, kill_intent
-            best_alt = kill_v
         else:
-            channel, dest, intent = (
-                _JOB_SURVIVE, survive_dest, _REPOSITION_INTENT)
-            best_alt = survive_v
-        if deny_v > best_alt:
-            channel, dest, intent = _JOB_DENY, deny_dest, _REPOSITION_INTENT
+            channel, dest, intent = alt_ch, alt_dest, alt_intent
 
     if os.environ.get("SWEG_JOB_LAYER_DIAG") == "1":
         _job_diag_record(unit.profile.faction, channel)
