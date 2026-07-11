@@ -44,6 +44,48 @@ measurement instead of assumption:
 
 Buckets: eligible-target count n = 1, 2, 3, 4+ — means per bucket.
 
+PARTICIPATION DECOMPOSITION (second report section — the residual the
+substrate calibration isolated: the allocated field still over-predicts
+because it grants every living enemy its full output every turn while most
+realized roster-turns spend nothing). Every ZERO-DAMAGE roster-turn slot —
+one slot per unit on an army's roster per army turn — is classified into
+exclusive causes:
+
+  DEAD-BEFORE-ACTING  — destroyed before its activation that turn (killed in
+                        the opponent's preceding turn or earlier in the
+                        current one; it never emitted UnitActivated).
+  MELEE-LOCKED        — alive and activated but inside engagement range at
+                        activation (shooting suppressed or restricted to Big
+                        Guns Never Tire), and it did not attack.
+  OUT-OF-REACH        — alive, free, activated, did not attack, and had ZERO
+                        eligible targets at its end-of-activation position
+                        (no enemy within weapon range, none in engagement —
+                        the sim has no line-of-sight occlusion, so range is
+                        the surface; a melee unit whose charge failed lands
+                        here, since realized engagement is its eligibility).
+  ENGAGED-BUT-WHIFFED — attacked (shot or fought) but realized zero damage
+                        (misses/saves). Separated because expected-wounds
+                        math ALREADY prices dice variance — this class is
+                        NOT a participation gap and must not be
+                        double-counted by any realization-rate term.
+  CHOSE-NOT-TO        — alive, free, had eligible targets at its final
+                        position, and spent the activation on something else
+                        (an objective move / action without attacking).
+
+Plus a no-activation residual (alive but never activated — embarked
+passengers and reserves in transit), reported separately so the five classes
+stay exclusive and the universe exhaustive. Attribution notes: attacks are
+credited to the unit whose activation is open (overwatch and counter-strike
+damage during the OPPONENT'S activation is bonus participation outside the
+per-turn slot model, and is not attributed); the roster accumulates live
+from each army's unit list at every turn boundary, so reserves join the
+universe when they arrive.
+
+Also reported: the SURVIVAL-WEIGHTING CURVE — the mean fraction of an army's
+roster dead at the start of its own turn, per round 1-5 — the curve a
+structural participation term (survival x reachability x not-locked) would
+need for its survival factor.
+
 Determinism: PYTHONHASHSEED re-exec mirrors scripts/sim_motion_proof.py.
 Zero-damage activations (all shots saved) carry no allocation information and
 are counted separately. Events are read via the ordinary subscriber stream
@@ -75,7 +117,13 @@ if os.environ.get("PYTHONHASHSEED") != "0":
 from code.army_builder import build_faction_random_army           # noqa: E402
 from code.maps import PARIAH_NEXUS_2K_ROTATION, STOCK_MAPS         # noqa: E402
 from code.simulator import Battle                                  # noqa: E402
-from code.strategy import _cover_attenuation, _dist, _score_profile  # noqa: E402
+from code.strategy import (                                        # noqa: E402
+    _ENGAGEMENT_RANGE,
+    _cover_attenuation,
+    _dist,
+    _er_gap,
+    _score_profile,
+)
 
 # Eight fixed-seed mixed pairs — the five sim_motion_proof pairings plus three
 # more so sixteen distinct factions appear. Shared verbatim with
@@ -212,9 +260,159 @@ class FireAllocationObserver:
         self._cur_damage = None
 
 
+# Classification labels for the participation decomposition.
+_DEAD = "DEAD-BEFORE-ACTING"
+_LOCKED = "MELEE-LOCKED"
+_UNREACH = "OUT-OF-REACH"
+_WHIFF = "ENGAGED-BUT-WHIFFED"
+_CHOSE = "CHOSE-NOT-TO"
+_NOACT = "no-activation residual"
+_DAMAGE = "dealt damage"
+
+
+class ParticipationObserver:
+    """Classifies every roster-turn slot (one per unit on an army's roster
+    per army turn) — see the module docstring's PARTICIPATION DECOMPOSITION
+    section for the class definitions and attribution notes.
+
+    Turn structure note (verified against the live event stream): a player
+    turn is PHASE-STRUCTURED — every unit emits UnitActivated in the
+    Movement phase, then the UnitShot / UnitFought events arrive in the
+    later Shooting / Fight phases with no second activation marker. So
+    attacks cannot be nested inside an activation window; the classifier
+    accumulates per-uid attack and damage tallies across the WHOLE turn
+    (crediting only attackers on the acting side, which excludes defensive
+    overwatch and counter-strikes) and classifies every roster slot at the
+    turn boundary. Engagement is snapshotted per unit AT ITS ACTIVATION
+    (pre-move — the lock that suppresses its shooting); target eligibility
+    for the CHOSE-NOT-TO / OUT-OF-REACH split is read at turn close, when
+    the turn's positions have settled."""
+
+    def __init__(self, battle: Battle) -> None:
+        self.battle = battle
+        self.counts = defaultdict(int)          # class label -> slots
+        # round -> [sum of dead-fractions at turn start, turn count]
+        self.dead_curve = defaultdict(lambda: [0.0, 0])
+        self._round = 0
+        self._cur_army = None                   # army NAME whose turn is open
+        self._cur_side = None                   # "A"/"B" uid prefix
+        self._activated = {}                    # uid -> engaged at activation
+        self._attacked = set()                  # acting-side uids that attacked
+        self._damage = defaultdict(float)       # acting-side uid -> damage
+        self._roster = {"A": {}, "B": {}}       # side -> uid -> unit ref
+
+    # -- live lookups ------------------------------------------------------
+    def _side(self, army_name):
+        return "A" if self.battle.a.name == army_name else "B"
+
+    def _army_obj(self, army_name):
+        return (self.battle.a if self.battle.a.name == army_name
+                else self.battle.b)
+
+    def _unit(self, uid):
+        for u in list(self.battle.a.units) + list(self.battle.b.units):
+            if u.uid == uid:
+                return u
+        return None
+
+    def _enemies_of_unit(self, unit):
+        other = (self.battle.b if unit.uid.startswith("A") else self.battle.a)
+        return other.alive_units
+
+    def _engaged(self, unit):
+        return any(
+            _er_gap(unit.position, unit.profile, e.position, e.profile)
+            <= _ENGAGEMENT_RANGE
+            for e in self._enemies_of_unit(unit))
+
+    def _has_eligible(self, unit):
+        """Any target at the unit's (settled) position: an enemy within its
+        weapon range (max of model and squad-aggregate range), or an enemy
+        inside engagement range (it could fight)."""
+        sp = _score_profile(unit)
+        rng = max(float(getattr(sp, "range_inches", 0.0) or 0.0),
+                  float(getattr(unit.profile, "range_inches", 0.0) or 0.0))
+        for e in self._enemies_of_unit(unit):
+            if rng > 0.0 and _dist(unit.position, e.position) <= rng:
+                return True
+            if (_er_gap(unit.position, unit.profile, e.position, e.profile)
+                    <= _ENGAGEMENT_RANGE):
+                return True
+        return False
+
+    # -- event stream ------------------------------------------------------
+    def on_event(self, ev) -> None:
+        name = type(ev).__name__
+        if name == "RoundStarted":
+            self._round = ev.round_num
+        elif name == "UnitActivated":
+            if self._cur_army is not None and ev.army_name != self._cur_army:
+                self._close_turn()
+            if self._cur_army != ev.army_name:
+                self._open_turn(ev.army_name)
+            u = self._unit(ev.unit_uid)
+            self._activated[ev.unit_uid] = (
+                self._engaged(u) if u is not None else False)
+        elif name in ("UnitShot", "UnitFought"):
+            # Credit only attackers on the ACTING side — a defender's
+            # overwatch / counter-strike is participation outside its own
+            # turn slot and is deliberately not attributed here.
+            if (self._cur_side is not None
+                    and ev.attacker_uid.startswith(self._cur_side)):
+                self._attacked.add(ev.attacker_uid)
+                self._damage[ev.attacker_uid] += max(0.0, ev.damage)
+        elif name == "BattleEnded":
+            self._close_turn()
+
+    def _open_turn(self, army_name) -> None:
+        self._cur_army = army_name
+        self._cur_side = self._side(army_name)
+        self._activated = {}
+        self._attacked = set()
+        self._damage = defaultdict(float)
+        # Accumulate the roster live (reserves join when they arrive) and
+        # record the survival curve point: fraction of the acting army's
+        # accumulated roster dead at its turn start.
+        roster = self._roster[self._cur_side]
+        for u in self._army_obj(army_name).units:
+            roster[u.uid] = u
+        if roster:
+            dead = sum(1 for u in roster.values() if u.current_health <= 0)
+            row = self.dead_curve[max(1, min(self._round, 5))]
+            row[0] += dead / len(roster)
+            row[1] += 1
+
+    def _close_turn(self) -> None:
+        if self._cur_army is None:
+            return
+        for uid, u in self._roster[self._cur_side].items():
+            if self._damage.get(uid, 0.0) > 0.0:
+                self.counts[_DAMAGE] += 1
+            elif uid in self._attacked:
+                self.counts[_WHIFF] += 1
+            elif uid in self._activated:
+                if self._activated[uid]:
+                    self.counts[_LOCKED] += 1
+                elif self._has_eligible(u):
+                    self.counts[_CHOSE] += 1
+                else:
+                    self.counts[_UNREACH] += 1
+            elif u.current_health <= 0:
+                self.counts[_DEAD] += 1
+            else:
+                self.counts[_NOACT] += 1
+        self._cur_army = None
+        self._cur_side = None
+        self._activated = {}
+        self._attacked = set()
+        self._damage = defaultdict(float)
+
+
 def main() -> int:
     agg = defaultdict(lambda: [0, 0.0, 0.0, 0.0, 0.0, 0])
     zero = 0
+    part_counts = defaultdict(int)
+    dead_curve = defaultdict(lambda: [0.0, 0])
     for (fa, fb, seed) in BATTLES:
         random.seed(seed)
         a = build_faction_random_army("A", fa, POINTS_BUDGET,
@@ -226,12 +424,19 @@ def main() -> int:
         map_key = PARIAH_NEXUS_2K_ROTATION[seed % len(PARIAH_NEXUS_2K_ROTATION)]
         battle = Battle(a, b, map_=STOCK_MAPS[map_key])
         obs = FireAllocationObserver(battle)
+        part = ParticipationObserver(battle)
         battle.subscribers.append(obs)
+        battle.subscribers.append(part)
         battle.run()
         for k, v in obs.buckets.items():
             for i in range(6):
                 agg[k][i] += v[i]
         zero += obs.zero_damage_activations
+        for k, v in part.counts.items():
+            part_counts[k] += v
+        for r, row in part.dead_curve.items():
+            dead_curve[r][0] += row[0]
+            dead_curve[r][1] += row[1]
 
     print("fire-allocation concentration curve — %d fixed-seed battles, "
           "%d points, use_archetype=True" % (len(BATTLES), POINTS_BUDGET))
@@ -258,6 +463,30 @@ def main() -> int:
         print(f"  {k:>10s} {cnt:12d} {meas:15.3f} {pred:13.3f} "
               f"{hit:14.3f} {chosen:17.3f}")
     print(f"\n  zero-damage activations (no allocation info): {zero}")
+
+    total_slots = sum(part_counts.values())
+    dealt = part_counts.get(_DAMAGE, 0)
+    zero_slots = total_slots - dealt
+    print("\n2) ZERO-DAMAGE PARTICIPATION DECOMPOSITION")
+    print("   (one slot per roster unit per army turn; exclusive classes —")
+    print("    see the module docstring for definitions)")
+    print(f"  roster-turn slots: {total_slots}")
+    print(f"  dealt damage:      {dealt}  "
+          f"({100.0 * dealt / max(1, total_slots):.1f}% of slots)")
+    print(f"  zero damage:       {zero_slots}, classified:")
+    for label in (_DEAD, _LOCKED, _UNREACH, _WHIFF, _CHOSE, _NOACT):
+        n = part_counts.get(label, 0)
+        print(f"    {label:24s} {n:6d}  "
+              f"({100.0 * n / max(1, zero_slots):5.1f}% of zero-damage)")
+
+    print("\n3) SURVIVAL-WEIGHTING CURVE")
+    print("   (mean fraction of the acting army's accumulated roster dead at")
+    print("    its own turn start — the survival factor a structural")
+    print("    participation term would need)")
+    for r in range(1, 6):
+        s, n = dead_curve.get(r, [0.0, 0])
+        frac = s / n if n else float("nan")
+        print(f"  round {r}: {frac:6.3f}   ({n} army-turns)")
     return 0
 
 
