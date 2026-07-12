@@ -992,6 +992,17 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # per-model promotion builds the special-weapon models. Cited in
     # data/rule_citations.d/astra_militarum.json.
     "simulator.am_battleline_special_weapons",
+    # Wargear-mutex catalogue correction (env-gated SWEG_WARGEAR_MUTEX, default
+    # OFF). The BSData mapper's flat weapon walk carries every option of a
+    # single-model unit's mutually-exclusive / optional wargear groups as an
+    # independently-firing profile; when the gate is on, _build_catalog drops the
+    # mutex-alternative and optional-slot weapons named in _WARGEAR_MUTEX_DROPS
+    # so each corrected unit fires only its legal datasheet-default loadout.
+    # Cited per-unit-family in data/rule_citations.d/wargear_mutex.json.
+    "simulator.wargear_mutex_rogal_dorn",
+    "simulator.wargear_mutex_basilisk",
+    "simulator.wargear_mutex_leman_russ",
+    "simulator.wargear_mutex_predator",
     # Astra Militarum Voice of Command (army rule, 10e). At the start of
     # each Command phase, each AM OFFICER (CHARACTER) issues one Order to
     # an eligible BATTLELINE INFANTRY (REGIMENT) target within 6". Four

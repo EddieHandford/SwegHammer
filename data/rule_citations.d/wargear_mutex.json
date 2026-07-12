@@ -1,0 +1,34 @@
+{
+  "simulator.wargear_mutex_rogal_dorn": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Rogal-Dorn-Battle-Tank",
+    "rule_name": "Rogal Dorn Battle Tank — Wargear Options",
+    "quoted_text": "This model's twin battle cannon can be replaced with 1 oppressor cannon and 1 coaxial autocannon. This model's castigator gatling cannon can be replaced with 1 pulveriser cannon. This model can be equipped with one of the following: 2 meltaguns or 2 additional heavy stubbers. This model can be equipped with one of the following: 2 heavy bolters or 2 multi-meltas.",
+    "trigger": "gate SWEG_WARGEAR_MUTEX=1 (default OFF); _build_catalog is constructing astra_militarum_rogal_dorn_battle_tank. The BSData mapper's flat weapon walk carries every wargear option as an independently-firing profile (aggregate: oppressor cannon AND the replaced twin battle cannon; per-model: the optional sponson 2 multi-meltas AND hull 2 meltaguns), which no single legal loadout can field together.",
+    "effect": "Drops the mutex-alternative twin battle cannon and the optional-slot multi-meltas / meltaguns from both the aggregate (secondary + extra profiles) and per-model (model_loadouts) representations, leaving the datasheet-default loadout: oppressor cannon + coaxial autocannon (its bundled replacement) + pulveriser cannon + the fixed heavy stubber. Cuts the aggregate close-range expected wounds from ~20 to ~9.2 (hand-computed), the per-model from ~17.8 to ~11.0.",
+    "scope": "weapon-keyword"
+  },
+  "simulator.wargear_mutex_basilisk": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Basilisk",
+    "rule_name": "Basilisk — Wargear Options",
+    "quoted_text": "This model's heavy bolter can be replaced with 1 heavy flamer. This model can be equipped with 1 hunter-killer missile.",
+    "trigger": "gate SWEG_WARGEAR_MUTEX=1 (default OFF); _build_catalog is constructing astra_militarum_basilisk. The mapper's aggregate representation carries the heavy bolter AND its replacement heavy flamer AND the optional hunter-killer missile simultaneously; the per-model representation was already correct (heavy bolter only).",
+    "effect": "Drops the mutex-alternative heavy flamer and the optional hunter-killer missile from the aggregate representation, leaving the datasheet default: earthshaker cannon + heavy bolter. Cuts the aggregate close-range expected wounds from ~7.3 to ~4.7; the per-model representation is unchanged.",
+    "scope": "weapon-keyword"
+  },
+  "simulator.wargear_mutex_leman_russ": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Leman-Russ-Battle-Tank",
+    "rule_name": "Leman Russ (all turret variants) — Wargear Options",
+    "quoted_text": "This model's lascannon can be replaced with one of the following: 1 heavy bolter; 1 heavy flamer. This model can be equipped with one of the following: 2 heavy bolters; 2 heavy flamers; 2 multi-meltas; 2 plasma cannons. This model can be equipped with one of the following: 1 heavy stubber; 1 storm bolter. This model can be equipped with 1 hunter-killer missile.",
+    "trigger": "gate SWEG_WARGEAR_MUTEX=1 (default OFF); _build_catalog is constructing astra_militarum_leman_russ_battle_tank / _demolisher / _eradicator / _executioner / _exterminator / _vanquisher. Every Leman Russ variant shares this wargear-options block (only the fixed turret weapon differs); the mapper fills its optional sponson (2 heavy bolters / heavy flamers / multi-meltas / plasma cannons), pintle (heavy stubber / storm bolter) and hunter-killer slots to their maximum instead of leaving them at the datasheet default.",
+    "effect": "Keeps the fixed turret gun and the default hull lascannon; drops the optional sponson heavy bolters / multi-meltas / plasma cannons, the pintle heavy stubber and the hunter-killer missile. The kept loadout is the datasheet-default turret + hull lascannon. Drop set per variant is the subset of {heavy bolter, heavy stubber, multi-melta, plasma cannon} the mapper equipped.",
+    "scope": "weapon-keyword"
+  },
+  "simulator.wargear_mutex_predator": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Predator-Destructor",
+    "rule_name": "Predator Annihilator / Destructor — Wargear Options",
+    "quoted_text": "This model can be equipped with one of the following: 2 heavy bolters or 2 lascannons. This model can be equipped with 1 hunter-killer missile. This model can be equipped with 1 storm bolter.",
+    "trigger": "gate SWEG_WARGEAR_MUTEX=1 (default OFF); _build_catalog is constructing space_marines_predator_annihilator / _destructor. The mapper equips the optional sponson (2 heavy bolters / 2 lascannons), pintle storm bolter and hunter-killer missile in addition to the fixed turret gun (predator autocannon / predator twin lascannon).",
+    "effect": "Keeps the fixed turret gun; drops the optional sponson heavy bolters / lascannons, the pintle storm bolter and the hunter-killer missile, leaving the datasheet-default turret-only loadout.",
+    "scope": "weapon-keyword"
+  }
+}

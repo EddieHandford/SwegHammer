@@ -123,6 +123,25 @@ tree. Overrides correct residual mapper artefacts (missing armour profiles
 that fall outside the depth-3 wargear walk, units whose squad SEG fails to
 parse, etc.).
 
+The single-model weapon walk carries a known defect: for a unit whose datasheet
+has mutually-exclusive replacement options ("this model's X can be replaced with
+Y") or optional add-ons ("this model can be equipped with Z"), the mapper's flat
+walk collects every option as an independently-firing profile, so the unit fires
+weapons no legal loadout can carry together (the Rogal Dorn Battle Tank fires its
+twin battle cannon and its replacement oppressor cannon, plus both optional
+sponson multi-meltas and hull meltaguns — about three times its legal
+main-armament output). The BSData selection structure cannot cleanly express the
+datasheet default here: it marks genuinely-optional slots and mandatory-in-
+practice slots both as `min=0`, and its `defaultSelectionEntryId` attributes are
+dangling references. The `SWEG_WARGEAR_MUTEX` gate (default off, byte-identical
+off) applies an explicit, per-unit-cited drop table in `_build_catalog`, removing
+the mutex-alternative and optional-slot weapons so each corrected unit fires only
+its legal datasheet-default loadout. It currently covers the fully-verified
+single-model Astra Militarum tank core (Rogal Dorn, Basilisk, the six Leman Russ
+turret variants) and the loyalist Space Marine Predators; the full audited
+population is 139 single-model units across every faction, most of which also
+need primary-weapon promotion and are deferred to a follow-up lane.
+
 When the mapper resolves a weapon CHOICE — which option a "replace this weapon
 with one of the following" group takes, or which of a chassis's guns is its
 primary — it scores each candidate. The legacy score was expected damage against
