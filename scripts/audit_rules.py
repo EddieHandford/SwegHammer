@@ -737,6 +737,16 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # off (the pre-existing Map.has_line_of_sight legality check already applies).
     # See data/rule_citations.d/terrain_realism.json.
     "simulator.terrain_los_gate",
+    # Terrain-and-line-of-sight program Phase 2a (docs/TERRAIN_LOS_SPEC.md
+    # section 4), env-gated SWEG_COVER_ANGLE (default-off, byte-identical
+    # off). Replaces the position-only cover_at(target.position) Benefit of
+    # Cover lookup in Battle._do_shoot / Fire Overwatch with the attacker-
+    # relative code.map.Map.cover_between(attacker.position, target.position):
+    # cover applies only when the target is within a cover piece the attacker
+    # is not also within, or a cover piece intervenes on the shot line; folds
+    # in Woods (OBSCURING), which the old tuple check omitted. See
+    # data/rule_citations.d/core_terrain_ruins.json.
+    "simulator.benefit_of_cover_angle",
     # 10e core-rules cap: "Hit roll modifiers are cumulative, but the Hit
     # roll for an attack can never be modified by more than -1 or +1." Same
     # text for the Wound roll. Enforced in code/units.py Unit.attack by

@@ -19,6 +19,15 @@
     "scope": "keyword-gated"
   },
 
+  "simulator.benefit_of_cover_angle": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Features",
+    "rule_name": "Benefit of Cover (angle-aware, area terrain)",
+    "quoted_text": "Until the end of the phase, each time a ranged attack is allocated to a model in this unit while it is receiving the Benefit of Cover, add 1 to the armour saving throw made against that attack. If a model has a Save characteristic of 3+ or better, that model cannot have the Benefit of Cover against attacks made with weapons that have an Armour Penetration characteristic of 0.",
+    "trigger": "a ranged attack (Battle._do_shoot) or Fire Overwatch resolves against a target, env-gated SWEG_COVER_ANGLE=1 (default off)",
+    "effect": "Replaces the position-only cover_at(target.position) lookup with the attacker-relative Map.cover_between(attacker.position, target.position). For area terrain (Ruins, Woods) the real rule is attacker-relative, not target-position-only: a unit only has the Benefit of Cover if it is on or within the terrain feature and at least partially obscured from the attacking model, or the terrain feature is between the two models. cover_between implements this as two conditions: WITHIN (the target stands in a LIGHT_COVER/HEAVY_COVER/RUIN/OBSCURING piece the attacker does NOT also stand in -- co-location grants nothing, fixing the flat lookup's false-grant error) or INTERVENING (such a piece contains neither endpoint but the attacker-to-target sight segment crosses its footprint -- real occlusion the position-only lookup misses when the target's own position is in the open). Woods (OBSCURING) is folded into the cover-granting set here, fixing the sim's prior omission: cover_at ranks OBSCURING but the old _do_shoot / Overwatch tuple check only recognised LIGHT_COVER/HEAVY_COVER/RUIN, so a unit standing only in Woods got no cover. Byte-identical off: cover_at(target.position) runs unchanged and the OBSCURING omission persists exactly as before. The quoted 3+ save / Armour Penetration 0 exclusion is applied downstream in code.units.Unit.attack / save_probability and is unaffected by this gate -- it only decides WHETHER the target has the Benefit of Cover, not what that benefit does to the save roll. Implemented in code.map.Map.cover_between, wired at code.simulator.Battle._do_shoot and the Fire Overwatch cover consult point. See docs/TERRAIN_LOS_SPEC.md section 4.",
+    "scope": "army-wide"
+  },
+
   "terrain.competitive_pariah_nexus_layout": {
     "source": "https://www.goonhammer.com/the-pariah-nexus-tournament-companion-the-goonhammer-review/",
     "rule_name": "Pariah Nexus competitive terrain layout (Games Workshop Pariah Nexus Tournament Companion)",

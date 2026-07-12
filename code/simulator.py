@@ -15809,7 +15809,22 @@ class Battle:
         # defender re-allocation happened the two are the same model.
         saved_cover = shoot_target.in_cover
         saved_heavy = shoot_target.in_heavy_cover
-        cover_type = self.map.cover_at(math_target.position)
+        # Angle-aware Benefit of Cover (terrain-and-line-of-sight program
+        # Phase 2a, env-gated SWEG_COVER_ANGLE, default off). The flat
+        # cover_at(target) lookup grants cover purely from the target's
+        # position; the real 10e rule for area terrain is attacker-relative
+        # (Map.cover_between: within a cover piece the attacker is not also
+        # within, or a cover piece intervening on the shot line — see the
+        # docstring there and docs/TERRAIN_LOS_SPEC.md section 4). Byte-
+        # identical off: cover_at(math_target.position) runs unchanged.
+        # Cited as `simulator.benefit_of_cover_angle` in
+        # data/rule_citations.d/core_terrain_ruins.json.
+        if os.environ.get("SWEG_COVER_ANGLE") == "1":
+            cover_type = self.map.cover_between(
+                attacker.position, math_target.position,
+            )
+        else:
+            cover_type = self.map.cover_at(math_target.position)
         if cover_type in (
             TerrainType.LIGHT_COVER, TerrainType.HEAVY_COVER, TerrainType.RUIN,
         ):
@@ -16805,7 +16820,15 @@ class Battle:
         target = enemy_unit
         saved_cover = target.in_cover
         saved_heavy = target.in_heavy_cover
-        cover_type = self.map.cover_at(target.position)
+        # Angle-aware Benefit of Cover (same substitution as Battle._do_shoot
+        # above, env-gated SWEG_COVER_ANGLE, default off, byte-identical off).
+        # Cited as `simulator.benefit_of_cover_angle`.
+        if os.environ.get("SWEG_COVER_ANGLE") == "1":
+            cover_type = self.map.cover_between(
+                best_unit.position, target.position,
+            )
+        else:
+            cover_type = self.map.cover_at(target.position)
         if cover_type in (
             TerrainType.LIGHT_COVER, TerrainType.HEAVY_COVER, TerrainType.RUIN,
         ):

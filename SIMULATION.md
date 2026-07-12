@@ -400,6 +400,27 @@ collided with the equilibrium solver's own Phase 1–6 ladder
   the TOWERING keyword (Knights, Wraithknight, Daemon Primarchs, Titans),
   both Obscuring terrain and Ruin walls are bypassed for line-of-sight
   purposes (10e core TOWERING keyword rule).
+- **Angle-aware Benefit of Cover** (terrain-and-line-of-sight program Phase
+  2a, `docs/TERRAIN_LOS_SPEC.md` section 4; env-gated `SWEG_COVER_ANGLE`,
+  default off, byte-identical off). The default cover lookup (`Map.cover_at`)
+  is position-only: it grants the Benefit of Cover purely from what terrain
+  the *target* stands in, regardless of where the attacker is standing —
+  which both over-grants (a shooter standing in the same Ruin as its target
+  still "gets" the target's cover) and under-grants (a Ruin genuinely
+  intervening on the shot line grants nothing if the target's own position
+  is in the open) relative to the real 10e rule for area terrain. The gate
+  swaps in `Map.cover_between(attacker_pos, target_pos)`, which grants cover
+  only when the target is within a cover piece the attacker is not also
+  within, or a cover piece (containing neither endpoint) crosses the shot
+  segment. It also folds Woods (`OBSCURING`) into the cover-granting set,
+  fixing an existing omission where a unit standing only in Woods received no
+  cover at all. Wired at the two cover-consult points in `Battle._do_shoot`
+  and Fire Overwatch; the position-only `Map.cover_at` is untouched for any
+  other caller. Per the spec, this is meant to become the single shared
+  cover-and-occlusion geometry for both resolution and the threat-projection
+  field above once the positioning layer is ready to consume it (Phase 3,
+  not yet built). Cited as `simulator.benefit_of_cover_angle` in
+  `data/rule_citations.d/core_terrain_ruins.json`.
 - **Strategy layer** — units pick a per-activation intent (HOLD, CAPTURE,
   STEAL, ENGAGE, REPOSITION, FALL_BACK) based on objective state and role.
 - **Catalogue** — ~1478 units from BSData WH40k 10e (`v10.6.0`), refined

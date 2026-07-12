@@ -160,6 +160,112 @@ class Map:
                 result = t.type
         return result
 
+    def cover_between(
+        self,
+        attacker_pos: Tuple[float, float],
+        target_pos: Tuple[float, float],
+    ) -> TerrainType:
+        """Attacker-relative Benefit of Cover query (terrain-and-line-of-sight
+        program Phase 2a, gated `SWEG_COVER_ANGLE`; see docs/TERRAIN_LOS_SPEC.md
+        section 4 and `simulator.benefit_of_cover_angle` in
+        data/rule_citations.d/core_terrain_ruins.json).
+
+        `cover_at` (above) is position-only: it grants Benefit of Cover purely
+        from what the TARGET is standing in, regardless of where the attacker
+        is. The real 10e rule for area terrain (Ruins, Woods) is
+        attacker-relative — Wahapedia core rules: a model has the Benefit of
+        Cover "each time a ranged attack is allocated to a model that has the
+        Benefit of Cover", and for area terrain that condition is that the
+        target is within the terrain feature and at least partially obscured
+        from the firing model, OR the terrain feature lies between them. This
+        query implements that condition directly:
+
+          * WITHIN: the target stands inside a cover-granting piece that the
+            attacker does NOT also stand inside. Two models sharing the same
+            piece are not obscured from one another by it — the flat
+            position-only lookup's false-grant error (fixture: shooter and
+            target both inside the same Ruin -> no cover).
+          * INTERVENING: a cover-granting piece contains NEITHER endpoint but
+            the attacker-to-target sight segment crosses its footprint — real
+            occlusion the position-only lookup misses entirely because the
+            target's own position is in the open (fixture: target behind an
+            intervening Ruin edge relative to the shooter -> cover granted
+            even though `cover_at(target)` would return OPEN).
+
+        Woods (OBSCURING) is included in the cover-granting set here — the
+        10e Area terrain rule grants Benefit of Cover to Woods the same as
+        Ruins/LIGHT_COVER/HEAVY_COVER, but the existing `_do_shoot` /
+        Overwatch consult points only ever fed the OBSCURING-priority result
+        of `cover_at` into a tuple check of (LIGHT_COVER, HEAVY_COVER, RUIN),
+        so a unit standing only in Woods got no cover under the old path.
+        Because every cover type grants the identical single Benefit of
+        Cover in 10e (no Light/Heavy split), a qualifying OBSCURING piece is
+        reported back as `TerrainType.LIGHT_COVER` so the unchanged call-site
+        tuple checks pick it up without any further edit; the distinct
+        HEAVY_COVER/RUIN tier is retained only for the cosmetic
+        `in_heavy_cover` flag, which has no gameplay effect (see the comment
+        on `Unit.in_heavy_cover` in code/units.py) — folding OBSCURING into
+        LIGHT_COVER changes nothing there.
+
+        This mirrors `scripts/diag_los_blocked.py`'s `cover_classification`
+        reference reading exactly (same two conditions, same terrain-type
+        set) so the Phase 1 instrument's angle-aware measurement is the
+        gate's own falsifier: after this gate is on, the live grant rate
+        should converge to the instrument's `real-cov` column and the
+        false-grant rate should fall to zero.
+
+        `cover_at` stays untouched for any position-only caller (byte-
+        identical when `SWEG_COVER_ANGLE` is unset). Per
+        docs/TERRAIN_LOS_SPEC.md section 5, this is meant to be the single
+        shared geometry helper for both the resolution's cover application
+        and the positioning layer's threat-field cover-attenuation term, so
+        planning and resolution read one occlusion-and-cover geometry.
+
+        The 3+ save armour-penetration-0 exclusion (Wahapedia: "a model with
+        a Save characteristic of 3 or better cannot have the Benefit of
+        Cover" against AP0 attacks) is applied downstream in
+        `code.units.save_probability` and is unaffected by this query — it
+        only decides WHETHER the target has the Benefit of Cover, not what
+        that benefit does to the save roll.
+        """
+        _COVER_TYPES = (
+            TerrainType.LIGHT_COVER, TerrainType.HEAVY_COVER,
+            TerrainType.RUIN, TerrainType.OBSCURING,
+        )
+        target_pieces = [
+            t for t in self.terrain
+            if t.type in _COVER_TYPES and t.contains(target_pos)
+        ]
+        attacker_in_same = any(t.contains(attacker_pos) for t in target_pieces)
+        within_cover = bool(target_pieces) and not attacker_in_same
+
+        qualifying = list(target_pieces) if within_cover else []
+        for t in self.terrain:
+            if (
+                t.type in _COVER_TYPES
+                and not t.contains(target_pos)
+                and not t.contains(attacker_pos)
+                and _segment_rect_intersects(attacker_pos, target_pos, t)
+            ):
+                qualifying.append(t)
+
+        priority = {
+            TerrainType.OPEN: 0,
+            TerrainType.LIGHT_COVER: 1,
+            TerrainType.OBSCURING: 1,
+            TerrainType.HEAVY_COVER: 3,
+            TerrainType.RUIN: 3,
+        }
+        result = TerrainType.OPEN
+        for t in qualifying:
+            effective = (
+                TerrainType.LIGHT_COVER if t.type is TerrainType.OBSCURING
+                else t.type
+            )
+            if priority[t.type] > priority[result]:
+                result = effective
+        return result
+
     def has_line_of_sight(
         self,
         attacker: Tuple[float, float],
