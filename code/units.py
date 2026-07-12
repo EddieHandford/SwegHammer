@@ -141,7 +141,7 @@ def _wargear_mutex_enabled() -> bool:
     process; when unset (or any value other than '1'), _build_catalog skips the
     correction entirely and every unit is byte-identical to the legacy
     catalogue. See data/rule_citations.d/wargear_mutex.json."""
-    return os.environ.get("SWEG_WARGEAR_MUTEX") == "1"
+    return os.environ.get("SWEG_WARGEAR_MUTEX", "1") != "0"
 
 
 def roll_damage(dice_str: str, mean_fallback: float) -> float:

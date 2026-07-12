@@ -15819,7 +15819,7 @@ class Battle:
         # identical off: cover_at(math_target.position) runs unchanged.
         # Cited as `simulator.benefit_of_cover_angle` in
         # data/rule_citations.d/core_terrain_ruins.json.
-        if os.environ.get("SWEG_COVER_ANGLE") == "1":
+        if os.environ.get("SWEG_COVER_ANGLE", "1") != "0":
             cover_type = self.map.cover_between(
                 attacker.position, math_target.position,
             )
@@ -16823,7 +16823,7 @@ class Battle:
         # Angle-aware Benefit of Cover (same substitution as Battle._do_shoot
         # above, env-gated SWEG_COVER_ANGLE, default off, byte-identical off).
         # Cited as `simulator.benefit_of_cover_angle`.
-        if os.environ.get("SWEG_COVER_ANGLE") == "1":
+        if os.environ.get("SWEG_COVER_ANGLE", "1") != "0":
             cover_type = self.map.cover_between(
                 best_unit.position, target.position,
             )
@@ -19043,7 +19043,7 @@ class Battle:
         # (a refused stratagem never happened). Cited as
         # `simulator.stratagem_once_per_phase`.
         _once_per_phase_on = (
-            os.environ.get("SWEG_STRAT_ONCE_PER_PHASE", "0") == "1"
+            os.environ.get("SWEG_STRAT_ONCE_PER_PHASE", "1") != "0"
             and not self.rules.alternating_activations
         )
         _phase_key = (army.name, strat.name)
