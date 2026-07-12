@@ -104,6 +104,10 @@ class _Map:
     def is_blocked(self, point):
         return False
 
+    def has_line_of_sight(self, attacker, target,
+                          attacker_keywords=None, target_keywords=None):
+        return True     # open synthetic board — no blocking terrain
+
 
 # --------------------------------------------------------------------------
 # Profile builders (all with points_override so the exchange rate is exact).

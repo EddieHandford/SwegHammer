@@ -2100,6 +2100,13 @@ def _charge_field_post_denominator(attacker, target_unit, target_expected_wounds
         alloc = _threat_alloc_denominators(attacker, projectors, map_)
         sums, terms, opp = alloc if alloc is not None else ({}, {}, {})
         my_uid = getattr(attacker, "uid", None)
+    # Terrain phase 2b: like the field itself, this loop's ranged half is
+    # line-of-sight gated in the CALIBRATED (allocated) form — the loop
+    # builds the same per-pair math without routing through _threat_field_at,
+    # so the fold is wired here as well (the one-geometry-both-consumers
+    # rule). Gate off: no test, byte-identical.
+    my_kw = getattr(me_profile, "unit_keywords", None)
+    _los_on = alloc_on and map_ is not None
     field = 0.0
     threat_target_val = 0.0
     for (e, ep, epos, emove, erange, melee_capable, ignores_cover) in projectors:
@@ -2107,7 +2114,9 @@ def _charge_field_post_denominator(attacker, target_unit, target_expected_wounds
         d_ed = _dist(epos, dest)
         # Ranged half — the enemy can Move then shoot, so its threat range is
         # Move + weapon range; attenuated by our cover at the destination.
-        if erange > 0.0 and d_ed <= emove + erange:
+        if erange > 0.0 and d_ed <= emove + erange and (
+                not _los_on or map_.has_line_of_sight(
+                    epos, dest, getattr(ep, "unit_keywords", None), my_kw)):
             rw = Battle._ranged_expected_wounds(ep, attacker)
             if rw > 0.0:
                 atten = 1.0 if ignores_cover else _cover_attenuation(
@@ -2657,12 +2666,21 @@ def _threat_alloc_denominators(me_unit, projectors, map_):
     opp: Dict = {}
     for t in mine:
         t_profile = _score_profile(t)
+        t_kw = getattr(t_profile, "unit_keywords", None)
         cover_t = map_.cover_at(t.position) if map_ is not None else None
         for (e, ep, epos, emove, erange, melee_capable, ignores_cover) \
                 in projectors:
             d_et = _dist(epos, t.position)
             ew = 0.0
-            if erange > 0.0 and d_et <= emove + erange:
+            # TERRAIN PHASE 2B: the eligible-target set shrinks to VISIBLE
+            # targets — the denominator applies the SAME line-of-sight test
+            # the field's numerator applies, or the allocation weights bias
+            # (an enemy walled off from a target must not count that target
+            # in its split).
+            if erange > 0.0 and d_et <= emove + erange and (
+                    map_ is None or map_.has_line_of_sight(
+                        epos, t.position,
+                        getattr(ep, "unit_keywords", None), t_kw)):
                 rw = Battle._ranged_expected_wounds(ep, t)
                 if rw > 0.0:
                     atten = 1.0 if ignores_cover else _cover_attenuation_for(
@@ -2763,18 +2781,36 @@ def _threat_field_at(me_unit, projectors, dest, map_) -> float:
                         field += mw * _p_2d6_at_least(needed)
         return field
     # --- SWEG_THREAT_ALLOC=1: allocation weights x propensity curve ---
+    # TERRAIN PHASE 2B (docs/DECISION_LEDGER.md "TERRAIN PROGRAM PHASE-1
+    # VERDICT + PHASE 2"; ground-truth correction 055bcaa): the resolution's
+    # shooting path has filtered candidates through Map.has_line_of_sight
+    # since May (73 percent of in-range candidate shots denied on the
+    # production maps), but this field priced ranged threat with cover
+    # ATTENUATION only — enemies behind Obscuring ruins projected threat
+    # they cannot deliver. In the calibrated (allocated) form a RANGED
+    # contribution is ZERO when the engine's own line-of-sight test fails
+    # between the enemy's position and the evaluated cell — the exact
+    # function resolution uses, with its half-inch-grid cache. MELEE
+    # contributions are NOT blocked: chargers route around walls, reach
+    # stays geometric. Folded into SWEG_THREAT_ALLOC (the calibrated field
+    # is the experimental form; no new gate) — the summed branch above is
+    # untouched, byte-identical.
     alloc = _threat_alloc_denominators(me_unit, projectors, map_)
     # No army context (test stand-ins): empty denominators — every weight
     # degenerates to 1 (the isolated case) and the propensity still applies,
     # keyed on the only opportunity visible, zero (the bottom bucket).
     sums, terms, opp = alloc if alloc is not None else ({}, {}, {})
     my_uid = getattr(me_unit, "uid", None)
+    my_kw = getattr(me_profile, "unit_keywords", None)
     field = 0.0
     for (e, ep, epos, emove, erange, melee_capable, ignores_cover) \
             in projectors:
         d_ed = _dist(epos, dest)
         c = 0.0
-        if erange > 0.0 and d_ed <= emove + erange:
+        if erange > 0.0 and d_ed <= emove + erange and (
+                map_ is None or map_.has_line_of_sight(
+                    epos, dest,
+                    getattr(ep, "unit_keywords", None), my_kw)):
             rw = Battle._ranged_expected_wounds(ep, me_unit)
             if rw > 0.0:
                 atten = 1.0 if ignores_cover else _cover_attenuation_for(
@@ -3358,6 +3394,13 @@ def value_offense(me_unit, dest, ranged_ok, heavy_bonus, melee_ok,
     my_ignores_cover = bool(getattr(me_p, "ignores_cover", False))
     melee_capable = (getattr(me_p, "melee_attacks", 0) or 0) > 0
     hit_mod = 1 if heavy_bonus else 0
+    # TERRAIN PHASE 2B, the offense term in REVERSE: my ranged expected wounds
+    # from `dest` onto a target require line of sight from `dest` (the same
+    # engine test the shooting resolution filters candidates with). Folded
+    # into SWEG_THREAT_ALLOC exactly as the threat field's side — the
+    # calibrated form is the experimental form; gate off is byte-identical.
+    _los_on = _threat_alloc_on(me_unit) and map_ is not None
+    my_kw = getattr(me_p, "unit_keywords", None)
     best = 0.0
     for e in enemy_alive:
         ep = _score_profile(e)
@@ -3366,7 +3409,10 @@ def value_offense(me_unit, dest, ranged_ok, heavy_bonus, melee_ok,
         # over-credits multi-target platforms (Imperial Knights +5.30, Tyranids
         # +6.59 wrong-direction); mirror _trade_our_return.
         ew = 0.0
-        if ranged_ok and my_range > 0.0 and d <= my_range:
+        if ranged_ok and my_range > 0.0 and d <= my_range and (
+                not _los_on or map_.has_line_of_sight(
+                    dest, e.position, my_kw,
+                    getattr(ep, "unit_keywords", None))):
             rw = Battle._ranged_expected_wounds(me_p, e, extra_hit_mod=hit_mod)
             if rw > 0.0:
                 atten = 1.0 if my_ignores_cover else _cover_attenuation(
@@ -3885,7 +3931,8 @@ def _job_kill_precompute(me_unit, enemy_alive, map_, srr):
     return my_range, melee_capable, rows
 
 
-def _job_offense_scan(rows, dest, ranged_ok, melee_ok, my_range, melee_capable):
+def _job_offense_scan(rows, dest, ranged_ok, melee_ok, my_range, melee_capable,
+                      los_map=None, my_kw=None):
     """Fast KILL-channel candidate scan for a Normal-move or Advance
     destination (hit_mod always 0, mirroring value_offense's non-heavy
     branch), reusing the per-activation cache from `_job_kill_precompute`
@@ -3895,12 +3942,22 @@ def _job_offense_scan(rows, dest, ranged_ok, melee_ok, my_range, melee_capable):
     with the exact same best-single-target arithmetic and iteration order as
     value_offense, so the result is bit-identical to calling
     value_offense(unit, dest, ranged_ok, False, melee_ok, enemy_alive, map_,
-    srr) directly."""
+    srr) directly.
+
+    `los_map` (terrain phase 2b): pass the map when SWEG_THREAT_ALLOC is on —
+    the ranged half then requires line of sight from `dest` to the target,
+    mirroring value_offense's own gated test (the caller reads the gate once
+    per channel evaluation, exactly the alloc-argument convention of
+    `_job_threat_scan`). None (the default) skips the test — byte-identical
+    to the pre-phase-2b scan."""
     best = 0.0
     for (e, rw_atten, mw_base, vp, target_health) in rows:
         d = _dist(dest, e.position)
         ew = 0.0
-        if ranged_ok and my_range > 0.0 and d <= my_range and rw_atten > ew:
+        if (ranged_ok and my_range > 0.0 and d <= my_range and rw_atten > ew
+                and (los_map is None or los_map.has_line_of_sight(
+                    dest, e.position, my_kw,
+                    getattr(_score_profile(e), "unit_keywords", None)))):
             ew = rw_atten
         if melee_ok and melee_capable:
             needed = d - _THREAT_ENGAGE_RANGE
@@ -3939,8 +3996,11 @@ def _job_threat_precompute(me_unit, projectors):
     for (e, ep, epos, emove, erange, melee_capable, ignores_cover) in projectors:
         rw = Battle._ranged_expected_wounds(ep, me_unit) if erange > 0.0 else 0.0
         mw = _kill_potential_wounds(ep, me_profile) if melee_capable else 0.0
+        # The trailing keywords entry feeds the allocated branch's terrain
+        # phase-2b line-of-sight test (the enemy side of has_line_of_sight).
         rows.append((e.uid, epos, emove, erange, rw, getattr(ep, "ap", 0) or 0,
-                     melee_capable, mw, ignores_cover))
+                     melee_capable, mw, ignores_cover,
+                     getattr(ep, "unit_keywords", None)))
     return rows
 
 
@@ -3982,7 +4042,7 @@ def _job_threat_scan(rows, me_unit, dest, map_, alloc=None, advance_turns=0):
     cover_here = map_.cover_at(dest) if map_ is not None else None
     if alloc is None:
         for (e_uid, epos, emove, erange, rw, e_ap, melee_capable, mw,
-             ignores_cover) in rows:
+             ignores_cover, _e_kw) in rows:
             d_ed = _dist(epos, dest)
             reach_bonus = advance_turns * emove
             if erange > 0.0 and d_ed <= emove + erange + reach_bonus \
@@ -3997,13 +4057,24 @@ def _job_threat_scan(rows, me_unit, dest, map_, alloc=None, advance_turns=0):
         return field
     sums, terms, opp = alloc
     my_uid = getattr(me_unit, "uid", None)
+    # TERRAIN PHASE 2B (alloc branch only, mirroring _threat_field_at): a
+    # ranged contribution is zero without line of sight from the enemy's
+    # position to the cell. Applied at advance_turns == 0 only — a projected
+    # mover (a transit waypoint priced t enemy-turns ahead) is not pinned to
+    # its current sightline; the reach expansion already models it
+    # repositioning, and blocking it on today's wall would undo exactly the
+    # "they will have closed" pricing the expansion exists for.
+    my_kw = getattr(_score_profile(me_unit), "unit_keywords", None)
+    los_here = (advance_turns == 0 and map_ is not None)
     for (e_uid, epos, emove, erange, rw, e_ap, melee_capable, mw,
-         ignores_cover) in rows:
+         ignores_cover, e_kw) in rows:
         d_ed = _dist(epos, dest)
         reach_bonus = advance_turns * emove
         c = 0.0
         if erange > 0.0 and d_ed <= emove + erange + reach_bonus \
-                and rw > 0.0:
+                and rw > 0.0 and (
+                    not los_here
+                    or map_.has_line_of_sight(epos, dest, e_kw, my_kw)):
             atten = 1.0 if ignores_cover else _cover_attenuation_for(
                 me_unit, e_ap, cover_here)
             c += rw * atten
@@ -4116,10 +4187,17 @@ def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr,
     adv_ok = rok_a or mok_a
     my_range, melee_capable, rows = _job_kill_precompute(
         unit, enemy_alive, map_, srr)
+    # Terrain phase 2b: the scan's ranged half requires line of sight from
+    # the candidate cell when the calibrated field is on — the same gate read
+    # (`alloc_on`, hoisted above) value_offense applies internally, so the
+    # stationary candidate and the scanned candidates price consistently.
+    _los_map = map_ if alloc_on else None
+    _los_kw = (getattr(_score_profile(unit), "unit_keywords", None)
+               if alloc_on else None)
     for e in sorted(enemy_alive, key=lambda u: u.uid):
         cell_n = _job_step_toward(unit.position, e.position, move, map_)
         v_n = _job_offense_scan(rows, cell_n, rok_n, mok_n, my_range,
-                                melee_capable)
+                                melee_capable, _los_map, _los_kw)
         if v_n > best_v:                       # raw bound: discount only shrinks
             rows_t, al = _threat_ctx()
             t_n = _job_threat_scan(rows_t, unit, cell_n, map_, al)
@@ -4130,7 +4208,7 @@ def _job_channel_kill(unit, friendly, battle, enemy_alive, map_, srr,
             cell_a = _job_step_toward(unit.position, e.position,
                                       move + _OFFENSE_MAX_ADVANCE, map_)
             v_a = _job_offense_scan(rows, cell_a, rok_a, mok_a, my_range,
-                                    melee_capable)
+                                    melee_capable, _los_map, _los_kw)
             if v_a > best_v:                   # raw bound: discount only shrinks
                 rows_t, al = _threat_ctx()
                 t_a = _job_threat_scan(rows_t, unit, cell_a, map_, al)

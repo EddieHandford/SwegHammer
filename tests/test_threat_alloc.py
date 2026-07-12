@@ -91,6 +91,10 @@ class _Map:
     def is_blocked(self, point):
         return False
 
+    def has_line_of_sight(self, attacker, target,
+                          attacker_keywords=None, target_keywords=None):
+        return True     # open synthetic board — no blocking terrain
+
 
 def _gun_enemy():
     """4 shots, 4+ to hit, S4 AP0 D1, 24" range, Move 6 — no melee."""
