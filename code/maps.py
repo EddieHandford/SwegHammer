@@ -105,7 +105,18 @@ def _competitive_terrain(width: float, height: float, dense_layout=None) -> tupl
     inches (ruins stay roughly five-to-six inches regardless of board length).
     Each non-central seed is emitted together with its 180-degree partner.
     """
-    if os.environ.get("SWEG_TERRAIN_DENSE") == "1":
+    # ADOPTED DEFAULT-ON (2026-07-14): the sourced GW Pariah Nexus competitive
+    # layouts are the faithful terrain (correctly-shaped large line-of-sight
+    # blockers, no clean deployment-zone-to-deployment-zone sightline) versus the
+    # homebrew Wave-97 approximation below (small scatter pieces that leave clean
+    # firing lanes and over-credit the static gunline). Adopted fidelity-first per
+    # the owner's doctrine: it is the real competitive standard, so it is the
+    # default even though the paired re-anchor read a metric regression (gated
+    # 2.30 -> 3.00, N=40 vs sc66a) whose new craters (T'au -9.1, Necrons +8.1) and
+    # the favourable Astra Militarum nudge (+2.6) become the next residuals to
+    # work. SWEG_TERRAIN_DENSE=0 is the byte-identical kill-switch back to the
+    # Wave-97 homebrew layout. Cited `terrain.competitive_density`.
+    if os.environ.get("SWEG_TERRAIN_DENSE", "1") != "0":
         return _dense_competitive_terrain(width, height, dense_layout)
     R = TerrainType.RUIN
     O = TerrainType.OBSCURING
