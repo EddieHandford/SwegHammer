@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from .army import Army
+from .attachment import attachment_enabled, is_attachment_protected
 from .detachments import effective_move
 from .displace_instr import DisplaceInstr, gate_on as _displace_gate_on
 from .pathfind import find_path
@@ -16,9 +17,9 @@ from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, DeadlyDemiseExploded,
     InitialUnit, JudgementTokenAwarded, OathTargetChosen, ObjectiveScored,
     PlayerTurnStarted, RoundEnded, RoundStarted, StratagemFired, Subscriber,
-    TransportDisembarked, TransportEmbarked, UnitActivated, UnitAdvanced,
-    UnitCharged, UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled,
-    UnitMoved, UnitReanimated, UnitScouted, UnitShot, WaaaghDeclared,
+    TransportDisembarked, TransportEmbarked, TurnStarted, UnitActivated,
+    UnitAdvanced, UnitCharged, UnitDeepStrike, UnitFought, UnitInfiltrated,
+    UnitKilled, UnitMoved, UnitReanimated, UnitScouted, UnitShot, WaaaghDeclared,
 )
 from .factions import is_marine_faction
 from .map import Map, TerrainType
@@ -182,7 +183,7 @@ from .sim.geometry import (  # noqa: F401  (re-exported for the public surface)
 )
 
 
-def _er_gap_units(a, b) -> float:
+def _er_gap_units(a, b, base_edge: Optional[bool] = None) -> float:
     """Engagement-Range distance between two Unit instances (inches).
 
     Thin wrapper over `code.sim.geometry._er_gap`: base-edge gap when
@@ -193,19 +194,25 @@ def _er_gap_units(a, b) -> float:
     charger — the wave-241 fix for the fight gate that never fired (a
     base-edge charge ends ~2.26" centre-to-centre for two 32mm bases, which
     a centre-based `<= 1.0` gate can never see). Cited as
-    `simulator.engagement_range_base_edge`."""
-    return _er_gap(a.position, a.profile, b.position, b.profile)
+    `simulator.engagement_range_base_edge`.
+
+    PERF: `base_edge`, when passed (typically `Battle._charge_baseedge`,
+    cached once per battle the same way `Battle._cmd_score` caches
+    SWEG_CMDSCORE), skips `_er_gap`'s per-call `os.environ.get` — see that
+    function's docstring. `None` (the default) preserves the exact original
+    per-call env-read behaviour."""
+    return _er_gap(a.position, a.profile, b.position, b.profile, base_edge=base_edge)
 
 
-def _er_engaged_by(target, units) -> bool:
+def _er_engaged_by(target, units, base_edge: Optional[bool] = None) -> bool:
     """True iff `target` is within Engagement Range (<= 1") of ANY unit in
     `units`. Used by the reciprocal shooting-into-engagement rule's Blast leg,
     which forbids a Blast weapon from targeting a unit engaged with any unit of
     the attacker's army, including the attacker's own unit."""
-    return any(_er_gap_units(u, target) <= 1.0 for u in units)
+    return any(_er_gap_units(u, target, base_edge=base_edge) <= 1.0 for u in units)
 
 
-def _er_engaged_by_other_unit(target, units, attacker) -> bool:
+def _er_engaged_by_other_unit(target, units, attacker, base_edge: Optional[bool] = None) -> bool:
     """True iff `target` is within Engagement Range (<= 1") of a friendly unit
     that is NOT the attacker and NOT a model of the attacker's own squad.
 
@@ -214,19 +221,24 @@ def _er_engaged_by_other_unit(target, units, attacker) -> bool:
     by the Pistols / Big Guns Never Tire rules applied at the shoot gate, so it
     is excluded here. Squad membership is by `squad_id` (the simulator models a
     codex squad as one Unit per model, all sharing a squad_id); a lone model
-    (squad_id < 0) excludes only itself."""
-    a_sid = getattr(attacker, "squad_id", -1)
+    (squad_id < 0) excludes only itself.
+
+    `squad_id` is unconditionally assigned in `Unit.__init__` (never a missing
+    attribute), so the plain attribute reads below are byte-identical to the
+    previous `getattr(x, "squad_id", -1)` form but skip the getattr-with-
+    default machinery on this hot per-shot-target loop."""
+    a_sid = attacker.squad_id
     for u in units:
         if u is attacker:
             continue
-        if a_sid >= 0 and getattr(u, "squad_id", -1) == a_sid:
+        if a_sid >= 0 and u.squad_id == a_sid:
             continue
-        if _er_gap_units(u, target) <= 1.0:
+        if _er_gap_units(u, target, base_edge=base_edge) <= 1.0:
             return True
     return False
 
 
-def _reciprocal_ranged_legal(target, friendly_units, attacker) -> bool:
+def _reciprocal_ranged_legal(target, friendly_units, attacker, base_edge: Optional[bool] = None) -> bool:
     """Reciprocal "shooting into engagements" legality for a non-Blast ranged
     weapon (10e Big Guns Never Tire, gated SWEG_BGNT_RECIPROCAL).
 
@@ -250,9 +262,9 @@ def _reciprocal_ranged_legal(target, friendly_units, attacker) -> bool:
       * Otherwise, a target engaged by a friendly unit OTHER than the
         attacker's own unit is legal only if it is a MONSTER or VEHICLE.
     """
-    if _er_gap_units(attacker, target) <= 1.0:
+    if _er_gap_units(attacker, target, base_edge=base_edge) <= 1.0:
         return True
-    if not _er_engaged_by_other_unit(target, friendly_units, attacker):
+    if not _er_engaged_by_other_unit(target, friendly_units, attacker, base_edge=base_edge):
         return True
     kw = target.profile.unit_keywords or ()
     return "MONSTER" in kw or "VEHICLE" in kw
@@ -625,6 +637,17 @@ class Battle:
         # the real 10e timing (the end-of-round snapshot under-credited mobile holders).
         # Faithful AND improved the metric (5.72 → 5.44 N=80). `SWEG_CMDSCORE=0` reverts.
         self._cmd_score: bool = __import__("os").environ.get("SWEG_CMDSCORE", "1") != "0"
+        # PERF cache (no behaviour change): SWEG_CHARGE_BASEEDGE read once per
+        # battle, mirroring `_cmd_score` above. Engagement-Range checks
+        # (`_er_gap` / `_er_gap_units` and friends) are among the hottest
+        # calls in the simulator — cProfile showed the per-call
+        # `os.environ.get` alone costing roughly as much as the rest of
+        # `_er_gap` combined. Every Battle-method call site below passes
+        # this cached value through `base_edge=`; any caller that does not
+        # (direct geometry/test callers, strategy.py) still gets the
+        # original fresh-env-read-per-call behaviour, so this is
+        # byte-identical either way. Cited gate: `simulator.engagement_range_base_edge`.
+        self._charge_baseedge: bool = __import__("os").environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1"
         # SC4-A — 10e Pariah Nexus secondary objectives. Each round we
         # snapshot each army's alive units at round start (in `_run_round`)
         # and compute Bring it Down + No Prisoners VP at round end (in
@@ -687,6 +710,31 @@ class Battle:
         # battle. None means "not yet resolved" (or gate is OFF — per-round flip).
         # Cited as `simulator.first_turn_rolloff`.
         self._first_player: Optional["Army"] = None
+        # Phase-instance counter (10e core rule — Wahapedia core rules,
+        # Stratagems, verbatim: "You can use the same Stratagem multiple
+        # times during a battle, but you cannot use the same Stratagem more
+        # than once in the same phase."). Incremented once at the start of
+        # every distinct rules-phase in the vanilla IGOUGO turn structure —
+        # the round-level Command phase (`_run_round`) and, per player turn,
+        # Movement / Shooting / Charge / Fight (`_run_round_vanilla_turns`) —
+        # so `_fire_stratagem` can tell whether a (army, stratagem) pair has
+        # already fired in the CURRENT phase instance. The bump itself is
+        # unconditional (a plain counter increment changes no observable
+        # battle behaviour); only the refusal it enables is gated — see
+        # `_fire_stratagem`. NOT advanced by `_run_round_alternating`: that
+        # opt-in ruleset has no global phase boundary to bump on, so
+        # enforcement is unconditionally skipped there regardless of the
+        # gate (scope note also recorded in the citation). Cited as
+        # `simulator.stratagem_once_per_phase`.
+        self._phase_seq: int = 0
+        # (army.name, stratagem.name) -> the `_phase_seq` value that pair
+        # last fired a stratagem in. Written on every successful
+        # `_fire_stratagem` call regardless of the gate (a dict write is
+        # byte-identical-safe); consulted only when
+        # SWEG_STRAT_ONCE_PER_PHASE is on and the battle is not using
+        # alternating activations. Reset per battle for free — this dict
+        # lives on a fresh Battle instance each battle.
+        self._strat_fired_phase_seq: Dict[Tuple[str, str], int] = {}
 
     # ------------------------------------------------------------------
     # Public interface
@@ -788,6 +836,16 @@ class Battle:
         from .secondaries import pick_secondaries as _pick_secondaries
         self.a.chosen_secondaries = _pick_secondaries(self.a, self.b)
         self.b.chosen_secondaries = _pick_secondaries(self.b, self.a)
+        # 10e Leader / Attached-unit binding (SWEG_LEADER_ATTACH). Hard-bind each
+        # attachable leader to a host squad now, while `army.units` still holds
+        # the full roster (before _deploy_armies moves GSC ambushers to reserves).
+        # Gated so the OFF path never runs it -> byte-identical. The gated
+        # targeting checks (army.can_target_for_ranged + the melee target picks)
+        # read `_attach_host_squad_id`. Cited: LEADER.attached_unit_allocation.
+        from .attachment import attachment_enabled as _att_on, bind_leaders as _bind
+        if _att_on():
+            _bind(self.a)
+            _bind(self.b)
         # M2 (wave 119, env-gated SWEG_TAC_DECK) — seed each TACTICAL army's
         # 2-card hand + remaining deck deterministically. `pick_secondaries`
         # set `secondary_track`; this fills `tactical_hand`/`tactical_deck`.
@@ -2032,7 +2090,7 @@ class Battle:
             if dx * dx + dy * dy > _burn_r2:
                 continue
             engaged = any(
-                _er_gap_units(u, h) <= 1.0
+                _er_gap_units(u, h, base_edge=self._charge_baseedge) <= 1.0
                 for h in holder.alive_units
             )
             if not engaged:
@@ -3763,7 +3821,7 @@ class Battle:
                 return False
         # Not in melee with any enemy.
         for e in other.alive_units:
-            if _er_gap_units(unit, e) <= self._DEDICATION_ENGAGE_RANGE:
+            if _er_gap_units(unit, e, base_edge=self._charge_baseedge) <= self._DEDICATION_ENGAGE_RANGE:
                 return False
         # Not a productive shooter with a target in range.
         p = unit.profile
@@ -3884,7 +3942,7 @@ class Battle:
         complete an Action this turn (10e: a unit within Engagement Range
         cannot perform an Action)."""
         for e in other.alive_units:
-            if _er_gap_units(unit, e) <= self._DEDICATION_ENGAGE_RANGE:
+            if _er_gap_units(unit, e, base_edge=self._charge_baseedge) <= self._DEDICATION_ENGAGE_RANGE:
                 return True
         return False
 
@@ -11286,7 +11344,7 @@ class Battle:
                 if squad_key in tested:
                     continue
                 if not any(
-                    _er_gap_units(m, inc) <= 1.0
+                    _er_gap_units(m, inc, base_edge=self._charge_baseedge) <= 1.0
                     for m in members
                     for inc in incubi_units
                 ):
@@ -12241,6 +12299,13 @@ class Battle:
         # `_battleshocked_this_round` set when picking targets via
         # `_most_vulnerable_unit` / `_highest_dpa_unit`. See task #168.
         self._run_battleshock_phase(round_num)
+        # Phase-instance boundary: the round-level Command phase (both
+        # armies' round-start dispatch below is this simulator's single
+        # collapsed stand-in for the two real per-player-turn Command
+        # phases — see the `_phase_seq` docstring in __init__). Bumped once
+        # here, unconditionally, before any stratagem may fire in it.
+        # Cited as `simulator.stratagem_once_per_phase`.
+        self._phase_seq += 1
         # Detachment-specific stratagems that fire at the start of a round
         # (Virulent Vectorium, Warhost). Doombolt also fires
         # here as a per-round mortal-wound payload — it's nominally a
@@ -12652,9 +12717,20 @@ class Battle:
         # per-turn phase blocks below. Byte-identical when gate is off.
         _aof_per_phase: bool = __import__("os").environ.get("SWEG_AOF_PER_PHASE", "1") == "1"
         for active, other in ((first, second), (second, first)):
+            # Presentation-only markers for the replay recap: TurnStarted (ours,
+            # see code/events.py) and PlayerTurnStarted (main's turn-order display)
+            # both fire before any of this army's phases so a subscriber can split
+            # the round overview into one sub-chapter per player's turn, in true
+            # resolution order. No random-number draws, no game-state mutation —
+            # no-ops when there are no subscribers (the evaluation paths).
+            self._emit(TurnStarted(round_num=self._current_round, army_name=active.name))
             self._emit(PlayerTurnStarted(
                 army_name=active.name, round_num=self._current_round,
             ))
+            # Phase-instance boundary: this player's Movement phase begins.
+            # Bumped unconditionally (see the `_phase_seq` docstring in
+            # __init__). Cited as `simulator.stratagem_once_per_phase`.
+            self._phase_seq += 1
             # Per-Command-phase primary scoring (wave 116, env-gated SWEG_CMDSCORE).
             # 10e scores Primary VP at the end of each player's Command phase —
             # i.e. at the START of that player's turn, on the objectives it
@@ -12862,6 +12938,10 @@ class Battle:
             # uncrackable Knight and waste fire; this one cannot). Every unit
             # that can wound the nominee then concentrates on it in _do_shoot.
             self._nominate_focusfire_target(active, other)
+            # Phase-instance boundary: this player's Shooting phase begins.
+            # Bumped unconditionally (see the `_phase_seq` docstring in
+            # __init__). Cited as `simulator.stratagem_once_per_phase`.
+            self._phase_seq += 1
             # Squad rebuild Stage D (gate SWEG_SQUADSHOOT): clear the per-phase
             # split-fire plan so this army's Shooting phase plans fresh. Resetting
             # empty containers touches no game state and no RNG, so the OFF path
@@ -12889,10 +12969,18 @@ class Battle:
             for unit in list(active.units):
                 if unit.is_alive:
                     self._do_shoot(unit, active, other)
+            # Phase-instance boundary: this player's Charge phase begins.
+            # Bumped unconditionally (see the `_phase_seq` docstring in
+            # __init__). Cited as `simulator.stratagem_once_per_phase`.
+            self._phase_seq += 1
             bump_buffs_generation()
             for unit in list(active.units):
                 if unit.is_alive:
                     self._do_charge(unit, active, other)
+            # Phase-instance boundary: this player's Fight phase begins.
+            # Bumped unconditionally (see the `_phase_seq` docstring in
+            # __init__). Cited as `simulator.stratagem_once_per_phase`.
+            self._phase_seq += 1
             bump_buffs_generation()
             # Fresh Fight-phase pass starting now (this player's turn's one
             # Fight phase) — no unit has been selected to fight yet, so clear
@@ -13056,7 +13144,7 @@ class Battle:
                 continue
             in_engagement = [
                 e for e in other.alive_units
-                if _er_gap_units(src, e) <= 1.0
+                if _er_gap_units(src, e, base_edge=self._charge_baseedge) <= 1.0
             ]
             if not in_engagement:
                 continue
@@ -15019,7 +15107,9 @@ class Battle:
             _plan_friendly = attacker_army.alive_units
             enemies = [
                 e for e in enemies
-                if _reciprocal_ranged_legal(e, _plan_friendly, first_model)
+                if _reciprocal_ranged_legal(
+                    e, _plan_friendly, first_model, base_edge=self._charge_baseedge
+                )
             ]
             if not enemies:
                 return
@@ -15316,7 +15406,7 @@ class Battle:
         kw = attacker.profile.unit_keywords or ()
         big_guns_eligible = "VEHICLE" in kw or "MONSTER" in kw
         in_engagement = any(
-            _er_gap_units(attacker, e) <= 1.0
+            _er_gap_units(attacker, e, base_edge=self._charge_baseedge) <= 1.0
             for e in defender_army.alive_units
         )
         # SCREENING / melee-avoidance instrument (#86, gated SWEG_SHOOTLOSS_INSTR,
@@ -15405,10 +15495,11 @@ class Battle:
                     target_keywords=u.profile.unit_keywords or (),
                 )
             ]
-        # 10e core targeting restrictions: Look Out Sir + Lone Operative. The
-        # helper composes both rules — `friendly_units` to a candidate target
-        # is its OWN army's alive units (bodyguards live with the target).
-        # Cited as `simulator.look_out_sir` and `simulator.lone_operative`.
+        # 10e core targeting restrictions: Leader/Attached-unit protection +
+        # Lone Operative. The helper composes both rules — `friendly_units` to a
+        # candidate target is its OWN army's alive units (its host bodyguard
+        # squad lives with the target).
+        # Cited as `simulator.leader_attachment` and `simulator.lone_operative`.
         from .army import can_target_for_ranged
         defender_alive = defender_army.alive_units
         candidates = [
@@ -15423,14 +15514,14 @@ class Battle:
         if in_engagement:
             candidates = [
                 u for u in candidates
-                if _er_gap_units(attacker, u) <= 1.0
+                if _er_gap_units(attacker, u, base_edge=self._charge_baseedge) <= 1.0
             ]
         # CORE-RULES-AUDIT (2026-05-31): a Blast weapon cannot target a unit
         # that is within Engagement Range of the bearer. See #5.
         if attacker.profile.blast:
             candidates = [
                 u for u in candidates
-                if _er_gap_units(attacker, u) > 1.0
+                if _er_gap_units(attacker, u, base_edge=self._charge_baseedge) > 1.0
             ]
         # RECIPROCAL BIG GUNS NEVER TIRE / shooting-into-engagement (gated
         # SWEG_BGNT_RECIPROCAL, default ON; =0 kill-switch restores the legacy
@@ -15452,7 +15543,9 @@ class Battle:
             _recip_before = candidates
             candidates = [
                 u for u in candidates
-                if _reciprocal_ranged_legal(u, _bgnt_friendly, attacker)
+                if _reciprocal_ranged_legal(
+                    u, _bgnt_friendly, attacker, base_edge=self._charge_baseedge
+                )
             ]
             # RECIPROCAL-BLOCK instrument (SWEG_RECIP_INSTR, read-only): record
             # this activation's footprint from the reciprocal filter — whether it
@@ -15473,7 +15566,7 @@ class Battle:
             if attacker.profile.blast:
                 candidates = [
                     u for u in candidates
-                    if not _er_engaged_by(u, _bgnt_friendly)
+                    if not _er_engaged_by(u, _bgnt_friendly, base_edge=self._charge_baseedge)
                 ]
         if not candidates:
             return
@@ -15683,6 +15776,7 @@ class Battle:
             and not attacker.profile.pistol
             and _er_engaged_by_other_unit(
                 math_target, attacker_army.alive_units, attacker,
+                base_edge=self._charge_baseedge,
             )
         ):
             attacker.shooting_at_engaged_brick = True
@@ -15750,7 +15844,22 @@ class Battle:
         # defender re-allocation happened the two are the same model.
         saved_cover = shoot_target.in_cover
         saved_heavy = shoot_target.in_heavy_cover
-        cover_type = self.map.cover_at(math_target.position)
+        # Angle-aware Benefit of Cover (terrain-and-line-of-sight program
+        # Phase 2a, env-gated SWEG_COVER_ANGLE, default off). The flat
+        # cover_at(target) lookup grants cover purely from the target's
+        # position; the real 10e rule for area terrain is attacker-relative
+        # (Map.cover_between: within a cover piece the attacker is not also
+        # within, or a cover piece intervening on the shot line — see the
+        # docstring there and docs/TERRAIN_LOS_SPEC.md section 4). Byte-
+        # identical off: cover_at(math_target.position) runs unchanged.
+        # Cited as `simulator.benefit_of_cover_angle` in
+        # data/rule_citations.d/core_terrain_ruins.json.
+        if os.environ.get("SWEG_COVER_ANGLE", "1") != "0":
+            cover_type = self.map.cover_between(
+                attacker.position, math_target.position,
+            )
+        else:
+            cover_type = self.map.cover_at(math_target.position)
         if cover_type in (
             TerrainType.LIGHT_COVER, TerrainType.HEAVY_COVER, TerrainType.RUIN,
         ):
@@ -16000,7 +16109,8 @@ class Battle:
         # arithmetic below is identical either way because the radii term is
         # constant along the approach line.
         gap = _er_gap(ref_pos, _surge_squad[0].profile,
-                      nearest.position, nearest.profile)
+                      nearest.position, nearest.profile,
+                      base_edge=self._charge_baseedge)
         if gap <= 0:
             return  # already co-located / in base contact, nothing to do
 
@@ -16745,7 +16855,15 @@ class Battle:
         target = enemy_unit
         saved_cover = target.in_cover
         saved_heavy = target.in_heavy_cover
-        cover_type = self.map.cover_at(target.position)
+        # Angle-aware Benefit of Cover (same substitution as Battle._do_shoot
+        # above, env-gated SWEG_COVER_ANGLE, default off, byte-identical off).
+        # Cited as `simulator.benefit_of_cover_angle`.
+        if os.environ.get("SWEG_COVER_ANGLE", "1") != "0":
+            cover_type = self.map.cover_between(
+                best_unit.position, target.position,
+            )
+        else:
+            cover_type = self.map.cover_at(target.position)
         if cover_type in (
             TerrainType.LIGHT_COVER, TerrainType.HEAVY_COVER, TerrainType.RUIN,
         ):
@@ -16836,7 +16954,7 @@ class Battle:
         reuses `_wants_to_charge` (melee output dominates ranged), the sim's own
         would-this-unit-charge predicate. Ties between eligible bricks break to
         the nearest (most reachable). Deterministic, no RNG."""
-        base_edge = os.environ.get("SWEG_CHARGE_BASEEDGE", "1") == "1"
+        base_edge = self._charge_baseedge
         best = None
         best_gap = None
         for brick in defender_army.alive_units:
@@ -16844,7 +16962,7 @@ class Battle:
                 continue
             if not self._is_caging_brick(brick.profile):
                 continue
-            gap = _er_gap_units(attacker, brick)
+            gap = _er_gap_units(attacker, brick, base_edge=base_edge)
             if gap <= 1.0 or gap > 12.0:
                 continue   # not in this charger's declaration range (base-edge)
             n = 0
@@ -16853,7 +16971,7 @@ class Battle:
                     continue
                 if not self._wants_to_charge(u):
                     continue
-                g = _er_gap_units(u, brick)
+                g = _er_gap_units(u, brick, base_edge=base_edge)
                 if 1.0 < g <= 12.0:
                     n += 1
                     if n >= 2:
@@ -17539,6 +17657,19 @@ class Battle:
         if not alive_enemies:
             return
 
+        # 10e Attached-unit protection (SWEG_LEADER_ATTACH): a melee attack
+        # cannot be allocated to an attached leader while its host squad still
+        # has a living bodyguard model, unless the attacker has a [PRECISION]
+        # melee weapon. Drop protected leaders from the fight target pool; if
+        # the attacker is engaged ONLY with protected leaders it has no legal
+        # target and does not strike. Gate off -> byte-identical.
+        if attachment_enabled() and not getattr(attacker.profile, "precision", False):
+            _unprotected = [e for e in alive_enemies
+                            if not is_attachment_protected(e, alive_enemies)]
+            if not _unprotected:
+                return
+            alive_enemies = _unprotected
+
         # --- Pile-In (10e core): free 3" move toward the closest enemy,
         # taken BEFORE the fight resolves. Gated on the attacker being in
         # actual fight eligibility — within Engagement Range of an enemy
@@ -17549,9 +17680,9 @@ class Battle:
         # the full melee profile.
         nearest_pre = min(
             alive_enemies,
-            key=lambda e: _er_gap_units(attacker, e),
+            key=lambda e: _er_gap_units(attacker, e, base_edge=self._charge_baseedge),
         )
-        pre_engaged = _er_gap_units(attacker, nearest_pre) <= 1.0
+        pre_engaged = _er_gap_units(attacker, nearest_pre, base_edge=self._charge_baseedge) <= 1.0
         is_charging_this_turn = attacker.uid in self._charging_this_round
         _pile_old_pos = attacker.position
         if (
@@ -17581,7 +17712,7 @@ class Battle:
         # breaks the lock rather than the closest brick.
         in_range = [
             e for e in alive_enemies
-            if _er_gap_units(attacker, e) <= 1.0
+            if _er_gap_units(attacker, e, base_edge=self._charge_baseedge) <= 1.0
         ]
         if not in_range:
             return
@@ -17893,7 +18024,9 @@ class Battle:
                 # MONSTER/VEHICLE. OFF path keeps the legacy candidate set.
                 and (
                     os.environ.get("SWEG_BGNT_RECIPROCAL", "1") == "0"
-                    or _reciprocal_ranged_legal(e, army.alive_units, mk)
+                    or _reciprocal_ranged_legal(
+                        e, army.alive_units, mk, base_edge=self._charge_baseedge
+                    )
                 )
             ]
             if not candidates:
@@ -17946,7 +18079,9 @@ class Battle:
                         # the hit-roll marked set above.
                         and (
                             os.environ.get("SWEG_BGNT_RECIPROCAL", "1") == "0"
-                            or _reciprocal_ranged_legal(e, army.alive_units, mk)
+                            or _reciprocal_ranged_legal(
+                                e, army.alive_units, mk, base_edge=self._charge_baseedge
+                            )
                         )
                     ):
                         los_marked.add(e.uid)
@@ -18945,6 +19080,25 @@ class Battle:
         already = self._stratagems_fired_this_battle.get(army.name, set())
         if strat.once_per_battle and strat.name in already:
             return False
+        # 10e core rule (Wahapedia core rules, Stratagems, verbatim): "You
+        # can use the same Stratagem multiple times during a battle, but
+        # you cannot use the same Stratagem more than once in the same
+        # phase." Gated SWEG_STRAT_ONCE_PER_PHASE (default OFF). Scope
+        # note: alternating-activation mode (`self.rules.alternating_
+        # activations`) has no global phase boundary — `_phase_seq` is only
+        # advanced by the vanilla IGOUGO turn structure — so enforcement
+        # is skipped there regardless of the gate. Checked BEFORE any
+        # command-point spend or state mutation below, per the real rule
+        # (a refused stratagem never happened). Cited as
+        # `simulator.stratagem_once_per_phase`.
+        _once_per_phase_on = (
+            os.environ.get("SWEG_STRAT_ONCE_PER_PHASE", "1") != "0"
+            and not self.rules.alternating_activations
+        )
+        _phase_key = (army.name, strat.name)
+        if (_once_per_phase_on
+                and self._strat_fired_phase_seq.get(_phase_key) == self._phase_seq):
+            return False
         army.command_points -= strat.cp_cost
         # Warlord-gated CP refund. Two independent mechanics, applied in
         # priority order so each pool drains separately:
@@ -18965,6 +19119,10 @@ class Battle:
             army.cp_refund_remaining -= 1
         already.add(strat.name)
         self._stratagems_fired_this_battle[army.name] = already
+        # Record the phase instance this (army, stratagem) pair fired in.
+        # Written unconditionally — see the field docstring in __init__ and
+        # the byte-identity note above `_once_per_phase_on`.
+        self._strat_fired_phase_seq[_phase_key] = self._phase_seq
         # Iter-4 A5: increment the per-Command-phase counter only when this
         # spend originated from `_apply_detachment_stratagems` (faction-neutral
         # detachment-stratagem dispatcher). Core Stratagems (Tank Shock,
@@ -19114,7 +19272,7 @@ class Battle:
             if u is not loser_unit
             and u.uid not in self._fought_this_fight_phase
             and u.profile.melee_attacks > 0
-            and _er_gap_units(u, winner_unit) <= 1.0
+            and _er_gap_units(u, winner_unit, base_edge=self._charge_baseedge) <= 1.0
         ]
         in_engagement = bool(candidates)
         ctx = {

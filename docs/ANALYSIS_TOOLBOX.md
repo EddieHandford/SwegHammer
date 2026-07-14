@@ -35,6 +35,7 @@ pull request that creates it.
 | Tool | What it reveals |
 |---|---|
 | `scripts/evaluate_vs_meta.py --use-archetype --log-games` | The headline: per-faction win rates vs the tournament aggregate, noise-gated mean absolute error. Always log games. |
+| `--log-margins` (requires `--log-games`, default off) | Per-game exchange-rate evidence for the exchange-rate calibration lane: each side's final capped victory points and the points-value of units it lost, as a `"margins"` list index-aligned with `"games"` (kept separate rather than appended onto each game row, so `scripts/paired_delta.py` and `scripts/diag_frame.py`'s strict 4-element game unpacking are untouched). Grounds `_trade_vp_per_wound` in measured kill-margin-versus-victory-point-margin data instead of an estimate. Off by default; the written log is byte-identical to the flag-absent format when unset. |
 | `--factions` scoping | Runs only a changed faction's row and column (about one tenth of the matrix); valid only for genuinely faction-localised changes. |
 | `scripts/paired_delta.py` | Common-random-numbers paired comparison against a saved anchor log; real effects decisive at N=40. |
 | `scripts/paired_sequential.py` | Sequential early-stop wrapper for cheap reject/keep verdicts. |

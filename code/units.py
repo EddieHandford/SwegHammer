@@ -126,6 +126,24 @@ def _am_battleline_specials_enabled() -> bool:
     return os.environ.get("SWEG_AM_BATTLELINE_SPECIALS") == "1"
 
 
+def _wargear_mutex_enabled() -> bool:
+    """True when SWEG_WARGEAR_MUTEX == '1' (default-OFF). Resolves the
+    wargear-mutex catalogue defect: the BSData mapper's flat weapon walk
+    collects EVERY option of a datasheet's mutually-exclusive / optional wargear
+    groups as independently-firing profiles, so a single-model vehicle fires
+    weapons no legal loadout can carry together (the audited case: the Rogal Dorn
+    fires its twin battle cannon AND its replacement oppressor cannon, plus both
+    its optional sponson multi-meltas and hull meltaguns — ~3x its legal
+    main-armament output). When gated ON, _build_catalog drops the
+    mutex-alternative and optional-slot weapons named in _WARGEAR_MUTEX_DROPS,
+    leaving each corrected unit a legal datasheet-default loadout. Read
+    per-build (not cached) so tests can toggle it via os.environ within a
+    process; when unset (or any value other than '1'), _build_catalog skips the
+    correction entirely and every unit is byte-identical to the legacy
+    catalogue. See data/rule_citations.d/wargear_mutex.json."""
+    return os.environ.get("SWEG_WARGEAR_MUTEX", "1") != "0"
+
+
 def roll_damage(dice_str: str, mean_fallback: float) -> float:
     """Roll a weapon's real Damage characteristic for ONE shot.
 
@@ -1067,6 +1085,12 @@ class Unit:
         # read this; the firing path reads the per-model `profile`. None for
         # legacy / shared-profile units. Cited as `simulator.per_model_loadouts`.
         "squad_profile_ref",
+        # 10e Leader / Attached-unit binding (SWEG_LEADER_ATTACH). The squad_id
+        # of the host bodyguard squad this attachable CHARACTER is bound to at
+        # deploy time (code/attachment.bind_leaders), or None = unattached /
+        # gate off. Read by the gated targeting checks to protect the leader
+        # while its host squad still has a living bodyguard model.
+        "_attach_host_squad_id",
         "moved_this_round", "on_objective", "shooting_in_engagement",
         # Cadia Stands! per-round flag (SWEG_AM_CADIA_STANDS): set True in
         # simulator.py round-setup when a led Cadian Shock Troops squad is on an
@@ -6039,6 +6063,161 @@ def _distribute_squad_slots(
 
 
 # ---------------------------------------------------------------------------
+# SWEG_WARGEAR_MUTEX — mutually-exclusive / optional wargear resolution
+# ---------------------------------------------------------------------------
+#
+# 10th-edition wargear OPTIONS are mutually-exclusive replacements ("this
+# model's X can be replaced with Y") or optional add-ons ("this model can be
+# equipped with Z"). The BSData mapper's flat weapon walk (gather_wargear)
+# collects EVERY option of a single-model unit's weapon groups as an
+# independently-firing profile, ignoring the `max=1` selection constraints the
+# BSData selectionEntryGroups carry — so the aggregate representation fires two
+# options of one mutex slot at once (the Rogal Dorn's oppressor cannon AND its
+# replaced twin battle cannon; the Basilisk's heavy bolter AND its replacement
+# heavy flamer), and the per-model representation additionally fills every
+# OPTIONAL slot to its max (the Rogal Dorn's sponson 2 multi-meltas AND hull 2
+# meltaguns) instead of leaving it at the datasheet default. Measured: the Rogal
+# Dorn realizes ~3x its legal main-armament expected wounds at close range.
+#
+# The principled derivation would read the mutex sets from the BSData
+# selectionEntryGroup min/max structure in the mapper. That structure CANNOT
+# cleanly express the datasheet default here: BSData marks genuinely-optional
+# slots (Rogal Dorn sponsons, Leman Russ hull heavy stubber) AND
+# mandatory-in-practice slots (the Grey Knight Dreadknight ranged weapon, the
+# Impulsor main gun) both as `min=0`, and its `defaultSelectionEntryId`
+# attributes are dangling references that resolve to nothing. So per the lane's
+# fallback (CLAUDE.md rule 7 / rule 13) the correction is an explicit,
+# per-unit-cited drop table applied HERE, in code — not in overrides.json,
+# because overrides merge unconditionally and could not be held behind a
+# default-off screening gate (same reason as SWEG_TAU_BATTLESUIT_WEAPONS and
+# SWEG_AM_BATTLELINE_SPECIALS above).
+#
+# Each entry maps a UNIT_CATALOG key to the base weapon-names to DROP: the
+# mutex-alternatives the datasheet default does not take, plus the optional-slot
+# weapons the default leaves empty. The kept loadout is the datasheet default
+# (mandatory slots only). Every entry is cited against the unit's Wahapedia
+# wargear-options text in data/rule_citations.d/wargear_mutex.json. Scope: the
+# fully-verified single-model Astra Militarum tank core (the archetype's
+# under-pole) and the loyalist Space Marine Predators. The full audited
+# population is 139 single-model units across every faction (107 of which also
+# need primary-weapon promotion and are deferred to a follow-up lane).
+_WARGEAR_MUTEX_DROPS: Dict[str, Tuple[str, ...]] = {
+    # Astra Militarum — the multi-tank core named in the audit.
+    "astra_militarum_rogal_dorn_battle_tank": (
+        "twin battle cannon", "multi-melta", "meltagun",
+    ),
+    "astra_militarum_basilisk": ("heavy flamer", "hunter-killer missile"),
+    "astra_militarum_leman_russ_battle_tank": (
+        "heavy bolter", "heavy stubber", "multi-melta", "plasma cannon",
+    ),
+    "astra_militarum_leman_russ_demolisher": (
+        "heavy bolter", "heavy stubber", "multi-melta", "plasma cannon",
+    ),
+    "astra_militarum_leman_russ_eradicator": (
+        "heavy bolter", "heavy stubber", "multi-melta", "plasma cannon",
+    ),
+    "astra_militarum_leman_russ_executioner": (
+        "heavy stubber", "multi-melta", "plasma cannon",
+    ),
+    "astra_militarum_leman_russ_exterminator": (
+        "heavy bolter", "heavy stubber", "multi-melta", "plasma cannon",
+    ),
+    "astra_militarum_leman_russ_vanquisher": (
+        "heavy bolter", "heavy stubber", "multi-melta", "plasma cannon",
+    ),
+    # Space Marines — loyalist Predators (turret gun kept, sponsons / pintle /
+    # hunter-killer dropped).
+    "space_marines_predator_annihilator": (
+        "heavy bolter", "lascannon", "storm bolter", "hunter-killer missile",
+    ),
+    "space_marines_predator_destructor": (
+        "heavy bolter", "lascannon", "storm bolter", "hunter-killer missile",
+    ),
+}
+
+
+def _wm_norm(name: str) -> str:
+    """Normalise a weapon name for mutex-drop matching: lower-case, strip the
+    BSData alt-mode bullet / suffix so ``Battle cannon - focused`` matches
+    ``battle cannon``. Mirrors mapper._weapon_base_name."""
+    n = (name or "").lstrip("➤>").strip().lower()
+    if " - " in n:
+        n = n.split(" - ", 1)[0].strip()
+    return n
+
+
+def _apply_wargear_mutex_drop(
+    profile: "UnitProfile", key: str, drop_names: Tuple[str, ...]
+) -> "UnitProfile":
+    """Return `profile` with every weapon whose base-name is in `drop_names`
+    removed from the aggregate (secondary + extra_ranged / extra_melee) AND the
+    per-model `model_loadouts` representation, so both firing paths carry the
+    legal datasheet-default loadout.
+
+    Rule 13 (fail loud): raises if the PRIMARY weapon would be dropped (the drop
+    table must only ever remove non-primary options), or if NONE of the listed
+    drop-names matches any weapon on the unit (a stale / mistyped table entry, or
+    a parsed.json regeneration that changed the loadout — re-verify against the
+    datasheet before trusting the correction)."""
+    from dataclasses import replace as _dc_replace
+
+    drop = {_wm_norm(d) for d in drop_names}
+    if _wm_norm(profile.weapon) in drop:
+        raise ValueError(
+            f"_WARGEAR_MUTEX_DROPS[{key!r}] would drop the PRIMARY weapon "
+            f"{profile.weapon!r} — the drop table must only remove non-primary "
+            f"mutex/optional options (code/units.py:_WARGEAR_MUTEX_DROPS)."
+        )
+
+    matched: set = set()
+    fields: Dict[str, Any] = {}
+
+    # Aggregate secondary block — clear when its weapon is dropped.
+    if profile.secondary_weapon and _wm_norm(profile.secondary_weapon) in drop:
+        matched.add(_wm_norm(profile.secondary_weapon))
+        fields.update(_PERMODEL_SECONDARY_RANGED_RESET)
+
+    # Aggregate extra ranged / melee profiles.
+    def _filter_extras(flattened):
+        kept = []
+        for prof in (flattened or ()):
+            d = dict(prof)
+            nm = _wm_norm(str(d.get("weapon", "")))
+            if nm in drop:
+                matched.add(nm)
+                continue
+            kept.append(prof)
+        return tuple(kept)
+
+    fields["extra_ranged_profiles"] = _filter_extras(profile.extra_ranged_profiles)
+    fields["extra_melee_profiles"] = _filter_extras(profile.extra_melee_profiles)
+
+    # Per-model loadouts — drop matching weapons from each model's lists.
+    models = _unflatten_model_loadouts(profile.model_loadouts)
+    for m in models:
+        for slot in ("ranged", "melee"):
+            new_list = []
+            for w in (m.get(slot) or []):
+                nm = _wm_norm(str(w.get("weapon", "")))
+                if nm in drop:
+                    matched.add(nm)
+                    continue
+                new_list.append(w)
+            if slot in m:
+                m[slot] = new_list
+    fields["model_loadouts"] = _flatten_model_loadouts(models)
+
+    if not matched:
+        raise ValueError(
+            f"_WARGEAR_MUTEX_DROPS[{key!r}] = {drop_names!r} matched NO weapon on "
+            f"the unit — stale or mistyped drop table entry (or a parsed.json "
+            f"regeneration changed the loadout). Re-verify against the datasheet "
+            f"(code/units.py:_WARGEAR_MUTEX_DROPS)."
+        )
+    return _dc_replace(profile, **fields)
+
+
+# ---------------------------------------------------------------------------
 # Unit catalogue
 # ---------------------------------------------------------------------------
 #
@@ -6318,6 +6497,18 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
                 model_loadouts=_am_battleline_specials_loadouts(
                     catalog[key].model_loadouts
                 ),
+            )
+
+        # SWEG_WARGEAR_MUTEX (default-OFF, byte-identical off): drop the
+        # mutually-exclusive-alternative and optional-slot weapons the flat
+        # BSData walk collected but no legal datasheet-default loadout carries.
+        # OFF skips this block entirely, so every unit is byte-identical to the
+        # legacy catalogue; ON leaves each corrected unit its datasheet-default
+        # loadout in BOTH the aggregate and per-model representations. Cited
+        # per-unit in data/rule_citations.d/wargear_mutex.json.
+        if _wargear_mutex_enabled() and key in _WARGEAR_MUTEX_DROPS:
+            catalog[key] = _apply_wargear_mutex_drop(
+                catalog[key], key, _WARGEAR_MUTEX_DROPS[key]
             )
 
     # SWEG_DAEMONS_EPITOME_FNP (default-OFF, byte-identical off): the Contorted

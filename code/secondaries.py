@@ -410,6 +410,16 @@ class RoundSnapshot:
     mv_ids_15plus: frozenset = frozenset()
     mv_ids_20plus: frozenset = frozenset()
     char_ids_4plus: frozenset = frozenset()
+    # Per-UNIT Assassination fix (SWEG_SECONDARY_PER_UNIT). A CHARACTER unit is
+    # destroyed only when ALL its models die — like the No Prisoners / Cull
+    # per-squad handling above. Without this a multi-model CHARACTER unit (e.g.
+    # the 5-model Cadian Command Squad) scores Assassination once per MODEL.
+    # char_squad_ids: squad_ids (>=0) that are CHARACTER units; char_lone_ids:
+    # lone (squad_id<0) CHARACTER unit ids; *_4plus: the 4+-wound subsets.
+    char_squad_ids: frozenset = frozenset()
+    char_squad_ids_4plus: frozenset = frozenset()
+    char_lone_ids: frozenset = frozenset()
+    char_lone_ids_4plus: frozenset = frozenset()
 
 
 def take_snapshot(units: Iterable["Unit"]) -> RoundSnapshot:
@@ -452,12 +462,22 @@ def take_snapshot(units: Iterable["Unit"]) -> RoundSnapshot:
     horde_squads: set = set()
     lone_ids: set = set()
     horde_lone_ids: set = set()
+    char_squads: set = set()
+    char_squads_4p: set = set()
+    char_lones: set = set()
+    char_lones_4p: set = set()
     for u in alive:
         sid = getattr(u, "squad_id", -1)
+        is_char = _is_character(u)
+        is_4plus = (getattr(u.profile, "health", 0) or 0) >= 4
         if sid >= 0:
             squad_alive.add(sid)
             if _is_horde_unit(u):
                 horde_squads.add(sid)
+            if is_char:
+                char_squads.add(sid)
+                if is_4plus:
+                    char_squads_4p.add(sid)
         else:
             lone_ids.add(id(u))
             # Lone models are single-model units and essentially never qualify
@@ -465,6 +485,10 @@ def take_snapshot(units: Iterable["Unit"]) -> RoundSnapshot:
             # anyway so synthetic / edge-case callers are handled correctly.
             if _is_horde_unit(u):
                 horde_lone_ids.add(id(u))
+            if is_char:
+                char_lones.add(id(u))
+                if is_4plus:
+                    char_lones_4p.add(id(u))
     return RoundSnapshot(
         unit_ids_alive=unit_ids,
         monster_vehicle_ids_alive=mv_ids,
@@ -477,6 +501,10 @@ def take_snapshot(units: Iterable["Unit"]) -> RoundSnapshot:
         mv_ids_15plus=mv_ids_15plus,
         mv_ids_20plus=mv_ids_20plus,
         char_ids_4plus=char_ids_4plus,
+        char_squad_ids=frozenset(char_squads),
+        char_squad_ids_4plus=frozenset(char_squads_4p),
+        char_lone_ids=frozenset(char_lones),
+        char_lone_ids_4plus=frozenset(char_lones_4p),
     )
 
 
@@ -651,6 +679,21 @@ def score_round_delta(
     destroyed_lones = snapshot.lone_unit_ids_alive - alive_lone_ids_now
     destroyed_horde_lones = snapshot.horde_lone_ids_alive - alive_lone_ids_now
 
+    # Per-UNIT Assassination (SWEG_SECONDARY_PER_UNIT): a CHARACTER unit is
+    # destroyed only when its LAST model dies — matching the No Prisoners / Cull
+    # per-squad handling. Without it a 5-model Cadian Command Squad scores
+    # Assassination 5x. Build the list of destroyed CHARACTER UNITS with a 4+-
+    # wound flag each (character squads gone + character lone models gone). Gate
+    # off -> None -> the legacy per-model path below scores (byte-identical).
+    killed_char_unit_4plus: Optional[List[bool]] = None
+    if os.environ.get("SWEG_SECONDARY_PER_UNIT", "1") != "0":  # DEFAULT-ON, adopted 2026-07-13
+        _dead_char_squads = snapshot.char_squad_ids - alive_squad_ids_now
+        _dead_char_lones = snapshot.char_lone_ids - alive_lone_ids_now
+        killed_char_unit_4plus = (
+            [sid in snapshot.char_squad_ids_4plus for sid in _dead_char_squads]
+            + [lid in snapshot.char_lone_ids_4plus for lid in _dead_char_lones]
+        )
+
     # Total destroyed codex units for No Prisoners = squad kills + lone kills.
     units_killed_count = len(destroyed_squads) + len(destroyed_lones)
     # Cull the Horde counts horde squads + any lone-model units that somehow
@@ -707,7 +750,22 @@ def score_round_delta(
     # `simulator.secondary_assassination_tactical` (Tactical).
     assassination_vp = 0
     if "assassination" in chosen_set:
-        if tactical:
+        if killed_char_unit_4plus is not None:
+            # Per-UNIT (SWEG_SECONDARY_PER_UNIT): one score per destroyed
+            # CHARACTER unit, not per model.
+            if tactical:
+                assassination_vp = (
+                    ASSASSINATION_TACTICAL_VP if killed_char_unit_4plus else 0
+                )
+            else:
+                for is_4plus in killed_char_unit_4plus:
+                    assassination_vp += (
+                        ASSASSINATION_VP_4PLUS_WOUNDS
+                        if is_4plus
+                        else ASSASSINATION_VP_PER_CHAR
+                    )
+                assassination_vp = min(assassination_vp, ASSASSINATION_CAP_PER_ROUND)
+        elif tactical:
             assassination_vp = ASSASSINATION_TACTICAL_VP if chars_killed else 0
         else:
             for cid in chars_killed:

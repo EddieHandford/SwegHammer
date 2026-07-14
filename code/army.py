@@ -6,6 +6,7 @@ import dataclasses
 import os
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
+from .attachment import attachment_enabled, is_attachment_protected
 from .detachments import Detachment, default_detachment_for_faction
 from .stratagems import STARTING_CP
 from .units import (
@@ -17,13 +18,13 @@ from .units import (
 )
 
 
-# Engagement distance (in inches) inside which Look Out Sir / Lone Operative
-# stop blocking the shot. Wahapedia 10e core: "...unless the attacking unit
-# is within 12\" of the target."
+# Lone Operative range (in inches): a unit with the Lone Operative ability can
+# only be selected as the target of a ranged attack from within 12". Wahapedia
+# 10e core: "...if the attacking model is within 12\" of it." (The fabricated
+# "Look Out, Sir" bodyguard gate that also used this constant was removed
+# 2026-07-13 in favour of the real Leader/Attached-unit protection; see
+# code/attachment.py.)
 _LOS_RANGE_INCHES: float = 12.0
-# Bodyguard radius (in inches) used by Look Out Sir — a friendly non-CHARACTER
-# within this distance of the target shields it. Wahapedia 10e core wording.
-_BODYGUARD_RADIUS_INCHES: float = 3.0
 
 # OVERRIDE-PRECEDENCE (env-gated SWEG_OVERRIDE_MELEE_PRECEDENCE, default-off,
 # byte-identical off) — `_loadout_entry_to_weapon_fields` unconditionally
@@ -58,72 +59,49 @@ def can_target_for_ranged(
     friendly_units: Iterable[Unit],
 ) -> bool:
     """Return True iff `attacker` is permitted to make a ranged attack against
-    `target` under the 10e core targeting rules (Look Out Sir + Lone Operative).
+    `target` under the 10e core targeting rules (Lone Operative + the Leader /
+    Attached-unit protection).
 
     Args:
         attacker: the firing unit. Its `.position` is read for the 12" check.
-        target: the prospective target unit. Its profile keywords and
-            `.lone_operative` flag drive the gates. `target.position` is read
-            for the bodyguard / 12" checks.
+        target: the prospective target unit. Its `.lone_operative` flag and its
+            bound attach host (`_attach_host_squad_id`) drive the gates.
         friendly_units: alive units allied to the TARGET (i.e. the defender's
-            army), used to find non-CHARACTER bodyguards within 3" of the
-            target for Look Out Sir.
+            army), used to test whether the target's host bodyguard squad still
+            has a living model.
 
     Rules implemented (Wahapedia 10e core):
-      * Look Out Sir (`simulator.look_out_sir`): if the target is a CHARACTER
-        unit and is NOT also MONSTER or VEHICLE, and a friendly non-CHARACTER
-        unit (other than the target itself) is within 3" of the target, then
-        the attack cannot be made unless the attacker is within 12" of the
-        target.
       * Lone Operative (`simulator.lone_operative`): if the target has the
         Lone Operative ability, the attack can only be made from within 12".
-      * PRECISION (`simulator.precision_keyword`): if the attacker carries
-        a PRECISION ranged weapon (collapsed onto the unit-level `precision`
-        flag by the mapper), the Look Out Sir bodyguard gate is bypassed.
-        Real 10e text: "...attack can be allocated to that CHARACTER model
-        instead of following the normal attack-allocation rules." The
-        simulator collapses Look Out Sir into a TARGETING gate (since
-        characters are modelled as standalone units and there is no
-        attached-unit wound-allocation step), so a precision attacker's
-        equivalent is being permitted to shoot the otherwise-shielded
-        character. Lone Operative is NOT bypassed — that is a separate
-        ability with its own keyword text. Cited as
-        `simulator.precision_keyword`.
+      * Leader / Attached unit (`simulator.leader_attachment`, SWEG_LEADER_ATTACH
+        default-on): an attached CHARACTER cannot be selected as a target /
+        allocated wounds while its bound host bodyguard squad still has a living
+        model, UNLESS the attacker carries a [PRECISION] weapon
+        (`simulator.precision_keyword`), which may pick the CHARACTER out. This
+        REPLACES the fabricated "Look Out, Sir" gate removed 2026-07-13 (it grafted
+        Lone Operative's 12" clause onto a rule name absent from the 10e core
+        rules). See `code/attachment.py` for the one-Unit-per-model modelling.
 
-    Returns False when either gate blocks the shot, True otherwise. The check
-    is order-insensitive — both gates compose so a Lone Operative CHARACTER
-    huddled next to an INFANTRY unit just gets the same 12" cap.
+    Returns False when a gate blocks the shot, True otherwise.
     """
     distance = _xy_distance(attacker.position, target.position)
     tp = target.profile
-    target_kw = set(tp.unit_keywords or ())
 
     # Lone Operative — keyword-gated, hard 12" cap. NOT bypassed by PRECISION.
     if getattr(tp, "lone_operative", False) and distance > _LOS_RANGE_INCHES:
         return False
 
-    # Look Out Sir — only fires on CHARACTERS that aren't MONSTER/VEHICLE.
-    is_los_eligible_character = (
-        "CHARACTER" in target_kw
-        and "MONSTER" not in target_kw
-        and "VEHICLE" not in target_kw
-    )
-    if is_los_eligible_character and distance > _LOS_RANGE_INCHES:
-        # PRECISION bypass: a PRECISION-bearing attacker is permitted to
-        # pick the CHARACTER directly even when a bodyguard is in range.
-        # Real-rule equivalent of "allocate the wound to the CHARACTER".
-        if getattr(attacker.profile, "precision", False):
-            return True
-        # Bodyguard scan: any friendly non-CHARACTER unit within 3" of the
-        # target (excluding the target itself).
-        for f in friendly_units:
-            if f is target or not f.is_alive:
-                continue
-            fkw = set(f.profile.unit_keywords or ())
-            if "CHARACTER" in fkw:
-                continue
-            if _xy_distance(f.position, target.position) <= _BODYGUARD_RADIUS_INCHES:
-                return False
+    # 10e Leader / Attached-unit protection (SWEG_LEADER_ATTACH, DEFAULT-ON,
+    # adopted 2026-07-13) — an attached leader cannot be selected as a target /
+    # allocated wounds while its bound host squad still has a living bodyguard
+    # model; a [PRECISION] attacker may pick it out. Position- and range-
+    # independent (a 10e Attached unit cannot separate). This is the real 10e
+    # rule; the fabricated "Look Out, Sir" gate it replaced — which grafted Lone
+    # Operative's 12" clause onto a rule name absent from the 10e core rules — was
+    # removed 2026-07-13. `SWEG_LEADER_ATTACH=0` kill-switch = no character
+    # protection (A/B only). Cited simulator.leader_attachment.
+    if attachment_enabled() and is_attachment_protected(target, friendly_units):
+        return bool(getattr(attacker.profile, "precision", False))
 
     return True
 
@@ -149,6 +127,17 @@ class Army:
         # _add_live_unit(). Rebuilt lazily on next alive_units access.
         self._alive_cache: Optional[List[Unit]] = None
         self._squad_count_cache: Optional[Dict[str, int]] = None
+        # Cached result of `is_votann_army` (a full `self.units` scan). Same
+        # invalidation lifecycle as `_alive_cache` above — cleared by
+        # `_invalidate_alive_cache()`, the single choke point every
+        # `self.units.append(...)` site already calls, so the cache can never
+        # go stale: it is rebuilt on the next access after any roster change
+        # (army build, deepstrike/reserve arrival), identically to today's
+        # per-call rescan. PERF: `is_votann_army` is checked on the per-shot
+        # targeting hot path (`strategy._votann_pe_target_bonus`) for EVERY
+        # army regardless of faction, so a non-Votann army was paying an O(n)
+        # scan of its whole roster on every attack just to learn "no" again.
+        self._is_votann_cache: Optional[bool] = None
         # SQUAD-ACTIVATION (Lever 1, P1): monotonic counter handing out a unique
         # squad_id to each instantiated codex squad via add_squad(). Starts at 0.
         self._next_squad_id: int = 0
@@ -803,8 +792,18 @@ class Army:
         The detection scans all units (not just `units[0]`) so an army that
         leads with a Codex Agents allied character still resolves correctly
         as long as the bulk of the roster is Votann.
+
+        PERF: cached in `_is_votann_cache`, invalidated by
+        `_invalidate_alive_cache()` alongside `_alive_cache` (called at every
+        `self.units.append(...)` site), so a roster change always forces a
+        fresh scan on next access — byte-identical to rescanning every call,
+        just skipping the redundant rescans in between.
         """
-        return any(u.profile.faction == VOTANN_FACTION_TAG for u in self.units)
+        if self._is_votann_cache is None:
+            self._is_votann_cache = any(
+                u.profile.faction == VOTANN_FACTION_TAG for u in self.units
+            )
+        return self._is_votann_cache
 
     # ------------------------------------------------------------------
     # Army construction
@@ -916,6 +915,7 @@ class Army:
     def _invalidate_alive_cache(self) -> None:
         self._alive_cache = None
         self._squad_count_cache = None
+        self._is_votann_cache = None
 
     def resolve_detachment(self) -> Optional[Detachment]:
         """Return the detachment in effect — explicit if set, else faction default."""

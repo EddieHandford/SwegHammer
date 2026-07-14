@@ -509,10 +509,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.ck_ranged_hold",
     # Core targeting restrictions (10e core rules). Both filter the ranged
     # candidate list inside Battle._do_shoot via code.army.can_target_for_ranged.
-    # Look Out Sir gates non-MONSTER/VEHICLE CHARACTERS that have a non-CHARACTER
-    # friendly within 3"; Lone Operative is a unit-level keyword that hard-caps
-    # ranged targeting to 12".
-    "simulator.look_out_sir",
+    # Leader/Attached-unit protection (default-on): an attached CHARACTER can't be
+    # allocated wounds (selected as a target) until its bodyguard squad dies,
+    # unless the attacker has [PRECISION]. Lone Operative is a unit-level keyword
+    # that hard-caps ranged targeting to 12". (The fabricated "Look Out, Sir"
+    # gate was deleted 2026-07-13 in favour of the Leader/Attached-unit rule.)
+    "simulator.leader_attachment",
     "simulator.lone_operative",
     # PRECISION keyword (10e core weapon ability). When the attacker carries
     # a PRECISION-tagged ranged weapon (unit-level `precision` flag, collapsed
@@ -692,6 +694,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # at round start. Enforced inside `Battle._apply_detachment_stratagems`
     # via Army.stratagems_fired_this_command_phase + `_strat_cap_reached`.
     "simulator.stratagem_per_command_phase_cap",
+    # 10e core rule: "you cannot use the same Stratagem more than once in
+    # the same phase." Enforced inside `Battle._fire_stratagem` via the
+    # `Battle._phase_seq` phase-instance counter, env-gated
+    # SWEG_STRAT_ONCE_PER_PHASE (default off). See
+    # data/rule_citations.d/stratagems.json.
+    "simulator.stratagem_once_per_phase",
     # 10e core EPIC HERO rule. "EPIC HERO units can only be taken once per
     # army." Universal across every codex; the cap is faction-neutral.
     # Enforced at army-composition time by code.army_builder.is_epic_hero
@@ -731,6 +739,16 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # off (the pre-existing Map.has_line_of_sight legality check already applies).
     # See data/rule_citations.d/terrain_realism.json.
     "simulator.terrain_los_gate",
+    # Terrain-and-line-of-sight program Phase 2a (docs/TERRAIN_LOS_SPEC.md
+    # section 4), env-gated SWEG_COVER_ANGLE (default-off, byte-identical
+    # off). Replaces the position-only cover_at(target.position) Benefit of
+    # Cover lookup in Battle._do_shoot / Fire Overwatch with the attacker-
+    # relative code.map.Map.cover_between(attacker.position, target.position):
+    # cover applies only when the target is within a cover piece the attacker
+    # is not also within, or a cover piece intervenes on the shot line; folds
+    # in Woods (OBSCURING), which the old tuple check omitted. See
+    # data/rule_citations.d/core_terrain_ruins.json.
+    "simulator.benefit_of_cover_angle",
     # 10e core-rules cap: "Hit roll modifiers are cumulative, but the Hit
     # roll for an attack can never be modified by more than -1 or +1." Same
     # text for the Wound roll. Enforced in code/units.py Unit.attack by
@@ -986,6 +1004,17 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # per-model promotion builds the special-weapon models. Cited in
     # data/rule_citations.d/astra_militarum.json.
     "simulator.am_battleline_special_weapons",
+    # Wargear-mutex catalogue correction (env-gated SWEG_WARGEAR_MUTEX, default
+    # OFF). The BSData mapper's flat weapon walk carries every option of a
+    # single-model unit's mutually-exclusive / optional wargear groups as an
+    # independently-firing profile; when the gate is on, _build_catalog drops the
+    # mutex-alternative and optional-slot weapons named in _WARGEAR_MUTEX_DROPS
+    # so each corrected unit fires only its legal datasheet-default loadout.
+    # Cited per-unit-family in data/rule_citations.d/wargear_mutex.json.
+    "simulator.wargear_mutex_rogal_dorn",
+    "simulator.wargear_mutex_basilisk",
+    "simulator.wargear_mutex_leman_russ",
+    "simulator.wargear_mutex_predator",
     # Astra Militarum Voice of Command (army rule, 10e). At the start of
     # each Command phase, each AM OFFICER (CHARACTER) issues one Order to
     # an eligible BATTLELINE INFANTRY (REGIMENT) target within 6". Four

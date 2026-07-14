@@ -2977,6 +2977,60 @@ def _random_fill(
             epic_heroes_taken.add(chosen.name)
 
 
+def _ensure_leader_hosts(counts: Dict[str, int], faction: str,
+                         template: Optional[Dict[str, int]] = None) -> Dict[str, int]:
+    """SWEG_LEADER_HOSTED (10e list-realism, 2026-07-12; per-faction rework
+    2026-07-13): no real list takes a Leader it cannot put in a squad. After the
+    template lottery realizes an army, restore the bodyguard host squads it
+    orphaned — but ONLY UP TO the count the faction's own archetype TEMPLATE
+    intended (per-faction realistic), never a blanket `ceil(leaders/2)` add.
+
+    Why the cap: a prior experiment that widened realization (SWEG_TEMPLATE_
+    REALIZE) starved `_random_fill` and collapsed the army toward the all-template
+    failure shape (Astra Militarum -2.78, see `_instantiate_template`), and the
+    blanket ceil(leaders/2) add over-buffed body-heavy factions in the 2026-07-13
+    global screen (+0.63 gated MAE). Capping to the template's own host count
+    restores what the lottery DROPPED (the real orphaning bug) without inflating
+    past the composition the template was designed around.
+
+    A Leader whose hosts the template did not include at all still gets ONE host
+    (a genuine template gap — a Leader with no bodyguard is never a real list),
+    but capped at the leader-need so it never exceeds ceil(leaders/2).
+
+    Uses the BSData-validated attach map (data/leader_attach_targets.json). Gate
+    off -> counts returned unchanged (byte-identical)."""
+    from .attachment import _attach_targets
+    amap = _attach_targets()
+    if not amap:
+        return counts
+    counts = dict(counts)
+    template = template or {}
+    # Aggregate how many Leader units attach to each (chosen) host key.
+    need_per_host: Dict[str, int] = {}
+    for lk, n in list(counts.items()):
+        if n <= 0 or lk not in amap:
+            continue
+        hosts = [h for h in amap[lk] if h in UNIT_CATALOG]
+        if not hosts:
+            continue
+        # Route to a host already in the list if there is a legal one, else a
+        # host the template intended, else the datasheet-preferred first host.
+        chosen = next((h for h in hosts if counts.get(h, 0) > 0), None)
+        if chosen is None:
+            chosen = next((h for h in hosts if template.get(h, 0) > 0), hosts[0])
+        need_per_host[chosen] = need_per_host.get(chosen, 0) + n
+    for host, n_leaders in need_per_host.items():
+        leader_need = (n_leaders + 1) // 2          # ceil(n/2), cap 2 per squad
+        # PER-FACTION CAP: never restore more than the template intended for this
+        # host (min 1 if the template omitted it entirely — a Leader must have
+        # somewhere to attach), and never more than the leaders actually need.
+        template_host = template.get(host, 0)
+        target = min(leader_need, max(template_host, 1))
+        if counts.get(host, 0) < target:
+            counts[host] = target
+    return counts
+
+
 def build_archetype_army(
     name: str,
     faction: str,
@@ -3034,6 +3088,11 @@ def build_archetype_army(
     template = _effective_template(faction, available[archetype_name])
 
     counts = _instantiate_template(template, points_budget, rng, faction=faction)
+    # SWEG_LEADER_HOSTED (2026-07-12): pair orphaned Leaders with host squads so
+    # no Leader is fielded alone that could be in a squad (real list-building
+    # factors the leaders in). Gate off -> counts unchanged (byte-identical).
+    if os.environ.get("SWEG_LEADER_HOSTED", "1") != "0":  # DEFAULT-ON, adopted 2026-07-13
+        counts = _ensure_leader_hosts(counts, faction, template)
 
     army = Army(name, in_cover=in_cover)
     # OVER-POLE / list-realism PROBE (wave 190, gated SWEG_SEEDMAX, default-OFF

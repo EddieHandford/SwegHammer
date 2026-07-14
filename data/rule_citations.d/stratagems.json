@@ -8,6 +8,14 @@
     "effect": "re-roll the failed roll (simulator currently exposes this only on a failed wound roll vs a HEAVY/SHOOTY/DUAL target — highest-value trigger, others covered by detachment re-roll passives)",
     "scope": "army-wide"
   },
+  "simulator.stratagem_once_per_phase": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Stratagems",
+    "rule_name": "Stratagems",
+    "quoted_text": "You can use the same Stratagem multiple times during a battle, but you cannot use the same Stratagem more than once in the same phase.",
+    "trigger": "any phase, when an army attempts to fire a Stratagem it has already fired earlier in the SAME phase",
+    "effect": "gated SWEG_STRAT_ONCE_PER_PHASE (default off, reproducing the pre-fix behaviour byte-for-byte). When on, Battle._fire_stratagem refuses the fire — before spending command points or mutating any state — if the same (army, stratagem name) pair already fired during the current phase instance; tracked per army in Battle._strat_fired_phase_seq so both players may each fire the same stratagem once in the same phase. Battle._phase_seq is incremented once at every distinct rules-phase boundary in the vanilla I-go-you-go turn structure: the round-level Command phase in Battle._run_round (this simulator's single collapsed stand-in for the two real per-player-turn Command phases), then Movement, Shooting, Charge and Fight for each player's turn in Battle._run_round_vanilla_turns. Detachment stratagems (fired once each, by name, from the round-start _apply_detachment_stratagems dispatcher) cannot double-fire within a round regardless, so this closes the live gap: the per-trigger core stratagem hooks (Command Re-Roll on failed wound rolls, Tank Shock after a VEHICLE charge, Counter-Offensive and Eye of the Gods in the Fight phase) that could otherwise fire repeatedly for one army within a single phase. SCOPE NOTE: alternating-activation mode (RulesConfig.alternating_activations, the opt-in homebrew ruleset) has no global phase boundary to enforce against — it never advances _phase_seq inside its own turn loop (Battle._run_round_alternating) — so enforcement is unconditionally skipped there regardless of the gate.",
+    "scope": "army-wide"
+  },
   "Stratagem.Counter-Offensive": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-stratagems/#Counter-Offensive",
     "rule_name": "Counter-Offensive",

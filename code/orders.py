@@ -731,17 +731,34 @@ def dispatch_orders(
     # to ONE Order-issuer per codex datasheet, matching Voice of Command:
     # "each OFFICER [unit] … can issue Orders".
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
-    _seen_officer_names: set = set()
+    # ISSUER IDENTITY (SWEG_ORDER_ISSUER_BY_SQUAD, DEFAULT-ON, adopted 2026-07-14;
+    # =0 reverts to the legacy profile.name dedup, byte-identical). Both keys fold
+    # the 5 model-instances of ONE Command Squad down to a single issuer. But a
+    # profile.NAME key ALSO wrongly folds two genuinely-DISTINCT units of the
+    # same datasheet (two Cadian Castellans, two Cadian Command Squads) into one,
+    # silently deleting the second unit's whole Order allotment every Command
+    # phase. Voice of Command gives each OFFICER *unit* its own Orders. The fix
+    # is the same NAME->squad_id correction the target pool below (~line 782) and
+    # SWEG_LEADER_SQUAD_DEDUPE already use: two squads of one datasheet get
+    # distinct squad_ids (Army.add_squad), so keying on squad_id separates them
+    # while still folding a single squad's models. Default-off => byte-identical
+    # (the else-branch key is the prior profile.name dedup verbatim).
+    _issuer_by_squad = os.environ.get("SWEG_ORDER_ISSUER_BY_SQUAD", "1") != "0"
+    _seen_officer_keys: set = set()
     officers = []
     for u in army.alive_units:
         if not _is_am_officer(u):
             continue
         if u.uid in battleshocked_uids:
             continue
-        officer_name = u.profile.name or ""
-        if officer_name in _seen_officer_names:
-            continue  # already have one instance of this codex Officer unit
-        _seen_officer_names.add(officer_name)
+        if _issuer_by_squad:
+            _sid = getattr(u, "squad_id", -1)
+            _okey: object = ("squad", _sid) if _sid >= 0 else ("solo", u.uid)
+        else:
+            _okey = u.profile.name or ""
+        if _okey in _seen_officer_keys:
+            continue  # already have this codex Officer unit
+        _seen_officer_keys.add(_okey)
         officers.append(u)
     if not officers:
         return issued
