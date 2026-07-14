@@ -1,0 +1,1767 @@
+{
+  "adepta_sororitas_aestred_thurga_and_agathae_dolan": [
+    "adepta_sororitas_battle_sisters_squad",
+    "adepta_sororitas_celestian_sacresants",
+    "adepta_sororitas_dominion_squad",
+    "adepta_sororitas_retributor_squad",
+    "adepta_sororitas_sisters_novitiate_squad"
+  ],
+  "adepta_sororitas_canoness": [
+    "adepta_sororitas_battle_sisters_squad",
+    "adepta_sororitas_celestian_sacresants",
+    "adepta_sororitas_dominion_squad",
+    "adepta_sororitas_retributor_squad",
+    "adepta_sororitas_sisters_novitiate_squad"
+  ],
+  "adepta_sororitas_canoness_with_jump_pack": [
+    "adepta_sororitas_seraphim_squad",
+    "adepta_sororitas_zephyrim_squad"
+  ],
+  "adepta_sororitas_dialogus": [
+    "adepta_sororitas_battle_sisters_squad",
+    "adepta_sororitas_celestian_sacresants",
+    "adepta_sororitas_dominion_squad",
+    "adepta_sororitas_retributor_squad",
+    "adepta_sororitas_sisters_novitiate_squad"
+  ],
+  "adepta_sororitas_dogmata": [
+    "adepta_sororitas_battle_sisters_squad",
+    "adepta_sororitas_celestian_sacresants",
+    "adepta_sororitas_dominion_squad",
+    "adepta_sororitas_retributor_squad"
+  ],
+  "adepta_sororitas_hospitaller": [
+    "adepta_sororitas_battle_sisters_squad",
+    "adepta_sororitas_celestian_sacresants",
+    "adepta_sororitas_dominion_squad",
+    "adepta_sororitas_retributor_squad",
+    "adepta_sororitas_sisters_novitiate_squad"
+  ],
+  "adepta_sororitas_imagifier": [
+    "adepta_sororitas_battle_sisters_squad",
+    "adepta_sororitas_celestian_sacresants",
+    "adepta_sororitas_dominion_squad",
+    "adepta_sororitas_retributor_squad"
+  ],
+  "adepta_sororitas_junith_eruita": [
+    "adepta_sororitas_battle_sisters_squad",
+    "adepta_sororitas_celestian_sacresants",
+    "adepta_sororitas_dominion_squad",
+    "adepta_sororitas_retributor_squad",
+    "adepta_sororitas_sisters_novitiate_squad"
+  ],
+  "adepta_sororitas_ministorum_priest": [
+    "adepta_sororitas_arco_flagellants",
+    "adepta_sororitas_battle_sisters_squad",
+    "adepta_sororitas_dominion_squad",
+    "adepta_sororitas_sisters_novitiate_squad"
+  ],
+  "adepta_sororitas_morvenn_vahl": [
+    "adepta_sororitas_paragon_warsuits"
+  ],
+  "adepta_sororitas_palatine": [
+    "adepta_sororitas_battle_sisters_squad",
+    "adepta_sororitas_celestian_sacresants",
+    "adepta_sororitas_dominion_squad",
+    "adepta_sororitas_retributor_squad",
+    "adepta_sororitas_sisters_novitiate_squad"
+  ],
+  "adepta_sororitas_saint_celestine": [
+    "adepta_sororitas_seraphim_squad",
+    "adepta_sororitas_zephyrim_squad"
+  ],
+  "adepta_sororitas_triumph_of_saint_katherine": [
+    "adepta_sororitas_battle_sisters_squad"
+  ],
+  "adeptus_custodes_aleya": [
+    "adeptus_custodes_prosecutors",
+    "adeptus_custodes_vigilators",
+    "adeptus_custodes_witchseekers"
+  ],
+  "adeptus_custodes_blade_champion": [
+    "adeptus_custodes_custodian_guard",
+    "adeptus_custodes_custodian_wardens"
+  ],
+  "adeptus_custodes_knight_centura": [
+    "adeptus_custodes_prosecutors",
+    "adeptus_custodes_vigilators",
+    "adeptus_custodes_witchseekers"
+  ],
+  "adeptus_custodes_shield_captain": [
+    "adeptus_custodes_custodian_guard",
+    "adeptus_custodes_custodian_wardens"
+  ],
+  "adeptus_custodes_shield_captain_in_allarus_terminator_armour": [
+    "adeptus_custodes_allarus_custodians"
+  ],
+  "adeptus_custodes_shield_captain_on_dawneagle_jetbike": [
+    "adeptus_custodes_vertus_praetors"
+  ],
+  "adeptus_custodes_trajann_valoris": [
+    "adeptus_custodes_custodian_guard",
+    "adeptus_custodes_custodian_wardens"
+  ],
+  "adeptus_custodes_valerian": [
+    "adeptus_custodes_custodian_guard",
+    "adeptus_custodes_custodian_wardens"
+  ],
+  "adeptus_mechanicus_cybernetica_datasmith": [
+    "adeptus_mechanicus_kastelan_robots"
+  ],
+  "adeptus_mechanicus_skitarii_marshal": [
+    "adeptus_mechanicus_skitarii_rangers",
+    "adeptus_mechanicus_skitarii_vanguard"
+  ],
+  "adeptus_mechanicus_tech_priest_dominus": [
+    "adeptus_mechanicus_corpuscarii_electro_priests",
+    "adeptus_mechanicus_fulgurite_electro_priests",
+    "adeptus_mechanicus_kataphron_breachers",
+    "adeptus_mechanicus_kataphron_destroyers",
+    "adeptus_mechanicus_skitarii_rangers",
+    "adeptus_mechanicus_skitarii_vanguard"
+  ],
+  "adeptus_mechanicus_tech_priest_enginseer": [
+    "adeptus_mechanicus_corpuscarii_electro_priests",
+    "adeptus_mechanicus_fulgurite_electro_priests",
+    "adeptus_mechanicus_kataphron_breachers",
+    "adeptus_mechanicus_kataphron_destroyers",
+    "adeptus_mechanicus_servitors_legends",
+    "adeptus_mechanicus_skitarii_rangers",
+    "adeptus_mechanicus_skitarii_vanguard"
+  ],
+  "adeptus_mechanicus_tech_priest_manipulus": [
+    "adeptus_mechanicus_corpuscarii_electro_priests",
+    "adeptus_mechanicus_fulgurite_electro_priests",
+    "adeptus_mechanicus_kataphron_breachers",
+    "adeptus_mechanicus_kataphron_destroyers",
+    "adeptus_mechanicus_skitarii_rangers",
+    "adeptus_mechanicus_skitarii_vanguard"
+  ],
+  "adeptus_mechanicus_technoarcheologist": [
+    "adeptus_mechanicus_corpuscarii_electro_priests",
+    "adeptus_mechanicus_fulgurite_electro_priests",
+    "adeptus_mechanicus_kataphron_breachers",
+    "adeptus_mechanicus_kataphron_destroyers",
+    "adeptus_mechanicus_skitarii_rangers",
+    "adeptus_mechanicus_skitarii_vanguard"
+  ],
+  "aeldari_craftworlds_asurmen": [
+    "aeldari_craftworlds_dire_avengers"
+  ],
+  "aeldari_craftworlds_autarch": [
+    "aeldari_craftworlds_dark_reapers",
+    "aeldari_craftworlds_dire_avengers",
+    "aeldari_craftworlds_fire_dragons",
+    "aeldari_craftworlds_guardian_defenders",
+    "aeldari_craftworlds_howling_banshees",
+    "aeldari_craftworlds_storm_guardians",
+    "aeldari_craftworlds_striking_scorpions"
+  ],
+  "aeldari_craftworlds_autarch_skyrunner_legends": [
+    "aeldari_craftworlds_corsair_cloud_dancer_band_legends",
+    "aeldari_craftworlds_windriders"
+  ],
+  "aeldari_craftworlds_autarch_wayleaper": [
+    "aeldari_craftworlds_swooping_hawks",
+    "aeldari_craftworlds_warp_spiders"
+  ],
+  "aeldari_craftworlds_baharroth": [
+    "aeldari_craftworlds_swooping_hawks"
+  ],
+  "aeldari_craftworlds_bonesinger_legends": [
+    "aeldari_craftworlds_wraithblades",
+    "aeldari_craftworlds_wraithguard",
+    "aeldari_craftworlds_wraithlord"
+  ],
+  "aeldari_craftworlds_eldrad_ulthran": [
+    "aeldari_craftworlds_guardian_defenders",
+    "aeldari_craftworlds_storm_guardians",
+    "aeldari_craftworlds_warlock_conclave"
+  ],
+  "aeldari_craftworlds_farseer": [
+    "aeldari_craftworlds_guardian_defenders",
+    "aeldari_craftworlds_storm_guardians",
+    "aeldari_craftworlds_warlock_conclave"
+  ],
+  "aeldari_craftworlds_farseer_skyrunner": [
+    "aeldari_craftworlds_warlock_skyrunners",
+    "aeldari_craftworlds_windriders"
+  ],
+  "aeldari_craftworlds_fuegan": [
+    "aeldari_craftworlds_fire_dragons"
+  ],
+  "aeldari_craftworlds_illic_nightspear_legends": [
+    "aeldari_craftworlds_rangers"
+  ],
+  "aeldari_craftworlds_irillyth_legends": [
+    "aeldari_craftworlds_shadow_spectres_legends"
+  ],
+  "aeldari_craftworlds_jain_zar": [
+    "aeldari_craftworlds_howling_banshees"
+  ],
+  "aeldari_craftworlds_karandras_legends": [
+    "aeldari_craftworlds_striking_scorpions"
+  ],
+  "aeldari_craftworlds_kharseth": [
+    "aeldari_craftworlds_corsair_voidreavers",
+    "aeldari_craftworlds_corsair_voidscarred"
+  ],
+  "aeldari_craftworlds_lhykhis": [
+    "aeldari_craftworlds_warp_spiders"
+  ],
+  "aeldari_craftworlds_maugan_ra": [
+    "aeldari_craftworlds_dark_reapers"
+  ],
+  "aeldari_craftworlds_prince_yriel": [
+    "aeldari_craftworlds_corsair_voidreavers",
+    "aeldari_craftworlds_corsair_voidscarred"
+  ],
+  "aeldari_craftworlds_prince_yriel_legends": [
+    "aeldari_craftworlds_corsair_voidreavers",
+    "aeldari_craftworlds_corsair_voidscarred",
+    "aeldari_craftworlds_guardian_defenders",
+    "aeldari_craftworlds_storm_guardians"
+  ],
+  "aeldari_craftworlds_shadowseer": [
+    "aeldari_craftworlds_troupe"
+  ],
+  "aeldari_craftworlds_troupe_master": [
+    "aeldari_craftworlds_troupe"
+  ],
+  "aeldari_craftworlds_warlock": [
+    "aeldari_craftworlds_guardian_defenders",
+    "aeldari_craftworlds_storm_guardians"
+  ],
+  "aeldari_craftworlds_ynnari_archon": [
+    "aeldari_craftworlds_ynnari_incubi",
+    "aeldari_craftworlds_ynnari_kabalite_warriors"
+  ],
+  "aeldari_craftworlds_ynnari_succubus": [
+    "aeldari_craftworlds_ynnari_wyches"
+  ],
+  "aeldari_drukhari_archon": [
+    "aeldari_drukhari_hand_of_the_archon",
+    "aeldari_drukhari_incubi",
+    "aeldari_drukhari_kabalite_warriors"
+  ],
+  "aeldari_drukhari_drazhar": [
+    "aeldari_drukhari_incubi"
+  ],
+  "aeldari_drukhari_haemonculus": [
+    "aeldari_drukhari_wracks"
+  ],
+  "aeldari_drukhari_lady_malys": [
+    "aeldari_drukhari_hand_of_the_archon",
+    "aeldari_drukhari_incubi",
+    "aeldari_drukhari_kabalite_warriors"
+  ],
+  "aeldari_drukhari_lelith_hesperax": [
+    "aeldari_drukhari_wyches"
+  ],
+  "aeldari_drukhari_succubus": [
+    "aeldari_drukhari_wyches"
+  ],
+  "aeldari_drukhari_urien_rakarth_legends": [
+    "aeldari_drukhari_wracks"
+  ],
+  "aeldari_ynnari_the_visarch": [
+    "aeldari_craftworlds_corsair_voidreavers",
+    "aeldari_craftworlds_corsair_voidscarred",
+    "aeldari_craftworlds_guardian_defenders",
+    "aeldari_craftworlds_storm_guardians",
+    "aeldari_craftworlds_ynnari_incubi",
+    "aeldari_craftworlds_ynnari_kabalite_warriors",
+    "aeldari_craftworlds_ynnari_wyches"
+  ],
+  "aeldari_ynnari_yvraine": [
+    "aeldari_craftworlds_corsair_voidreavers",
+    "aeldari_craftworlds_corsair_voidscarred",
+    "aeldari_craftworlds_guardian_defenders",
+    "aeldari_craftworlds_storm_guardians",
+    "aeldari_craftworlds_ynnari_incubi",
+    "aeldari_craftworlds_ynnari_kabalite_warriors",
+    "aeldari_craftworlds_ynnari_wyches"
+  ],
+  "agents_of_the_imperium_inquisitor": [
+    "agents_of_the_imperium_exaction_squad",
+    "agents_of_the_imperium_grey_knights_terminator_squad",
+    "agents_of_the_imperium_imperial_navy_breachers",
+    "agents_of_the_imperium_inquisitorial_agents",
+    "agents_of_the_imperium_sisters_of_battle_squad",
+    "agents_of_the_imperium_subductor_squad",
+    "agents_of_the_imperium_vigilant_squad"
+  ],
+  "agents_of_the_imperium_inquisitor_coteaz": [
+    "agents_of_the_imperium_exaction_squad",
+    "agents_of_the_imperium_grey_knights_terminator_squad",
+    "agents_of_the_imperium_imperial_navy_breachers",
+    "agents_of_the_imperium_inquisitorial_agents",
+    "agents_of_the_imperium_subductor_squad",
+    "agents_of_the_imperium_vigilant_squad"
+  ],
+  "agents_of_the_imperium_inquisitor_draxus": [
+    "agents_of_the_imperium_exaction_squad",
+    "agents_of_the_imperium_imperial_navy_breachers",
+    "agents_of_the_imperium_inquisitorial_agents",
+    "agents_of_the_imperium_subductor_squad",
+    "agents_of_the_imperium_vigilant_squad"
+  ],
+  "agents_of_the_imperium_inquisitor_eisenhorn_legends": [
+    "agents_of_the_imperium_deathwatch_kill_team",
+    "agents_of_the_imperium_exaction_squad",
+    "agents_of_the_imperium_imperial_navy_breachers",
+    "agents_of_the_imperium_inquisitorial_agents",
+    "agents_of_the_imperium_proteus_kill_team_legends",
+    "agents_of_the_imperium_subductor_squad",
+    "agents_of_the_imperium_vigilant_squad",
+    "deathwatch_fortis_kill_team",
+    "deathwatch_indomitor_kill_team",
+    "deathwatch_spectrus_kill_team"
+  ],
+  "agents_of_the_imperium_inquisitor_greyfax": [
+    "agents_of_the_imperium_exaction_squad",
+    "agents_of_the_imperium_imperial_navy_breachers",
+    "agents_of_the_imperium_inquisitorial_agents",
+    "agents_of_the_imperium_sisters_of_battle_squad",
+    "agents_of_the_imperium_subductor_squad",
+    "agents_of_the_imperium_vigilant_squad"
+  ],
+  "agents_of_the_imperium_inquisitor_in_terminator_armour_legends": [
+    "agents_of_the_imperium_deathwatch_kill_team",
+    "agents_of_the_imperium_exaction_squad",
+    "agents_of_the_imperium_proteus_kill_team_legends",
+    "deathwatch_deathwatch_terminator_squad",
+    "deathwatch_fortis_kill_team",
+    "deathwatch_indomitor_kill_team",
+    "deathwatch_spectrus_kill_team"
+  ],
+  "agents_of_the_imperium_inquisitor_ostromandeus_legends": [
+    "agents_of_the_imperium_exaction_squad",
+    "agents_of_the_imperium_imperial_navy_breachers",
+    "agents_of_the_imperium_inquisitorial_agents",
+    "agents_of_the_imperium_sisters_of_battle_squad",
+    "agents_of_the_imperium_subductor_squad",
+    "agents_of_the_imperium_vigilant_squad"
+  ],
+  "agents_of_the_imperium_janus_draik_legends": [
+    "agents_of_the_imperium_imperial_navy_breachers",
+    "agents_of_the_imperium_voidsmen_at_arms"
+  ],
+  "agents_of_the_imperium_jokaero_weaponsmith_legends": [
+    "agents_of_the_imperium_inquisitorial_agents"
+  ],
+  "agents_of_the_imperium_ministorum_priest": [
+    "agents_of_the_imperium_exaction_squad",
+    "agents_of_the_imperium_imperial_navy_breachers",
+    "agents_of_the_imperium_inquisitorial_agents",
+    "agents_of_the_imperium_sisters_of_battle_squad",
+    "agents_of_the_imperium_subductor_squad",
+    "agents_of_the_imperium_vigilant_squad"
+  ],
+  "agents_of_the_imperium_navigator": [
+    "agents_of_the_imperium_imperial_navy_breachers",
+    "agents_of_the_imperium_voidsmen_at_arms"
+  ],
+  "agents_of_the_imperium_neyam_shai_murad_legends": [
+    "agents_of_the_imperium_imperial_navy_breachers",
+    "agents_of_the_imperium_voidsmen_at_arms"
+  ],
+  "agents_of_the_imperium_rogue_trader_entourage": [
+    "agents_of_the_imperium_imperial_navy_breachers",
+    "agents_of_the_imperium_voidsmen_at_arms"
+  ],
+  "agents_of_the_imperium_watch_captain_artemis": [
+    "agents_of_the_imperium_deathwatch_kill_team"
+  ],
+  "agents_of_the_imperium_watch_master": [
+    "agents_of_the_imperium_deathwatch_kill_team"
+  ],
+  "astra_militarum_cadian_castellan": [
+    "astra_militarum_cadian_shock_troops",
+    "astra_militarum_kasrkin"
+  ],
+  "astra_militarum_cadian_command_squad": [
+    "astra_militarum_cadian_shock_troops"
+  ],
+  "astra_militarum_catachan_command_squad": [
+    "astra_militarum_catachan_jungle_fighters"
+  ],
+  "astra_militarum_commissar": [
+    "astra_militarum_cadian_shock_troops",
+    "astra_militarum_catachan_jungle_fighters",
+    "astra_militarum_death_korps_of_krieg",
+    "astra_militarum_kasrkin",
+    "astra_militarum_krieg_combat_engineers",
+    "astra_militarum_tempestus_scions"
+  ],
+  "astra_militarum_commissar_graves_on_foot": [
+    "astra_militarum_cadian_shock_troops",
+    "astra_militarum_catachan_jungle_fighters",
+    "astra_militarum_death_korps_of_krieg",
+    "astra_militarum_kasrkin",
+    "astra_militarum_krieg_combat_engineers",
+    "astra_militarum_tempestus_scions"
+  ],
+  "astra_militarum_commissar_yarrick": [
+    "astra_militarum_cadian_shock_troops",
+    "astra_militarum_catachan_jungle_fighters",
+    "astra_militarum_death_korps_of_krieg",
+    "astra_militarum_kasrkin",
+    "astra_militarum_krieg_combat_engineers",
+    "astra_militarum_tempestus_scions"
+  ],
+  "astra_militarum_death_rider_commissar_legends": [
+    "astra_militarum_death_riders"
+  ],
+  "astra_militarum_hell_s_last_legends": [
+    "astra_militarum_cadian_shock_troops"
+  ],
+  "astra_militarum_iron_hand_straken_legends": [
+    "astra_militarum_catachan_jungle_fighters"
+  ],
+  "astra_militarum_krieg_command_squad": [
+    "astra_militarum_death_korps_of_krieg",
+    "astra_militarum_krieg_combat_engineers"
+  ],
+  "astra_militarum_lord_marshal_dreir": [
+    "astra_militarum_death_riders"
+  ],
+  "astra_militarum_lord_solar_leontus": [
+    "astra_militarum_attilan_rough_riders",
+    "astra_militarum_cadian_shock_troops",
+    "astra_militarum_catachan_jungle_fighters",
+    "astra_militarum_death_korps_of_krieg",
+    "astra_militarum_death_riders",
+    "astra_militarum_kasrkin",
+    "astra_militarum_krieg_combat_engineers"
+  ],
+  "astra_militarum_militarum_tempestus_command_squad": [
+    "astra_militarum_tempestus_scions"
+  ],
+  "astra_militarum_ministorum_priest": [
+    "astra_militarum_cadian_shock_troops",
+    "astra_militarum_catachan_jungle_fighters",
+    "astra_militarum_death_korps_of_krieg",
+    "astra_militarum_kasrkin",
+    "astra_militarum_krieg_combat_engineers",
+    "astra_militarum_tempestus_scions"
+  ],
+  "astra_militarum_primaris_psyker": [
+    "astra_militarum_cadian_shock_troops",
+    "astra_militarum_catachan_jungle_fighters",
+    "astra_militarum_death_korps_of_krieg",
+    "astra_militarum_kasrkin",
+    "astra_militarum_krieg_combat_engineers",
+    "astra_militarum_tempestus_scions"
+  ],
+  "astra_militarum_provisionally_prepared_legends": [
+    "astra_militarum_ratlings"
+  ],
+  "astra_militarum_quartermaster_cadre_squad_legends": [
+    "astra_militarum_death_korps_grenadier_squad_legends",
+    "astra_militarum_death_korps_of_krieg",
+    "astra_militarum_krieg_combat_engineers"
+  ],
+  "astra_militarum_sergeant_harker_legends": [
+    "astra_militarum_catachan_jungle_fighters"
+  ],
+  "astra_militarum_tech_priest_enginseer": [
+    "astra_militarum_cadian_shock_troops",
+    "astra_militarum_catachan_jungle_fighters",
+    "astra_militarum_death_korps_of_krieg",
+    "astra_militarum_kasrkin",
+    "astra_militarum_krieg_combat_engineers"
+  ],
+  "astra_militarum_ursula_creed": [
+    "astra_militarum_cadian_shock_troops",
+    "astra_militarum_kasrkin"
+  ],
+  "black_templars_castellan": [
+    "black_templars_crusader_squad",
+    "black_templars_sternguard_veteran_squad",
+    "black_templars_sword_brethren_squad",
+    "space_marines_assault_intercessor_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad"
+  ],
+  "black_templars_chaplain_grimaldus": [
+    "black_templars_crusader_squad",
+    "black_templars_sword_brethren_squad",
+    "space_marines_assault_intercessor_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad"
+  ],
+  "black_templars_crusade_ancient": [
+    "black_templars_crusader_squad",
+    "black_templars_sword_brethren_squad"
+  ],
+  "black_templars_emperor_s_champion": [
+    "black_templars_crusader_squad",
+    "black_templars_sternguard_veteran_squad",
+    "black_templars_sword_brethren_squad",
+    "space_marines_assault_intercessor_squad",
+    "space_marines_intercessor_squad"
+  ],
+  "black_templars_emperor_s_champion_anointed": [
+    "black_templars_crusader_squad",
+    "black_templars_sternguard_veteran_squad",
+    "black_templars_sword_brethren_squad",
+    "space_marines_assault_intercessor_squad",
+    "space_marines_intercessor_squad"
+  ],
+  "black_templars_execrator": [
+    "black_templars_crusader_squad",
+    "black_templars_sword_brethren_squad"
+  ],
+  "black_templars_high_marshal_helbrecht": [
+    "black_templars_crusader_squad",
+    "black_templars_sword_brethren_squad",
+    "space_marines_assault_intercessor_squad",
+    "space_marines_intercessor_squad"
+  ],
+  "black_templars_marshal": [
+    "black_templars_crusader_squad",
+    "black_templars_sternguard_veteran_squad",
+    "black_templars_sword_brethren_squad",
+    "space_marines_assault_intercessor_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad"
+  ],
+  "blood_angels_astorath": [
+    "blood_angels_death_company_marines_with_jump_packs"
+  ],
+  "blood_angels_blood_angels_captain": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_company_heroes",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "blood_angels_brother_corbulo_legends": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_assault_squad_legends",
+    "space_marines_devastator_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad",
+    "space_marines_vanguard_veteran_squad_legends"
+  ],
+  "blood_angels_captain_tycho_legends": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_assault_squad_legends",
+    "space_marines_command_squad_legends",
+    "space_marines_company_heroes",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad",
+    "space_marines_vanguard_veteran_squad_legends"
+  ],
+  "blood_angels_commander_dante": [
+    "blood_angels_sanguinary_guard",
+    "space_marines_assault_intercessors_with_jump_packs",
+    "space_marines_assault_squad_with_jump_packs_legends",
+    "space_marines_vanguard_veteran_squad_with_jump_packs"
+  ],
+  "blood_angels_death_company_captain": [
+    "blood_angels_death_company_marines",
+    "blood_angels_death_company_marines_with_bolt_rifles"
+  ],
+  "blood_angels_death_company_captain_with_jump_pack": [
+    "blood_angels_death_company_marines_with_jump_packs"
+  ],
+  "blood_angels_gabriel_seth_legends": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_assault_squad_legends",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_command_squad_legends",
+    "space_marines_company_heroes",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad",
+    "space_marines_vanguard_veteran_squad_legends"
+  ],
+  "blood_angels_lemartes": [
+    "blood_angels_death_company_marines_with_jump_packs"
+  ],
+  "blood_angels_sanguinary_priest": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_desolation_squad",
+    "space_marines_devastator_squad",
+    "space_marines_hellblaster_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "blood_angels_sanguinary_priest_on_bike_legends": [
+    "space_marines_bike_squad_legends",
+    "space_marines_outrider_squad"
+  ],
+  "blood_angels_sanguinary_priest_with_jump_pack_legends": [
+    "space_marines_assault_intercessors_with_jump_packs",
+    "space_marines_assault_squad_with_jump_packs_legends",
+    "space_marines_vanguard_veteran_squad_with_jump_packs"
+  ],
+  "blood_angels_tycho_the_lost_legends": [
+    "blood_angels_death_company_marines"
+  ],
+  "chaos_daemons_library_bloodmaster": [
+    "chaos_daemons_library_bloodletters"
+  ],
+  "chaos_daemons_library_changecaster": [
+    "chaos_daemons_library_blue_horrors",
+    "chaos_daemons_library_pink_horrors"
+  ],
+  "chaos_daemons_library_contorted_epitome": [
+    "chaos_daemons_library_daemonettes"
+  ],
+  "chaos_daemons_library_epidemius": [
+    "chaos_daemons_library_plaguebearers"
+  ],
+  "chaos_daemons_library_exalted_flamer": [
+    "chaos_daemons_library_flamers"
+  ],
+  "chaos_daemons_library_fateskimmer": [
+    "chaos_daemons_library_screamers"
+  ],
+  "chaos_daemons_library_fluxmaster": [
+    "chaos_daemons_library_blue_horrors",
+    "chaos_daemons_library_pink_horrors"
+  ],
+  "chaos_daemons_library_herald_of_slaanesh_on_steed_of_slaanesh_legends": [
+    "chaos_daemons_library_seekers"
+  ],
+  "chaos_daemons_library_horticulous_slimux": [
+    "chaos_daemons_library_beasts_of_nurgle"
+  ],
+  "chaos_daemons_library_infernal_enrapturess": [
+    "chaos_daemons_library_daemonettes"
+  ],
+  "chaos_daemons_library_karanak": [
+    "chaos_daemons_library_flesh_hounds"
+  ],
+  "chaos_daemons_library_poxbringer": [
+    "chaos_daemons_library_plaguebearers"
+  ],
+  "chaos_daemons_library_skullmaster": [
+    "chaos_daemons_library_bloodcrushers"
+  ],
+  "chaos_daemons_library_skulltaker": [
+    "chaos_daemons_library_bloodletters"
+  ],
+  "chaos_daemons_library_sloppity_bilepiper": [
+    "chaos_daemons_library_plaguebearers"
+  ],
+  "chaos_daemons_library_spoilpox_scrivener": [
+    "chaos_daemons_library_plaguebearers"
+  ],
+  "chaos_daemons_library_syll_esske": [
+    "chaos_daemons_library_daemonettes"
+  ],
+  "chaos_daemons_library_tranceweaver": [
+    "chaos_daemons_library_daemonettes"
+  ],
+  "chaos_space_marines_abaddon_the_despoiler": [
+    "chaos_space_marines_chaos_terminator_squad",
+    "chaos_space_marines_chosen"
+  ],
+  "chaos_space_marines_chaos_lord": [
+    "chaos_space_marines_chosen",
+    "chaos_space_marines_legionaries"
+  ],
+  "chaos_space_marines_chaos_lord_in_terminator_armour": [
+    "chaos_space_marines_chaos_terminator_squad"
+  ],
+  "chaos_space_marines_chaos_lord_on_bike_legends": [
+    "chaos_space_marines_chaos_bikers"
+  ],
+  "chaos_space_marines_chaos_lord_on_disc_of_tzeentch_legends": [
+    "chaos_space_marines_chosen",
+    "chaos_space_marines_legionaries",
+    "chaos_space_marines_rubric_marines"
+  ],
+  "chaos_space_marines_chaos_lord_on_juggernaut_legends": [
+    "chaos_space_marines_chaos_bikers",
+    "chaos_space_marines_khorne_berzerkers"
+  ],
+  "chaos_space_marines_chaos_lord_on_palanquin_of_nurgle_legends": [
+    "chaos_space_marines_chosen",
+    "chaos_space_marines_legionaries",
+    "chaos_space_marines_plague_marines"
+  ],
+  "chaos_space_marines_chaos_lord_on_steed_of_slaanesh_legends": [
+    "chaos_space_marines_chaos_bikers"
+  ],
+  "chaos_space_marines_chaos_lord_with_jump_pack": [
+    "chaos_space_marines_raptors"
+  ],
+  "chaos_space_marines_cultist_firebrand": [
+    "chaos_space_marines_accursed_cultists",
+    "chaos_space_marines_cultist_mob"
+  ],
+  "chaos_space_marines_dark_apostle": [
+    "chaos_space_marines_accursed_cultists",
+    "chaos_space_marines_chosen",
+    "chaos_space_marines_cultist_mob",
+    "chaos_space_marines_legionaries"
+  ],
+  "chaos_space_marines_dark_commune": [
+    "chaos_space_marines_accursed_cultists",
+    "chaos_space_marines_cultist_mob"
+  ],
+  "chaos_space_marines_exalted_champion_legends": [
+    "chaos_space_marines_chosen",
+    "chaos_space_marines_legionaries"
+  ],
+  "chaos_space_marines_fabius_bile": [
+    "chaos_space_marines_accursed_cultists",
+    "chaos_space_marines_chosen",
+    "chaos_space_marines_cultist_mob",
+    "chaos_space_marines_legionaries"
+  ],
+  "chaos_space_marines_haarken_worldclaimer": [
+    "chaos_space_marines_raptors"
+  ],
+  "chaos_space_marines_huron_blackheart": [
+    "chaos_space_marines_chaos_terminator_squad",
+    "chaos_space_marines_chosen",
+    "chaos_space_marines_legionaries",
+    "chaos_space_marines_masters_of_the_maelstrom",
+    "chaos_space_marines_red_corsairs_raiders"
+  ],
+  "chaos_space_marines_master_of_executions": [
+    "chaos_space_marines_chosen",
+    "chaos_space_marines_legionaries"
+  ],
+  "chaos_space_marines_master_of_possession": [
+    "chaos_space_marines_chosen",
+    "chaos_space_marines_legionaries",
+    "chaos_space_marines_possessed"
+  ],
+  "chaos_space_marines_red_corsairs_reave_captain": [
+    "chaos_space_marines_chosen",
+    "chaos_space_marines_legionaries",
+    "chaos_space_marines_red_corsairs_raiders"
+  ],
+  "chaos_space_marines_renegade_enforcer_legends": [
+    "chaos_space_marines_renegade_heavy_weapons_squad_legends",
+    "chaos_space_marines_traitor_guardsmen_squad"
+  ],
+  "chaos_space_marines_rogue_psyker_legends": [
+    "chaos_space_marines_accursed_cultists",
+    "chaos_space_marines_cultist_mob",
+    "chaos_space_marines_negavolt_cultists_legends"
+  ],
+  "chaos_space_marines_sorcerer": [
+    "chaos_space_marines_chosen",
+    "chaos_space_marines_legionaries"
+  ],
+  "chaos_space_marines_sorcerer_in_terminator_armour": [
+    "chaos_space_marines_chaos_terminator_squad"
+  ],
+  "chaos_space_marines_sorcerer_on_bike_legends": [
+    "chaos_space_marines_chaos_bikers"
+  ],
+  "chaos_space_marines_sorcerer_on_disc_of_tzeentch_legends": [
+    "chaos_space_marines_rubric_marines"
+  ],
+  "chaos_space_marines_sorcerer_on_palanquin_of_nurgle_legends": [
+    "chaos_space_marines_plague_marines"
+  ],
+  "chaos_space_marines_sorcerer_on_steed_of_slaanesh_legends": [
+    "chaos_space_marines_chaos_bikers"
+  ],
+  "chaos_space_marines_traitor_enforcer": [
+    "chaos_space_marines_traitor_guardsmen_squad"
+  ],
+  "chaos_space_marines_warpsmith": [
+    "chaos_space_marines_chosen",
+    "chaos_space_marines_havocs",
+    "chaos_space_marines_legionaries"
+  ],
+  "dark_angels_asmodai": [
+    "dark_angels_inner_circle_companions",
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_hellblaster_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "dark_angels_azrael": [
+    "dark_angels_inner_circle_companions",
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_hellblaster_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "dark_angels_belial": [
+    "dark_angels_deathwing_knights",
+    "dark_angels_deathwing_terminator_squad",
+    "space_marines_terminator_assault_squad",
+    "space_marines_terminator_squad"
+  ],
+  "dark_angels_deathwing_strikemaster_legends": [
+    "dark_angels_deathwing_command_squad_legends",
+    "dark_angels_deathwing_terminator_squad"
+  ],
+  "dark_angels_ezekiel": [
+    "dark_angels_inner_circle_companions",
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_hellblaster_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "dark_angels_lazarus": [
+    "dark_angels_inner_circle_companions",
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "dark_angels_ravenwing_command_squad": [
+    "dark_angels_ravenwing_black_knights",
+    "space_marines_outrider_squad"
+  ],
+  "dark_angels_sammael": [
+    "dark_angels_ravenwing_black_knights",
+    "space_marines_outrider_squad"
+  ],
+  "death_guard_biologus_putrifier": [
+    "death_guard_plague_marines"
+  ],
+  "death_guard_chaos_lord_on_palanquin_of_nurgle_legends": [
+    "chaos_space_marines_chosen",
+    "chaos_space_marines_legionaries",
+    "death_guard_plague_marines"
+  ],
+  "death_guard_death_guard_chaos_lord_in_terminator_armour_legends": [
+    "death_guard_blightlord_terminators",
+    "death_guard_deathshroud_terminators"
+  ],
+  "death_guard_death_guard_chaos_lord_legends": [
+    "death_guard_plague_marines"
+  ],
+  "death_guard_death_guard_sorcerer_in_terminator_armour_legends": [
+    "death_guard_blightlord_terminators",
+    "death_guard_deathshroud_terminators"
+  ],
+  "death_guard_foul_blightspawn": [
+    "death_guard_plague_marines"
+  ],
+  "death_guard_icon_bearer": [
+    "death_guard_plague_marines"
+  ],
+  "death_guard_lord_of_contagion": [
+    "death_guard_blightlord_terminators",
+    "death_guard_deathshroud_terminators"
+  ],
+  "death_guard_lord_of_poxes": [
+    "death_guard_plague_marines"
+  ],
+  "death_guard_lord_of_virulence": [
+    "death_guard_blightlord_terminators",
+    "death_guard_deathshroud_terminators"
+  ],
+  "death_guard_malignant_plaguecaster": [
+    "death_guard_plague_marines",
+    "death_guard_poxwalkers"
+  ],
+  "death_guard_noxious_blightbringer": [
+    "death_guard_plague_marines",
+    "death_guard_poxwalkers"
+  ],
+  "death_guard_plague_surgeon": [
+    "death_guard_plague_marines"
+  ],
+  "death_guard_sorcerer_on_palanquin_of_nurgle_legends": [
+    "death_guard_plague_marines"
+  ],
+  "death_guard_tallyman": [
+    "death_guard_plague_marines"
+  ],
+  "death_guard_typhus": [
+    "death_guard_blightlord_terminators",
+    "death_guard_deathshroud_terminators",
+    "death_guard_poxwalkers"
+  ],
+  "deathwatch_watch_captain_artemis": [
+    "deathwatch_deathwatch_veterans",
+    "deathwatch_fortis_kill_team"
+  ],
+  "deathwatch_watch_master": [
+    "deathwatch_deathwatch_veterans",
+    "deathwatch_fortis_kill_team"
+  ],
+  "emperor_s_children_lord_exultant": [
+    "emperor_s_children_infractors",
+    "emperor_s_children_tormentors"
+  ],
+  "emperor_s_children_lord_kakophonist": [
+    "emperor_s_children_chaos_terminators",
+    "emperor_s_children_noise_marines"
+  ],
+  "emperor_s_children_lucius_the_eternal": [
+    "emperor_s_children_flawless_blades"
+  ],
+  "emperor_s_children_sorcerer": [
+    "emperor_s_children_infractors",
+    "emperor_s_children_noise_marines",
+    "emperor_s_children_tormentors"
+  ],
+  "genestealer_cults_abominant": [
+    "genestealer_cults_aberrants"
+  ],
+  "genestealer_cults_acolyte_iconward": [
+    "genestealer_cults_acolyte_hybrids_with_autopistols",
+    "genestealer_cults_acolyte_hybrids_with_hand_flamers",
+    "genestealer_cults_hybrid_metamorphs",
+    "genestealer_cults_neophyte_hybrids"
+  ],
+  "genestealer_cults_benefictus": [
+    "genestealer_cults_acolyte_hybrids_with_autopistols",
+    "genestealer_cults_acolyte_hybrids_with_hand_flamers",
+    "genestealer_cults_hybrid_metamorphs",
+    "genestealer_cults_neophyte_hybrids"
+  ],
+  "genestealer_cults_biophagus": [
+    "genestealer_cults_aberrants"
+  ],
+  "genestealer_cults_clamavus": [
+    "genestealer_cults_acolyte_hybrids_with_autopistols",
+    "genestealer_cults_acolyte_hybrids_with_hand_flamers",
+    "genestealer_cults_hybrid_metamorphs",
+    "genestealer_cults_neophyte_hybrids"
+  ],
+  "genestealer_cults_jackal_alphus": [
+    "genestealer_cults_atalan_jackals"
+  ],
+  "genestealer_cults_locus": [
+    "genestealer_cults_acolyte_hybrids_with_autopistols",
+    "genestealer_cults_acolyte_hybrids_with_hand_flamers",
+    "genestealer_cults_hybrid_metamorphs",
+    "genestealer_cults_neophyte_hybrids"
+  ],
+  "genestealer_cults_magus": [
+    "genestealer_cults_acolyte_hybrids_with_autopistols",
+    "genestealer_cults_acolyte_hybrids_with_hand_flamers",
+    "genestealer_cults_hybrid_metamorphs",
+    "genestealer_cults_neophyte_hybrids"
+  ],
+  "genestealer_cults_nexos": [
+    "genestealer_cults_acolyte_hybrids_with_autopistols",
+    "genestealer_cults_acolyte_hybrids_with_hand_flamers",
+    "genestealer_cults_hybrid_metamorphs",
+    "genestealer_cults_neophyte_hybrids"
+  ],
+  "genestealer_cults_patriarch": [
+    "genestealer_cults_purestrain_genestealers"
+  ],
+  "genestealer_cults_primus": [
+    "genestealer_cults_acolyte_hybrids_with_autopistols",
+    "genestealer_cults_acolyte_hybrids_with_hand_flamers",
+    "genestealer_cults_hybrid_metamorphs",
+    "genestealer_cults_neophyte_hybrids"
+  ],
+  "grey_knights_brother_captain": [
+    "grey_knights_brotherhood_terminator_squad",
+    "grey_knights_paladin_squad"
+  ],
+  "grey_knights_brother_captain_stern_legends": [
+    "grey_knights_brotherhood_terminator_squad",
+    "grey_knights_paladin_squad"
+  ],
+  "grey_knights_brotherhood_champion": [
+    "grey_knights_purgation_squad",
+    "grey_knights_strike_squad"
+  ],
+  "grey_knights_brotherhood_chaplain": [
+    "grey_knights_brotherhood_terminator_squad",
+    "grey_knights_paladin_squad"
+  ],
+  "grey_knights_brotherhood_librarian": [
+    "grey_knights_brotherhood_terminator_squad",
+    "grey_knights_paladin_squad"
+  ],
+  "grey_knights_brotherhood_techmarine": [
+    "grey_knights_purgation_squad",
+    "grey_knights_purifier_squad",
+    "grey_knights_strike_squad"
+  ],
+  "grey_knights_castellan_crowe": [
+    "grey_knights_purifier_squad"
+  ],
+  "grey_knights_grand_master": [
+    "grey_knights_brotherhood_terminator_squad",
+    "grey_knights_paladin_squad"
+  ],
+  "grey_knights_grand_master_voldus": [
+    "grey_knights_brotherhood_terminator_squad",
+    "grey_knights_paladin_squad"
+  ],
+  "grey_knights_kaldor_draigo_legends": [
+    "grey_knights_brotherhood_terminator_squad",
+    "grey_knights_paladin_squad"
+  ],
+  "imperial_fists_darnath_lysander": [
+    "space_marines_terminator_assault_squad",
+    "space_marines_terminator_squad"
+  ],
+  "imperial_fists_pedro_kantor": [
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_company_heroes",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "imperial_fists_tor_garadon": [
+    "space_marines_aggressor_squad",
+    "space_marines_eradicator_squad",
+    "space_marines_heavy_intercessor_squad"
+  ],
+  "iron_hands_caanok_var": [
+    "space_marines_terminator_assault_squad",
+    "space_marines_terminator_squad"
+  ],
+  "iron_hands_iron_father_feirros": [
+    "space_marines_aggressor_squad",
+    "space_marines_eradicator_squad",
+    "space_marines_heavy_intercessor_squad"
+  ],
+  "leagues_of_votann_berehk_stornbr_w": [
+    "leagues_of_votann_cthonian_beserks"
+  ],
+  "leagues_of_votann_br_khyr_iron_master": [
+    "leagues_of_votann_br_khyr_thunderkyn",
+    "leagues_of_votann_hearthkyn_warriors"
+  ],
+  "leagues_of_votann_einhyr_champion": [
+    "leagues_of_votann_einhyr_hearthguard"
+  ],
+  "leagues_of_votann_grimnyr": [
+    "leagues_of_votann_hearthkyn_warriors"
+  ],
+  "leagues_of_votann_k_hl": [
+    "leagues_of_votann_einhyr_hearthguard",
+    "leagues_of_votann_hearthkyn_warriors"
+  ],
+  "leagues_of_votann_memnyr_strategist": [
+    "leagues_of_votann_ironkin_steeljacks_with_heavy_volkanite_disintegrators",
+    "leagues_of_votann_ironkin_steeljacks_with_melee_weapons"
+  ],
+  "leagues_of_votann_thar_the_destined": [
+    "leagues_of_votann_einhyr_hearthguard",
+    "leagues_of_votann_hearthkyn_warriors"
+  ],
+  "necrons_anrakyr_the_traveller_legends": [
+    "necrons_immortals"
+  ],
+  "necrons_chronomancer": [
+    "necrons_immortals",
+    "necrons_necron_warriors"
+  ],
+  "necrons_geomancer": [
+    "necrons_canoptek_macrocytes",
+    "necrons_immortals",
+    "necrons_necron_warriors"
+  ],
+  "necrons_imotekh_the_stormlord": [
+    "necrons_immortals",
+    "necrons_lychguard",
+    "necrons_necron_warriors"
+  ],
+  "necrons_lokhust_lord": [
+    "necrons_lokhust_destroyers",
+    "necrons_lokhust_heavy_destroyers"
+  ],
+  "necrons_lord_legends": [
+    "necrons_immortals",
+    "necrons_lychguard",
+    "necrons_necron_warriors"
+  ],
+  "necrons_nemesor_zahndrekh_legends": [
+    "necrons_immortals",
+    "necrons_lychguard",
+    "necrons_necron_warriors"
+  ],
+  "necrons_orikan_the_diviner": [
+    "necrons_immortals",
+    "necrons_necron_warriors"
+  ],
+  "necrons_overlord": [
+    "necrons_immortals",
+    "necrons_lychguard",
+    "necrons_necron_warriors"
+  ],
+  "necrons_overlord_with_translocation_shroud": [
+    "necrons_immortals",
+    "necrons_lychguard",
+    "necrons_necron_warriors"
+  ],
+  "necrons_plasmancer": [
+    "necrons_immortals",
+    "necrons_necron_warriors"
+  ],
+  "necrons_psychomancer": [
+    "necrons_immortals",
+    "necrons_necron_warriors"
+  ],
+  "necrons_royal_warden": [
+    "necrons_immortals",
+    "necrons_necron_warriors"
+  ],
+  "necrons_skorpekh_lord": [
+    "necrons_skorpekh_destroyers"
+  ],
+  "necrons_technomancer": [
+    "necrons_canoptek_wraiths",
+    "necrons_immortals",
+    "necrons_necron_warriors"
+  ],
+  "necrons_trazyn_the_infinite": [
+    "necrons_immortals",
+    "necrons_lychguard",
+    "necrons_necron_warriors"
+  ],
+  "necrons_vargard_obyron_legends": [
+    "necrons_immortals",
+    "necrons_lychguard",
+    "necrons_necron_warriors"
+  ],
+  "orks_beastboss": [
+    "orks_beast_snagga_boyz"
+  ],
+  "orks_beastboss_on_squigosaur": [
+    "orks_squighog_boyz"
+  ],
+  "orks_big_mek": [
+    "orks_boyz",
+    "orks_lootas",
+    "orks_nobz"
+  ],
+  "orks_big_mek_in_mega_armour": [
+    "orks_meganobz"
+  ],
+  "orks_big_mek_on_warbike_legends": [
+    "orks_warbikers"
+  ],
+  "orks_big_mek_with_kustom_force_field_legends": [
+    "orks_boyz",
+    "orks_burna_boyz",
+    "orks_lootas",
+    "orks_nobz",
+    "orks_tankbustas"
+  ],
+  "orks_big_mek_with_shokk_attack_gun": [
+    "orks_boyz",
+    "orks_lootas",
+    "orks_nobz"
+  ],
+  "orks_boss_snikrot": [
+    "orks_kommandos"
+  ],
+  "orks_boss_zagstruk_legends": [
+    "orks_stormboyz"
+  ],
+  "orks_da_red_gobbo_legends": [
+    "orks_gretchin"
+  ],
+  "orks_deffkilla_wartrike": [
+    "orks_warbikers"
+  ],
+  "orks_ghazghkull_thraka": [
+    "orks_boyz",
+    "orks_meganobz",
+    "orks_nobz"
+  ],
+  "orks_kaptin_badrukk_legends": [
+    "orks_flash_gitz"
+  ],
+  "orks_mad_dok_grotsnik_legends": [
+    "orks_boyz",
+    "orks_burna_boyz",
+    "orks_lootas",
+    "orks_nobz",
+    "orks_tankbustas"
+  ],
+  "orks_mek": [
+    "orks_boyz",
+    "orks_lootas",
+    "orks_nobz",
+    "orks_tankbustas"
+  ],
+  "orks_mozrog_skragbad": [
+    "orks_squighog_boyz"
+  ],
+  "orks_nob_with_waaagh_banner_legends": [
+    "orks_boyz",
+    "orks_nobz"
+  ],
+  "orks_painboss": [
+    "orks_beast_snagga_boyz"
+  ],
+  "orks_painboy": [
+    "orks_boyz",
+    "orks_burna_boyz",
+    "orks_lootas",
+    "orks_nobz",
+    "orks_tankbustas"
+  ],
+  "orks_painboy_on_warbike_legends": [
+    "orks_warbikers"
+  ],
+  "orks_ufthak_blackhawk_legends": [
+    "orks_boyz",
+    "orks_nobz"
+  ],
+  "orks_warboss": [
+    "orks_boyz",
+    "orks_nobz"
+  ],
+  "orks_warboss_in_mega_armour": [
+    "orks_meganobz"
+  ],
+  "orks_warboss_on_warbike_legends": [
+    "orks_nobz_on_warbikes_legends",
+    "orks_warbikers"
+  ],
+  "orks_weirdboy": [
+    "orks_boyz"
+  ],
+  "orks_wurrboy": [
+    "orks_beast_snagga_boyz"
+  ],
+  "orks_zodgrod_wortsnagga": [
+    "orks_gretchin"
+  ],
+  "raven_guard_kayvaan_shrike": [
+    "space_marines_assault_intercessors_with_jump_packs",
+    "space_marines_vanguard_veteran_squad_with_jump_packs"
+  ],
+  "salamanders_adrax_agatone": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_company_heroes",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "salamanders_vulkan_he_stan": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_company_heroes",
+    "space_marines_infernus_squad",
+    "space_marines_tactical_squad"
+  ],
+  "space_marines_ancient": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_desolation_squad",
+    "space_marines_devastator_squad",
+    "space_marines_hellblaster_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "space_marines_ancient_in_terminator_armor": [
+    "space_marines_terminator_assault_squad",
+    "space_marines_terminator_squad"
+  ],
+  "space_marines_ancient_on_bike_legends": [
+    "space_marines_bike_squad_legends",
+    "space_marines_outrider_squad"
+  ],
+  "space_marines_apothecary": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_desolation_squad",
+    "space_marines_devastator_squad",
+    "space_marines_hellblaster_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "space_marines_apothecary_biologis": [
+    "space_marines_aggressor_squad",
+    "space_marines_eradicator_squad",
+    "space_marines_heavy_intercessor_squad"
+  ],
+  "space_marines_apothecary_on_bike_legends": [
+    "space_marines_bike_squad_legends",
+    "space_marines_outrider_squad"
+  ],
+  "space_marines_bladeguard_ancient": [
+    "space_marines_bladeguard_veteran_squad"
+  ],
+  "space_marines_captain": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_company_heroes",
+    "space_marines_hellblaster_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "space_marines_captain_in_gravis_armour": [
+    "space_marines_aggressor_squad",
+    "space_marines_eradicator_squad",
+    "space_marines_heavy_intercessor_squad"
+  ],
+  "space_marines_captain_in_phobos_armour": [
+    "space_marines_eliminator_squad",
+    "space_marines_incursor_squad",
+    "space_marines_infiltrator_squad",
+    "space_marines_reiver_squad",
+    "space_marines_scout_squad"
+  ],
+  "space_marines_captain_in_terminator_armour": [
+    "space_marines_relic_terminator_squad_legends",
+    "space_marines_terminator_assault_squad",
+    "space_marines_terminator_squad"
+  ],
+  "space_marines_captain_on_bike_legends": [
+    "space_marines_bike_squad_legends",
+    "space_marines_outrider_squad"
+  ],
+  "space_marines_captain_with_jump_pack": [
+    "space_marines_assault_intercessors_with_jump_packs",
+    "space_marines_vanguard_veteran_squad_with_jump_packs"
+  ],
+  "space_marines_chaplain": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_hellblaster_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "space_marines_chaplain_in_terminator_armour": [
+    "space_marines_terminator_assault_squad",
+    "space_marines_terminator_squad"
+  ],
+  "space_marines_chaplain_on_bike": [
+    "space_marines_bike_squad_legends",
+    "space_marines_outrider_squad"
+  ],
+  "space_marines_chaplain_with_jump_pack": [
+    "space_marines_assault_intercessors_with_jump_packs",
+    "space_marines_vanguard_veteran_squad_with_jump_packs"
+  ],
+  "space_marines_company_champion_on_bike_legends": [
+    "space_marines_bike_squad_legends",
+    "space_marines_outrider_squad"
+  ],
+  "space_marines_ferren_areios_legends": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_company_heroes",
+    "space_marines_hellblaster_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "space_marines_imperial_space_marine_legends": [
+    "space_marines_assault_squad_legends",
+    "space_marines_command_squad_legends",
+    "space_marines_devastator_squad",
+    "space_marines_tactical_squad",
+    "space_marines_vanguard_veteran_squad_legends"
+  ],
+  "space_marines_judiciar": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "space_marines_librarian": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_desolation_squad",
+    "space_marines_devastator_squad",
+    "space_marines_hellblaster_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "space_marines_librarian_in_phobos_armour": [
+    "space_marines_eliminator_squad",
+    "space_marines_incursor_squad",
+    "space_marines_infiltrator_squad",
+    "space_marines_reiver_squad"
+  ],
+  "space_marines_librarian_in_terminator_armour": [
+    "space_marines_relic_terminator_squad_legends",
+    "space_marines_terminator_assault_squad",
+    "space_marines_terminator_squad"
+  ],
+  "space_marines_librarian_on_bike_legends": [
+    "space_marines_bike_squad_legends",
+    "space_marines_outrider_squad"
+  ],
+  "space_marines_librarian_with_jump_pack_legends": [
+    "space_marines_assault_squad_with_jump_packs_legends",
+    "space_marines_vanguard_veteran_squad_with_jump_packs"
+  ],
+  "space_marines_lieutenant": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_company_heroes",
+    "space_marines_hellblaster_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "space_marines_lieutenant_in_phobos_armour": [
+    "space_marines_incursor_squad",
+    "space_marines_infiltrator_squad",
+    "space_marines_reiver_squad"
+  ],
+  "space_marines_lieutenant_in_reiver_armour": [
+    "space_marines_reiver_squad"
+  ],
+  "space_marines_primaris_company_champion_legends": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad"
+  ],
+  "space_marines_techmarine": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_desolation_squad",
+    "space_marines_devastator_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_tactical_squad"
+  ],
+  "space_marines_techmarine_on_bike_legends": [
+    "space_marines_bike_squad_legends",
+    "space_marines_outrider_squad"
+  ],
+  "space_wolves_arjac_rockfist": [
+    "space_wolves_wolf_guard_terminators"
+  ],
+  "space_wolves_canis_wolfborn_legends": [
+    "space_wolves_fenrisian_wolves",
+    "space_wolves_thunderwolf_cavalry"
+  ],
+  "space_wolves_cyberwolf_legends": [
+    "space_wolves_fenrisian_wolves"
+  ],
+  "space_wolves_harald_deathwolf_legends": [
+    "space_wolves_thunderwolf_cavalry"
+  ],
+  "space_wolves_iron_priest": [
+    "space_wolves_blood_claws",
+    "space_wolves_grey_hunters",
+    "space_wolves_wolf_guard_headtakers"
+  ],
+  "space_wolves_iron_priest_on_thunderwolf_legends": [
+    "space_wolves_thunderwolf_cavalry"
+  ],
+  "space_wolves_krom_dragongaze_legends": [
+    "space_wolves_blood_claws",
+    "space_wolves_grey_hunters",
+    "space_wolves_wolf_guard_legends"
+  ],
+  "space_wolves_logan_grimnar": [
+    "space_wolves_wolf_guard_terminators"
+  ],
+  "space_wolves_logan_grimnar_on_stormrider_legends": [
+    "space_wolves_thunderwolf_cavalry"
+  ],
+  "space_wolves_lukas_the_trickster_legends": [
+    "space_wolves_blood_claws"
+  ],
+  "space_wolves_njal_stormcaller": [
+    "space_wolves_blood_claws",
+    "space_wolves_grey_hunters",
+    "space_wolves_wolf_guard_headtakers"
+  ],
+  "space_wolves_ragnar_blackmane": [
+    "space_wolves_blood_claws",
+    "space_wolves_wolf_guard_headtakers"
+  ],
+  "space_wolves_ulrik_the_slayer": [
+    "space_wolves_blood_claws",
+    "space_wolves_grey_hunters",
+    "space_wolves_wolf_guard_headtakers"
+  ],
+  "space_wolves_wolf_guard_battle_leader": [
+    "space_wolves_blood_claws",
+    "space_wolves_grey_hunters",
+    "space_wolves_wolf_guard_headtakers"
+  ],
+  "space_wolves_wolf_guard_battle_leader_in_terminator_armour_legends": [
+    "space_marines_relic_terminator_squad_legends",
+    "space_marines_terminator_assault_squad",
+    "space_marines_terminator_squad",
+    "space_wolves_wolf_guard_terminators"
+  ],
+  "space_wolves_wolf_guard_battle_leader_on_thunderwolf_legends": [
+    "space_wolves_thunderwolf_cavalry"
+  ],
+  "space_wolves_wolf_guard_pack_leader_in_terminator_armour_legends": [
+    "space_wolves_blood_claws",
+    "space_wolves_grey_hunters",
+    "space_wolves_long_fangs_legends"
+  ],
+  "space_wolves_wolf_guard_pack_leader_legends": [
+    "space_wolves_blood_claws",
+    "space_wolves_grey_hunters",
+    "space_wolves_long_fangs_legends"
+  ],
+  "space_wolves_wolf_guard_pack_leader_with_jump_pack_legends": [
+    "space_wolves_skyclaws_legends"
+  ],
+  "space_wolves_wolf_lord_on_thunderwolf_legends": [
+    "space_wolves_thunderwolf_cavalry"
+  ],
+  "space_wolves_wolf_priest": [
+    "space_wolves_blood_claws",
+    "space_wolves_grey_hunters",
+    "space_wolves_wolf_guard_headtakers"
+  ],
+  "t_au_empire_aun_shi_legends": [
+    "t_au_empire_breacher_team",
+    "t_au_empire_kroot_carnivores",
+    "t_au_empire_strike_team"
+  ],
+  "t_au_empire_cadre_fireblade": [
+    "t_au_empire_breacher_team",
+    "t_au_empire_strike_team"
+  ],
+  "t_au_empire_commander_farsight": [
+    "t_au_empire_crisis_fireknife_battlesuits",
+    "t_au_empire_crisis_starscythe_battlesuits",
+    "t_au_empire_crisis_sunforge_battlesuits"
+  ],
+  "t_au_empire_commander_in_coldstar_battlesuit": [
+    "t_au_empire_crisis_fireknife_battlesuits",
+    "t_au_empire_crisis_starscythe_battlesuits",
+    "t_au_empire_crisis_sunforge_battlesuits"
+  ],
+  "t_au_empire_commander_in_crisis_battlesuit_legends": [
+    "t_au_empire_crisis_battlesuits_legends",
+    "t_au_empire_crisis_fireknife_battlesuits",
+    "t_au_empire_crisis_starscythe_battlesuits",
+    "t_au_empire_crisis_sunforge_battlesuits"
+  ],
+  "t_au_empire_commander_in_enforcer_battlesuit": [
+    "t_au_empire_crisis_fireknife_battlesuits",
+    "t_au_empire_crisis_starscythe_battlesuits",
+    "t_au_empire_crisis_sunforge_battlesuits"
+  ],
+  "t_au_empire_darkstrider": [
+    "t_au_empire_pathfinder_team"
+  ],
+  "t_au_empire_ethereal": [
+    "t_au_empire_breacher_team",
+    "t_au_empire_strike_team"
+  ],
+  "t_au_empire_kroot_flesh_shaper": [
+    "t_au_empire_kroot_carnivores",
+    "t_au_empire_kroot_farstalkers"
+  ],
+  "t_au_empire_kroot_trail_shaper": [
+    "t_au_empire_kroot_carnivores",
+    "t_au_empire_kroot_farstalkers"
+  ],
+  "t_au_empire_kroot_war_shaper": [
+    "t_au_empire_kroot_carnivores",
+    "t_au_empire_kroot_farstalkers"
+  ],
+  "thousand_sons_ahriman": [
+    "thousand_sons_rubric_marines",
+    "thousand_sons_tzaangor_enlightened"
+  ],
+  "thousand_sons_chaos_lord_on_disc_of_tzeentch_legends": [
+    "chaos_space_marines_chosen",
+    "chaos_space_marines_legionaries",
+    "thousand_sons_rubric_marines"
+  ],
+  "thousand_sons_exalted_sorcerer": [
+    "thousand_sons_rubric_marines"
+  ],
+  "thousand_sons_exalted_sorcerer_on_disc_of_tzeentch": [
+    "thousand_sons_rubric_marines",
+    "thousand_sons_tzaangor_enlightened"
+  ],
+  "thousand_sons_infernal_master": [
+    "thousand_sons_rubric_marines"
+  ],
+  "thousand_sons_sorcerer": [
+    "thousand_sons_rubric_marines"
+  ],
+  "thousand_sons_sorcerer_in_terminator_armour": [
+    "thousand_sons_scarab_occult_terminators"
+  ],
+  "thousand_sons_sorcerer_on_disc_of_tzeentch_legends": [
+    "thousand_sons_rubric_marines"
+  ],
+  "thousand_sons_tzaangor_shaman": [
+    "thousand_sons_tzaangor_enlightened",
+    "thousand_sons_tzaangors"
+  ],
+  "tyranids_broodlord": [
+    "tyranids_genestealers"
+  ],
+  "tyranids_hive_tyrant": [
+    "tyranids_tyrant_guard"
+  ],
+  "tyranids_hyperadapted_raveners": [
+    "tyranids_raveners"
+  ],
+  "tyranids_malanthrope_legends": [
+    "tyranids_venomthropes"
+  ],
+  "tyranids_neurotyrant": [
+    "tyranids_neurogaunts",
+    "tyranids_tyrant_guard",
+    "tyranids_zoanthropes"
+  ],
+  "tyranids_old_one_eye": [
+    "tyranids_carnifexes"
+  ],
+  "tyranids_the_swarmlord": [
+    "tyranids_tyrant_guard"
+  ],
+  "tyranids_tyranid_prime_with_lash_whip": [
+    "tyranids_hormagaunts",
+    "tyranids_termagants",
+    "tyranids_tyranid_warriors_with_melee_bio_weapons",
+    "tyranids_tyranid_warriors_with_ranged_bio_weapons"
+  ],
+  "tyranids_winged_tyranid_prime": [
+    "tyranids_gargoyles",
+    "tyranids_tyranid_warriors_with_melee_bio_weapons",
+    "tyranids_tyranid_warriors_with_ranged_bio_weapons"
+  ],
+  "ultramarines_captain_sicarius": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_company_heroes",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "ultramarines_captain_titus": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_company_heroes",
+    "space_marines_hellblaster_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "ultramarines_wardens_of_ultramar"
+  ],
+  "ultramarines_cato_sicarius": [
+    "ultramarines_victrix_honour_guard"
+  ],
+  "ultramarines_chaplain_cassius_legends": [
+    "space_marines_assault_squad_legends",
+    "space_marines_command_squad_legends",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad",
+    "space_marines_vanguard_veteran_squad_legends",
+    "ultramarines_tyrannic_war_veterans_legends"
+  ],
+  "ultramarines_chief_librarian_tigurius": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_desolation_squad",
+    "space_marines_devastator_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "ultramarines_lieutenant_titus": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_hellblaster_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad"
+  ],
+  "ultramarines_marneus_calgar": [
+    "space_marines_aggressor_squad",
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_company_heroes",
+    "space_marines_eradicator_squad",
+    "space_marines_heavy_intercessor_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "ultramarines_marneus_calgar_in_armour_of_antilochus": [
+    "space_marines_aggressor_squad",
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_company_heroes",
+    "space_marines_eradicator_squad",
+    "space_marines_heavy_intercessor_squad",
+    "space_marines_infernus_squad",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad",
+    "space_marines_terminator_assault_squad",
+    "space_marines_terminator_squad",
+    "ultramarines_victrix_honour_guard"
+  ],
+  "ultramarines_sergeant_telion_legends": [
+    "space_marines_scout_sniper_squad_legends",
+    "space_marines_scout_squad"
+  ],
+  "ultramarines_uriel_ventris": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_company_heroes",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "white_scars_kor_sarro_khan": [
+    "space_marines_assault_intercessor_squad",
+    "space_marines_bladeguard_veteran_squad",
+    "space_marines_company_heroes",
+    "space_marines_intercessor_squad",
+    "space_marines_sternguard_veteran_squad",
+    "space_marines_tactical_squad"
+  ],
+  "white_scars_suboden_khan": [
+    "space_marines_outrider_squad"
+  ],
+  "world_eaters_kh_rn_the_betrayer": [
+    "world_eaters_khorne_berzerkers"
+  ],
+  "world_eaters_lord_invocatus": [
+    "world_eaters_eightbound",
+    "world_eaters_exalted_eightbound",
+    "world_eaters_khorne_berzerkers"
+  ],
+  "world_eaters_lord_on_juggernaut": [
+    "world_eaters_eightbound",
+    "world_eaters_exalted_eightbound",
+    "world_eaters_khorne_berzerkers"
+  ],
+  "world_eaters_master_of_executions": [
+    "world_eaters_khorne_berzerkers"
+  ],
+  "world_eaters_slaughterbound": [
+    "world_eaters_eightbound",
+    "world_eaters_exalted_eightbound"
+  ]
+}

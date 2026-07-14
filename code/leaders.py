@@ -221,7 +221,20 @@ class LeaderAbility:
     heal_d3_on_kill: bool = False
     # Legal bodyguard hosts for the calibrator. Preference order; the
     # picker chooses the first key present in UNIT_CATALOG.
+    #
+    # DOUBLE DUTY (see class docstring): host_keys also gates the AURA merge in
+    # effective_buffs. For most leaders the attach target and the aura target
+    # are the same unit, so host_keys serves both. But some leaders attach to a
+    # unit yet broadcast an ARMY-WIDE aura (Hive Tyrant, Abaddon) — their
+    # host_keys must stay () for the aura, so their real attach targets live in
+    # `attach_keys` below. When attach_keys is None the attachment mechanic
+    # (code/attachment.bind_leaders) falls back to host_keys.
     host_keys: Tuple[str, ...] = ()
+    # 10e Leader ATTACH targets (SWEG_LEADER_ATTACH), decoupled from the aura
+    # gate above. None => use host_keys. Set explicitly for army-wide-aura
+    # leaders that still attach (Hive Tyrant -> Tyrant Guard) and for Monsters
+    # that attach (Syll'esske -> Daemonettes). Cited: simulator.leader_attachment.
+    attach_keys: Optional[Tuple[str, ...]] = None
 
 
 # ---------------------------------------------------------------------------

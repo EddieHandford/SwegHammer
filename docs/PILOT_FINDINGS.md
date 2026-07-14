@@ -1116,3 +1116,260 @@ is fidelity-first ADOPT matching the CK / Votann precedent: the piloting is
 faithful, the overshoot is modest and is the sim's durability-over-reward's fault,
 and the faction's own error improves. The N=80 screen confirms whether the
 full-frame metric banks the lift (as CK / Votann did) or washes.
+
+## 2026-07-12 — Astra Militarum: the under-pole is the Assassination bleed, not a durability floor
+
+Full PILOT_PROTOCOL pass on the dominant Astra Militarum under-pole against the
+standing anchor **sc63a** (gated 2.46 A-frame / 2.43 symmetrized). It came back
+non-empty, and the mechanism is a **missing 10th-edition rule**, not a floor.
+
+**1. Loss profile (from the sc63a N=80 anchor log — no re-run).** Astra Militarum
+sits at **23.8% A-frame / 24.2% symmetrized** overall (real 45.28%) — the pole is
+REAL, not an A-frame artifact (the two frames agree). It is a broad, deep bleed,
+not a few craters, and the deepest losses are NOT the melee over-poles everyone
+studied: **Adeptus Astartes 5.0%**, Genestealer Cults 7.5%, Chaos Knights 7.5%,
+Adepta Sororitas 8.8%, Imperial Knights 10.0%; best are T'au 42.5%, Custodes /
+Chaos Daemons 40%. Astra Militarum losing 95% to a fellow gunline (Astartes) is
+the diagnostic anomaly.
+
+**2. List check.** The archetype is a legitimate Cadian combined-arms gunline
+(Shock Troops, Kasrkin, Command Squads, Scions, Death Korps, Basilisk/Manticore,
+Leman Russ variants, Rogal Dorn, Lord Solar) — no missing centerpiece, so the
+list is not the lever (consistent with SWEG_AM_REALISM's "body count is not the
+lever"). BUT it fields **~10 CHARACTERs in a 31-unit build** (5 Cadian Command
+Squads sharing one squad, 2 Castellans, Lord Solar, Ursula Creed, a Commissar).
+
+**3. Board reads (`scripts/_pilot_am_render.py`, default config, 2 maps — mechanism
+evidence only).** Against Astartes on both Search-and-Destroy (seed 24) and Crucible
+(seed 60): Astra Militarum balls its armor into a home corner, holds OC 0 on 3 of 5
+markers all game, and scores **+0 secondary victory points per round** while Astartes
+scores +6 to +10. Yet in the CLOSE losses it dies with points on the board — seed 24
+final: Astra Militarum **1188** points remaining vs Astartes 1136, and still loses
+21–46. **A conversion problem, not a durability problem.**
+
+**4. Battery + try-to-win — every piloting call fails (this is why it looked like a
+floor).** `scripts/pilot_manual.py` N=40 vs Astartes (baseline 5.0%): the contest
+tactics that express "get onto the midfield markers" BACKFIRE — `surgical_contest`
+and `contest_spare` −5.0pp (bodies pushed onto exposed markers get shot off);
+`sticky_race` / `shoot_holders_any` / `focus_threat` wash; only `chase_vp` is
+positive (+2.5pp = net +1 game, sub-noise — reproduces the standing "raises VP,
+doesn't convert"). A holds-OFF paired A/B (`scripts/_am_holds_ab.py`) refuted the
+"holds hurt vs gunlines" hypothesis: advance-discipline off +2.5 (sub-noise), all
+three holds off and holds+staging off both WASH. No on-table Astra Militarum call
+flips these games.
+
+**5. The real driver — primary vs secondary split (N=20).** The primary race is
+close; the loss is entirely secondary:
+
+| matchup | AM win | AM pri | AM sec | opp pri | opp sec | loses on |
+|---|---|---|---|---|---|---|
+| Adeptus Astartes (5%) | 5% | 29.2 | 8.4 | 32.9 | **26.6** | opp secondary (+18) |
+| Imperial Knights (0%) | 0% | 27.1 | 9.0 | 38.4 | **27.6** | opp secondary + primary |
+| Genestealer Cults (0%) | 0% | 19.1 | 10.1 | **43.0** | 15.5 | opp PRIMARY (+24) — different disease |
+| Adepta Sororitas (25%) | 25% | 29.5 | 9.3 | 34.5 | 16.1 | modest both |
+| Adeptus Custodes (55%) | 55% | 33.3 | 10.2 | 32.2 | 12.8 | AM edges it |
+| T'au Empire (70%) | 70% | 37.7 | 13.7 | 29.1 | 13.4 | AM primary |
+
+Astra Militarum has a hard secondary ceiling of ~8–14 in EVERY matchup (even wins);
+the craters are where the opponent scores ~27.
+
+**6. Per-card breakdown (N=15) — it is Assassination.** The opponent's ~27 is almost
+entirely one card: **Astartes secondary 26.7 = assassination 22.5** + bring-it-down
+4.3; **Imperial Knights 27.1 = assassination 19.0** + bring-it-down 8.1. Astra
+Militarum's own ~20 is dribbled across a dozen tiny cards (no engine).
+
+**7. The feed is Astra-Militarum-SPECIFIC, not a general over-score (N=15).** Astartes
+scores 26.9 secondary vs Astra Militarum but only **11.9 vs T'au, 8.0 vs Custodes**,
+20.1 vs Orks; Imperial Knights 27.5 vs Astra Militarum vs 15.0 / 6.9 / 18.5. The two
+horde armies (Astra Militarum, Orks) feed; the two elite low-model armies (Custodes,
+T'au) starve. **Astra Militarum is an Assassination piñata because it is the most
+character-dense army in the game.**
+
+**8. Root cause — a missing 10e rule.** `code/secondaries.py:356-357` states
+outright that **attached-Leader inclusion is not modelled**: the sim leaves all ~10
+Astra Militarum characters as free-standing T3 W3–4 units that die independently,
+each awarding the opponent 3–5 VP of Assassination. In real 10th edition most of
+these characters ATTACH to a bodyguard squad (the Leader rule) and **cannot be
+selected as an Assassination target until that bodyguard unit is destroyed**. The
+sim has no attachment, so it hands the opponent free character kills that the real
+rules would deny.
+
+**9. Sizing probe (`scripts/_am_assassination_probe.py`, N=40 paired — UPPER BOUND).**
+Suppress Assassination scored off Astra Militarum (= perfect Leader protection) and
+measure the paired win-rate swing:
+
+| matchup | base | protected | Δpp | flips L→W / W→L |
+|---|---|---|---|---|
+| Adeptus Astartes | 5.0% | **55.0%** | **+50.0** | 20 / 0 |
+| Imperial Knights | 7.5% | **40.0%** | **+32.5** | 13 / 0 |
+| Adepta Sororitas | 27.5% | 32.5% | +5.0 | 2 / 0 |
+| T'au Empire | 70.0% | 75.0% | +5.0 | 2 / 0 |
+| Genestealer Cults | 2.5% | 2.5% | +0.0 | 0 / 0 |
+
+Decisive (zero reverse flips), and well-targeted: it does not touch the Genestealer
+Cults crater (that one is the separate primary/board-control disease — opp primary
+43 vs 19), so it is a mechanism fix, not a blanket buff. This is the single largest
+Astra Militarum lever effect found anywhere in the campaign — larger than value-move's
++6.58. It is an upper bound: real attachment protects a character only WHILE its
+bodyguard lives, so a faithful implementation recovers a FRACTION of this, not all.
+
+**Lever direction (candidate, not yet built).** Model 10e Leader attachment — an
+attached CHARACTER is not an eligible Assassination target until its bodyguard unit
+is destroyed. Faithful, citable, and GLOBAL (every army's attached characters gain
+the protection); it disproportionately lifts Astra Militarum because it is the most
+character-dense army, and it directly attacks the sim's known secondary-VP
+over-production signature (38.9 vs real 22.7). It is a mechanism, not a knob, and
+not a mask — it survives the "residual is always a missing mechanism" mandate.
+
+**PENDING before any build (CLAUDE.md rule 10 — verify, do not invent):**
+(a) confirm the 10e Leader / target-eligibility rule (Wahapedia / BSData) that
+protects an attached CHARACTER from being picked as an Assassination target;
+(b) confirm the Cadian Command Squad CHARACTER keyword is faithful (5 per list is
+a lot — this may also be a list-realism / keyword component);
+(c) then a proper N=80 sc63a screen — the probe is mechanism / upper-bound evidence,
+never a rate. Scratch tools left in `scripts/`: `_pilot_am_render.py`,
+`_am_holds_ab.py`, `_am_assassination_probe.py` (all untracked); also fixed a stale
+2-arg charge-wrapper crash in `scripts/pilot_manual.py`.
+
+---
+
+## Matchup 2 — Astra Militarum vs Adeptus Astartes (post-adoption re-anchor sc64a, 2026-07-13)
+
+Re-ran the full pilot protocol on AM after adopting the three gates (leader
+attachment + per-unit Assassination + leader hosting) and re-anchoring to
+`_anchor_sc64a_n40_log.json`. AM is still the deepest under-pole (symmetrized
+28.7% vs real 45.3%, −16.6). This pilot asks: **what did the adoption NOT fix?**
+
+**Step 1 — loss profile (sc64a `diag_frame --faction`).** AM's crater is not a
+broad bleed; it is dominated by **Adeptus Astartes: 16.2% symmetrized win at field
+weight 6599 (≈1/3 of the entire field)** — the single highest-leverage matchup.
+Deeper-rate but low-weight craters: Drukhari 10.0% (w848), Genestealer Cults 11.2%
+(w452). Astartes is the one to pilot.
+
+**Step 2 — tactic battery (N=16, `pilot_manual`).** Baseline AM 25%, mean VP
+**39.2 vs 53.8**. Every VP-conversion / objective-contest tactic is flat-to-negative
+(`shoot_holders_any` +0.0; all contest/sticky/focus tactics −6.2 to −12.5). Sending
+AM's spare bodies to contest markers *loses more games* — AM's bodies cannot survive
+on the midfield to contest. The battery is flat → look at the board.
+
+**Step 3 — board read (seed 5, the closest loss, 43–46).** AM **led every round**
+(5-0, 13-12, 25-22, 35-34) then lost the final round 8-12. Renders
+`data/_pilot_astra_v_adeptus_r{1..5}.png`: AM's tank/artillery line sits in its
+deployment zone; the Astartes gunline blobs 18-19 operative-count onto NE and holds;
+AM's one Tempestus Scion squad deep-strikes into the Marine gunline, shoots for ~0,
+charges Hellblasters, and is wiped (R2 grey-✗ cluster); AM characters + Command Squad
+models solo-charge Marines through R3-R5 and die. Secondary VP was A+0 / B+2 by end
+of R2.
+
+**Step 4 — primary/secondary decomposition (`_am_astartes_vpsplit`, 8 games).**
+Means: **primary −8.0, secondary −11.2** — secondary is the bigger gap, and decisive
+in the closest losses (seeds 9 & 13 both **tied primary 35-35 and lost purely on
+secondary by 13-14**). AM loses **31.6 models/game vs Astartes' 15.9** — 2× the body
+count, feeding the opponent's kill-secondary economy. AM makes 7.6 charges / 9.4
+whiff-swings (melee ≤1 dmg) per game — the futile charges are real but a contributor,
+not the whole story.
+
+**Step 5 — per-card secondary breakdown (`_am_astartes_cards`, 6 loss games).**
+Decisive: **Astartes' secondary is 80% Assassination — 87 of 109 VP, i.e. ~14.5
+Assassination/game, and AM scores 0.** Bring It Down a distant second (+14). On every
+other card AM out-scores Astartes. **The adopted Assassination/attachment fix did NOT
+close AM's Assassination bleed.**
+
+**Root cause (`_am_bind_probe`, seed 5) — CONFIRMED data bug, not an AI knob:**
+- The sim gives the **CHARACTER keyword to all 5 models of the Cadian Command Squad.**
+  Wahapedia (cross-checked, rule 6): the unit's all-models keywords are INFANTRY,
+  GRENADES, IMPERIUM, PLATOON, CADIAN, COMMAND SQUAD — **no CHARACTER**; only the one
+  embedded *Cadian Commander* model has CHARACTER/OFFICER. So the sim scores
+  Assassination for killing veteran guardsmen, not just the commander (a BSData
+  sub-model-keyword *promotion* bug, same family as the mapper prose-walk FnP bug).
+- Because the 5 fake "characters" read as attachable Leaders, they **fill the 2-leader
+  slots on the Cadian Shock Troops squads, crowding AM's real Cadian Castellans out**
+  → both Castellans end up UNBOUND (`host_sqid=None`) → no attachment protection →
+  they die freely and feed Assassination. A cascade from the one keyword error.
+- `Lord Solar Leontus` (MOUNTED EPIC HERO) is mis-bound to a host squad though he is
+  not an infantry Leader — a second attach-eligibility gap (verify, likely non-attaching).
+- **Not blanket:** a catalog scan found 33 multi-model CHARACTER units, but most are
+  faithful Epic-Hero retinues (Calgar, Ghazghkull, Fabius Bile, Silent King — really
+  are character units). The genuine promotion-bug sub-cluster is the **"Commander +
+  squad" Leaders**: Cadian / Krieg / Catachan / Militarum Tempestus Command Squads
+  (AM carries all four) plus a suspected Hyperadapted Raveners (Tyranids). Ogryn
+  Bodyguard checked and is a *legitimate* single-model CHARACTER — do NOT touch it.
+
+**NEXT ITEM (this pilot's answer):** correct the CHARACTER-keyword / attach-eligibility
+data for the "Commander + squad" units (lead case: Cadian Command Squad — only its
+embedded commander is a character), which (a) directly de-inflates the Assassination
+secondary that is AM's dominant loss driver in its highest-weight matchup, and (b)
+frees host slots so AM's real Castellans bind and get the protection we already built.
+Fidelity-first data fix (BSData mapping correction), distinct from the rejected on-table
+AM levers. MAGNITUDE IS ESTIMATE — needs an sc64a screen before any keep decision.
+Scratch tools (untracked, `scripts/`): `_am_astartes_scan.py`, `_am_astartes_vpsplit.py`,
+`_am_astartes_cards.py`, `_am_bind_probe.py`, `_am_astartes_cards.py`.
+
+---
+
+## Matchup 3 — Astra Militarum vs Necrons (post-dedupe adoption, anchor sc65a, 2026-07-14)
+
+After adopting `SWEG_LEADER_SQUAD_DEDUPE` (AM 28.7→30.6% sym; Astartes matchup
+16.2→22.5%), re-piloted AM's lead under-pole. Loss profile on sc65a: the fresh
+high-leverage crater is **Necrons — 18.8% sym at weight 2413** (Astartes stays the
+top weight but is already board-read + improved).
+
+**Battery (N=16) is NOT flat** (unlike Astartes): `sticky_race` (bank markers early,
+don't camp home) **+12.5pp** and `chase_vp` (shoot for VP-yield) **+12.5pp** both
+help; the contest-with-spare-bodies tactics all hurt (−12 to −25, bodies die
+trading). Baseline 31.2%, mean VP 41.9-52.2.
+
+**Decomposition (16 games): primary −9.3, secondary −3.8** — the REVERSE of Astartes
+(secondary-dominant). Necrons repeatedly bank 40-50 primary vs AM 20-40. Assassination
+is only +20 here (vs +87 vs Astartes — the dedupe + Necrons' non-assassination focus),
+and AM out-scores several secondaries. So this is a PRIMARY / tempo loss.
+
+**Board read (seed 15, close primary loss).** AM fields MORE models (75 vs 65) and
+more points on the table yet loses primary. The whole AM tank/artillery line
+(Rogal Dorn, 2x Leman Russ, Taurox, Manticore, 2x Basilisk) camps the deployment
+zone ALL game — never advancing to pressure or contest forward objectives (the
+Basilisks/Manticore are indirect artillery and should, but the battle tanks parking
+home is passivity). AM holds only its 2 home markers; its infantry pushes up to
+contest centre and dies trading into durable Necrons (midfield littered with dead).
+Necrons hold their 2 markers (reanimation = durable holders) + win the centre late.
+
+**Next item:** AM plays for attrition/board-presence, not VP — it under-banks primary
+markers AND under-converts shooting into VP-yield. Candidate lever = a VP-oriented
+play behaviour (bank primary early + stage the battle tanks forward + target for
+VP-yield), which is precedent-aligned (staging + target-economics + objective-contest,
+NOT the rejected gunline-hold / weak-body-holds / kiting). Not a Necron over-pole
+(Necrons sit at target). A human line that banks early wins ~4 of 16 AM lost → NOT a
+floor.
+
+**CAVEAT (must screen before believing).** On-table AM AI levers have a strong
+frozen-under track record (project-ai-frozen-under-mae-first: almost all AM AI
+improvements regress the global headline because over-tuned stats are compensated by
+the passive AI). The +12.5pp is N=16 piloting-harness evidence (mechanism, not a
+global rate). Any build must be gated + paired-screened across 22 factions vs sc65a;
+it may well not survive. Distinct from the Assassination lane (that was a data bug;
+this is an AI-behaviour lever). Scratch: scripts/_am_diag.py (untracked).
+
+### Matchup 3 follow-up — SWEG_AM_STAGE_FORWARD built, screened, REJECTED (N=40, 2026-07-14)
+
+The "stage AM battle tanks forward" hypothesis was built as a gated branch in
+`strategy.pick_move_intent` (FREECONTEST minus its shootable-from-marker guard,
+AM + HEAVY + VEHICLE + not-indirect scoped). Instrument-before-build CLEARED the
+frequency gate (probe `scripts/_am_tank_camp_probe`: 73% of AM battle tanks never
+touch a marker all game; 70% of scoring-round states are off-all-markers with a
+reachable non-AM marker — vs the ~4% that flat-screened Cadia Stands). But the
+paired screen KILLED it:
+
+- N=8 looked +1.1 for AM (noise — AM's paired CI was 2.98).
+- **N=40 (18,480 games) decisive: AM −0.91 (DOWN), gated MAE 2.22→2.37 (+0.15).**
+  The only CI-clear movers were **Adeptus Astartes +1.37 and Death Guard +0.71 UP** —
+  the durable factions punish AM's tanks the moment they come off their fire lines.
+
+CONCLUSION: **AM tanks camping and shooting is CORRECT play, not a misplay** —
+forcing them onto forward objectives is suicide. The AM under-pole is NOT a
+tank-positioning AI gap. With chase_vp (already −0.65) and the four prior AM
+piloting channels, the **AM tank / objective-AI lane is exhausted** — no AI tuning
+of AM's heavy units lifts it. Branch REVERTED (default-off bandage removed per the
+systematic-not-bandages preference; code back to the sc65a state). The productive
+next thread is an IMPLEMENTATION-MISTAKE hunt on how AM's BODIES lose (infantry
+midfield exchange / durability vs durable shooting), not more tank AI. Scratch:
+scripts/_am_tank_camp_probe.py, _am_diag.py, _stage_*/_merge_stage_logs.py (untracked).

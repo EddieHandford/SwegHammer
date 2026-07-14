@@ -1085,6 +1085,12 @@ class Unit:
         # read this; the firing path reads the per-model `profile`. None for
         # legacy / shared-profile units. Cited as `simulator.per_model_loadouts`.
         "squad_profile_ref",
+        # 10e Leader / Attached-unit binding (SWEG_LEADER_ATTACH). The squad_id
+        # of the host bodyguard squad this attachable CHARACTER is bound to at
+        # deploy time (code/attachment.bind_leaders), or None = unattached /
+        # gate off. Read by the gated targeting checks to protect the leader
+        # while its host squad still has a living bodyguard model.
+        "_attach_host_squad_id",
         "moved_this_round", "on_objective", "shooting_in_engagement",
         # Cadia Stands! per-round flag (SWEG_AM_CADIA_STANDS): set True in
         # simulator.py round-setup when a led Cadian Shock Troops squad is on an

@@ -509,10 +509,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.ck_ranged_hold",
     # Core targeting restrictions (10e core rules). Both filter the ranged
     # candidate list inside Battle._do_shoot via code.army.can_target_for_ranged.
-    # Look Out Sir gates non-MONSTER/VEHICLE CHARACTERS that have a non-CHARACTER
-    # friendly within 3"; Lone Operative is a unit-level keyword that hard-caps
-    # ranged targeting to 12".
-    "simulator.look_out_sir",
+    # Leader/Attached-unit protection (default-on): an attached CHARACTER can't be
+    # allocated wounds (selected as a target) until its bodyguard squad dies,
+    # unless the attacker has [PRECISION]. Lone Operative is a unit-level keyword
+    # that hard-caps ranged targeting to 12". (The fabricated "Look Out, Sir"
+    # gate was deleted 2026-07-13 in favour of the Leader/Attached-unit rule.)
+    "simulator.leader_attachment",
     "simulator.lone_operative",
     # PRECISION keyword (10e core weapon ability). When the attacker carries
     # a PRECISION-tagged ranged weapon (unit-level `precision` flag, collapsed

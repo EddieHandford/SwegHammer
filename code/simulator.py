@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from .army import Army
+from .attachment import attachment_enabled, is_attachment_protected
 from .detachments import effective_move
 from .displace_instr import DisplaceInstr, gate_on as _displace_gate_on
 from .pathfind import find_path
@@ -826,6 +827,16 @@ class Battle:
         from .secondaries import pick_secondaries as _pick_secondaries
         self.a.chosen_secondaries = _pick_secondaries(self.a, self.b)
         self.b.chosen_secondaries = _pick_secondaries(self.b, self.a)
+        # 10e Leader / Attached-unit binding (SWEG_LEADER_ATTACH). Hard-bind each
+        # attachable leader to a host squad now, while `army.units` still holds
+        # the full roster (before _deploy_armies moves GSC ambushers to reserves).
+        # Gated so the OFF path never runs it -> byte-identical. The gated
+        # targeting checks (army.can_target_for_ranged + the melee target picks)
+        # read `_attach_host_squad_id`. Cited: LEADER.attached_unit_allocation.
+        from .attachment import attachment_enabled as _att_on, bind_leaders as _bind
+        if _att_on():
+            _bind(self.a)
+            _bind(self.b)
         # M2 (wave 119, env-gated SWEG_TAC_DECK) — seed each TACTICAL army's
         # 2-card hand + remaining deck deterministically. `pick_secondaries`
         # set `secondary_track`; this fills `tactical_hand`/`tactical_deck`.
@@ -15461,10 +15472,11 @@ class Battle:
                     target_keywords=u.profile.unit_keywords or (),
                 )
             ]
-        # 10e core targeting restrictions: Look Out Sir + Lone Operative. The
-        # helper composes both rules — `friendly_units` to a candidate target
-        # is its OWN army's alive units (bodyguards live with the target).
-        # Cited as `simulator.look_out_sir` and `simulator.lone_operative`.
+        # 10e core targeting restrictions: Leader/Attached-unit protection +
+        # Lone Operative. The helper composes both rules — `friendly_units` to a
+        # candidate target is its OWN army's alive units (its host bodyguard
+        # squad lives with the target).
+        # Cited as `simulator.leader_attachment` and `simulator.lone_operative`.
         from .army import can_target_for_ranged
         defender_alive = defender_army.alive_units
         candidates = [
@@ -17621,6 +17633,19 @@ class Battle:
         alive_enemies = defender_army.alive_units
         if not alive_enemies:
             return
+
+        # 10e Attached-unit protection (SWEG_LEADER_ATTACH): a melee attack
+        # cannot be allocated to an attached leader while its host squad still
+        # has a living bodyguard model, unless the attacker has a [PRECISION]
+        # melee weapon. Drop protected leaders from the fight target pool; if
+        # the attacker is engaged ONLY with protected leaders it has no legal
+        # target and does not strike. Gate off -> byte-identical.
+        if attachment_enabled() and not getattr(attacker.profile, "precision", False):
+            _unprotected = [e for e in alive_enemies
+                            if not is_attachment_protected(e, alive_enemies)]
+            if not _unprotected:
+                return
+            alive_enemies = _unprotected
 
         # --- Pile-In (10e core): free 3" move toward the closest enemy,
         # taken BEFORE the fight resolves. Gated on the attacker being in

@@ -25,7 +25,7 @@ Citations covered (one mechanic per test):
   Aeldari             — simulator.battle_focus
   Necrons             — simulator.reanimation_protocols (via the AWAKENED_DYNASTY hook)
   Leagues of Votann   — simulator.judgement_tokens
-  Core                — simulator.look_out_sir, simulator.lone_operative,
+  Core                — simulator.leader_attachment, simulator.lone_operative,
                         simulator.deadly_demise, simulator.fall_back,
                         simulator.big_guns_never_tire
 
@@ -701,30 +701,33 @@ class FactionMechanicSmokeTests(unittest.TestCase):
 
     # ----- Core 10e ----------------------------------------------------
 
-    def test_core_look_out_sir_blocks_long_range_shot(self):
-        """A CHARACTER INFANTRY within 3" of a friendly non-CHARACTER must
-        not be targetable from >12" away. Cites: simulator.look_out_sir."""
+    def test_core_leader_attachment_blocks_shot(self):
+        """An attached CHARACTER (bound to a living bodyguard squad) cannot be
+        selected as a target at any range unless the attacker has [PRECISION].
+        Cites: simulator.leader_attachment."""
         captain = Unit(UnitProfile(
             name="Captain", faction="Adeptus Astartes",
             health=4, damage=1, hit_probability=2 / 3,
             unit_keywords=("CHARACTER", "INFANTRY"),
         ))
         captain.position = (0.0, 0.0)
+        captain._attach_host_squad_id = 5          # attached to the squad below
         bodyguard = Unit(UnitProfile(
             name="Tactical", faction="Adeptus Astartes",
             health=2, damage=1, hit_probability=2 / 3,
             unit_keywords=("INFANTRY",),
         ))
-        bodyguard.position = (2.0, 0.0)   # within 3"
+        bodyguard.position = (2.0, 0.0)
+        bodyguard.squad_id = 5                      # the host bodyguard squad
         sniper = Unit(UnitProfile(
             name="Sniper", faction="Adeptus Astartes",
             health=1, damage=1, hit_probability=2 / 3,
             unit_keywords=("INFANTRY",),
         ))
-        sniper.position = (20.0, 0.0)   # 20" away
+        sniper.position = (20.0, 0.0)
         self.assertFalse(
             can_target_for_ranged(sniper, captain, [captain, bodyguard]),
-            "Look Out Sir failed to block a long-range shot at a screened CHARACTER",
+            "Leader-attachment failed to block a shot at a CHARACTER whose bodyguard lives",
         )
 
     def test_core_lone_operative_blocks_long_range_shot(self):

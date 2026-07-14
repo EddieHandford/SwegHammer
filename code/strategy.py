@@ -2143,6 +2143,17 @@ def pick_charge_target(attacker, enemy, map_=None):
     if not alive_enemies:
         return None, None
 
+    # 10e Attached-unit protection (SWEG_LEADER_ATTACH): a charge cannot be
+    # declared/allocated against an attached leader while its host squad still
+    # has a living bodyguard model, unless the attacker has a [PRECISION] melee
+    # weapon. Gate off -> byte-identical (attachment_enabled() returns False).
+    from .attachment import attachment_enabled, is_attachment_protected
+    if attachment_enabled() and not getattr(attacker.profile, "precision", False):
+        alive_enemies = [e for e in alive_enemies
+                         if not is_attachment_protected(e, enemy.alive_units)]
+        if not alive_enemies:
+            return None, None
+
     p = _score_profile(attacker)
     # Attacker's per-activation melee output.
     a_melee_dpa = (p.melee_attacks * p.melee_hit_probability

@@ -1,12 +1,12 @@
 {
-  "_comment": "Core 10e targeting restrictions for ranged attacks. Look Out Sir is a universal core rule that protects non-MONSTER/VEHICLE CHARACTERS shielded by a nearby unit. Lone Operative is a unit-level ability granted to specific datasheets (Eliminators, Lictors, Callidus Assassins, etc.) that hard-caps ranged targeting to within 12\".",
+  "_comment": "Core 10e targeting/allocation restrictions. simulator.leader_attachment (SWEG_LEADER_ATTACH, DEFAULT-ON, adopted 2026-07-13) is the faithful rule: a Leader attached to a Bodyguard unit cannot have attacks allocated to it (ranged or melee) until the bodyguards are destroyed, unless the attacker has [PRECISION]. The former 'Look Out, Sir' gate was DELETED 2026-07-13 — it is NOT a 10e core rule (verified absent from the Wahapedia core rules; the '12\"' clause it quoted belongs to Lone Operative, not to any real Look-Out-Sir rule). Lone Operative is a distinct unit-level ability on specific datasheets, modelled correctly and separately.",
 
-  "simulator.look_out_sir": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Look-Out-Sir",
-    "rule_name": "Look Out, Sir",
-    "quoted_text": "Each time a Character unit (excluding Monster and Vehicle units) is targeted by a ranged attack, if a friendly non-Character unit is within 3\" of that Character unit, the ranged attack cannot be made unless the attacking unit is within 12\" of the target.",
-    "trigger": "ranged attack targets a non-MONSTER/non-VEHICLE CHARACTER unit, friendly non-CHARACTER unit within 3\" of the target, attacker >12\" away",
-    "effect": "the ranged attack cannot be made (target invalid)",
+  "simulator.leader_attachment": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Leader  (Leader ability + Attached unit allocation) and https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Precision ([PRECISION] exception)",
+    "rule_name": "Leader / Attached unit (attacks allocated to Bodyguard models) + [PRECISION] exception",
+    "quoted_text": "Each time an attack made with such a weapon successfully wounds an Attached unit, if a CHARACTER model in that unit is visible to the attacking model, the attacking model's player can choose to have that attack allocated to that CHARACTER model instead of following the normal attack sequence.",
+    "trigger": "an attack (ranged or melee) would be allocated to a CHARACTER (Leader) that is attached to a Bodyguard unit whose bodyguard models are not all destroyed, and the attacking model does NOT have a [PRECISION] weapon",
+    "effect": "the attack cannot be allocated to the Leader (in SwegHammer's one-Unit-per-model representation the Leader model-Unit is not a valid target while its bound host squad still has a living non-CHARACTER model); the enemy's attacks instead land on the bodyguard squad. Once the bodyguard squad is destroyed the Leader becomes a normal target. A [PRECISION] attacker may pick the Leader out directly.",
     "scope": "army-wide"
   },
 
