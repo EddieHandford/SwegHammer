@@ -19,7 +19,17 @@ it back up to squad granularity — each squad's net move, each
 attacker-squad to target-squad shooting / charge / melee pairing with
 total damage and models destroyed, arrivals, losses, the end-of-round
 objective scoring, and each side's points remaining on the table —
-beside one board snapshot per round.
+beside one board snapshot per round. Under vanilla I-go-U-go (the
+default — see "Activation Sequence" below), the overview also groups a
+round's actions by *which player's turn* they happened in (the
+`PlayerTurnStarted` event marks the boundary), not only by action type —
+aggregating every move in a round ahead of every shot, with no turn
+boundary, made a correct full-turn I-go-U-go simulation read as a
+phase-by-phase alternating ruleset in the replay even though the
+simulator itself was never wrong. Event logs with no `PlayerTurnStarted`
+event (recorded under the SwegHammer alternating model, which has no
+discrete per-player turn to mark, or older logs) fall back to one
+unlabelled block per round.
 
 Under the default vanilla battle-round structure, each player's turn emits
 its own `TurnStarted` event (round number and army name; presentation-only,
@@ -234,22 +244,49 @@ move-intent destinations and reserve placement (consumers 2-3) are not.
 
 ### Activation Sequence
 
-Each battle round proceeds as follows:
+`code.simulator.RulesConfig` selects one of two activation models at
+`Battle` construction — it is an explicit choice, not an environment gate,
+and the two are not interchangeable in how they read as a replay (see
+"Output Format" below).
+
+**Vanilla 10e I-go-U-go — `RulesConfig.vanilla_10e()`, the default.**
+`Battle(a, b)` with no `rules=` argument uses this. Matches the real
+mission sequence: one player completes their *entire* turn — every one of
+their units' Movement, then Shooting, then Charge, then Fight — before the
+other player's turn begins. This is the mode `code/balancer.py`'s Monte
+Carlo bisection and `scripts/evaluate_vs_meta.py` run against, so Stage 1's
+tournament comparison reflects the real turn structure.
 
 1. **First-player determination**: Randomised once at the start of the battle (50/50) and
    the same player goes first every round thereafter, matching the real mission sequence
    ("The players roll off. The winner declares whether they will take the first or second
    turn."). Default since wave 232; setting `SWEG_ROLLOFF_ONCE=0` restores the legacy
-   per-round re-roll.
-2. **Activation queue**: Both armies sort their alive units by Lanchester score (highest first),
+   per-round re-roll. Shared with the alternating model below — it is not mode-specific.
+2. **Per-turn, per-phase activation**: within the active player's turn, each phase
+   (Movement, Shooting, Charge, Fight) activates that player's alive units in
+   `activation_queue` order (Lanchester score, highest first) before the round moves on
+   to the other player's turn. `cp_catchup_bonus` (the smaller army's bonus-CP rule
+   below) is off by default under this mode — 10e has no such mechanic.
+
+**SwegHammer alternating activations — `RulesConfig.sweghammer()`, opt-in
+only.** The project's original, non-10e ruleset, used only when a script
+explicitly asks to simulate SwegHammer-house-rule play rather than derive
+prices or calibrate against tournament data — never constructed by the CLI
+demo, the Streamlit dashboard, or the calibration sweep. Both armies'
+units alternate one at a time within a round instead of each player
+taking a full turn:
+
+3. **Activation queue**: Both armies sort their alive units by Lanchester score (highest first),
    creating an ordered activation queue for the round.
-3. **Alternating activations**: The first player activates their highest-priority unactivated
+4. **Alternating activations**: The first player activates their highest-priority unactivated
    unit; the second player responds with theirs. This repeats until one or both queues are
    exhausted.
-4. **Surplus activations**: If one army has more units, its remaining units activate unopposed
+5. **Surplus activations**: If one army has more units, its remaining units activate unopposed
    after the other army's queue is empty.
-5. **Command point awards**: After each round (except Round 1), the player with fewer surviving
-   units receives bonus CP: `bonus_CP = max(0, floor((opponent_count - own_count) / 2))`.
+6. **Command point awards**: After each round (except Round 1), the player with fewer surviving
+   units receives bonus CP: `bonus_CP = max(0, floor((opponent_count - own_count) / 2))`
+   (`cp_catchup_bonus`, on by default under this mode only — pure SwegHammer catch-up, not
+   a 10e rule).
 
 ### Target Selection
 
@@ -392,6 +429,18 @@ collided with the equilibrium solver's own Phase 1–6 ladder
   No Pain chain with real dice rolls.
 - **All five combat phases** — Command, Movement, Shooting, Charge, Fight,
   with Battleshock at round end.
+- **Counter-Offensive same-unit-twice fix** (2026-07-09) — the reactive
+  Core Stratagem (`Battle._try_counter_offensive`) re-selected the single
+  best-melee-DPA candidate on every trigger with no memory of earlier
+  picks, so one unit could be picked to fight via Counter-Offensive more
+  than once in the same Fight-phase pass — Counter-Offensive's own TARGET
+  restriction ("a unit ... that has not already been selected to fight
+  this phase") was assumed to hold implicitly rather than enforced. Now
+  tracked explicitly via `Battle._fought_this_fight_phase` (reset once per
+  Fight-phase pass; populated by both the normal Fight-phase sequence and
+  this out-of-sequence strike). A second, legal Counter-Offensive fire in
+  the same phase against a *different* not-yet-fought unit is still
+  possible. Cited as `Stratagem.Counter-Offensive`.
 - **2D map and terrain** — continuous-coordinate map with Light /
   Heavy / Obscuring / Impassable terrain; Liang-Barsky parametric clipping
   for line of sight; objective markers with primary victory point scoring.

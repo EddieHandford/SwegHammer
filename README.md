@@ -70,7 +70,20 @@ units — and conflating them produces wrong answers. See
 
 ## Core Rules Changes
 
-### Unit-by-Unit Activation (Turn Structure)
+**The default engine mode runs real 10e I-Go-You-Go, not a house rule.**
+`Battle(a, b)` with no `rules=` argument (what the CLI demo, the Streamlit
+dashboard, and every calibration sweep use) selects
+`code.simulator.RulesConfig.vanilla_10e()`: one player completes their
+*entire* turn — Movement, Shooting, Charge, Fight, across every one of
+their units — before the other player's turn begins, matching the real
+mission sequence. This is deliberate: Stage 1's whole premise is comparing
+the simulator's win rates against real tournament data, which is only a
+fair comparison if the simulator plays the real turn structure. The
+unit-by-unit alternating model described below is a separate, **opt-in
+only** experiment (`RulesConfig.sweghammer()`) — no default entry point
+ever constructs it.
+
+### Unit-by-Unit Activation (Turn Structure) — opt-in SwegHammer mode
 
 Instead of the standard I-Go-You-Go model:
 
@@ -82,18 +95,22 @@ Instead of the standard I-Go-You-Go model:
 **Benefit:** Flattens the alpha-strike advantage of going first. Early trades happen gradually,
 rather than one side getting a full turn of unopposed fire.
 
-### Command Point Economy for Balanced Unit Counts
+**Status:** built, opt-in via `RulesConfig.sweghammer()`, used only when a script deliberately
+wants to simulate SwegHammer house-rule play rather than derive prices or calibrate against
+tournament data. Never used for Stage 1 calibration, the CLI demo, or the Streamlit dashboard.
 
-To prevent horde armies from gaining an unfair mini alpha-strike advantage (more unit activations
-equals more actions):
+### Command Point Economy for Balanced Unit Counts — opt-in SwegHammer mode
 
-- At the end of each round (after both players' units are activated), the player with fewer units
-  gains bonus command points.
-- Formula (to be calibrated): `bonus_CP = max(0, floor((opponent_units - your_units) / 2))`
-- Exclusions: Turn 1 is excluded to discourage list-building around unit count.
-- Cap: Sensible ceiling per round (e.g., 1–2 CP per round maximum).
+Also part of `RulesConfig.sweghammer()` only (`cp_catchup_bonus`), to prevent horde armies from
+gaining an unfair mini alpha-strike advantage (more unit activations equals more actions) under
+the alternating-activation model above:
 
-**Benefit:** Horde armies remain tactically viable without dominating the turn economy.
+- At the end of each round (after Round 1), the player with fewer units gains bonus command points.
+- Formula: `bonus_CP = max(0, floor((opponent_units - your_units) / 2))`
+- Cap: +2 CP per round maximum.
+
+**Benefit:** Horde armies remain tactically viable without dominating the turn economy. 10e has
+no such mechanic, so it is off under the default vanilla ruleset.
 
 ## Mathematical Foundation: Lanchester's Square Law
 
