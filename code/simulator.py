@@ -3760,7 +3760,7 @@ class Battle:
         score 5 victory points a round, secondaries.score_position_delta); Phase 5
         refines the weighting. See docs/WHOLE_GAME_PLANNER_DESIGN.md Section 2.1."""
         if not hand:
-            return 0.0
+            return 0.0, None
         card_vp = {"behind_enemy_lines": 5.0, "engage_on_all_fronts": 5.0,
                    "cleanse": 2.0, "_board": 5.0}
         goals = []                       # (card_key, (gx, gy))
@@ -3789,15 +3789,71 @@ class Battle:
         for g in self._board_pursuit_goals(hand, own_is_a):
             goals.append(("_board", g))
         if not goals:
-            return 0.0
+            return 0.0, None
         my_move = float(effective_move(unit))
         ux, uy = unit.position
         best = 0.0
+        best_goal = None
         for card, (gx, gy) in goals:
             d = ((ux - gx) ** 2 + (uy - gy) ** 2) ** 0.5
             reach = 1.0 if d <= my_move else max(0.0, 1.0 - (d - my_move) / 12.0)
-            best = max(best, card_vp.get(card, 4.0) * scoring_rounds_remaining * reach)
-        return best
+            val = card_vp.get(card, 4.0) * scoring_rounds_remaining * reach
+            if val > best:
+                best = val
+                best_goal = (gx, gy)
+        return best, best_goal
+
+    def plan_turn(self, active, other):
+        """Whole-game strategic planner, gated SWEG_PLANNER (default off, byte-identical
+        off). Runs once at the top of the active army's turn (the _assign_card_pursuit
+        slot). For each unit it compares, in the measured victory-point currency, the
+        best CONTEST net margin (value_net_score = destination value minus threat-field
+        attrition) against the best SCORE value (_planner_score_value), and if SCORE
+        genuinely beats contesting -- the ENVELOPE role choice -- commits the unit to
+        that secondary goal via pursue_target. This is the SCORE-with-real-units
+        behaviour the reframed test targets: the out-durabilitied side, whose CONTEST
+        nets are negative against a durable holder's attrition, is steered to score the
+        secondary race it wins, while a durable unit (positive CONTEST net) keeps
+        contesting -- an emergent asymmetry, no per-faction gate. See
+        docs/WHOLE_GAME_PLANNER_DESIGN.md Section 2."""
+        if __import__("os").environ.get("SWEG_PLANNER") != "1":
+            return
+        objectives = self.map.objectives
+        if not objectives:
+            return
+        from .strategy import (value_net_score, _threat_projectors,
+                               _oc_on_objective, _value_scoring_rounds_remaining,
+                               _dist)
+        own_is_a = active is self.a
+        srr = _value_scoring_rounds_remaining(max(1, self._current_round))
+        chosen = getattr(active, "chosen_secondaries", ()) or ()
+        hand = getattr(active, "tactical_hand", None) or ()
+        projectors = _threat_projectors(other)
+        f_alive = active.alive_units
+        e_alive = other.alive_units
+        for unit in list(active.alive_units):
+            if unit.action_this_round is not None or unit.pursue_target is not None:
+                continue
+            own_oc = unit.profile.oc or 0
+            best_contest = None
+            for obj in objectives:
+                our = _oc_on_objective(f_alive, obj)
+                their = _oc_on_objective(e_alive, obj)
+                on_it = _dist(unit.position, (obj.x, obj.y)) <= obj.control_radius
+                prospective = our + (own_oc if not on_it else 0)
+                net = value_net_score(unit, obj, prospective, their, projectors,
+                                      self.map, srr, own_is_a, chosen)
+                if best_contest is None or net > best_contest:
+                    best_contest = net
+            score_v, score_goal = self._planner_score_value(unit, hand, own_is_a, srr)
+            # ENVELOPE: assign SCORE only when it beats this unit's best CONTEST net
+            # (and is itself positive). The asymmetry is emergent -- a fragile unit's
+            # contest net is driven negative by the durable holder's attrition, so
+            # SCORE wins and it goes to score; a durable unit's contest net stays
+            # positive, so it keeps contesting.
+            if (score_goal is not None and score_v > 0.0
+                    and score_v > (best_contest if best_contest is not None else 0.0)):
+                unit.pursue_target = score_goal
 
     # ------------------------------------------------------------------
     # Wave 133-135 — secondary dedication PLANNER (positioning bias only).
@@ -12872,6 +12928,9 @@ class Battle:
             # activation. No-op when the pursuit gate is off. Called on the
             # active army only (it's the active army's movement phase).
             self._assign_card_pursuit(active, other)
+            # Whole-game strategic planner. No-op when SWEG_PLANNER is off
+            # (byte-identical); otherwise steers SCORE-with-real-units before the loop.
+            self.plan_turn(active, other)
             # Wave 133 Stage A: assign deliberate-dedication intent BEFORE the
             # move loop too, so a dedicated body's pursue_target biases its move
             # toward the card's geographic goal this activation. No-op when the
