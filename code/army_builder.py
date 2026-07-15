@@ -444,6 +444,7 @@ def build_faction_random_army(
     max_unit_fraction: float = 0.5,
     use_archetype: bool = False,
     price_overrides: Optional[Dict[str, float]] = None,
+    exclude_legends: bool = False,
 ) -> Army:
     """
     Build a random army drawing only from a single faction's unit pool.
@@ -477,6 +478,12 @@ def build_faction_random_army(
 
     import dataclasses
     pool_items = [(k, UNIT_CATALOG[k]) for k in UNIT_CATALOG if UNIT_CATALOG[k].faction == faction]
+    # exclude_legends (opt-in; default-False keeps the eval behaviour): drop
+    # [Legends] datasheets from the random pool so a random-mode army matches
+    # the tournament / archetype exclusion (real events, and code.archetypes,
+    # exclude Legends). Marker is the "[Legends]" suffix in the display name.
+    if exclude_legends:
+        pool_items = [(k, p) for k, p in pool_items if "[Legends]" not in (p.name or "")]
     if price_overrides:
         pool = [
             dataclasses.replace(p, points_override=price_overrides[k])

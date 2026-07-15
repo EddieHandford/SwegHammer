@@ -343,10 +343,14 @@ def _army_spec_from_composition(
 
 def _composition_from_random(
     faction: str, budget: float, size_policy: str, seed: int,
+    exclude_legends: bool = False,
 ) -> List[Tuple[str, int]]:
     """Generate a single sample random army and return its model breakdown."""
     rng = random.Random(seed)
-    army = build_faction_random_army(faction, faction, budget, rng=rng, size_policy=size_policy)
+    army = build_faction_random_army(
+        faction, faction, budget, rng=rng, size_policy=size_policy,
+        exclude_legends=exclude_legends,
+    )
     # Group adjacent same-profile units into (key, count) pairs
     from collections import Counter
     name_to_key = {UNIT_CATALOG[k].name: k for k in UNIT_CATALOG if UNIT_CATALOG[k].faction == faction}
@@ -1601,6 +1605,18 @@ with st.sidebar:
                 "random: uniform integer between min and max."
             ),
         )
+        exclude_legends = st.checkbox(
+            "Exclude Legends units (match tournament / calibration lists)",
+            value=True,
+            key="fvf_exclude_legends",
+            help=(
+                "Legends datasheets are not used in the tournament meta the sim "
+                "calibrates against, and the archetype evaluation lists exclude "
+                "them (code/archetypes.py). Leaving this ON makes the random army "
+                "representative of what the calibration actually measures; turn it "
+                "OFF to draw from the full catalogue including Legends."
+            ),
+        )
 
         # Sample preview army per side. Stable across reruns so editing other
         # controls doesn't flicker the preview, but bump on user request via
@@ -1614,8 +1630,8 @@ with st.sidebar:
             a_faction, b_faction, budget, size_policy,
             st.session_state["fvf_reroll_n"],
         ))) & 0xFFFF
-        a_comp = _composition_from_random(a_faction, budget, size_policy, sample_seed)
-        b_comp = _composition_from_random(b_faction, budget, size_policy, sample_seed + 1)
+        a_comp = _composition_from_random(a_faction, budget, size_policy, sample_seed, exclude_legends)
+        b_comp = _composition_from_random(b_faction, budget, size_policy, sample_seed + 1, exclude_legends)
 
         # The widgets already publish budget + size_policy under their `key`s,
         # so session_state has them without explicit assignment. The run handler
@@ -1760,8 +1776,9 @@ with st.sidebar:
             # Resample the preview armies at the adjusted budget.
             _samp = abs(hash((a_faction, b_faction, _eff, size_policy,
                               st.session_state.get("fvf_reroll_n", 0)))) & 0xFFFF
-            a_comp = _composition_from_random(a_faction, _eff, size_policy, _samp)
-            b_comp = _composition_from_random(b_faction, _eff, size_policy, _samp + 1)
+            _excl_leg = st.session_state.get("fvf_exclude_legends", True)
+            a_comp = _composition_from_random(a_faction, _eff, size_policy, _samp, _excl_leg)
+            b_comp = _composition_from_random(b_faction, _eff, size_policy, _samp + 1, _excl_leg)
             profile_a = UNIT_CATALOG[next((k for k, n, *_ in a_comp if n > 0), a_comp[0][0])] if a_comp else None
             profile_b = UNIT_CATALOG[next((k for k, n, *_ in b_comp if n > 0), b_comp[0][0])] if b_comp else None
         elif mode == "Preset Battle":
@@ -1949,11 +1966,14 @@ if run:
         # `budget` already holds the fair-resolved effective value (it may
         # exceed the slider setting when escalated for fairness above).
         size_policy = st.session_state.get("fvf_size_policy", "max")
+        _excl_leg = st.session_state.get("fvf_exclude_legends", True)
         factory_a = lambda: build_faction_random_army(
             a_name, a_faction, budget, in_cover=a_cover, size_policy=size_policy,
+            exclude_legends=_excl_leg,
         )
         factory_b = lambda: build_faction_random_army(
             b_name, b_faction, budget, in_cover=b_cover, size_policy=size_policy,
+            exclude_legends=_excl_leg,
         )
     else:
         factory_a = lambda: _build_army_from_composition(a_name, a_comp, in_cover=a_cover)
