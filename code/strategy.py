@@ -1851,7 +1851,16 @@ def _kill_potential_wounds(attacker_profile, target_profile) -> float:
     )
     save_fail = max(0.0, 1.0 - max(save_pass, invuln_pass))
     dmg = attacker_profile.melee_damage_per_shot or 1.0
-    return dpa * wound_p * save_fail * dmg
+    # DEVASTATING WOUNDS AI-VALUATION (env-gated SWEG_DEVWOUND_VALUE, default OFF,
+    # byte-identical off). Melee crit wounds (natural 6, ~1/6) are mortal and
+    # bypass armour+invuln — credit them so a dev-wounds melee unit is valued for
+    # cracking a brick. Asymmetric: scoped to melee_devastating_wounds weapons and
+    # scaled by the target's save quality. See sim-counterplay-frontier.
+    _has_devw = (__import__("os").environ.get("SWEG_DEVWOUND_VALUE") == "1"
+                 and getattr(attacker_profile, "melee_devastating_wounds", False))
+    _crit = (1.0 / 6.0) if _has_devw else 0.0
+    _effective = _crit + max(0.0, wound_p - _crit) * save_fail
+    return dpa * _effective * dmg
 
 
 # #C2 (iter 2) — Charge "won't-crack" penalty constants. A charge whose
@@ -4048,6 +4057,38 @@ def pick_move_intent(
     # = 1 + 0.15*(round-1), so T5 stays-on-objective scores ~1.6x a T2 hold
     # and STEAL value at T5 (~5.6) easily beats sitting on a friendly-held
     # objective (~1.6). Round defaults to 1 when no Battle is active.
+    # MOBILITY-DENIAL precompute (env-gated SWEG_MOBILITY_DENIAL, default OFF,
+    # byte-identical off). The outmaneuver-the-slow-blob counterplay: a FAST unit
+    # values an objective the slow enemy cannot contest for 2+ rounds (real fast
+    # armies beat durable ones by taking markers they can't reach — the battle-
+    # report tape). ASYMMETRIC by construction: the per-objective boost fires only
+    # when THIS unit's move clears the nearest contesting enemy's by >= 3in, so a
+    # Move-5 Death Guard / Move-6 gun-Knight unit cannot trigger it against a
+    # Move-6+ opponent; the arrival>2 guard avoids the refuted grab-early-then-
+    # ground-off-later pattern. See sim-counterplay-frontier.
+    _mob_deny = __import__("os").environ.get("SWEG_MOBILITY_DENIAL") == "1"
+    _mob_self = 0.0
+    _mob_enemy = None
+    if _mob_deny and enemy is not None and friendly is not None:
+        # ARMY-LEVEL outmaneuver matchup gate (the asymmetry). Mobility-denial may
+        # fire ONLY for a faster-AND-more-FRAGILE army vs a slower-durable one — the
+        # real fast-fragile-beats-slow-durable matchup (Harlequins/Space Wolves off
+        # Death Guard). Speed alone is NOT the signal: the fastest factions are the
+        # durable gun-Knights (mean move 11+), which must NOT get this or it inflates
+        # the over-poles. Durability proxy = mean toughness*wounds per model.
+        _fu = list(friendly.alive_units)
+        _eu = list(enemy.alive_units)
+        if _fu and _eu:
+            _my_mv = sum(float(effective_move(u)) for u in _fu) / len(_fu)
+            _en_mv = sum(float(effective_move(u)) for u in _eu) / len(_eu)
+            _my_du = sum((u.profile.toughness or 4) * (u.profile.health or 1)
+                         for u in _fu) / len(_fu)
+            _en_du = sum((u.profile.toughness or 4) * (u.profile.health or 1)
+                         for u in _eu) / len(_eu)
+            if _my_mv >= _en_mv + 2.0 and _my_du < _en_du:
+                _mob_self = float(effective_move(unit))
+                _mob_enemy = [(float(effective_move(e)), e.position)
+                              for e in _eu if float(effective_move(e)) > 0.0]
     objs = []
     for obj in objectives:
         a_oc = _our_oc[id(obj)]
@@ -4111,6 +4152,18 @@ def pick_move_intent(
             value *= 1.3
         # Distance-weighted: closer objectives win unless their value dominates
         score = value / (1.0 + d / 12.0)
+        # MOBILITY-DENIAL: boost an objective the slow enemy cannot contest for
+        # 2+ rounds and this faster unit can reach (see the precompute above).
+        if _mob_enemy:
+            _mt = None
+            _nm = 6.0
+            for _em, _ep in _mob_enemy:
+                _t = _dist((obj.x, obj.y), _ep) / _em
+                if _mt is None or _t < _mt:
+                    _mt = _t
+                    _nm = _em
+            if _mt is not None and _mt > 2.0 and _mob_self >= _nm + 3.0:
+                score *= 1.4
         # Plan bias: LEFT/RIGHT/MID push tilt toward objectives on the plan's
         # target zone; HOME_HOLD doubles friendly-side and halves enemy-side.
         # No-op (1.0x) when army_plan is None.

@@ -840,6 +840,7 @@ def score_position_delta(
     round_num: int = 1,
     attacker_faction: Optional[str] = None,
     chosen: Optional[Iterable[str]] = None,
+    deck_path: bool = False,
 ) -> Tuple[int, int]:
     """Compute (engage_vp, behind_enemy_lines_vp) for one side at end-of-
     round given the side's currently-alive units, the battlefield map,
@@ -962,9 +963,23 @@ def score_position_delta(
     # draw. Each side scores AT MOST ONE per round (the secondary that's
     # "active" this turn per the alternating schedule).
     side = "A" if own_is_army_a else "B"
-    engage_active = _is_tactical_secondary_active(round_num, side, "engage")
-    bel_active = _is_tactical_secondary_active(round_num, side,
-                                                "behind_enemy_lines")
+    # SECONDARY-POSFIX (env-gated SWEG_SECONDARY_POSFIX, default OFF, byte-identical
+    # off). On the Tactical-DECK path the hand-draw already gates cadence (a card in
+    # hand scores every round, persistent-while-held per CA-2025-26); applying the
+    # legacy LC-2 every-other-round schedule ON TOP of it double-gates Engage /
+    # Behind Enemy Lines, halving them (data/_secondary_model_design.md — the sim
+    # 11.4 vs real 22.7 secondary gap). When set + on the deck path, skip LC-2 so a
+    # held positional card scores every round it is achieved. Asymmetric: only pays
+    # a unit that ACHIEVES board-quarter spread / enemy-DZ presence (the mobility
+    # secondaries) — a durable gunline clustered on 1-2 markers does not newly
+    # qualify. Legacy union path (deck_path=False) is unchanged.
+    if deck_path and __import__("os").environ.get("SWEG_SECONDARY_POSFIX") == "1":
+        engage_active = True
+        bel_active = True
+    else:
+        engage_active = _is_tactical_secondary_active(round_num, side, "engage")
+        bel_active = _is_tactical_secondary_active(round_num, side,
+                                                    "behind_enemy_lines")
     # SECONDARY-SELECTION-V1: gate further on `chosen_set` — even if the
     # LC-2 deck-draw slot is "active" this turn, the army only scores the
     # secondary when it has actually picked that Tactical card.

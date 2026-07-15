@@ -4610,7 +4610,7 @@ class Battle:
             # see _unit_can_perform_action and _score_cleanse / _score_sabotage.
             eng, bel = score_position_delta(
                 scoring_army.units, self.map, own_is_army_a=own_is_army_a,
-                round_num=round_num, chosen=one,
+                round_num=round_num, chosen=one, deck_path=True,
             )
             return eng + bel
         # --- Action cards (Cleanse / Sabotage) ---------------------------------
@@ -14825,6 +14825,22 @@ class Battle:
         wound_frac = max(raw_wound_frac, anti_frac)
         if wound_frac <= 0.0:
             return 0.0
+        # DEVASTATING WOUNDS AI-VALUATION (env-gated SWEG_DEVWOUND_VALUE, default
+        # OFF, byte-identical off). The dice resolution in Unit.attack already
+        # bypasses armour+invuln on a critical wound; this teaches the VALUATION
+        # the same, so a dev-wounds weapon is correctly credited for cracking a
+        # brick — the mechanic that beats durable armies in real play (Harlequins
+        # devastating wounds off Death Guard on the battle-report tape). A critical
+        # wound (natural 6, ~1/6 of wound rolls) is a mortal wound that ignores
+        # both saves; the rest take the best save. ASYMMETRIC by construction:
+        # devastating_wounds is a datasheet subset scarce on the durable over-poles
+        # (Death Guard 6/46, Imperial Knights 7/22) and its magnitude scales with
+        # the TARGET's save/invuln quality, so it only fires meaningfully when a
+        # dev-wounds army shoots INTO a brick, never for the durable army's own
+        # output. See the counterplay roadmap / auto-memory sim-counterplay-frontier.
+        _has_devw = (__import__("os").environ.get("SWEG_DEVWOUND_VALUE") == "1"
+                     and (getattr(p, "devastating_wounds", False)
+                          or getattr(p, "transient_devastating_wounds", False)))
         # "Genuinely can't hurt it" exclusion (the briefing's no-wasted-fire
         # rule). A weapon whose ONLY wound path is a natural 6 (raw wound
         # fraction <= 1/6, e.g. a Strength-4 bolter into a Toughness-11 Knight)
@@ -14832,17 +14848,25 @@ class Battle:
         # cracking a brick. Treat it as unable to hurt the brick so it is never
         # counted toward the collective crack and never redirected — bolters
         # keep clearing chaff. A real anti-tank gun (matching Anti-keyword, or
-        # raw wound on 5+ or better) is unaffected.
-        if anti_frac <= 0.0 and raw_wound_frac <= (1.0 / 6.0) + 1e-9:
+        # raw wound on 5+ or better) is unaffected. A DEV-WOUNDS weapon is exempt:
+        # its crit-6 mortal wounds hurt the brick even when it wounds only on 6.
+        if anti_frac <= 0.0 and raw_wound_frac <= (1.0 / 6.0) + 1e-9 and not _has_devw:
             return 0.0
         save_pass = save_probability(tp.save, getattr(p, "ap", 0) or 0)
         invuln = getattr(tp, "invuln_save", 7) or 7
         invuln_pass = save_probability(invuln) if invuln <= 6 else 0.0
         save_fail = max(0.0, 1.0 - max(save_pass, invuln_pass))
-        if save_fail <= 0.0:
+        # A dev-wounds weapon still hurts a target it cannot beat on the save,
+        # because the crit fraction bypasses the save entirely.
+        if save_fail <= 0.0 and not _has_devw:
             return 0.0
         dmg = p.per_shot_damage or 1.0
-        return shots * hit_frac * wound_frac * save_fail * dmg
+        # Crit (mortal, bypass save) + non-crit (takes the best save).
+        _crit = (1.0 / 6.0) if _has_devw else 0.0
+        _effective = _crit + max(0.0, wound_frac - _crit) * save_fail
+        if _effective <= 0.0:
+            return 0.0
+        return shots * hit_frac * _effective * dmg
 
     @staticmethod
     def _brick_threat_value(u) -> float:
