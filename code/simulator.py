@@ -3747,6 +3747,58 @@ class Battle:
             goals.append((mx, self.map.height / 2.0))
         return goals
 
+    def _planner_score_value(self, unit, hand, own_is_a, scoring_rounds_remaining):
+        """Whole-game planner SCORE estimator (Phase 2, dead code until the planner's
+        plan_turn pass in Phase 3 -- no behaviour change). Victory points `unit` could
+        earn by pursuing its army's best held Tactical card this turn: the card's
+        victory-points-per-round times scoring rounds remaining times reachability of
+        the unit to the card's geographic goal. Reuses the _assign_card_pursuit /
+        _board_pursuit_goals geometry WITHOUT the chaff gate or the pursue_target
+        mutation, so the planner can price the SCORE role for ANY unit (not only spare
+        chaff -- the limitation that made the old pursuit layer ineffective). Per-card
+        yields are the sim's own (Engage on All Fronts and Behind Enemy Lines each
+        score 5 victory points a round, secondaries.score_position_delta); Phase 5
+        refines the weighting. See docs/WHOLE_GAME_PLANNER_DESIGN.md Section 2.1."""
+        if not hand:
+            return 0.0
+        card_vp = {"behind_enemy_lines": 5.0, "engage_on_all_fronts": 5.0,
+                   "cleanse": 2.0, "_board": 5.0}
+        goals = []                       # (card_key, (gx, gy))
+        w, h = self.map.width, self.map.height
+        dz = self.map.deployment_width
+        active = self.a if own_is_a else self.b
+        if "behind_enemy_lines" in hand:
+            gy = h - dz * 0.5 if own_is_a else dz * 0.5
+            goals.append(("behind_enemy_lines", (w / 2.0, gy)))
+        if "engage_on_all_fronts" in hand:
+            cx, cy = w / 2.0, h / 2.0
+            occ = set()
+            for u in active.alive_units:
+                ux, uy = u.position
+                occ.add((0 if ux < cx else 1, 0 if uy < cy else 1))
+            centres = {(0, 0): (cx * 0.5, cy * 0.5), (1, 0): (cx + cx * 0.5, cy * 0.5),
+                       (0, 1): (cx * 0.5, cy + cy * 0.5), (1, 1): (cx + cx * 0.5, cy + cy * 0.5)}
+            empty = [q for q in centres if q not in occ]
+            if empty:
+                goals.append(("engage_on_all_fronts", centres[sorted(empty)[0]]))
+        if "cleanse" in hand:
+            fwd = [o for o in self.map.objectives if self._obj_outside_own_dz(o, own_is_a)]
+            if fwd:
+                o = min(fwd, key=lambda ob: abs(ob.x - w / 2.0))
+                goals.append(("cleanse", (o.x, o.y)))
+        for g in self._board_pursuit_goals(hand, own_is_a):
+            goals.append(("_board", g))
+        if not goals:
+            return 0.0
+        my_move = float(effective_move(unit))
+        ux, uy = unit.position
+        best = 0.0
+        for card, (gx, gy) in goals:
+            d = ((ux - gx) ** 2 + (uy - gy) ** 2) ** 0.5
+            reach = 1.0 if d <= my_move else max(0.0, 1.0 - (d - my_move) / 12.0)
+            best = max(best, card_vp.get(card, 4.0) * scoring_rounds_remaining * reach)
+        return best
+
     # ------------------------------------------------------------------
     # Wave 133-135 — secondary dedication PLANNER (positioning bias only).
     #
