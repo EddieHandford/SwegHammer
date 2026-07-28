@@ -100,7 +100,15 @@ class BattleResult:
     b_start: int
     a_survivors: int        # surviving unit count
     b_survivors: int
-    a_vp: int = 0           # Primary VP scored across the battle
+    # TOTAL victory points across the battle, UNCAPPED — primary plus secondary
+    # plus challenger, as accumulated in Battle._a_vp / _b_vp. This comment
+    # previously read "Primary VP scored across the battle", which was wrong:
+    # the constructor assigns `a_vp=self._a_vp`, and `_capped_standing` derives
+    # primary by SUBTRACTING secondary and challenger from that total. Corrected
+    # 2026-07-28; no behaviour changed. For the capped view the winner decision
+    # actually uses, call `Battle._capped_standing`; for the split, read
+    # `_a_secondary_vp` and `_a_challenger_vp` off the Battle.
+    a_vp: int = 0
     b_vp: int = 0
     a_points_remaining: float = 0.0   # sum of points_cost over alive units at end
     b_points_remaining: float = 0.0
