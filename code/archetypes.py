@@ -1312,6 +1312,164 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# SWEG_TYRANID_LIST_SOURCED (default-off, byte-identical when unset)
+#
+# The Tyranid "Subterranean Assault" template above cites the GW Open Maastricht
+# 2026 winning list as its source, but does not field it. The list actually
+# reported by both cited outlets (SpikeyBits "Warhammer Open Maastricht Army
+# Lists", Bell of Lost Souls "The Unbeatable List") for Ron Eliyahoo's winning
+# Subterranean Assault army is:
+#
+#     Trygon carrying the Trygon Prime enhancement   <- the detachment's engine
+#     3x Tyranid Prime with Lash Whip @ 65 each
+#     Old One Eye @ 150
+#     Maleceptor @ 170
+#     2x ten-model Hormagaunts
+#     Raveners: one Prime unit plus two five-model units
+#     Tyrannofex with Rupture cannon
+#     Zoanthropes with a Neurothrope
+#     Carnifex
+#     Lictor, Neurolictor
+#     2x Biovore
+#
+# The live template shares only Hormagaunts, Zoanthropes and the Tyrannofex with
+# it. It omits the Trygon, all three Primes, Old One Eye, the Maleceptor, every
+# Ravener, the Carnifex and both Lictors — and instead fields roughly 47
+# Termagants, 9 Ripper Swarms, an Exocrine and a Hive Tyrant, none of which
+# appear in the sourced list. MEASURED with scripts/_archetype_fidelity_probe.py
+# over six seeds at 2000 points.
+#
+# Every symptom of the Tyranid under-pole follows from the substitution:
+#   * bring_it_down 0.38 against opponents' 1.81 — the list has no Carnifex, no
+#     Old One Eye and no Maleceptor, so its only anti-armour is two Tyrannofexes.
+#   * assassination 0.36 against 1.19 — no Lictor, Neurolictor or Ravener package
+#     to reach an enemy CHARACTER.
+#   * cull_the_horde 0.12 against 2.26 — the sourced list's chaff is TWO TEN-MODEL
+#     Hormagaunt squads, which can never reach the thirteen-model Starting
+#     Strength that concedes Cull the Horde. The substituted Termagant squads
+#     average about sixteen models and concede it every game.
+# (Card figures from scripts/_am_secondary_cards.py with SC_FACTION=Tyranids.)
+#
+# The comment block on the live template explains the Trygon's removal as
+# "post-CHARACTER-keyword-strip it no longer tags as a leader-host and is
+# redundant with Carnifex/Tyrannofex as a deep-strike wrecker" — an internal
+# modelling convenience, not a real-meta observation. The Trygon is the unit the
+# detachment is named for and the mechanism the sourced list is built around.
+#
+# Biovores have no catalogue entry, so the two in the sourced list are omitted
+# rather than substituted; that is the one knowing departure here.
+#
+# This is a Stage-1 INPUT-fidelity fix: it changes which army the simulator
+# fields, not how any rule resolves. No rule citation applies — no rule is being
+# implemented — but the sourced list is recorded here and in
+# docs/TYRANID_LIST_FIDELITY.md.
+_TYRANID_LIST_SOURCED: Dict[str, Dict[str, int]] = {
+    "Subterranean Assault": {
+        "tyranids_trygon": 1,
+        "tyranids_tyranid_prime_with_lash_whip": 3,
+        "tyranids_old_one_eye": 1,
+        "tyranids_maleceptor": 1,
+        "tyranids_hormagaunts": 2,
+        "tyranids_hyperadapted_raveners": 1,
+        "tyranids_raveners": 2,
+        "tyranids_tyrannofex": 1,
+        "tyranids_zoanthropes": 1,
+        "tyranids_carnifexes": 1,
+        "tyranids_lictor": 1,
+        "tyranids_neurolictor": 1,
+    },
+}
+
+# ADOPTED 2026-07-26 — default-ON. `SWEG_TYRANID_LIST_SOURCED=0` is the
+# kill-switch and restores the previous template and the digest
+# `4aab205fbb99635db7c607db` exactly.
+#
+# SCREENED scoped to Tyranids (data/_scr_nidlist_log.json, N=80 paired against
+# sc68a): Tyranids **+9.49** in the A-frame, 35.9 to 45.4 against a real 47.4, so
+# the faction's error falls from 11.5 to about 2.0. Both-sides raw: 31.0 to 44.6
+# against a real 47.0, error 15.9 to 2.4. Overall gated mean absolute error
+# **3.21 to 2.85**. Eleven other factions drift down between 0.3 and 1.4 points,
+# which is the correct collateral — their Tyranid matchup became genuinely
+# harder once Tyranids fielded the army the real 47 percent was earned with.
+#
+# This is the largest single-faction correction of the calibration campaign, and
+# it is an INPUT fix: no rule changed. Every Tyranid mechanics conclusion drawn
+# before this — including `SWEG_MELEE_CHARGE_HOLD`, which doubled charge
+# connection and moved the win rate +0.34 — was measured against the wrong army.
+if os.environ.get("SWEG_TYRANID_LIST_SOURCED", "1") != "0":
+    ARCHETYPES["Tyranids"] = _TYRANID_LIST_SOURCED
+
+
+# ---------------------------------------------------------------------------
+# SWEG_VOTANN_LIST_SOURCED (default-off, byte-identical when unset)
+#
+# Leagues of Votann is the largest list-shaped residual after the Tyranid fix:
+# 60.4 both-sides against a real 48.0, +12.4. Its template cites no checkable
+# list — only a bare `goonhammer.com` and the Wahapedia rules wiki, neither of
+# which identifies a roster — and it is metric-tuned.
+#
+# THE SOURCED LIST. Hunter Spakes, 6-0 winner, 2026 Central Arkansas Grand
+# Tournament, Oathband detachment, reported by SpikeyBits ("Leagues of Votann Go
+# 6-0: Central Arkansas GT Top 40k Army Lists") from Best Coast Pairings event
+# data. Tenth edition, before the edition change:
+#
+#     3x Hekaton Land Fortress
+#     3x Brokhyr Thunderkyn squads
+#     5 Cthonian Beserks plus Uthar the Destined
+#     2x Hernkyn Pioneer squads
+#     a ten-model Hernkyn Yaegir block
+#     Brokhyr Iron-master with three E-COGs and an Ironkin Assistant
+#       (the catalogue models exactly that as one five-model unit at 75 points)
+#
+# WHAT THE TEMPLATE FIELDS INSTEAD: Hearthkyn Warriors x2, Einhyr Hearthguard,
+# ONE Hekaton Land Fortress, Sagitaur, Kahl, Einhyr Champion, ONE Hernkyn
+# Pioneers, ONE Cthonian Beserks, Brokhyr Iron-master. No Thunderkyn. No
+# Yaegirs. No Uthar. One flagship vehicle where the winning list runs three.
+#
+# AND THE TEMPLATE'S OWN COMMENT EXPLAINS WHY. It records that
+# `SEED_FRACTION_BY_FACTION` was raised to 0.4 specifically so the Hekaton lands
+# in the seed "rather than being deferred to random_fill (which historically
+# picked cheaper Brokhyr Thunderkyn / Yaegirs over the flagship vehicle)", as a
+# "mandatory inclusion for iter17 fix to recover Votann sim from -11.6pt iter16
+# regression". So the tuning SUPPRESSED Thunderkyn and Yaegirs — the two things
+# the real winning list runs in quantity — in order to force in one Hekaton, and
+# it did so to move the metric. The builder's untuned instinct was closer to the
+# real meta than the override that replaced it. This is the Tyranid defect
+# (docs/TYRANID_LIST_FIDELITY.md) in a second faction.
+#
+# KNOWING DEPARTURE, recorded rather than papered over: the source names the
+# core and describes the remainder only as "supporting them", so this declares
+# ONLY the 1480 points it actually names and lets the builder's fill cover the
+# rest. Inventing Hearthkyn and Kahl counts to reach 2000 and presenting them as
+# sourced is precisely the failure being corrected here.
+#
+# CAUTION on direction: Votann is OVER-performing, and the sourced list is a
+# heavier triple-tank gunline than what is fielded now, so this may push Votann
+# further UP rather than down. That is not a reason to skip it — the input
+# should match reality regardless of which way the number moves — but it must
+# not be assumed to close the residual the way the Tyranid fix did.
+#
+# Stage-1 INPUT fidelity: no rule changes, so no rule citation applies.
+# Verify with `scripts/_detcheck_wide.py`, NOT the narrow digest — Leagues of
+# Votann is not among the six factions the narrow harness plays, so that digest
+# cannot see this change at all.
+_VOTANN_LIST_SOURCED: Dict[str, Dict[str, int]] = {
+    "Oathband": {
+        "leagues_of_votann_hekaton_land_fortress": 3,
+        "leagues_of_votann_br_khyr_thunderkyn": 3,
+        "leagues_of_votann_cthonian_beserks": 1,
+        "leagues_of_votann_thar_the_destined": 1,
+        "leagues_of_votann_hernkyn_pioneers": 2,
+        "leagues_of_votann_hernkyn_yaegirs": 1,
+        "leagues_of_votann_br_khyr_iron_master": 1,
+    },
+}
+
+if os.environ.get("SWEG_VOTANN_LIST_SOURCED", "0") == "1":
+    ARCHETYPES["Leagues of Votann"] = _VOTANN_LIST_SOURCED
+
+
 def has_archetype(faction: str) -> bool:
     """True if `faction` has at least one curated archetype template."""
     return faction in ARCHETYPES and bool(ARCHETYPES[faction])
@@ -2368,11 +2526,31 @@ def _instantiate_template(
       A 100% template-seeded army produced ~24-pt MAE in eval-vs-meta
       because some faction catalogues have lopsided costs (Aeldari Aspect
       Warriors are very expensive, Tyranid Termagants are very cheap) and a
-      tournament-list template doesn't compensate. Seeding 60% of the
+      tournament-list template doesn't compensate. Seeding a SLICE of the
       budget with the curated template (so the army's CHARACTER + flavour
       units are present) and filling the rest randomly keeps the overall
       cost-per-model close to the random baseline while still biasing list
       composition.
+
+      The slice is `SEED_FRACTION`, currently **0.3** — 600 points of a
+      2,000-point army. This sentence previously read "60%", which was
+      wrong by a factor of two against the constant and is corrected here
+      (2026-07-27); no behaviour changed, only the description.
+
+      CONSEQUENCE, measured 2026-07-27 by `scripts/_realization_vs_ordering`:
+      ALL 22 faction templates cost more than that 600-point slice even
+      priced as a distinct union at minimum squad sizes — from 1.17 times
+      the slice (Adeptus Astartes) to 6.51 times (Imperial Knights). So no
+      faction's template is ever seeded whole, and roughly seventy percent
+      of every army comes from `_random_fill`. Because the fill draws from
+      the same faction pool and its caps key off `template_count`, the
+      practical effect is not off-flavour units but PROPORTION DISTORTION:
+      cheap declared entries get multiplied well past their real squad
+      counts (Aeldari Rangers are declared once and field about 3.2 squads;
+      Warp Spiders field 25-35 models against 10-15 in the cited lists).
+      This damps, but does not nullify, template corrections — the Tyranid
+      list fix still moved that faction +9.49, because changing the
+      template also changes what the fill is allowed to multiply.
 
     Template-entry realization (`SWEG_TEMPLATE_REALIZE`) is NOT handled
     here. A first shape that widened this seed walk (a breadth pass at
