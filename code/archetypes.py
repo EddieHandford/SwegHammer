@@ -1470,6 +1470,84 @@ if os.environ.get("SWEG_VOTANN_LIST_SOURCED", "0") == "1":
     ARCHETYPES["Leagues of Votann"] = _VOTANN_LIST_SOURCED
 
 
+# ---------------------------------------------------------------------------
+# SWEG_AELDARI_LIST_SOURCED (default-off, byte-identical when unset)
+#
+# Aeldari is the largest ORDERING failure in the game: the simulator ranks it
+# 6th strongest of 22, reality ranks it LAST at 41.5 percent. Fixing that one
+# faction would add +0.145 to a Spearman rank correlation that currently totals
+# +0.282 — half the entire ordering signal sits here. See
+# docs/METRIC_SKILL_AND_DISPERSION.md and scripts/_rank_error_table.py.
+#
+# THE DEFECT IS ERA, NOT EDITION. The active "Warhost" template is sourced, but
+# to TWO 2025 tournament lists (Salt City Grand Tournament IV, seven-nil, August
+# 2025; Nova Open 2025). Both are tenth edition, so the rules are right — but
+# Aeldari were dominant in 2025 and are last of twenty-two by May 2026, which is
+# the era the simulator is calibrated against. It is faithfully playing a list
+# that won when the faction was strong.
+#
+# THE SOURCED LIST. Cam Hawkins, 1st place, OWN's Breaking Point Grand
+# Tournament at Game HQ, Oklahoma City, 33 players, 5 rounds, 9 May 2026.
+# Reported by Tabletop Battles, "Competitive Innovations in 10th: Wind Down"
+# (https://www.tabletopbattles.com/40k-competitive-innovations-in-10th-wind-down),
+# roster read from the expanded army list on that page 2026-07-28. TENTH
+# edition, six weeks before the change on 20 June 2026 — and the same article
+# has its author weighing whether to run this build at "my (probably final)
+# 10th Edition event this weekend", which dates it beyond doubt.
+#
+#     Asurmen 135 (Warlord)          Fire Prism 150 x3
+#     Avatar of Khaine 280           Rangers 55 (5 models)
+#     Lhykhis 135                    War Walkers 85
+#     Wave Serpent 125               Warlock Skyrunners 45 x2
+#     Dire Avengers 150 (10 models)  Warp Spiders 105 (5 models)
+#     Wraithlord 130 x3              = 2000 points
+#
+# WHAT THE ACTIVE TEMPLATE FIELDS INSTEAD: Fuegan, Jain Zar, Lhykhis, Autarch,
+# Warp Spiders, Fire Dragons, Dark Reapers, Howling Banshees, Swooping Hawks,
+# Wave Serpent, Corsair Voidreavers, Rangers. It shares FOUR of twelve entries
+# with the real May 2026 winner — Lhykhis, Warp Spiders, Wave Serpent, Rangers.
+# No Avatar, no Wraithlords, no Fire Prisms, no Asurmen, no Dire Avengers.
+#
+# AND THE RESHAPE DELETED EXACTLY THE UNITS THE WINNER IS BUILT ON. The wave-240
+# comment removes the Avatar of Khaine reasoning "zero appearances across all six
+# confirmed lists" — all six being 2025 lists. Same shape as the Tyranid defect
+# (docs/TYRANID_LIST_FIDELITY.md, +9.49 when corrected) and the Votann one.
+#
+# REPRESENTATIVENESS CAVEAT, AND IT IS WHY THIS IS DEFAULT-OFF. The reporting
+# author calls it "a surprise win" with "a very metagame-targeted build" at a
+# 33-player event, explicitly built to beat the Defiler and hull-spam metagame of
+# the moment. One unrepresentative list is what made the Votann result a trap, so
+# this is NOT adopted on provenance alone — it must be screened, and judged on
+# the ordering diagnostics rather than on distance.
+#
+# KNOWING DEPARTURES from the real roster:
+#   * War Walkers (85 points) are ABSENT FROM THE CATALOGUE. Per CLAUDE.md rule
+#     9 a missing unit belongs in data/overrides.json as a fully-specified
+#     entry, never hand-rolled in code, so the entry is simply omitted here and
+#     the list runs 85 points light rather than substituting something else.
+#   * Dire Avengers are one TEN-model squad in the real list; the catalogue's
+#     minimum squad is five, so count=2 expresses the real model count.
+#   * Priced in the codebase's own minimum-size currency the expressible list is
+#     1,915 of 2,000 points. Like every other template it overruns the 600-point
+#     seed slice (SEED_FRACTION 0.3) — see the _instantiate_template docstring.
+_AELDARI_LIST_SOURCED: Dict[str, Dict[str, int]] = {
+    "Aspect Host": {
+        "aeldari_craftworlds_wraithlord": 3,
+        "aeldari_craftworlds_fire_prism": 3,
+        "aeldari_craftworlds_avatar_of_khaine": 1,
+        "aeldari_craftworlds_asurmen": 1,
+        "aeldari_craftworlds_lhykhis": 1,
+        "aeldari_craftworlds_dire_avengers": 2,
+        "aeldari_craftworlds_wave_serpent": 1,
+        "aeldari_craftworlds_warlock_skyrunners": 2,
+        "aeldari_craftworlds_warp_spiders": 1,
+        "aeldari_craftworlds_rangers": 1,
+    },
+}
+if os.environ.get("SWEG_AELDARI_LIST_SOURCED", "0") == "1":
+    ARCHETYPES["Aeldari"] = _AELDARI_LIST_SOURCED
+
+
 def has_archetype(faction: str) -> bool:
     """True if `faction` has at least one curated archetype template."""
     return faction in ARCHETYPES and bool(ARCHETYPES[faction])
@@ -1983,6 +2061,36 @@ def _effective_template(
 
     # SWEG_EC_LIST3 (2026-07-08) — Emperor's Children list realism 3. Default
     # OFF. List-composition correction, NOT win-rate tuning.
+    #
+    # ############################################################
+    # DO NOT ENABLE. ELEVENTH EDITION SOURCE. (verified 2026-07-28)
+    # ############################################################
+    #
+    # The source event, Battle For The Capital Grand Tournament 2026 (AFK Games,
+    # Holt, Michigan), was played under ELEVENTH edition. Eleventh launched on
+    # 20 June 2026; the reporting article is filed by SpikeyBits under the
+    # category "11th Edition 40k", says in the body that "players need a plan
+    # for it in 11th" and that the winner has "two Grand Tournament wins across
+    # editions", and the third-place list runs Sekhetar Robots — an eleventh
+    # edition datasheet — with Magnus at 455 points.
+    #
+    # This project simulates TENTH edition against the May 2026 Warp Friends
+    # aggregate, so the list is disqualified as calibration input no matter how
+    # faithfully it is transcribed. The transcription IS faithful — the article's
+    # roster matches the entries below unit for unit — which is precisely why
+    # this needed catching: fidelity to the wrong edition is still wrong.
+    #
+    # HOW THE ERROR WAS MADE, recorded so it is not repeated: the comment below
+    # cites a "live source lookup" performed on 2026-07-08 and treated that as
+    # establishing the source. A LOOKUP date is not an EVENT date. Only the date
+    # the games were played decides the edition. See docs/CURRENT_STATE.md for
+    # the boundary and scripts/_citation_era_audit.py for the sweep.
+    #
+    # TO REPLACE IT: source an Emperor's Children list from an event played
+    # BEFORE 20 June 2026. Everything else in the reasoning below stands — the
+    # active template really is a cost-infeasible union, and a sourced,
+    # cost-feasible re-derivation really is the shape of intervention that has
+    # worked twice (Orks +5.03, Tyranids +9.49).
     #
     # THE FINDING (MEASURED, 2026-07-08 audit): the SWEG_EC_LIST2 effective
     # template above (12 entries) is a cost-INFEASIBLE union at competitive
