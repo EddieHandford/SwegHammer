@@ -800,11 +800,22 @@ class Battle:
     def run(self) -> BattleResult:
         # Battle Focus tokens (Aeldari ASURYANI army rule, 10e). The token
         # pool is now granted PER BATTLE ROUND in _run_round, not once here.
-        # By default the grant is additive across rounds (legacy behaviour).
         # CORRECTED CITATION: Wahapedia states verbatim "At the end of the
         # battle round, all unspent Battle Focus tokens are lost" — under the
-        # default-off gate `SWEG_AELDARI_BF_DISCARD`, `_run_round` zeroes each
+        # DEFAULT-ON gate `SWEG_AELDARI_BF_DISCARD`, `_run_round` zeroes each
         # army's pool at the end of every round so it does not carry over (see
+        #
+        # THIS COMMENT PREVIOUSLY SAID "default-off" AND "by default the grant
+        # is additive across rounds". Both were wrong: the read is
+        # `get("SWEG_AELDARI_BF_DISCARD", "1") != "0"`, so production DISCARDS
+        # unspent tokens as the rule requires and `=0` is the kill-switch to the
+        # additive legacy path. Corrected 2026-07-28 after the stale text caused
+        # a probe to label its arms backwards and report a carry-over defect
+        # that production does not have. Measured
+        # (`scripts/_battle_focus_probe.py`, 40 battles): production ends every
+        # battle with 0.00 unspent tokens; the legacy path banks 24.20, and the
+        # win rate is identical at 55.0 percent either way — only Star Engines
+        # consumes tokens, so the legacy bank simply grows unused. See
         # `_grant_battle_focus_tokens` and the end-of-round reset in
         # `_run_round`). Amounts are battle-size-dependent (see
         # _grant_battle_focus_tokens). Army.battle_focus_tokens starts at 0

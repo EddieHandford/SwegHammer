@@ -732,11 +732,19 @@ class Army:
         """Key for the four Strands of Fate once-per-round budgets
         (fate_advance / fate_charge / fate_hit / fate_save).
 
-        Default (gate off, byte-identical): per-squad key — squad_id when
-        the unit has a valid squad_id (>= 0), otherwise profile_name (task
-        #28 squad_id re-key). Unchanged behaviour.
+        THE GATE IS DEFAULT-ON. It was adopted 2026-07-08 as an sc59a rider —
+        see the inline comment on the read below — so PRODUCTION USES THE
+        ARMY-WIDE KEY described further down, and `=0` is the kill-switch back
+        to the legacy per-squad key. This docstring previously said "(default
+        off)" in two places, contradicting the very line it documents;
+        corrected 2026-07-28 after the stale text caused a probe to label its
+        arms backwards and report a defect that production does not have.
 
-        SWEG_AELDARI_FATE_FAITHFUL (default off): Wahapedia Strands of Fate
+        Legacy path (`SWEG_AELDARI_FATE_FAITHFUL=0`): per-squad key — squad_id
+        when the unit has a valid squad_id (>= 0), otherwise profile_name (task
+        #28 squad_id re-key).
+
+        SWEG_AELDARI_FATE_FAITHFUL (DEFAULT-ON): Wahapedia Strands of Fate
         is verbatim an ARMY-WIDE once-per-phase resource — "Once per phase,
         before making a dice roll for a model or unit from your army with
         the Strands of Fate ability, if you have one or more dice in your
@@ -759,9 +767,17 @@ class Army:
         (up to ~36-40 spends/round for a 9-10-squad army) — not a literal
         re-implementation of "once per phase" — because the simulator has
         no single unified per-phase gate across roll types. Byte-identical
-        off (the gate is only read here, and only this key computation
-        changes — the 6-die pool and every spend-decision heuristic are
-        untouched). Cited as `simulator.strands_of_fate`.
+        when the kill-switch is set (the gate is only read here, and only this
+        key computation changes — the 6-die pool and every spend-decision
+        heuristic are untouched). Cited as `simulator.strands_of_fate`.
+
+        MEASURED SIZE OF THE DIFFERENCE (2026-07-28,
+        `scripts/_fate_spend_probe.py`, 40 battles): the two paths differ by
+        0.15 of a die spent per battle and zero win-rate points. The pool is
+        SIX dice rolled once at battle start and never refilled, so it binds
+        long before either budget does — which is why the "up to ~36-40 spends
+        per round" ceiling described above is never approached in play, and why
+        this gate is effectively inert either way.
         """
         if os.environ.get("SWEG_AELDARI_FATE_FAITHFUL", "1") != "0":  # ADOPTED default-on 2026-07-08 (sc59a rider; =0 kill-switch)
             return self._FATE_ARMY_WIDE_KEY
