@@ -1,3 +1,225 @@
+## ORDERING DIAGNOSTICS BUILT AND WIRED IN (2026-07-27)
+
+`evaluate_vs_meta` now prints an ORDERING DIAGNOSTICS block after the existing
+table and persists it under a `diagnostics` key in the snapshot: Spearman (the
+new headline) and Pearson correlation, spread ratio, skill against the constant
+null through the identical noise gate, and sampling-corrected matchup spread
+with the share of pairings inside 40–60.
+
+**Purely additive.** `report` is untouched and returns the same three numbers,
+so every historical figure in this repository still means what it said. A
+`--factions` run refuses to print the block rather than correlate across
+factions that never played. Verified by `scripts/_verify_diagnostics.py`, which
+rebuilds the evaluation's inputs from the `sc69a` log and confirms the wired-in
+block reproduces the standalone instruments from a separate code path — all five
+values agree. Full matrix and scoped smoke runs both exit 0; `audit_rules`
+clean; `run.py --cli` exits 0. No simulation code touched, so no citation is
+required and no anchor is at risk.
+
+**A bug found and fixed in the new code.** The first sampling-noise correction
+used the plug-in estimator `p(1-p)`, which collapses to ZERO when a cell reads
+0 or 100 percent — so it under-corrected precisely on the one-sided matchups the
+metric exists to measure, and at N=1 reported no sampling noise at all when the
+noise is in fact maximal. Now smoothed (Agresti-Coull): N=1 recovers 33.3 points
+of noise and corrects 38.49 to 19.25, while N=80 is unchanged at 12.88.
+
+Only the corrected matchup figure may be compared across runs — the raw one
+falls as the battle count rises even when nothing changed, and waves here run at
+both N=40 and N=80.
+
+Changing the stated 2.0-point target in `CLAUDE.md` is an owner decision and has
+NOT been made. Task #37.
+
+## THE HEADLINE METRIC IS BEATEN BY A CONSTANT (2026-07-27)
+
+**No code changed; five read-only instruments.** Scored in the evaluation's own
+frame — army-A, field-weighted, through the same noise gate — the simulator
+reads gated **2.85** with 7 of 22 factions in band. Answering a constant 48.8
+percent for every faction reads gated **0.66** with 11 of 22 in band. Skill
+score **−3.33 gated, −0.65 raw**. The reconstruction reproduces the recorded
+anchor 2.85 exactly, which is what makes the frame trustworthy, and the result
+survives the symmetrized frame (2.61 against the same 0.66).
+
+**The defect is variance, not bias.** Real per-faction spread is 3.83 points;
+simulated is 6.72 — about 1.75 times too wide. Correlation against reality is
++0.25 Pearson, +0.28 Spearman. So the gated headline can fall without fidelity
+improving, and for some time probably has been. **Judge every future lever on
+whether it raises the correlation or narrows the spread for a reason found in
+the rules, not on whether the headline falls.**
+
+**Where the spread is made.** Of 231 symmetrized pairings, standard deviation
+13.4 points, only 53.2 percent inside 40–60, 13.9 percent decided 70/30 or
+harder. `build_archetype_army` samples uniformly among a faction's templates,
+and **21 of 22 factions define exactly one**. Chaos Daemons, the only faction
+with five, ranks **first of twenty-two** on the predicted metric: matchup
+standard deviation 6.8 against a single-list mean of 11.9, and zero extreme
+matchups against a mean of 15 percent (about `p = 0.045` under random ranking).
+
+**The confound check sharpened it.** Filler churn from `_random_fill` already
+gives every faction 0.24–0.39 turnover; Chaos Daemons runs 0.823. Turnover
+against dispersion correlates −0.44 across all 22 but only **−0.18 across the
+21 single-list factions** — so it is difference between genuinely different
+lists that compresses matchups, not filler variance. Adding filler churn buys
+nothing.
+
+**A hypothesis killed on the way.** Votann's faithful-list over-performance and
+Death Guard's +11.4 both looked like the simulator over-paying durability.
+Residual against durability per hundred points correlates −0.16 / −0.23 / +0.09
+across light, medium and heavy reference attacks and −0.13 against offence. Grey
+Knights and T'au are the two most durable armies and both under-perform. Dead;
+the Votann result is local.
+
+Full account in `docs/METRIC_SKILL_AND_DISPERSION.md`. Tasks #35 and #36.
+**Awaiting owner decision — no evaluation launched.**
+
+## THE TYRANID LIST WAS THE WHOLE PROBLEM (2026-07-26)
+
+**Screened and adopted.** Replacing the Tyranid archetype with the army it cites
+moves Tyranids **+9.49** in the A-frame (35.9 to 45.4 against a real 47.4, error
+11.5 to about 2.0) and from 31.0 to 44.6 both-sides (error 15.9 to 2.4). Overall
+gated mean absolute error **3.21 to 2.85**. Eleven other factions drift down 0.3
+to 1.4 points — correct collateral, their Tyranid matchup got harder.
+
+Nothing else in this campaign moved Tyranids. `SWEG_MELEE_CHARGE_HOLD` doubled
+charge eligibility and connection and tripled Hormagaunt melee damage, for +0.34.
+The number-one under-pole was never a mechanics problem.
+
+`SWEG_TYRANID_LIST_SOURCED` adopted default-ON, `=0` the kill-switch. Re-anchor
+`sc69a` running. Full account in `docs/TYRANID_LIST_FIDELITY.md`.
+
+**A sixth retraction, and the most consequential.** Every "byte-identical
+verified, digest `4aab205fbb99635db7c607db`" claim made for this gate was vacuous.
+`scripts/_detcheck.py` runs three pairings covering six factions of twenty-two and
+**Tyranids appear in none of them**, so the digest cannot see a Tyranid-only
+change and reads identical either way. `scripts/_detcheck_wide.py` now gives a
+second digest across all twenty-two factions: `f243047dbb6a7f45d64aae66` with the
+list on, `91a2c9d431b0f8e85d1712e1` with the kill-switch. The canonical digest is
+left untouched, being referenced by every prior wave. **Any gate confined to the
+other sixteen factions has never been byte-identity-verified by anything.**
+
+**A bug of mine, caught by its own screen.** `SWEG_FALLBACK_CAPABILITY` screened
++0.92 gated and +0.81 both-sides worse — but the screen measured a defect in the
+gate. Legacy eligibility is `role in ("SHOOTY","HEAVY") and not
+_is_melee_class(...)`; I wrote `role == "HEAVY" or (has a gun and not
+melee-primary)`, making HEAVY unconditional and stripping the task #7 protection
+that a melee Knight, Carnifex or Hive Tyrant never Falls Back. The evidence landed
+exactly where that predicts: Imperial Knights −9.03 and Chaos Knights −6.33, the
+two almost-entirely-HEAVY-melee factions, were the largest movers. Guard now
+universal; re-screen outstanding. The mechanism still looks right where it should
+— even under the bug, Astra Militarum +4.30 and Death Guard −4.97 both moved
+decisively toward real.
+
+**The session's standing lesson, six instances.** Every error was a quantity
+defined for one case applied to another: one gate's blast radius quoted for a
+different gate; an exclusion counted before the short-circuit that caused it; a
+menu's absence read as a list's absence; a parser letting the last block swallow
+the module tail; a condition written for gunlines applied to melee heavies; and a
+digest covering six factions used to certify twenty-two.
+
+## THE SIMULATOR WAS NOT PLAYING THE TYRANID LIST (2026-07-26)
+
+**The finding.** The Tyranid `Subterranean Assault` archetype cites the GW Open
+Maastricht 2026 winning list in its own comment block. It does not field it. The
+sourced army — Trygon carrying the Trygon Prime enhancement, three Tyranid Primes
+with Lash Whips, Old One Eye, a Maleceptor, two ten-model Hormagaunt squads, a
+Ravener Prime unit plus two five-model Ravener units, a Tyrannofex, Zoanthropes,
+a Carnifex, a Lictor, a Neurolictor and two Biovores — shares exactly three
+entries with what the builder produces. The simulator instead fields about 47
+Termagants, 9 Ripper Swarms, an Exocrine and a Hive Tyrant, none of which appear
+in the sourced list, and omits the Trygon, all three Primes, Old One Eye, the
+Maleceptor, every Ravener, the Carnifex and both Lictors.
+
+Every measured symptom of the number-one under-pole follows from the
+substitution. `bring_it_down` 0.38 against opponents' 1.81, because with no
+Carnifex, Old One Eye or Maleceptor the list's entire anti-armour capability is
+two Tyrannofexes. `assassination` 0.36 against 1.19, because nothing in the
+fielded list is built to reach a CHARACTER. And `cull_the_horde` 0.12 against
+2.26 — the sharpest of the three — because the sourced list's chaff is two TEN-
+model Hormagaunt squads, which can never reach the thirteen-model Starting
+Strength that concedes the card, while the substituted Termagant squads average
+about sixteen models and concede it every game. The simulator's Tyranids were
+paying a tax the real army does not pay.
+
+It also resolves the session's most confusing result. `SWEG_MELEE_CHARGE_HOLD`
+doubled Tyranid charge eligibility (25.1 to 52.5 percent), more than doubled
+charge connection (11 to 25 percent) and tripled Hormagaunt melee damage (1.7 to
+5.1 a game), and moved the Tyranid win rate +0.34, not decisively. Getting a
+gaunt swarm into combat more reliably does not fix an army whose problem is that
+it is the wrong army.
+
+**Why the engine was removed.** The template's comment justifies it: "Trygon
+dropped to 0: post-CHARACTER-keyword-strip it no longer tags as a leader-host and
+is redundant with Carnifex/Tyrannofex as a deep-strike wrecker." That is an
+internal modelling convenience, not a real-meta observation. The Trygon is the
+unit the detachment is named for and the mechanism the sourced list is built
+around. Separately, the same block calls a Carnifex a "461 point minimum squad,
+too expensive to seed" — a stale Stage-2 calibrated price. The vanilla catalogue
+the archetype actually runs in charges 90 for one model.
+
+**Built.** `SWEG_TYRANID_LIST_SOURCED`, default-off, byte-identical
+(`4aab205fbb99635db7c607db`). Model count falls from about 113 to about 57. Two
+knowing departures: Biovores have no catalogue entry and are omitted, and the
+builder's random fill does not reproduce the list exactly (Maleceptor in three
+seeds of six, Trygon in five of six). Full write-up in
+`docs/TYRANID_LIST_FIDELITY.md`. **Not yet screened** — until it is, the size of
+the effect is unknown, and every Tyranid mechanics conclusion in this session,
+including this session's own, rests on a wrong input.
+
+**Two retractions, recorded because the reasoning was wrong, not just the
+number.**
+
+1. *The melee-charge-hold blast radius.* It was recorded as 12 catalogue units.
+   That is the HORDE-and-melee-only subset touched by `SWEG_MELEE_ONLY_ENGAGE`;
+   the charge-hold gate keys on `MELEE_ONLY` alone and touches **132 units of
+   1385**. The N=80 screen exposed the error — fifteen factions moved decisively,
+   which no 12-unit change could produce. Verdict: gated mean absolute error 3.21
+   to 3.63, **+0.42 worse**, a redistribution rather than a regression (Adeptus
+   Astartes −4.36, Aeldari −3.65 and Chaos Space Marines −5.09 toward real;
+   Genestealer Cults +12.66, World Eaters +9.59, Drukhari +8.25 away). Held
+   default-off: faithful, and it costs the frame.
+
+2. *The archetype sweep's "31 declared but never built".* Reported first as a
+   systemic builder defect across 21 factions, with Emperor's Children named as
+   the strongest next candidate for declaring Fulgrim and its elite core and
+   fielding none of it. **Withdrawn.** Seven templates declare more than a
+   2000-point army and are therefore MENUS the builder samples, not lists it must
+   field — Imperial Knights 3380 points, World Eaters 2820, Aeldari 2780, Chaos
+   Knights 2725, T'au 2675, Emperor's Children 2625, Grey Knights 2405. Absence
+   there is by design, and it accounts for 22 of the 31 hits including every
+   Emperor's Children and Imperial Knights entry. The genuine residue is nine
+   entries in templates that do fit: Killa Kans, Celestian Insidiants, Allarus
+   Custodians, Typhus, Pteraxii Skystalkers, Foul Blightspawn, Acolyte Hybrids
+   with Hand Flamers and Serberys Sulphurhounds. The price hypothesis was tested
+   and only partly supported (never-built median 125 against built 95, a ratio of
+   1.32, with cheap entries skipped and dearer ones fielded), so the mechanism is
+   still unknown.
+
+**The standing lesson.** Two of tonight's three biggest errors were the same
+mistake: a number measured for one thing, reused for another. The blast radius of
+one gate quoted for a different gate; the absence of a menu entry read as the
+absence of a list entry. Before quoting a measurement, check that the thing it
+measured is the thing being claimed.
+
+**Also built, both default-off, byte-identical, cited, awaiting screen.**
+`SWEG_FALLBACK_CAPABILITY` — Fall Back eligibility tested a `roles.classify`
+LABEL, `("SHOOTY","HEAVY")`, which is a body-class answer to a capability
+question, so a gun-carrying unit labelled SUPPORT or HORDE could never break off
+and shoot. Measured over pinned ranged-primary activations: the label excludes
+55.0 percent (SUPPORT 30.8, HORDE 15.2, DUAL 9.0) and the melee-primary test
+excludes 0.0 percent. Gate on, pinned gunlines that break off rise 35.1 to 87.2
+percent. `SWEG_CULL_PICK_AWARE` — the Fixed-pair picker is composition-aware for
+Bring It Down and Assassination but takes Cull the Horde as the FALLBACK for both
+slots with no check that the enemy can concede it; across all 1386 ordered
+faction pairs, 231 of 294 Cull picks (78.6 percent) face a roster with zero
+qualifying squads.
+
+**A third retraction, smaller.** An earlier reading of the pinned-gunline probe
+attributed 40.8 percent of exclusions to `strategy._is_melee_class`. The branch
+is `role in _fall_back_eligible_roles and not _is_melee_class(...)` and Python
+short-circuits, so the role test runs first; the probe had bucketed on
+`_is_melee_class` before it. The true figure is 0.0 percent. A gate that only
+swapped that estimator was built, measured inert, and replaced.
+
 # SwegHammer decision ledger — what's been tried (READ THIS before proposing a lever)
 
 **Purpose.** The compact, routinely-read index of what has already been **landed**,
@@ -15,6 +237,162 @@ job. If you are about to propose a lever, check the Reverted / Parked / Forbidde
 first.
 
 ---
+
+## ⭐⭐ THE MISSING OVERWATCH LEG (2026-07-25) — a CORE stratagem trigger that was never implemented, and a candidate answer to the counterplay frontier
+
+**MECHANISM CONFIRMED IN CODE; ATTRIBUTION PENDING A DEDICATED ARM.**
+
+`SWEG_OVERWATCH_MOVE` (default-off until this session) fires Fire Overwatch just
+after an enemy unit **ends a Normal or Advance move**. The base simulator fired
+Overwatch only after a **charge** or a **Reserves arrival**. The cited core
+stratagem trigger (`simulator.fire_overwatch`, `core_overwatch.json`) is verbatim:
+
+> "WHEN: Your opponent's Movement phase or Charge phase, just after an enemy unit
+> is **set up or starts or ends a Normal, Advance, Fall Back or Charge move**."
+
+So a leg of a **core stratagem every army in the game has** was simply not
+implemented, and the missing leg is the one that fires in the MOVEMENT phase.
+
+**WHY THIS MATTERS BEYOND ONE GATE.** The 2026-07-15 COUNTERPLAY FRONTIER entry
+concluded that the number one residual (Death Guard) is not a durability floor but
+a missing-counterplay gap — "the sim's WORLD lacks the COUNTERPLAY every real
+opponent used to beat a durable army" — and that every internal lever failed
+(canary loop nine times, target economics, staging, contest-routing, caging,
+kiting) because each "improved play SYMMETRICALLY, banking to the durable side".
+It named adding counterplay as the frontier.
+
+Fire Overwatch on movement is **inherently asymmetric against durable slow
+armies**: a Move 5" blob walking up the board offers a trigger every single turn,
+while a fast or ranged army rarely does. It is not artificial-intelligence
+quality, it is not a heuristic, and it cannot "bank to the durable side" — it is a
+rule the durable army eats and the mobile army mostly avoids. That is precisely
+the shape the frontier entry said was missing, and it was missing because a
+trigger was unwired, not because the artificial intelligence was unsophisticated.
+
+**THE EVIDENCE SO FAR** (both-sides raw error, `scripts/_config_compare2.py`).
+Death Guard error by configuration: sc67a 14.2, four-gate 14.7, candidate
+(seventeen gates minus five globals including this one) 14.5, weapon-range-off
+12.6, sc68a (all gates) 12.2. Death Guard's 2.3-point gain therefore lives in the
+five gates the candidate dropped; weapon range accounts for only 0.4 of it; and of
+the remaining four, three are faction-local (Leagues of Votann, Emperor's
+Children, Chaos Daemons) leaving `SWEG_OVERWATCH_MOVE` as the only global
+candidate. CANDIDATE 2 (`data/_scr_cand2_log.json`) restores it to test this
+directly.
+
+**CONFIRMED (`data/_scr_cand2_log.json`).** Candidate 1 (this gate OFF) gives
+Death Guard error 14.5; candidate 2 (identical but this gate ON) gives **12.4**.
+Fire Overwatch on movement is the source of the Death Guard gain — **2.1 points
+toward reality on the residual that survived the counterplay campaign, the
+durability audits and nine canary iterations.** Nothing else in this project's
+history has moved it.
+
+**AND IT COSTS MORE THAN IT BUYS, on the current metric.** Raw both-sides mean
+absolute error: four-gate **5.46**, sc67a 5.48, candidate 1 5.56, weapon-range-off
+5.93, candidate 2 **6.00**, sc68a 6.31. The gate helps Death Guard (14.5 -> 12.4),
+Emperor's Children, Orks and Imperial Knights; it hurts **Tyranids +1.9**, Leagues
+of Votann +2.3, Adeptus Astartes +1.7, Necrons +1.7, Chaos Knights +1.5, Chaos
+Space Marines +1.4, Aeldari +1.4, T'au +1.2. Net **+0.44 raw**.
+
+**Tyranids worst is the honest tell, and it is not a bug**: a horde that advances
+every turn offers an Overwatch trigger every turn. That is faithful — and it
+deepens the game's deepest under-pole. This is the THIRD independent case this
+session of a provably faithful mechanic worsening calibration by amplifying an
+existing pole (with weapon range on Adeptus Astartes and Kindred Hero on Leagues
+of Votann).
+
+**THE GENERALISABLE DIRECTION STANDS REGARDLESS.** The frontier entry's advice
+("do NOT re-attempt symmetric play-quality levers") now has a positive
+counterpart: **look for unimplemented legs of CORE rules whose trigger conditions
+are asymmetric between army archetypes.** That search found, in one night, the
+only lever ever to move Death Guard. The Astra Militarum result came from the
+same class — a comparison operator, not smarter piloting.
+
+**RECOMMENDATION (owner's call).** By measured error the best configuration
+remains the four-gate Astra Militarum package (raw 5.46, gated 2.51). The owner
+ruled "implement it all" and the tree currently carries every faithful gate; that
+ruling now has a price tag — **+0.85 raw versus the Astra Militarum package
+alone** — and the composition is a redistribution that fixes the two biggest poles
+and breaks six mid-table factions. Both halves are defensible; the choice is
+doctrine, not evidence.
+
+
+## ⭐⭐ THE FAITHFUL-ADOPTION WAVE (2026-07-25) — seventeen gates on, and the fidelity-versus-metric fork gets real numbers
+
+Owner ruling: "implement it all". SEVENTEEN default-off gates were flipped
+default-on after triage, in three groups, each with its kill-switch retained and
+the whole set verified: **all seventeen kill-switches together reproduce the
+prior event-log digest `db13417fb7e3b2d47cef9867` exactly**, so nothing changed
+except defaults. New production digest `4aab205fbb99635db7c607db`.
+
+GROUP 1, the measurement family (see `docs/MEASUREMENT_DEFECT_AUDIT.md`):
+`SWEG_ORDER_AURA_BASEEDGE`, `SWEG_AM_INFANTRY_FIRE`, `SWEG_SQUAD_DAMAGE_FLOOR`,
+`SWEG_CHAFF_COMMIT_CAP`, `SWEG_AURA_BASEEDGE`, `SWEG_RANGE_BASEEDGE`.
+
+GROUP 2, Astra Militarum rules the army OWNED and could not use — found by
+asking "what rule does this codebase implement but leave switched off?"
+(`scripts/_gate_sweep.py`): `SWEG_AM_CADIA_STANDS` (Cadia Stands!),
+`SWEG_AM_DUTY_AND_HONOUR` (the Order), `SWEG_CREED_TWO_ORDERS` (Lord Castellan),
+`SWEG_REINFORCEMENTS` (the Combined Arms stratagem). Of eighteen default-off
+gates with rules-claim citations across all twenty-two factions, SEVEN were
+Astra Militarum — by far the most of any faction, and a completely different
+angle on the under-pole from anything previously tried.
+
+GROUP 3, other missing mechanics: `SWEG_VOTANN_KAHL_LETHAL`,
+`SWEG_EC_DAEMONETTE_FF`, `SWEG_WARP_RIFTS`, `SWEG_OVERWATCH_MOVE`,
+`SWEG_ACTION_ECONOMY` (the full Chapter Approved deck), `SWEG_SECONDARY_HANDCAP`
+(the real two-active-card limit, which the citations confirm bounds a documented
+secondary victory-point over-count), `SWEG_CHALLENGER_GAP_CAPPED` (Challenger
+Cards catch-up).
+
+DELIBERATELY NOT FLIPPED, and the distinction is load-bearing: `SWEG_AM_RECON`,
+`SWEG_AM_GRIZZLED` and `SWEG_VOTANN_HEARTHBAND` are DETACHMENT CHOICES — turning
+them on changes which army is fielded, a list decision, not a fidelity fix.
+`SWEG_M4`, `SWEG_MELEE_HOLD_OBJECTIVE` and `SWEG_AM_CHASE_VP` are piloting
+heuristics that quote a real rule to justify themselves.
+`SWEG_OVERRIDE_MELEE_PRECEDENCE` has a recorded unresolved defect interaction.
+"Implement it all" means every faithful MECHANIC, not every switch.
+
+**THE RESULT — `data/_anchor_sc68a_n80_log.json`, N=80: gated mean absolute
+error 2.76 -> 3.21 (+0.45 WORSE). But it is a REDISTRIBUTION, not a regression,
+and the composition matters far more than the total** (both-sides frame,
+`scripts/_config_compare.py`):
+
+* **Death Guard error 14.2 -> 12.2** (61.8 -> 59.8). The number one residual,
+  which the counterplay campaign, the durability audits and nine canary
+  iterations all failed to move, finally moved — 4.5 points toward reality.
+* **Astra Militarum error 11.5 -> 7.5** (33.8 -> 37.8), its best ever.
+* Against that, five mid-table factions break: Leagues of Votann 8.4 -> 13.0,
+  Adeptus Astartes 4.8 -> 8.9, Necrons 4.1 -> 7.6, Tyranids 12.5 -> 15.9, Chaos
+  Knights 1.1 -> 4.4.
+
+**THE STRUCTURAL FINDING, now with numbers on both sides: individually faithful
+mechanics can make the calibration WORSE by inflating factions that were already
+over-performing.** Two clean cases. (1) `SWEG_RANGE_BASEEDGE` — weapon range
+measured base-edge per the core rule the repository already cites and already
+applies to Engagement Range — screened +5.5 on Adeptus Astartes alone, an
+existing over-pole. (2) `SWEG_VOTANN_KAHL_LETHAL` — Kindred Hero's [LETHAL HITS]
+grant, an unambiguous datasheet ability — inflated Leagues of Votann, already
++8.4 over. Neither is a defect in the fix. Both say the faction was
+over-performing for a reason the faithful mechanic then amplifies, which is
+exactly the sharpened diagnosis the fidelity-first doctrine predicts (the
+`SWEG_TERRAIN_DENSE` precedent, adopted at +0.46 on the same argument).
+
+METHOD NOTE for future waves — three instruments lied this session and each was
+caught only by checking the CODE rather than the derived signal: a gate sweep
+that inferred defaults from the comparison direction reported Fire Overwatch as
+disabled (it is on, the line is a guard clause); the chaff cap counted `Unit`
+instances (one per MODEL) where Behind Enemy Lines scores per UNIT; and a
+confession sweep reported the Aeldari Fate-dice and Battle-Focus over-counts as
+live when both were adopted default-on on 2026-07-08 — **citations keep their
+pre-fix narrative, the "ADOPTED" note lives in the code comment**.
+
+DECOMPOSITION IN FLIGHT: sixteen-gate arm with `SWEG_RANGE_BASEEDGE=0` to price
+the weapon-range share, then kill-switch arms for `SWEG_VOTANN_KAHL_LETHAL` and
+the scoring trio. Nothing committed (rule 3).
+
+## ⭐⭐ THE ASTRA MILITARUM MEASURING DEFECT (2026-07-25) — the deepest under-pole was 87 percent one range test measured centre-to-centre
+
+The Astra Militarum under-pole (sim 33.8 vs real 45.3 at `sc67a`, gated 8.65, the #2 residual and deepest under-pole) was RE-OPENED against the one thread the ledger had registered and never run — the 2026-07-02 Grizzled Company entry's "does the sim under-issue Orders vs the real officer economy? — queued". Measured: Astra Militarum issues **2.93 Orders per round against a rules-legal ceiling of 8.77 — 33 percent**, and the dispatcher is not the bottleneck (84 percent of squads inside an aura get one). THE CAUSE IS A MEASURING DEFECT: `code/orders.py` tested the 6-inch Voice of Command aura as a raw centre-to-centre distance, while the 10e core rule this repository ALREADY cites (`keywords_and_mechanics.json`: "measure between the closest points of the bases") is base-edge, and the simulator ALREADY applies exactly that to Engagement Range (`simulator.engagement_range_base_edge`) and objective control. The Order aura was the one range test still measured centre-only. It costs most where Astra Militarum's firepower sits — a foot Officer to a Leman Russ or Rogal Dorn hull (2.37-inch radius) legally reaches 9.00 inches and was reaching 6.00, i.e. 67 percent of the legal radius and 44 percent of the legal area. **`SWEG_ORDER_AURA_BASEEDGE` ALONE: Astra Militarum 33.8 -> 37.1 (+3.33 DECISIVE), gated 2.76 -> 2.59** — 87 percent of the whole session's lift, from correcting one comparison. THREE further defects found by per-unit audit and all built default-off/byte-identical-off: (a) **the entire battleline is piloted as sacrificial chaff** — `_is_chaff_unit` is "under 15 points per model", which every Astra Militarum infantry datasheet satisfies, and AI-9's only safety gate asks whether a friendly has ALREADY ARRIVED in the enemy deployment zone, so while the first unit walks (4+ rounds) every other chaff unit gets the same intent; result 77.8 percent SACRIFICIAL intent, 82.2 percent of Cadian Shock Troops activations ending ADVANCED (which forfeits non-[ASSAULT] shooting), Cadian Shock Troops dealing 0.4 wounds a game and Death Korps of Krieg dealing damage on ZERO of 254 activations; `SWEG_CHAFF_COMMIT_CAP` caps commitment at two CODEX UNITS (the simulator's own Behind Enemy Lines table pays 3 victory points for one unit and 4 for two, so a third earns nothing); (b) `SWEG_AM_INFANTRY_FIRE` admits Astra Militarum REGIMENT infantry to the advance-suppression family the `rDPA >= 2.0` floor was written to exclude; (c) `SWEG_SQUAD_DAMAGE_FLOOR` — that family's 0.5 expected-damage guard was applied PER MODEL though the simulator stores one `Unit` per model, so **no multi-model squad in the catalogue could ever pass it** (twenty Cadian Shock Troops into Poxwalkers is 3.33 expected wounds; each model computes 0.167). FULL PACKAGE N=80 paired vs sc67a: **Astra Militarum 33.8 -> 37.6 (+3.82), gated 2.76 -> 2.51**, collateral all inside noise. REJECTED this session: `SWEG_TARGET_ECONOMICS` re-screened on the new frame (gated 2.51 -> 2.90, Astra Militarum -0.80) — the pre-flight argument that its held verdict was confounded by infantry that never fired was legitimate but empirically WRONG; the original hold STANDS. INSTRUMENT FIX: `scripts/_am_vp_probe.py` was missing `SWEG_SIDE_ROLLOFF` (default-on in the evaluation, flips slot A per game) and read 42.9 percent where the anchor says 33.8 — now corrected and reproducing the frame; **any probe that does not apply the roll-off measures a one-sided frame**. CORRECTED SPLIT of the remaining Astra Militarum gap: primary 5.6 and secondary 5.3 — EQUAL halves, so the long-standing secondary-economy framing was half the story and the primary half was never separately measured. REGISTERED, UNBUILT: weapon range eligibility and the Rapid Fire / Melta half-range trigger are ALSO measured centre-to-centre (`Battle._do_shoot`), costing Death Guard 18.6 percent and Adeptus Astartes 15.9 percent of their in-range target pairs against Astra Militarum's 9.5 — faithful to fix but it favours the over-poles, so it needs its own screen. Full narrative: `docs/AM_ORDER_COVERAGE_FINDINGS.md` + `docs/AM_INFANTRY_NEVER_FIRES.md`.
 
 ## ⭐⭐ THE COUNTERPLAY FRONTIER (2026-07-15) — the durable over-pole is a MISSING-COUNTERPLAY gap, not a floor; verified against real battle-report tape
 
