@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import random
 import statistics
@@ -496,7 +497,9 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
                log_games_path: Optional[str] = None,
                seed_start: int = 0,
                scope_factions: Optional[set] = None,
-               log_margins: bool = False) -> Dict[str, float]:
+               log_margins: bool = False,
+               pair_out: Optional[Dict[Tuple[str, str], float]] = None,
+               ) -> Dict[str, float]:
     """Average win-rate per faction across all opponents in the FACTIONS list.
 
     Seeds the global random module per battle so the same code base produces
@@ -525,6 +528,12 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
     worker to do the extra accounting) when `log_games_path` is falsy, so
     calling `run_matrix(log_margins=True)` without a log path stays exactly
     as cheap as today.
+
+    `pair_out` (default None): when a dict is supplied it is filled with the
+    ordered-pair army-A win rates, `{(a_faction, b_faction): percent}`, so the
+    caller can compute matchup-level diagnostics without re-deriving them from
+    a game log. Purely an out-parameter — nothing in this function reads it,
+    and leaving it None keeps behaviour identical.
     """
     fac_idx = {f: i for i, f in enumerate(FACTIONS)}
     # Only actually request the per-game margin accounting from workers when
@@ -623,6 +632,9 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
             winners = pair_winners.get((a_fac, b_fac), Counter())
             sim_wr[(a_fac, b_fac)] = winners.get("A", 0) / n * 100
 
+    if pair_out is not None:
+        pair_out.update(sim_wr)
+
     out: Dict[str, float] = {}
     for fac in FACTIONS:
         # Field-weighted average over opponents, not a uniform mean. The
@@ -705,6 +717,197 @@ def report(sim: Dict[str, float]) -> Tuple[float, float, float]:
     return mae_raw, mae_gated, mae_sweg
 
 
+# ---------------------------------------------------------------------------
+# Ordering diagnostics — added 2026-07-27, see docs/METRIC_SKILL_AND_DISPERSION.md
+#
+# Mean absolute error alone cannot say WHY the simulator is far from reality. It
+# falls when the simulator gets factions right, and it falls just as readily when
+# every prediction is pulled toward the average, which is not the same thing.
+# Measured against anchor sc69a: the simulator reads gated 2.85, while answering
+# a constant 48.8 percent for every faction reads gated 0.66 through the same
+# noise gate. The distance headline is beaten by a model containing no simulation.
+#
+# That is not automatically damning. The simulator's job is to field the best
+# list and pilot it as well as a tournament player would, whereas the Warp
+# Friends aggregate averages over hundreds of lists and every level of player
+# skill. A simulator answering the optimal-play question correctly SHOULD be
+# more dispersed than that target — currently 6.72 against 3.83, about 1.75x.
+#
+# What such a simulator should NOT do is order the factions wrongly, and this
+# one does: Spearman +0.28. So ordering is the honest headline and distance is a
+# diagnostic. These functions print both without changing any existing line, so
+# every historical figure in the documentation still means what it said.
+# ---------------------------------------------------------------------------
+
+def _pearson(xs: List[float], ys: List[float]) -> float:
+    n = len(xs)
+    if n < 3:
+        return float("nan")
+    mx, my = statistics.mean(xs), statistics.mean(ys)
+    num = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    dx = math.sqrt(sum((x - mx) ** 2 for x in xs))
+    dy = math.sqrt(sum((y - my) ** 2 for y in ys))
+    return num / (dx * dy) if dx and dy else float("nan")
+
+
+def _spearman(xs: List[float], ys: List[float]) -> float:
+    """Rank correlation. Ties are broken by position, which is adequate here
+    because win rates measured over hundreds of games effectively never tie."""
+    def rank(v: List[float]) -> List[float]:
+        order = sorted(range(len(v)), key=lambda i: v[i])
+        r = [0.0] * len(v)
+        for pos, i in enumerate(order):
+            r[i] = float(pos)
+        return r
+    return _pearson(rank(xs), rank(ys))
+
+
+def _smoothed_variance(p: float, n: int) -> float:
+    """Sampling variance of a win-rate estimate, as a fraction (not percent).
+
+    Uses the Agresti-Coull adjustment — add one success and one failure — so a
+    cell observed at 0 or 100 percent is not credited with zero sampling noise.
+    A single lopsided result is weak evidence that the true rate is lopsided,
+    and the raw plug-in estimator cannot express that.
+    """
+    n = max(1, n)
+    x = p * n
+    p_adj = (x + 1.0) / (n + 2.0)
+    return p_adj * (1.0 - p_adj) / n
+
+
+def report_diagnostics(
+    sim: Dict[str, float],
+    pair_wr: Optional[Dict[Tuple[str, str], float]] = None,
+    scoped: bool = False,
+    n_battles: Optional[int] = None,
+) -> Dict[str, float]:
+    """Print the ordering and dispersion diagnostics; return them as a dict.
+
+    Purely additive: `report` above is untouched and still returns the same
+    three numbers, so nothing that reads its output or its return value changes.
+
+    `scoped` must be True for a `--factions` run. A scoped run plays 42 of the
+    462 cells, so every faction outside the scope reads a meaningless 1-3
+    percent and any correlation computed across all 22 would be noise wearing a
+    decimal point. Rather than print a misleading number, the block says so.
+
+    `n_battles` enables the sampling-noise correction on the matchup spread.
+    Each cell is a win count over `n` games, so its estimate carries binomial
+    noise of its own, and the RAW matchup standard deviation therefore falls as
+    `n` rises even when nothing about the simulator changed — at N=1 it reads
+    about 38 because every cell is 0 or 100. Waves in this project run at both
+    N=40 and N=80, so the raw figure must never be compared across them. The
+    corrected figure subtracts the expected binomial variance and is the one
+    that is comparable.
+    """
+    facs = [f for f in FACTIONS if f in sim and f in TOURNAMENT_TARGET]
+    print("-" * 72)
+    print("ORDERING DIAGNOSTICS  (docs/METRIC_SKILL_AND_DISPERSION.md)")
+    if scoped:
+        print("  SKIPPED — this is a scoped run. Factions outside --factions never")
+        print("  played, so their win rates are not measurements and any")
+        print("  correlation across all 22 would be meaningless. Read the scoped")
+        print("  arm with scripts/paired_delta.py --scoped instead.")
+        return {}
+    if len(facs) < 3:
+        print("  SKIPPED — fewer than three factions scored.")
+        return {}
+
+    sim_v = [sim[f] for f in facs]
+    real_v = [TOURNAMENT_TARGET[f] for f in facs]
+    pearson = _pearson(sim_v, real_v)
+    spearman = _spearman(sim_v, real_v)
+    sd_sim = statistics.pstdev(sim_v)
+    sd_real = statistics.pstdev(real_v)
+    spread_ratio = sd_sim / sd_real if sd_real else float("nan")
+
+    # Skill against the best constant predictor, scored through the IDENTICAL
+    # noise gate. Any other comparison would be across frames.
+    real_mean = statistics.mean(real_v)
+    sim_gated = statistics.mean(
+        _noise_gated_error(sim[f], TOURNAMENT_TARGET[f], NOISE_FLOOR[f])
+        for f in facs)
+    null_gated = statistics.mean(
+        _noise_gated_error(real_mean, TOURNAMENT_TARGET[f], NOISE_FLOOR[f])
+        for f in facs)
+    skill = 1.0 - sim_gated / null_gated if null_gated > 1e-9 else float("nan")
+
+    print(f"  Spearman rank correlation:       {spearman:+6.3f}  "
+          f"(THE HEADLINE — target → +1.0)")
+    print(f"  Pearson correlation:             {pearson:+6.3f}")
+    print(f"  Spread ratio (sim ÷ real):       {spread_ratio:6.2f}  "
+          f"(sim {sd_sim:.2f} vs real {sd_real:.2f} pts)")
+    print(f"  Skill vs constant {real_mean:4.1f} (gated):  {skill:+6.3f}  "
+          f"(sim {sim_gated:.2f} vs null {null_gated:.2f})")
+
+    out = {"spearman": spearman, "pearson": pearson,
+           "spread_ratio": spread_ratio, "skill_vs_null": skill}
+
+    if pair_wr:
+        # Symmetrized so per-faction positional bias cancels: a faction's rate
+        # as army A averaged with its rate as army B in the mirrored cell.
+        vals = []
+        noise_var = []
+        seen = set()
+        for a in FACTIONS:
+            for b in FACTIONS:
+                if a == b or (b, a) in seen:
+                    continue
+                ab, ba = pair_wr.get((a, b)), pair_wr.get((b, a))
+                if ab is None or ba is None:
+                    continue
+                seen.add((a, b))
+                vals.append(0.5 * (ab + (100.0 - ba)))
+                if n_battles:
+                    # Variance of the symmetrized estimate: each cell is a
+                    # binomial proportion over n_battles games, and the two
+                    # cells are independent, so halving each contributes a
+                    # quarter of its variance.
+                    #
+                    # The proportion used for the variance is smoothed
+                    # (Agresti-Coull, add one success and one failure) rather
+                    # than the raw observed rate. The plug-in estimator
+                    # p(1-p) collapses to ZERO whenever a cell reads 0 or 100
+                    # percent, so it under-corrects precisely on the one-sided
+                    # matchups this metric exists to measure — at N=1, where
+                    # every cell is 0 or 100 and the noise is in fact maximal,
+                    # it reported no noise at all. Smoothing costs nothing at
+                    # N=80 with rates away from the extremes and keeps the
+                    # correction honest at the extremes and at small N.
+                    noise_var.append(
+                        0.25 * 10000.0 * sum(
+                            _smoothed_variance(r / 100.0, n_battles)
+                            for r in (ab, ba)))
+        if len(vals) >= 3:
+            sd_m = statistics.pstdev(vals)
+            inside = 100.0 * sum(1 for v in vals if 40 <= v <= 60) / len(vals)
+            hard = 100.0 * sum(1 for v in vals if v >= 70 or v <= 30) / len(vals)
+            out.update({"matchup_sd": sd_m, "matchup_inside_40_60": inside,
+                        "matchup_hard": hard})
+            if noise_var:
+                mean_noise = statistics.mean(noise_var)
+                true_sd = math.sqrt(max(0.0, sd_m ** 2 - mean_noise))
+                out["matchup_sd_corrected"] = true_sd
+                print(f"  Matchup standard deviation:     {true_sd:6.2f} pts "
+                      f"({sd_m:.2f} raw, less {math.sqrt(mean_noise):.2f} "
+                      f"sampling noise at N={n_battles})")
+                print("    the corrected figure is the comparable one; the raw "
+                      "one falls as N rises")
+            else:
+                print(f"  Matchup standard deviation:     {sd_m:6.2f} pts over "
+                      f"{len(vals)} symmetrized pairings (raw — pass n_battles "
+                      f"for the sampling correction)")
+            print(f"  Pairings inside 40-60:           {inside:5.1f}%   "
+                  f"decided 70/30 or harder: {hard:.1f}%")
+
+    print("  Read a wave as: correlation up → fidelity gain; correlation flat")
+    print("  with distance down → convergence toward the average, not progress.")
+    print("  With 22 factions a correlation carries a wide confidence interval —")
+    print("  judge it as a trend across waves, never as a single-wave verdict.")
+    return out
+
+
 def save_snapshot(
     sim: Dict[str, float],
     mae_raw: float,
@@ -715,6 +918,7 @@ def save_snapshot(
     list_mode: str,
     path: str,
     trusted_factions: Optional[List[str]] = None,
+    diagnostics: Optional[Dict[str, float]] = None,
 ) -> None:
     """Write the faction win-rate matrix result to a JSON snapshot file.
 
@@ -726,6 +930,13 @@ def save_snapshot(
     Legacy `mae_real` / `mae_real_all` / `mae_sweg_all` fields are written
     equal to the corresponding raw/sweg values for backwards compat with
     consumers that haven't been updated to the noise-gated headline.
+
+    `diagnostics` (the dict returned by `report_diagnostics`) is written under a
+    new `diagnostics` key when supplied, and omitted entirely when not, so
+    existing snapshot consumers are unaffected. Persisting it is what makes the
+    correlation usable at all: with 22 factions a single wave's figure carries
+    a confidence interval far too wide to act on, and the guidance to read it
+    as a trend across waves is empty unless the values are on disk to compare.
     """
     import datetime
     faction_rows = []
@@ -763,6 +974,8 @@ def save_snapshot(
     }
     if trusted_factions is not None:
         payload["trusted_factions"] = trusted_factions
+    if diagnostics:
+        payload["diagnostics"] = {k: round(v, 4) for k, v in diagnostics.items()}
     import pathlib
     out = pathlib.Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -1005,19 +1218,23 @@ def main() -> None:
 
     print(f"Mode: {'SwegHammer' if args.sweghammer else 'vanilla WH40k 10e'} | "
           f"Lists: {list_mode} | N={args.battles} | workers={workers}\n")
+    pair_wr: Dict[Tuple[str, str], float] = {}
     sim = run_matrix(args.battles, rules=rules, use_archetype=args.use_archetype,
                      max_workers=workers, price_overrides=price_overrides,
                      log_games_path=args.log_games, seed_start=args.seed_start,
-                     scope_factions=scope_factions, log_margins=args.log_margins)
+                     scope_factions=scope_factions, log_margins=args.log_margins,
+                     pair_out=pair_wr)
     if args.log_games:
         print(f"Per-game winners written to {args.log_games} "
               f"(join with scripts/paired_delta.py).")
     mae_raw, mae_gated, mae_sweg = report(sim)
+    diagnostics = report_diagnostics(sim, pair_wr, scoped=bool(scope_factions),
+                                     n_battles=args.battles)
     if args.out:
         trusted = eq_data.get("trusted_factions") if args.equation_prices else None
         save_snapshot(sim, mae_raw, mae_gated, mae_sweg,
                       args.battles, mode, list_mode, args.out,
-                      trusted_factions=trusted)
+                      trusted_factions=trusted, diagnostics=diagnostics)
     sys.exit(0)   # informational only — never error-exit
 
 
