@@ -1,3 +1,116 @@
+### 2026-07-28 — three screens, three holds, and where the residual actually lives
+
+**Nothing adopted. Anchor `sc69a` unchanged.** Twenty-one commits, all pushed;
+`audit_rules` clean, `run.py --cli` exits 0, production digest
+`4aab205fbb99635db7c607db` unchanged. Read the 2026-07-27 entry below first — the
+metric finding it records is the frame for everything here.
+
+#### The meta-result: the shelf is mostly correct judgement
+
+Going in, the working hypothesis was that this project's forty default-off gates
+held under-appreciated faithful work, blocked by a metric that cannot tell
+fidelity from convergence toward the mean. **The metric problem is real. The
+hypothesis about the shelf is disconfirmed, three for three.**
+
+| gate | screen | verdict |
+|---|---|---|
+| `SWEG_OBJ_HOME` | full matrix N=80 | HOLD — wave 185's blocker confirmed and *larger* |
+| `SWEG_EC_RANGED_HOLD` | scoped N=80 | DO NOT ADOPT — overshoots +24.4 on a faction needing +13.6 |
+| `SWEG_SECONDARY_PURSUIT` | full matrix N=80 | HOLD — both largest poles worsen, spread widens |
+
+Each was faithful, each was genuinely shelved on incomplete evidence, and each
+now carries a decision-grade verdict where it previously carried a pending note.
+The new ordering diagnostics overturned **none** of them. Before spending more
+time re-litigating held gates, weigh that record.
+
+#### What the screens produced beyond their verdicts
+
+- **`SWEG_OBJ_HOME` gave the dispersion mechanism its first test.** Spread ratio
+  fell 1.75 → 1.60, confirming a prediction recorded in
+  `METRIC_SKILL_AND_DISPERSION.md` *before* the run: give both sides a
+  guaranteed objective and primary stops being winner-take-all. The map geometry
+  **is** a dispersion source; it just cannot be fixed alone, because the
+  artificial intelligence never contests an enemy home objective (queue debt
+  NE-17).
+- **`SWEG_EC_RANGED_HOLD` established that a held gate's ON behaviour has a shelf
+  life.** Its byte-identical-off proof from July still holds — off is off. But
+  the catalogue drifted underneath it: the comment states the Defiler is *not*
+  held; it now is, at 12.01 damage over 48 inches, and is the likeliest cause of
+  the overshoot. **Any default-off gate whose evidence predates the last
+  catalogue regeneration needs its membership re-checked.**
+- **`SWEG_SECONDARY_PURSUIT` demonstrated why bundles are a bad screening unit.**
+  Recorded before the run: "a bad result will not say which part did the damage."
+  It is bad in a specific way — Death Guard +11.1 → +14.8, Astra Militarum −8.8 →
+  −11.3 — and cannot be attributed to any of its three parts.
+
+#### The live chain: secondary scoring
+
+Each link measured, and it is the most complete diagnosis this session produced.
+
+1. **The simulator scores half the secondary it should**, hidden by compensating
+   primary over-scoring so the total looks healthy: primary 37.7 / secondary
+   11.8 / total 49.5, against a real 29.1 / **22.7** / 51.8 (Goonhammer Pariah
+   Nexus, ~7,600 games). Secondary share 23.8 percent against a real 43.8.
+2. **The shortfall is per-card zero-scoring, not missing cards.** All 19 cards
+   are drawn; eight score zero on more than 75 percent of evaluations.
+3. **Extend Battle Lines is not broken** — it is a conjunction, and its two
+   halves multiply out exactly (0.20 × 0.82 ≈ 0.16 measured).
+4. **Root cause: map geometry.** Only 4 of 12 rotation maps place any objective
+   in a deployment zone; the other 8 put all five in No Man's Land. Real Pariah
+   Nexus layouts give each player a home objective — the same Goonhammer article
+   refers to "the objective in your deployment zone" and names three primary
+   missions that score for holding it.
+
+#### Aeldari and T'au are isolated to mechanics BY MEASUREMENT
+
+Aeldari is the largest ordering failure in the game (simulated rank 6 of 22, real
+rank 22). **Two structurally different real tenth-edition lists — a 2025 Phoenix
+Lord spine and a 2026 Wraithlord/Fire Prism build — both produce 52-55 percent
+against a real 41.5.** The list layer is ruled out by substitution, not
+assumption. Its army rules are measurably inert: Strands of Fate is pool-bounded
+at six dice rolled once, Battle Focus has almost nothing to spend on, five of six
+Agile Manoeuvres are unmodelled. T'au is the mirror case — the healthiest
+template in the audit and still eleven places mis-ranked.
+
+#### Corrections made this session, recorded so they are not re-derived
+
+- **A Battle Focus carry-over defect I reported does not exist.**
+  `SWEG_AELDARI_BF_DISCARD` is default-**ON**; production discards tokens
+  correctly. A stale comment saying "default-off" caused a probe to label its
+  arms backwards. Both that and `SWEG_AELDARI_FATE_FAITHFUL`'s docstring are
+  fixed.
+- **The list-population proposal is withdrawn.** One list per faction is
+  *correct* under the project's goal, and averaging over several would have
+  driven the headline down while adding no fidelity — measured: optimal spread
+  rescaling reaches 3.31 against the constant null's 3.36, a dead heat.
+- **"The artificial intelligence abandons its home objective" is withdrawn.** It
+  holds one about 70 percent of the time when one exists; the maps usually
+  provide none.
+- **The primary-profile blind spot is negligible** — 2 fielded units of 284, one
+  in a default-on faction. I called it urgent; it is not.
+- **Catalogue profile ≠ fielded profile, for 53 percent of units.** A probe
+  reasoning about runtime must build armies; `UNIT_CATALOG` answers data
+  questions only. This produced two wrong answers before it was measured.
+
+#### Tooling added
+
+`scripts/gate_inventory.py` reads every gate's real default from code — 147
+gates, 107 on, 40 off, and **19 whose surrounding comment contradicts the code**,
+all from adoption without a comment sweep. Its own blind spot is documented: it
+would not have caught the drift that motivated it.
+
+#### Open, in rough priority order
+
+1. **Emperor's Children needs a tenth-edition list.** `SWEG_EC_LIST3` is
+   condemned — its source event was played under eleventh edition (launched
+   20 June 2026). The faction is the number two ordering target with no usable
+   sourced list.
+2. **Aeldari mechanics** — the input layer is ruled out and the army rules are
+   inert, so the eleven-point over-rating is elsewhere. Unexplored.
+3. **The map-geometry cap** needs a home-contesting artificial intelligence
+   before `SWEG_OBJ_HOME` can be revisited.
+4. `SWEG_CULL_PICK_AWARE` remains built, cited, byte-identical and unscreened.
+
 ### 2026-07-27 — the headline metric was measuring the wrong thing
 
 **Nothing committed. No simulator behaviour changed.** The only code change is
