@@ -1,6 +1,5 @@
 {
   "_comment": "Astra Militarum citations (iter-14). Covers the Combined Arms detachment rule (Born Soldiers), the Voice of Command army-wide Order economy, the four wired Officer Orders (Take Aim!, Fix Bayonets!, FRFSRF, Take Cover!), and the six Combined Arms detachment stratagems (Coordinated Action, Reinforcements!, Flexible Command, Fields of Fire, Inspired Command, Stalwart Protector). All entries cite the Wahapedia AM faction page; per-stratagem quoted_text fields are codex-verbatim quotes captured from the Wahapedia detachment block.",
-
   "simulator.sticky_objective.astra_militarum_cadian_shock_troops": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Shock-Troops",
     "rule_name": "Shock Troops (Cadian Shock Troops datasheet ability)",
@@ -10,7 +9,6 @@
     "scope": "keyword-gated",
     "approximation": true
   },
-
   "simulator.cadia_stands": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Command-Squad",
     "rule_name": "Cadia Stands! (Cadian Command Squad datasheet ability)",
@@ -20,7 +18,6 @@
     "scope": "unit-led",
     "approximation": true
   },
-
   "simulator.am_battleline_special_weapons": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Shock-Troops",
     "rule_name": "Cadian Shock Troops / Death Korps of Krieg — special weapon wargear options",
@@ -30,7 +27,6 @@
     "scope": "weapon-keyword",
     "approximation": true
   },
-
   "COMBINED_REGIMENT.am_born_soldiers_lethal_hits": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Born Soldiers (Combined Arms Detachment Rule)",
@@ -40,7 +36,6 @@
     "scope": "keyword-gated",
     "approximation": true
   },
-
   "COMBINED_ARMS.am_born_soldiers_lethal_hits": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Born Soldiers (Combined Arms Detachment Rule) — alias",
@@ -50,7 +45,6 @@
     "scope": "keyword-gated",
     "approximation": true
   },
-
   "simulator.voice_of_command_orders": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Voice of Command (Astra Militarum Army Rule)",
@@ -60,7 +54,6 @@
     "scope": "army-wide",
     "approximation": false
   },
-
   "simulator.officer_order_counts.Ursula_Creed": {
     "source": "https://github.com/BSData/wh40k-10e/blob/main/Imperium%20-%20Astra%20Militarum%20-%20Library.cat (unit id b6b2-9971-ec0c-349e, Orders profile id 85b7-65b8-1961-50ee; cross-checked from local cache data/bsdata/cache/Imperium - Astra Militarum - Library.cat.gz)",
     "rule_name": "Ursula Creed Orders profile (Astra Militarum datasheet)",
@@ -70,7 +63,6 @@
     "scope": "character-only",
     "approximation": false
   },
-
   "simulator.officer_order_counts.Lord_Marshal_Dreir": {
     "source": "https://github.com/BSData/wh40k-10e/blob/main/Imperium%20-%20Astra%20Militarum%20-%20Library.cat (unit id 9033-d07c-3e1c-f6f0, Orders profile id c4eb-5868-02ac-efe3; cross-checked from local cache data/bsdata/cache/Imperium - Astra Militarum - Library.cat.gz)",
     "rule_name": "Lord Marshal Dreir Orders profile (Astra Militarum datasheet)",
@@ -80,7 +72,6 @@
     "scope": "character-only",
     "approximation": false
   },
-
   "simulator.officer_order_counts.Front_line_Commander_Crucible": {
     "source": "https://github.com/BSData/wh40k-10e/blob/main/Imperium%20-%20Astra%20Militarum%20-%20Library.cat (unit id 4fc5-184d-b305-3551, Orders profile id 467f-baf9-5dfd-0f3f; cross-checked from local cache data/bsdata/cache/Imperium - Astra Militarum - Library.cat.gz)",
     "rule_name": "Front-line Commander [Crucible] Orders profile (Astra Militarum datasheet)",
@@ -90,7 +81,6 @@
     "scope": "character-only",
     "approximation": false
   },
-
   "simulator.officer_order_counts.Sentinel_Commander_Crucible": {
     "source": "https://github.com/BSData/wh40k-10e/blob/main/Imperium%20-%20Astra%20Militarum%20-%20Library.cat (unit id a040-9715-5d3a-52af, Orders profile id f785-4221-70aa-1ae4; cross-checked from local cache data/bsdata/cache/Imperium - Astra Militarum - Library.cat.gz)",
     "rule_name": "Sentinel Commander [Crucible] Orders profile (Astra Militarum datasheet)",
@@ -100,7 +90,6 @@
     "scope": "character-only",
     "approximation": false
   },
-
   "Order.Take Aim!": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Take Aim! (Astra Militarum Order)",
@@ -110,7 +99,6 @@
     "scope": "phase-gated",
     "approximation": false
   },
-
   "Order.Fix Bayonets!": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Fix Bayonets! (Astra Militarum Order)",
@@ -120,7 +108,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Order.First Rank, Fire! Second Rank, Fire!": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "First Rank, Fire! Second Rank, Fire! (Astra Militarum Order)",
@@ -130,7 +117,6 @@
     "scope": "phase-gated",
     "approximation": false
   },
-
   "Order.Take Cover!": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Take Cover! (Astra Militarum Order)",
@@ -140,7 +126,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Order.Duty and Honour!": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Duty and Honour! (Astra Militarum Order)",
@@ -150,7 +135,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Coordinated Action": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Coordinated Action (Combined Arms Stratagem)",
@@ -160,7 +144,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Reinforcements!": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/#Stratagems",
     "rule_name": "Reinforcements! (Combined Arms Stratagem)",
@@ -170,7 +153,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "simulator.reinforcements_stratagem": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/#Stratagems",
     "rule_name": "Reinforcements! (Combined Arms Stratagem) — simulator gate",
@@ -180,7 +162,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Flexible Command": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Flexible Command (Combined Arms Stratagem)",
@@ -190,7 +171,6 @@
     "scope": "phase-gated",
     "approximation": false
   },
-
   "Stratagem.Fields of Fire": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Fields of Fire (Combined Arms Stratagem)",
@@ -200,7 +180,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Inspired Command": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Inspired Command (Combined Arms Stratagem)",
@@ -210,7 +189,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Stalwart Protector": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Stalwart Protector (Combined Arms Stratagem)",
@@ -220,7 +198,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "LeaderAbility.Cadian Castellan.leader_attachment": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Castellan",
     "rule_name": "Leader (Cadian Castellan datasheet)",
@@ -229,7 +206,6 @@
     "effect": "Structural LeaderAbility registry entry (gated SWEG_OFFICER_FOLLOW). The 'Senior Officer' ability ([SUSTAINED HITS 1] on led unit's ranged weapons) is now wired via sustained_hits_ranged=1 (gated SWEG_CASTELLAN_SH, default-off since wave 247). The entry also enables lookup_ability to resolve the Cadian Castellan cleanly per CLAUDE.md §13 and lets the pick_move_intent officer-follow hook identify host squads. BSData source: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id 2b49-4d03-aaf5-3532, Leader infoGroup profile id e668-97a7-2df8-6db3.",
     "scope": "unit-led"
   },
-
   "LeaderAbility.Cadian Command Squad.leader_attachment": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Command-Squad",
     "rule_name": "Leader (Cadian Command Squad datasheet)",
@@ -238,7 +214,6 @@
     "effect": "Structural LeaderAbility registry entry (gated SWEG_OFFICER_FOLLOW). No offensive/defensive aura fields are set — the real 'Cadia Stands!' ability (Benefit of Cover against ranged attacks while on a controlled objective) is a once-per-attack gate with no existing LeaderAbility proxy. The entry exists so lookup_ability resolves the Cadian Command Squad cleanly per CLAUDE.md §13 and so the pick_move_intent officer-follow hook can identify host squads. BSData source: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id 4d28-f2a7-67c1-eb2e, Leader infoGroup profile id e41a-d75f-98b5-d6a1.",
     "scope": "unit-led"
   },
-
   "LeaderAbility.Ursula Creed.leader_attachment": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Ursula-Creed",
     "rule_name": "Leader (Ursula Creed datasheet)",
@@ -247,7 +222,6 @@
     "effect": "Structural LeaderAbility registry entry (gated SWEG_OFFICER_FOLLOW). No offensive/defensive aura fields are set — the real 'Lord Castellan' ability (led unit can be affected by up to two different Orders simultaneously) requires a per-unit Order-stack-limit exception in the Order dispatcher that is not yet implemented. The entry exists so lookup_ability resolves Ursula Creed cleanly per CLAUDE.md §13 and so the pick_move_intent officer-follow hook can identify host squads. BSData source: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id b6b2-9971-ec0c-349e, Leader profile id 7346-8799-ddd5-7f10.",
     "scope": "unit-led"
   },
-
   "LeaderAbility.Lord Solar Leontus.leader_attachment": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Lord-Solar-Leontus",
     "rule_name": "Leader (Lord Solar Leontus datasheet)",
@@ -256,7 +230,6 @@
     "effect": "LeaderAbility registry entry (gated SWEG_OFFICER_FOLLOW). cp_discount_per_round=1 models the 'The Lord Solar' codex ability: 'At the start of your Command phase, if this model is on the battlefield, you gain 1 CP.' All seven host keys confirmed present in data/bsdata/parsed.json (rule 13 key-verification). Leontus is MOUNTED with Move 12\"; the pick_move_intent officer-follow hook applies identically (no MOUNTED-specific gate in the hook). The 'The Collegiate Astrolex' redeployment ability and 'Supreme Commander' (must-be-Warlord) constraint are not modelled. BSData source: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id a9d-55c1-3d24-fa25, Leader infoGroup profile id b70c-2b-b942-ef2.",
     "scope": "unit-led"
   },
-
   "LeaderAbility.Senior Officer": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Castellan",
     "rule_name": "Senior Officer (Cadian Castellan Leader Ability)",
@@ -265,7 +238,6 @@
     "effect": "Wired as sustained_hits_ranged=1 on the Cadian Castellan LeaderAbility entry (gated SWEG_CASTELLAN_SH, default-off since wave 247). When the gate is on, compute_army_buffs merges sustained_hits_ranged=1 into att_buffs via _merge_add; code/units.py (~line 3682) reads att_buffs['sustained_hits_ranged'] and adds it to effective_sustained_hits for ranged attacks made by the led unit. Gate-off value is 0, which the `if _aura_sh_r > 0` guard makes inert — byte-identical to pre-wave-247. BSData source: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id 2b49-4d03-aaf5-3532, Abilities profile id a7f5-adb8-d1c9-2a2d.",
     "scope": "unit-led"
   },
-
   "LeaderAbility.Cadia Stands!": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Cadian-Command-Squad",
     "rule_name": "Cadia Stands! (Cadian Command Squad Leader Ability)",
@@ -274,7 +246,6 @@
     "effect": "Structural LeaderAbility registry entry only — the 5+ invulnerable save (Benefit of Cover proxy) against ranged attacks while on a controlled objective is a per-wound once-per-attack gate not yet expressible through the LeaderAbility schema; the entry exists so lookup_ability resolves the Cadian Command Squad cleanly (CLAUDE.md rule 13). BSData: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id 4d28-f2a7-67c1-eb2e.",
     "scope": "unit-led"
   },
-
   "LeaderAbility.Lord Castellan": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Ursula-Creed",
     "rule_name": "Lord Castellan (Ursula Creed Leader Ability)",
@@ -283,7 +254,6 @@
     "effect": "Structural LeaderAbility registry entry only — the double-Order stacking mechanic requires a per-unit Order-stack-limit exception in the Order dispatcher that is not yet implemented; the entry exists so lookup_ability resolves Ursula Creed cleanly (CLAUDE.md rule 13) and the officer-follow hook can identify host squads. BSData: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id b6b2-9971-ec0c-349e.",
     "scope": "unit-led"
   },
-
   "LeaderAbility.The Lord Solar": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/Lord-Solar-Leontus",
     "rule_name": "The Lord Solar (Lord Solar Leontus Leader Ability)",
@@ -292,7 +262,6 @@
     "effect": "Modelled as cp_discount_per_round=1 on the LeaderAbility entry — the closest existing field for a per-round Command Point gain. All seven host keys confirmed present in data/bsdata/parsed.json. The Collegiate Astrolex redeployment ability and the Supreme Commander must-be-Warlord constraint are not modelled. BSData: Imperium - Astra Militarum - Library.cat.gz, selectionEntry id a9d-55c1-3d24-fa25.",
     "scope": "unit-led"
   },
-
   "simulator.officer_follow_piloting": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Voice of Command (Astra Militarum Army Rule) — piloting heuristic",
@@ -302,7 +271,6 @@
     "scope": "phase-gated",
     "approximation": false
   },
-
   "SWEG_FIXBAYONETS.fix_bayonets_engagement": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
     "rule_name": "Fix Bayonets! (Astra Militarum Order) — engagement-range routing guard",
@@ -312,7 +280,6 @@
     "scope": "phase-gated",
     "approximation": false
   },
-
   "simulator.am_advance_discipline": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/",
     "rule_name": "Advancing (10e Core Rules, Movement phase) + [ASSAULT] weapon ability — Astra Militarum gunline piloting heuristic",
@@ -322,7 +289,6 @@
     "scope": "phase-gated",
     "approximation": false
   },
-
   "GRIZZLED_COMPANY.grizzled_ruthless_discipline": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/#Ruthless-Discipline",
     "rule_name": "Ruthless Discipline (Grizzled Company Detachment Rule)",
@@ -332,7 +298,6 @@
     "scope": "army-wide",
     "approximation": false
   },
-
   "simulator.grizzled_ruthless_discipline": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/#Ruthless-Discipline",
     "rule_name": "Ruthless Discipline (Grizzled Company Detachment Rule) — simulator-gate citation",
@@ -341,5 +306,37 @@
     "effect": "Duplicate simulator-gate citation for the code/orders.py + code/units.py implementation described in full under GRIZZLED_COMPANY.grizzled_ruthless_discipline above. Exists because scripts/audit_rules.py SIMULATOR_RULE_KEYS tracks simulator-side gates as a separate manually-maintained key list from the Detachment-field RULE_BEARING_FIELDS scan.",
     "scope": "army-wide",
     "approximation": false
+  },
+  "simulator.order_aura_base_edge": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Measuring-Distances",
+    "rule_name": "Measuring Distances (10e Core Rules) applied to the Voice of Command 6-inch aura",
+    "quoted_text": "When measuring the distance between models, measure between the closest points of the bases of the models you're measuring to and from.",
+    "trigger": "SWEG_ORDER_AURA_BASEEDGE=1 (unset or '0' is the byte-identical kill-switch); any Voice of Command aura test - the per-Officer target search in code.orders.dispatch_orders, the Ursula Creed led-squad resolution, and the Inspired Command stratagem officer/target pairing in Battle._try_inspired_command.",
+    "effect": "the 6-inch Order aura is measured base edge to base edge (centre distance minus both models' base radii, via code.sim.geometry._bc_model_radius_in) instead of centre to centre. This is the same measurement the simulator already applies to Engagement Range (simulator.engagement_range_base_edge, default-on since wave 240) and to objective control (keywords_and_mechanics.json, control radius = centre-distance - base_radius); the Order aura was the one remaining range test measured centre-only, which shortened it by the two models' radii - 6.00 inches instead of the legal 9.00 inches from a foot Officer to a Leman Russ or Rogal Dorn hull (2.37-inch radius), and 9.52 inches for Lord Solar Leontus. Symmetric across all models; not a per-faction knob (the Voice of Command rule is Astra Militarum's, but the measuring correction applies to every model's base uniformly).",
+    "scope": "keyword-gated"
+  },
+  "simulator.officer_coverage_piloting": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Voice of Command (Astra Militarum Army Rule) - Officer positioning heuristic",
+    "quoted_text": "If your Army Faction is ASTRA MILITARUM, OFFICER models with this ability can issue Orders. Each OFFICER's datasheet will specify how many Orders it can issue in a battle round and which units are eligible to receive those Orders.",
+    "trigger": "SWEG_OFFICER_COVERAGE=1 (unset or '0' is the byte-identical kill-switch); the moving unit's name is in code.orders.AM_OFFICER_NAMES, its Order allowance from code.orders.OFFICER_ORDER_COUNTS exceeds the number of distinct Order-eligible squads currently inside its 6-inch aura, and some eligible squad's centroid would put strictly more of them inside it.",
+    "effect": "ARTIFICIAL-INTELLIGENCE PILOTING HEURISTIC - not a 10e rules claim; the rule quoted above is the behaviour it exists to realise. The Officer's move intent becomes the eligible-squad centroid that maximises the number of DISTINCT squads it could legally issue Orders to (capped at its own Order allowance, since a unit can only be affected by one Order at a time), ties broken toward the nearer candidate. Eligibility uses the Officer's own per-datasheet target types via code.orders._officer_target_types, so the hook never counts a squad the Officer could not legally order. It supersedes SWEG_OFFICER_FOLLOW, which seeks only the nearest LeaderAbility host-key squad and stops at one - correct for a one-Order Officer, and the measured cause of Lord Solar Leontus (three Orders) standing within reach of 1.88 eligible squads and Ursula Creed (three Orders) of 2.14. Astra-Militarum-scoped by construction through the AM_OFFICER_NAMES allowlist.",
+    "scope": "keyword-gated"
+  },
+  "simulator.squad_damage_floor": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#SHOOTING-PHASE",
+    "rule_name": "Shooting phase - a shooting attack is made by the whole unit",
+    "quoted_text": "Each time a unit is selected to shoot, you can make attacks with the ranged weapons its models are equipped with.",
+    "trigger": "SWEG_SQUAD_DAMAGE_FLOOR=1 (unset or '0' is the byte-identical kill-switch); the advance-suppression family's can-actually-damage guard in Battle._do_move is about to test an attacker's expected ranged damage against the 0.5 floor.",
+    "effect": "ARTIFICIAL-INTELLIGENCE PILOTING HEURISTIC - not a 10e rules claim; the rule quoted above is why the codex UNIT, not one model, is the right unit of account. The simulator stores one Unit instance per physical model, so the guard's per-model expected damage understates a codex unit's shooting by its model count, and no multi-model squad in the catalogue can pass a floor calibrated for single-model platforms (twenty Cadian Shock Troops into Poxwalkers is 3.33 expected wounds; each model computes 0.167). The expected-damage figure is multiplied by the number of live models sharing the attacker's squad_id. Single-model platforms have a squad of one, so every currently-admitted gunline unit is byte-identical; the change only affects multi-model bodies.",
+    "scope": "phase-gated"
+  },
+  "simulator.officer_standoff_piloting": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Voice of Command (Astra Militarum Army Rule) - Officer standoff positioning",
+    "quoted_text": "If your Army Faction is ASTRA MILITARUM, OFFICER models with this ability can issue Orders. Each OFFICER's datasheet will specify how many Orders it can issue in a battle round and which units are eligible to receive those Orders.",
+    "trigger": "SWEG_OFFICER_STANDOFF=1 (unset or '0' is the byte-identical kill-switch); either officer-positioning hook in code/strategy.py has chosen a move target, and a step directly away from the nearest live enemy still leaves every model the Officer must order inside the 6-inch aura.",
+    "effect": "ARTIFICIAL-INTELLIGENCE PILOTING HEURISTIC - not a 10e rules claim; the rule quoted above is the 6-inch range it respects. Both hooks otherwise send the Officer to the ordered squad's CENTROID, i.e. into the firing line, because Voice of Command requires proximity. That positional obligation is unique to Astra Militarum among all factions, and measurement attributes real cost to it: Astra Militarum characters are attached at 99 percent (opponents 75) yet die at 61 percent (opponents 17) on bodyguard attrition that is not itself anomalous, and opponents take 3.14 assassination victory points a game from Astra Militarum against its 0.24. The heuristic slides the chosen target directly away from the nearest enemy by the largest of 5, 4, 3, 2 or 1 inches that still keeps every model it must order within OFFICER_AURA_RANGE, so no Order is surrendered for the safety. Astra-Militarum-scoped by construction: both hooks gate on code.orders.AM_OFFICER_NAMES.",
+    "scope": "keyword-gated"
   }
 }

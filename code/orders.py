@@ -124,7 +124,7 @@ if TYPE_CHECKING:
 #
 # Cited as "SWEG_CREED_TWO_ORDERS.lord_castellan_two_orders" in
 # data/rule_citations.json.
-_CREED_TWO_ORDERS: bool = os.environ.get("SWEG_CREED_TWO_ORDERS", "0") == "1"
+_CREED_TWO_ORDERS: bool = os.environ.get("SWEG_CREED_TWO_ORDERS", "1") != "0"
 
 
 # ---------------------------------------------------------------------------
@@ -163,7 +163,7 @@ _FIXBAYONETS_GUARD: bool = os.environ.get("SWEG_FIXBAYONETS", "0") == "1"
 #
 # Cited as "Order.Duty and Honour!" in
 # data/rule_citations.d/astra_militarum.json.
-_DUTY_AND_HONOUR: bool = os.environ.get("SWEG_AM_DUTY_AND_HONOUR", "0") == "1"
+_DUTY_AND_HONOUR: bool = os.environ.get("SWEG_AM_DUTY_AND_HONOUR", "1") != "0"
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +171,41 @@ _DUTY_AND_HONOUR: bool = os.environ.get("SWEG_AM_DUTY_AND_HONOUR", "0") == "1"
 # ---------------------------------------------------------------------------
 
 OFFICER_AURA_RANGE: float = 6.0   # 10e canonical (Voice of Command)
+
+
+def _aura_gap(officer: "Unit", member: "Unit") -> float:
+    """Distance from an Officer model to a target model for the 6" Voice of
+    Command aura test, in inches.
+
+    SWEG_ORDER_AURA_BASEEDGE=1 returns the BASE-EDGE gap — centre distance
+    minus both models' base radii — per the 10e core measuring rule already
+    cited in `data/rule_citations.d/keywords_and_mechanics.json`: "When
+    measuring the distance between models, measure between the closest points
+    of the bases of the models you're measuring to and from." That is the same
+    measurement `code.sim.geometry._er_gap` applies to Engagement Range
+    (`simulator.engagement_range_base_edge`, default-on since wave 240) and
+    `Battle._assign_army_oc` applies to objective control — the Order aura was
+    the one range test in the simulator still measured centre-to-centre, which
+    shortens it by the two models' radii. The shortfall is worst exactly where
+    Astra Militarum's firepower sits: a foot Officer (0.63" radius) reaching a
+    Leman Russ or Rogal Dorn (2.37") legally reaches 9.00" between centres, but
+    the centre-only test cuts that to 6.00" — 67% of the legal radius, 44% of
+    the legal area. Lord Solar Leontus (1.15", MOUNTED) to the same tank is
+    9.52" legal versus 6.00" measured.
+
+    =0 (the default) returns the legacy centre-to-centre distance unchanged, so
+    every `<= OFFICER_AURA_RANGE` call site is byte-identical to its previous
+    `_distance(...)` form.
+
+    Cited as `simulator.order_aura_base_edge` in
+    `data/rule_citations.d/astra_militarum.json`.
+    """
+    d = _distance(officer.position, member.position)
+    if os.environ.get("SWEG_ORDER_AURA_BASEEDGE", "1") != "0":
+        from .sim.geometry import _bc_model_radius_in
+        d -= (_bc_model_radius_in(officer.profile)
+              + _bc_model_radius_in(member.profile))
+    return d
 
 
 # Canonical AM OFFICER datasheets — only these can issue Voice of Command
@@ -877,7 +912,7 @@ def dispatch_orders(
                 for _squad_key, _members in squads.items():
                     # Check proximity first (at least one member in aura).
                     if not any(
-                        _distance(_creed_unit.position, m.position) <= OFFICER_AURA_RANGE
+                        _aura_gap(_creed_unit, m) <= OFFICER_AURA_RANGE
                         for m in _members
                     ):
                         continue
@@ -916,7 +951,7 @@ def dispatch_orders(
                 (key, members) for key, members in squads.items()
                 if key not in ordered_squads
                 and any(
-                    _distance(officer.position, m.position) <= OFFICER_AURA_RANGE
+                    _aura_gap(officer, m) <= OFFICER_AURA_RANGE
                     for m in members
                 )
                 and _is_order_target_eligible(

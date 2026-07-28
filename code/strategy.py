@@ -34,7 +34,7 @@ from typing import Dict, Optional, Tuple
 
 from .detachments import effective_move
 from .map import _terrain_epoch
-from .roles import classify
+from .roles import classify, combat_profile
 from .sim.geometry import _bc_model_radius_in, _charge_path_screen_gap, _er_gap
 from .sim.constants import MAX_ROUNDS   # whole-game planner substrate (Phase 1): _value_scoring_rounds_remaining
 from .units import _unflatten_model_loadouts, save_probability, wound_probability
@@ -75,6 +75,11 @@ _SACRIFICIAL_INTENT = "SACRIFICIAL"
 # the universe of squad-bodies-sold-cheap without tagging Intercessors (20+)
 # or even slightly-elite-but-numerous units like Tactical Marines.
 _CHAFF_MAX_POINTS_PER_MODEL: float = 15.0
+# Most units that may be committed to the enemy deployment zone at once under
+# SWEG_CHAFF_COMMIT_CAP. Two, because `secondaries.score_position_delta` pays
+# Behind Enemy Lines 3 victory points for one unit there and 4 for two or more —
+# a third body earns nothing at all. See `_sacrificial_chaff_target`.
+_CHAFF_COMMIT_CAP: int = 2
 # AI-9 — only enable for units with squad of 5+ models (per-model points cost
 # of a CHARACTER under 15 is essentially impossible, but guard anyway —
 # Custodian Guard sacrifice would be terrible).
@@ -1563,6 +1568,60 @@ def _is_melee_class(attacker_profile) -> bool:
                   * attacker_profile.hit_probability
                   * (attacker_profile.weapon_damage_per_shot or 0.0))
     return melee_dpa >= ranged_dpa
+
+
+def _is_melee_class_effective(attacker_profile) -> bool:
+    """`_is_melee_class`, but judged on EFFECTIVE damage rather than raw volume.
+
+    `_is_melee_class` above estimates damage as `attacks * hit_probability *
+    damage_per_shot`. That omits the wound roll, Strength versus Toughness,
+    armour penetration and the armour save — all four of which
+    `roles.expected_ranged_dpa` / `roles.expected_melee_dpa` do model, against
+    the same generic Toughness-4 Save-3+ reference target the rest of the
+    role system uses. Because melee and ranged weapons differ systematically in
+    Strength and armour penetration, dropping those four terms is not a uniform
+    scaling — it reorders the comparison.
+
+    MEASURED (scripts/_melee_class_disagreement.py): the two functions disagree
+    on 110 of 1385 catalogue units (7.9 percent), 86 of them on the STAY side —
+    a ranged-primary unit pinned in melee is told to stand and forfeit its guns.
+    Worst cases: Redemptor Dreadnought (6.67 ranged versus 5.56 melee), Triarch
+    Stalker (4.45 versus 2.67), Paragon Warsuits, Seraphim Squad, Obliterators.
+
+    BUT that catalogue disagreement is very nearly INERT at the Fall Back branch,
+    and swapping the estimator there alone changes nothing. The branch condition
+    is `role in _fall_back_eligible_roles and not _is_melee_class(...)`, which
+    short-circuits: the role test runs FIRST. Measured over pinned ranged-primary
+    activations (scripts/_pinned_gunline_probe.py), the role label excludes 55.0
+    percent — SUPPORT 30.8, HORDE 15.2, DUAL 9.0 — and `_is_melee_class` excludes
+    0.0 percent, because a unit raw-volume-melee enough to fail it has almost
+    always failed the role test already. An earlier reading of this probe put the
+    melee-class share at 40.8 percent; that was an artefact of bucketing on
+    `_is_melee_class` BEFORE the role test, crediting it with exclusions the role
+    label had already made. The figure is 0.0 percent.
+
+    So this predicate is used as the ranged-primary GUARD inside
+    `SWEG_FALLBACK_CAPABILITY` (see the Fall Back branch), not as a lever of its
+    own — it is the better estimator to guard with, and it is measured at the one
+    site that uses it. `_is_melee_class` keeps its six other live consumers — the
+    Ork tarpit charge bonus, the World Eaters glory charge bonus and the scout
+    artificial intelligence among them — and is deliberately NOT changed
+    globally. Stage-1 artificial-intelligence piloting only; no rule citation
+    beyond the Fall Back core rule the branch already cites, because this changes
+    an estimate, not a rule.
+
+    LATENT HAZARD, deliberately not fixed here (CLAUDE.md rule 13): the
+    fallbacks in `_is_melee_class` are asymmetric — `melee_damage_per_shot or
+    1.0` against `weapon_damage_per_shot or 0.0`, so a missing melee damage
+    value scores 1 while a missing ranged value scores 0. Every catalogue unit
+    with attacks above zero currently carries a ranged damage value, so this
+    fires on ZERO units today and is a trap for a future override, not a live
+    defect.
+    """
+    if attacker_profile is None:
+        return False
+    from .roles import expected_melee_dpa, expected_ranged_dpa
+    return expected_melee_dpa(attacker_profile) >= expected_ranged_dpa(attacker_profile)
 
 
 def _we_glory_charge_bonus(attacker, defender) -> float:
@@ -3382,7 +3441,85 @@ def _sacrificial_chaff_target(
     if battle is None:
         return None
     own_is_army_a = friendly is battle.a
-    if _friendly_already_in_enemy_dz(friendly_alive, map_, own_is_army_a):
+    # SWEG_CHAFF_COMMIT_CAP (default-off; unset or "0" is the byte-identical
+    # kill-switch) — cap how many units may be COMMITTED to the enemy
+    # deployment zone at once, instead of only declining once one has ARRIVED.
+    #
+    # Gate (d) below asks whether a friendly is already standing in the enemy
+    # deployment zone. Nothing is standing there for the first several rounds:
+    # a Move 6" infantry unit needs four or more rounds to cross a Pariah Nexus
+    # table, and until it lands EVERY other chaff unit in the army passes the
+    # same gate and receives the same intent. Measured
+    # (`scripts/_am_intent_probe.py`, twelve games): 77.8 percent of Cadian
+    # Shock Troops and 83.9 percent of Death Korps of Krieg move decisions come
+    # back SACRIFICIAL, which routes them past the whole advance-suppression
+    # family, so they Advance (82.2 and 92.9 percent of activations), forfeit
+    # their Shooting phase, and die — 3 percent and 0 percent survive to the end
+    # of the battle, having dealt 0.4 and 0.0 wounds respectively.
+    #
+    # The over-commitment is pure waste on the simulator's OWN scoring table:
+    # `secondaries.score_position_delta` awards Behind Enemy Lines 3 victory
+    # points for one unit in the enemy deployment zone and 4 for two or more, so
+    # the second body is worth one point and the third is worth nothing. Two is
+    # therefore the cap, and it is deliberately the LOOSER of the two readings
+    # (one would score 3 of the 4 available points and free another body).
+    #
+    # Faction-neutral: it fires for whoever over-commits. It bites Astra
+    # Militarum hardest only because Astra Militarum has the most sub-15-point
+    # models, so its whole battleline qualifies as chaff — and unlike Death
+    # Guard's Poxwalkers, that battleline is the army's guns, the recipient of
+    # 86 percent of its Orders, and the carrier of Born Soldiers [LETHAL HITS].
+    if os.environ.get("SWEG_CHAFF_COMMIT_CAP", "1") != "0":
+        if own_is_army_a:
+            _dz_lo = map_.height - map_.deployment_width
+            def _arrived(u):
+                return u.position[1] >= _dz_lo
+        else:
+            _dz_hi = map_.deployment_width
+            def _arrived(u):
+                return u.position[1] <= _dz_hi
+        # `Unit` is slotted, so the en-route commitment is recorded on the
+        # battle (unit ids carry an army prefix, so one set serves both sides).
+        _en_route = getattr(battle, "_chaff_commit_uids", None)
+        if _en_route is None:
+            _en_route = set()
+            battle._chaff_commit_uids = _en_route
+        # A unit that has since parked on an objective is no longer travelling
+        # to the enemy deployment zone (the `unit_on_obj_ids` early return above
+        # keeps it where it stands), so it must stop counting against the cap —
+        # otherwise two chaff units settling on markers would block the army
+        # from ever scoring Behind Enemy Lines at all, which is the opposite of
+        # the over-commitment this gate exists to fix.
+        def _parked(u):
+            return any(
+                _dist(u.position, (obj.x, obj.y)) <= obj.control_radius
+                for obj in map_.objectives
+            )
+
+        def _squad_key(u):
+            sid = getattr(u, "squad_id", -1)
+            return ("squad", sid) if sid >= 0 else ("solo", u.uid)
+
+        # Count CODEX UNITS, not model instances. The simulator stores one Unit
+        # per physical model, so counting `friendly_alive` directly would cap the
+        # army at two MODELS — a fraction of one squad — and Behind Enemy Lines
+        # scores for a UNIT in the enemy deployment zone, not a model. Getting
+        # this wrong is the same per-model-versus-codex-unit trap that
+        # `simulator.squad_damage_floor` exists to fix, and it measured as
+        # Tyranids −6.39, Adeptus Mechanicus −4.43 and Adepta Sororitas −4.01 in
+        # the first full-matrix screen of this gate: the horde factions, whose
+        # chaff push is correct play, had their position secondaries strangled.
+        _committed_squads = {
+            _squad_key(u) for u in friendly_alive
+            if _arrived(u) or (u.uid in _en_route and not _parked(u))
+        }
+        # A squad already committed keeps going — otherwise the first model of a
+        # squad claims the slot and the rest of its own models are turned back,
+        # tearing the unit in half.
+        if (_squad_key(unit) not in _committed_squads
+                and len(_committed_squads) >= _CHAFF_COMMIT_CAP):
+            return None
+    elif _friendly_already_in_enemy_dz(friendly_alive, map_, own_is_army_a):
         return None
     # Aim for the middle of the enemy DZ on the unit's current x-side,
     # so the move stays on the unit's flank.
@@ -3398,6 +3535,15 @@ def _sacrificial_chaff_target(
     else:
         # Army B's enemy DZ is the low-y strip. Aim for its midpoint.
         target_y = map_.deployment_width * 0.5
+    # Record the commitment so the cap above can see units that are EN ROUTE,
+    # not merely those that have already arrived. Only written when the gate is
+    # on; nothing reads the attribute otherwise, so the off path is unchanged.
+    if os.environ.get("SWEG_CHAFF_COMMIT_CAP", "1") != "0":
+        _seen = getattr(battle, "_chaff_commit_uids", None)
+        if _seen is None:
+            _seen = set()
+            battle._chaff_commit_uids = _seen
+        _seen.add(unit.uid)
     return (target_x, target_y)
 
 
@@ -3493,7 +3639,7 @@ def _m4_cluster_intent(unit, own_oc, enemy_alive, objectives, map_):
 
 
 def _maybe_officer_follow(
-    unit, friendly,
+    unit, friendly, enemy_alive=None,
 ) -> Optional[Tuple[float, float]]:
     """
     SWEG_OFFICER_FOLLOW stay-near hook (wave 244, lever 3).
@@ -3563,14 +3709,218 @@ def _maybe_officer_follow(
         ys = [p[1] for p in positions]
         return (sum(xs) / len(xs), sum(ys) / len(ys))
 
-    nearest_pos = min(
-        (_centroid(positions) for positions in squad_positions.values()),
-        key=lambda pos: _dist(unit.position, pos),
+    _nearest_key = min(
+        squad_positions,
+        key=lambda k: _dist(unit.position, _centroid(squad_positions[k])),
     )
+    nearest_pos = _centroid(squad_positions[_nearest_key])
     if _dist(unit.position, nearest_pos) <= OFFICER_AURA_RANGE:
         return None  # already within aura range — no pull needed
 
-    return nearest_pos
+    return _officer_standoff(
+        nearest_pos, squad_positions[_nearest_key], enemy_alive,
+    )
+
+
+def _officer_standoff(pos, must_cover, enemy_alive):
+    """SWEG_OFFICER_STANDOFF (default-off; unset or "0" is the byte-identical
+    kill-switch) — order from the BACK of the aura, not from the squad itself.
+
+    Voice of Command needs an Officer within 6 inches of the unit it orders, and
+    both officer-positioning hooks answer that by sending the Officer to the
+    squad's CENTROID — i.e. into the firing line the squad is standing in. That
+    obligation is unique to Astra Militarum: no other faction's characters have a
+    positional duty at all, and the cost shows up in the measurements. Astra
+    Militarum characters are ATTACHED at 99 percent (against opponents' 75) and
+    still die at **61 percent against 17**, on bodyguard attrition that is not
+    itself anomalous (its cheap infantry dies at 92 percent where Adepta
+    Sororitas is 97 and Genestealer Cults 99). Those dead characters are the
+    single largest secondary leak: opponents take 3.14 assassination victory
+    points a game off Astra Militarum against its 0.24, roughly 55 percent of the
+    whole secondary deficit.
+
+    A real Guard player answers this by standing the Officer at the FAR edge of
+    its aura — behind the squad, using it as the screen — rather than in it. This
+    slides the returned move target directly away from the nearest enemy, taking
+    the largest offset that still keeps every model it must order inside the
+    aura, so not one Order is given up for the safety.
+
+    Artificial-intelligence piloting heuristic, not a rules claim; the rule it
+    exists to respect is the 6-inch Voice of Command range, already cited as
+    `simulator.voice_of_command_orders`. Cited as
+    `simulator.officer_standoff_piloting`.
+    """
+    if os.environ.get("SWEG_OFFICER_STANDOFF", "0") != "1":
+        return pos
+    if not enemy_alive or not must_cover:
+        return pos
+    from .orders import OFFICER_AURA_RANGE
+    _ex, _ey = min(enemy_alive, key=lambda e: _dist(pos, e.position)).position
+    dx, dy = pos[0] - _ex, pos[1] - _ey
+    n = (dx * dx + dy * dy) ** 0.5
+    if n <= 1e-6:
+        return pos
+    dx, dy = dx / n, dy / n
+    # Largest backward step that still orders everyone. Descending, so the
+    # Officer gives up as little safety as the aura allows and never trades an
+    # Order for it.
+    for step in (5.0, 4.0, 3.0, 2.0, 1.0):
+        cand = (pos[0] + dx * step, pos[1] + dy * step)
+        if all(_dist(cand, p) <= OFFICER_AURA_RANGE for p in must_cover):
+            return cand
+    return pos
+
+
+def _maybe_officer_coverage(unit, friendly, enemy_alive=None) -> Optional[Tuple[float, float]]:
+    """SWEG_OFFICER_COVERAGE (default-off): stand where the most Orders land.
+
+    `_maybe_officer_follow` above pulls an Astra Militarum OFFICER toward the
+    NEAREST squad whose catalogue key is in its LeaderAbility.host_keys, and
+    stops the moment ONE such squad is inside the 6" aura. That is the right
+    behaviour for a one-Order Officer and the wrong behaviour for a three-Order
+    one: Voice of Command lets Lord Solar Leontus and Ursula Creed issue three
+    Orders per Command phase, but each Order needs its own DISTINCT eligible
+    unit in range, and a unit can only be affected by one Order at a time.
+    Measured on the current frame (`scripts/_am_order_coverage.py`, twenty
+    games): Lord Solar is entitled to 3.00 Orders per round and has 1.88
+    distinct eligible squads in his aura; Creed 3.00 against 2.14 — between
+    them roughly 2.5 Orders per round are unplaceable for want of a second and
+    third body in range, on the army whose entire rule is the Order economy.
+
+    This hook picks the position that maximises the number of DISTINCT
+    Order-eligible squads inside the aura, counting only squads this Officer's
+    own datasheet may target (REGIMENT / SQUADRON / TITANIC per
+    `orders._officer_target_types`) and capping the count at the Officer's own
+    Order allowance — covering a fourth squad is worth nothing to a Castellan
+    who can only issue two. Candidate positions are the eligible squads'
+    centroids: standing on a squad guarantees that squad is covered and lets
+    the aura reach its neighbours. Ties break toward the nearer candidate, so
+    the Officer never crosses the board for a coverage gain it could get at
+    home, and the hook returns None unless a candidate strictly beats where the
+    Officer already stands.
+
+    Faithful, and Astra-Militarum-scoped by construction (the name allowlist
+    means it can never fire for another faction). Cited as
+    `simulator.officer_coverage_piloting` in
+    `data/rule_citations.d/astra_militarum.json`.
+    """
+    try:
+        from .orders import (
+            AM_OFFICER_NAMES, OFFICER_AURA_RANGE, OFFICER_ORDER_COUNTS,
+            _officer_target_types, _is_order_target_eligible,
+        )
+    except Exception:
+        return None
+
+    officer_name = getattr(getattr(unit, "profile", None), "name", None)
+    if officer_name not in AM_OFFICER_NAMES:
+        return None
+    allowance = OFFICER_ORDER_COUNTS.get(officer_name, 0)
+    if allowance <= 0:
+        return None
+
+    try:
+        officer_types = _officer_target_types(officer_name)
+    except ValueError:
+        return None
+
+    # Group this army's Order-eligible models into codex squads. Eligibility is
+    # per-datasheet, so testing one member covers the squad — the same
+    # simplification `orders.dispatch_orders` makes. `squadron_allowed` is the
+    # Flexible Command widening, which is a per-round stratagem flag the mover
+    # cannot see from here; assume it is not active (the narrower, no-worse set).
+    from collections import defaultdict
+    squad_positions: dict = defaultdict(list)
+    for u in friendly.units:
+        if not u.is_alive or u is unit:
+            continue
+        if not _is_order_target_eligible(
+            u, squadron_allowed=False, officer_target_types=officer_types,
+        ):
+            continue
+        squad_positions[getattr(u, "squad_id", id(u))].append(u.position)
+    if len(squad_positions) < 2:
+        return None  # nothing to gain: one squad or none is what follow already does
+
+    squads = [
+        (
+            (sum(p[0] for p in ps) / len(ps), sum(p[1] for p in ps) / len(ps)),
+            ps,
+        )
+        for ps in squad_positions.values()
+    ]
+
+    # Measure the hypothetical aura the same way `orders._aura_gap` will
+    # measure the real one, so the position this hook picks is a position the
+    # dispatcher agrees is in range. Under SWEG_ORDER_AURA_BASEEDGE the reach
+    # is the base-edge gap, which is longer by both models' radii; the models
+    # a squad's `positions` list holds all share one profile, so one radius
+    # lookup per squad is exact.
+    _slack = 0.0
+    if __import__("os").environ.get("SWEG_ORDER_AURA_BASEEDGE", "1") != "0":
+        from .sim.geometry import _bc_model_radius_in
+        _slack = _bc_model_radius_in(unit.profile)
+        squad_reach = []
+        for sid, ps in squad_positions.items():
+            _member = next(
+                u for u in friendly.units
+                if u.is_alive and u is not unit
+                and getattr(u, "squad_id", id(u)) == sid
+            )
+            squad_reach.append(_slack + _bc_model_radius_in(_member.profile))
+    else:
+        squad_reach = [0.0] * len(squads)
+
+    def _covered_from(pos) -> int:
+        """Distinct eligible squads with at least one model within the aura of
+        `pos`, capped at what this Officer can actually issue."""
+        n = 0
+        for (_centroid, positions), extra in zip(squads, squad_reach):
+            if any(_dist(pos, p) <= OFFICER_AURA_RANGE + extra for p in positions):
+                n += 1
+        return min(n, allowance)
+
+    here = _covered_from(unit.position)
+    if here >= allowance:
+        return None  # already saturated — every Order this Officer has will land
+
+    # Among the candidates that STRICTLY beat standing still, take the widest
+    # coverage, and among equal coverage the nearest — a coverage gain is not
+    # worth marching the Officer across the board for.
+    #
+    # REACHABILITY: only candidates the Officer can actually arrive at THIS
+    # Movement phase count. Measured without this filter, the hook fired on 92
+    # percent of Lord Solar Leontus's move decisions and his coverage got
+    # slightly WORSE (1.88 -> 1.73 eligible squads in aura): he spent the game
+    # walking toward a centroid that had moved on by the time he got there, and
+    # was permanently in transit instead of ever standing in the cluster. A
+    # squad centroid one move away is a position that will still be roughly
+    # right when he arrives; one four moves away is a guess about the future
+    # this hook has no business making. Candidates beyond the reach fall
+    # through to SWEG_OFFICER_FOLLOW and the ordinary intent logic.
+    reach_limit = float(effective_move(unit)) + OFFICER_AURA_RANGE
+    best_pos = None
+    best_cov = here
+    best_d = float("inf")
+    for centroid, _positions in squads:
+        d = _dist(unit.position, centroid)
+        if d > reach_limit:
+            continue
+        cov = _covered_from(centroid)
+        if cov <= here:
+            continue
+        if best_pos is None or cov > best_cov or (cov == best_cov and d < best_d):
+            best_pos, best_cov, best_d = centroid, cov, d
+    if best_pos is None:
+        return None
+    # Order from the back of the aura where possible (SWEG_OFFICER_STANDOFF);
+    # everything the chosen position covers must stay covered.
+    _cover = [
+        p for (_c, positions), extra in zip(squads, squad_reach)
+        for p in positions
+        if any(_dist(best_pos, q) <= OFFICER_AURA_RANGE + extra for q in positions)
+    ]
+    return _officer_standoff(best_pos, _cover, enemy_alive)
 
 
 def _weapon_throw_weight(w) -> float:
@@ -3861,7 +4211,60 @@ def pick_move_intent(
     # platforms (Knight Castellan/Valiant, gunline tanks, Votann Hearthkyn)
     # eligible to break off and free their guns. Stage-1 AI heuristic only —
     # no rule citation, this is play-style modelling.
-    if role in _fall_back_eligible_roles and not _is_melee_class(_score_profile(unit)):
+    # SWEG_FALLBACK_CAPABILITY (default-off, byte-identical when unset): decide
+    # Fall Back eligibility from what the unit CAN DO, not from its role LABEL.
+    #
+    # The label test above asks a capability question of a body-class answer.
+    # `roles.classify` collapses capability (SHOOTY / MELEE / DUAL) and body class
+    # (HORDE / HEAVY / SUPPORT) into one string via an ordered chain, so a unit
+    # with a gun is labelled SUPPORT whenever its total damage per activation is
+    # under 0.4, and HORDE whenever it has one wound and a 4+ save — and either
+    # label makes it permanently ineligible to break off and shoot. The AI-3
+    # Leagues of Votann DUAL extension directly above is a symptom: the general
+    # rule was under-inclusive, so one faction got special-cased.
+    #
+    # MEASURED (scripts/_pinned_gunline_probe.py, ranged-primary units standing
+    # inside enemy Engagement Range): the label test excludes 55.0 percent of
+    # pinned activations — SUPPORT 30.8, HORDE 15.2, DUAL 9.0 — while
+    # `_is_melee_class` excludes 0.0 percent. Of those that do reach the branch,
+    # most fall back, so the branch itself works; eligibility is the defect.
+    #
+    # The replacement test: the unit carries a gun worth freeing
+    # (`roles.combat_profile` reports RANGED_ONLY or DUAL) OR is labelled HEAVY,
+    # AND is ranged-primary on EFFECTIVE damage (`_is_melee_class_effective`,
+    # which unlike `_is_melee_class` models the wound roll, Strength versus
+    # Toughness, armour penetration and the save). Melee-primary units still STAY
+    # and fight — task #7's ruling is preserved, just measured better.
+    #
+    # CORRECTED after the first screen. The gate originally read
+    # `role == "HEAVY" or (has a gun and not melee-primary)`, which made HEAVY
+    # eligible UNCONDITIONALLY on the claim that this "keeps the legacy behaviour
+    # for gunline vehicles". That claim was false: the legacy condition is
+    # `role in ("SHOOTY","HEAVY") and not _is_melee_class(...)`, so the
+    # melee-primary guard has always applied to HEAVY as well. Making it
+    # unconditional stripped the task #7 protection that a competent player never
+    # Falls Back a melee Knight (Gallant/Rampager), Carnifex, Hive Tyrant or
+    # Daemon Prince. The N=80 screen landed exactly where that bug predicts:
+    # Imperial Knights −9.03 (51.6 to 42.5 against a real 47.7) and Chaos Knights
+    # −6.33 (48.0 to 41.6 against 44.7), the two almost-entirely-HEAVY-melee
+    # factions, were the largest movers in the table, and the arm came out +0.92
+    # gated / +0.81 both-sides WORSE. The guard is now universal.
+    #
+    # Stage-1 artificial-intelligence piloting only; the Fall Back and Desperate
+    # Escape rules this branch executes are already cited, and this changes only
+    # which units the piloting layer considers, not what the rules do.
+    if os.environ.get("SWEG_FALLBACK_CAPABILITY", "0") == "1":
+        from .roles import combat_profile as _combat_profile_fb
+        _fb_profile = _score_profile(unit)
+        _fb_eligible = (
+            (role == "HEAVY"
+             or _combat_profile_fb(_fb_profile) in ("RANGED_ONLY", "DUAL"))
+            and not _is_melee_class_effective(_fb_profile)
+        )
+    else:
+        _fb_eligible = (role in _fall_back_eligible_roles
+                        and not _is_melee_class(_score_profile(unit)))
+    if _fb_eligible:
         enemies = enemy.alive_units
         # Engagement measured base-edge to base-edge under SWEG_CHARGE_BASEEDGE
         # (`_er_gap`, default ON since wave 240) — this trigger MUST match the
@@ -4026,8 +4429,20 @@ def pick_move_intent(
     # movement constraint in pick_move_intent — the hook fires identically.
     # Cited as simulator.officer_follow_piloting in
     # data/rule_citations.d/astra_militarum.json.
+    # SWEG_OFFICER_COVERAGE (default-off) runs FIRST because it is the strictly
+    # better-informed version of the same decision: it moves the Officer only
+    # when doing so puts MORE distinct Order-eligible squads in its aura than
+    # it already has, which subsumes the follow hook's "get within 6" of one
+    # host squad" whenever the two disagree. It returns None once the Officer's
+    # whole Order allowance is already placeable, so the follow hook still owns
+    # the drift case for one-Order Officers. Gate-first => byte-identical off.
+    if __import__("os").environ.get("SWEG_OFFICER_COVERAGE", "0") == "1":
+        _cov_intent = _maybe_officer_coverage(unit, friendly, enemy_alive)
+        if _cov_intent is not None:
+            return _cov_intent, "officer_coverage"
+
     if __import__("os").environ.get("SWEG_OFFICER_FOLLOW", "1") == "1":
-        _officer_intent = _maybe_officer_follow(unit, friendly)
+        _officer_intent = _maybe_officer_follow(unit, friendly, enemy_alive)
         if _officer_intent is not None:
             return _officer_intent, "officer_follow"
 
@@ -4036,7 +4451,36 @@ def pick_move_intent(
     # not just the nearest enemy. Exit here — MELEE units never consult
     # `objs` or `nearest_enemy`, so we skip both the objectives scoring
     # loop and the nearest-enemy scan entirely.
-    if role == "MELEE" and enemy_alive:
+    # SWEG_MELEE_ONLY_ENGAGE (default-off; unset or "0" is the byte-identical
+    # kill-switch) — a unit whose ONLY weapons are melee weapons belongs in this
+    # branch whatever its body class.
+    #
+    # `roles.classify` collapses capability (MELEE / SHOOTY / DUAL) and body class
+    # (HORDE / HEAVY / SUPPORT) into one label and resolves the collision with an
+    # ordered chain whose HORDE test runs FIRST and keys on `p.health == 1`. So
+    # every single-wound melee-only unit is labelled HORDE, and this gate — the
+    # only engage gate in the mover — never admits it. Measured on Tyranids:
+    # Hormagaunts take 0 percent ENGAGE intents, connect 11 percent of charges,
+    # sit a median 16 inches from the nearest enemy, and return 1.7 melee wounds
+    # a game for 227 points; Tyrant Guard, also melee-only but health 4 so it
+    # reaches the `r == 0 -> MELEE` line, takes 82.8 percent ENGAGE. Wound count
+    # decides whether a melee-only unit is allowed to fight.
+    #
+    # `roles.combat_profile` answers the capability question alone, with no
+    # durability or cost term, and `classify` is left untouched because it is
+    # read at roughly seventy branch sites spanning BOTH pipeline stages —
+    # rewriting it would move the Stage-2 points baselines as a side effect.
+    # Blast radius measured with `scripts/_role_flip_report.py`: 12 catalogue
+    # units of 1385, across eight factions, every one a genuine melee-only
+    # assault unit (Hormagaunts, Neurogaunts, Daemonettes, Poxwalkers, Kroot
+    # Hounds, Fenrisian Wolves, Flayed Ones, Negavolt Cultists and three
+    # Legends entries). Cited as `simulator.melee_only_engage`.
+    _melee_only_engage = (
+        __import__("os").environ.get("SWEG_MELEE_ONLY_ENGAGE", "0") == "1"
+        and role != "MELEE"
+        and combat_profile(_score_profile(unit)) == "MELEE_ONLY"
+    )
+    if (role == "MELEE" or _melee_only_engage) and enemy_alive:
         best_target = max(
             enemy_alive,
             key=lambda e: _plan_target_score(_melee_target_score(unit, e), e),

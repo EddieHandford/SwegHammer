@@ -412,7 +412,7 @@ _CSM_LEADER_FIX = os.environ.get("SWEG_CSM_LEADERS", "1") != "0"
 # [LETHAL HITS] grant (ranged + melee) and widens host_keys to include
 # Einhyr Hearthguard. OFF is byte-identical to the prior single-host
 # reroll_hit_ones entry. Cited as `LeaderAbility.Warrior-Forged Leadership`.
-_VOTANN_KAHL_LETHAL_GATE: bool = os.environ.get("SWEG_VOTANN_KAHL_LETHAL", "0") == "1"
+_VOTANN_KAHL_LETHAL_GATE: bool = os.environ.get("SWEG_VOTANN_KAHL_LETHAL", "1") != "0"
 
 # SWEG_DG_TYPHUS_MELEE_ONLY — wave-260 over-pole scope fix for Typhus
 # "The Destroyer Hive" (docs/OVERPOLE_UNIT_AUDIT.md rank 3,

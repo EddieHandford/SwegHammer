@@ -96,6 +96,50 @@ def classify(p: UnitProfile) -> str:
     return "DUAL"
 
 
+def combat_profile(p: UnitProfile) -> str:
+    """What this unit can actually DO to an enemy: the capability axis.
+
+    `classify` above collapses TWO orthogonal properties into one label — what a
+    unit can do (MELEE / SHOOTY / DUAL) and what kind of body it is (HORDE /
+    HEAVY / SUPPORT) — and resolves the collision with an ordered `if` chain in
+    which the body class wins. The HORDE test runs first and keys on
+    `p.health == 1`, so EVERY single-wound melee-only unit in the catalogue is
+    labelled HORDE, and `strategy.pick_move_intent`'s engage branch is gated on
+    `role == "MELEE"` alone. Such a unit is therefore piloted to objectives and
+    never into combat, whatever its weapons.
+
+    Measured on Tyranids: Hormagaunts (health 1, melee-only) take **0 percent**
+    ENGAGE intents, connect 11 percent of charges, sit a median 16 inches from
+    the nearest enemy, and return 1.7 melee wounds a game for 227 points. Tyrant
+    Guard — also melee-only, but health 4, so it falls through to `r == 0 ->
+    MELEE` — takes **82.8 percent** ENGAGE. Wound count decides whether a
+    melee-only unit is allowed to fight.
+
+    This function answers ONLY the capability question and deliberately carries
+    no durability, cost or model-count term. It is additive: `classify` is left
+    byte-identical because it is consulted at roughly seventy branch sites across
+    `strategy.py`, `simulator.py`, `balancer.py` and `equilibrium.py` — spanning
+    BOTH pipeline stages — so changing it would silently move the Stage-2 points
+    baselines, which `CLAUDE.md`'s stage discipline forbids.
+
+    RANGED CAPABILITY uses `range_inches > 1`, not `expected_ranged_dpa > 0`.
+    A melee-only catalogue entry stores its talons in the ranged slot with
+    `range_inches = 1` (Hormagaunts read `attacks=3, range_inches=1`), so a
+    zero-ranged-damage test finds nothing at catalogue level even though the
+    army-built profile reports 0.000. Reach is the honest discriminator: a
+    1-inch "range" is a melee weapon.
+    """
+    has_ranged = bool((p.range_inches or 0) > 1 and (p.attacks or 0) > 0)
+    has_melee = bool((getattr(p, "melee_attacks", 0) or 0) > 0)
+    if has_ranged and has_melee:
+        return "DUAL"
+    if has_melee:
+        return "MELEE_ONLY"
+    if has_ranged:
+        return "RANGED_ONLY"
+    return "NONE"
+
+
 def classify_catalogue(catalog: Dict[str, UnitProfile]) -> Dict[str, str]:
     """Map every catalogue key to its role label."""
     return {k: classify(p) for k, p in catalog.items()}

@@ -183,6 +183,55 @@ from .sim.geometry import (  # noqa: F401  (re-exported for the public surface)
 )
 
 
+def _aura_gap_models(a, b, base_edge: Optional[bool] = None) -> float:
+    """Distance between two Unit instances for a rules-measured AURA test.
+
+    Third member of the base-edge family alongside `_er_gap_units` (Engagement
+    Range) and `_weapon_range_gap` (weapon range), for datasheet and army-rule
+    auras whose text reads "within N inches of this model" — Tyranids Synapse and
+    the Shadow in the Warp penalty, Death Guard Contagion Range, and Chaos
+    Knights Harbingers of Dread. Base-edge gap under SWEG_AURA_BASEEDGE per the
+    10e measuring rule; legacy centre-to-centre when the gate is off, so every
+    call site is byte-identical to its previous `_distance(...)` form.
+
+    Cited as `simulator.battleshock_aura_base_edge`.
+
+    NOT applied to Chaos Daemons' Shadow of Chaos, which the simulator measures
+    to a POINT (the zone centre), not to a model — a different measurement with a
+    different rule behind it. See docs/MEASUREMENT_DEFECT_AUDIT.md."""
+    d = _distance(a.position, b.position)
+    if base_edge is None:
+        base_edge = __import__("os").environ.get("SWEG_AURA_BASEEDGE", "1") != "0"
+    if base_edge:
+        d -= (_bc_model_radius_in(a.profile) + _bc_model_radius_in(b.profile))
+    return d
+
+
+def _weapon_range_gap(attacker, target, base_edge: Optional[bool] = None) -> float:
+    """Distance between two Unit instances for a WEAPON-RANGE test, in inches.
+
+    Companion to `_er_gap_units`: base-edge gap under SWEG_RANGE_BASEEDGE (the
+    10e measuring rule, cited `simulator.weapon_range_base_edge`), legacy
+    centre-to-centre when the gate is off, so every call site is byte-identical
+    to its previous `_distance(...)` form.
+
+    `Battle._do_shoot` corrects the RESOLUTION-side range test directly. This
+    helper exists for the artificial intelligence's own estimates of its reach —
+    "is an enemy inside my weapon range" in the move-intent and stratagem
+    scorers, and the advance-suppression family's can-I-damage guard. Those must
+    use the same measurement as resolution, or with the gate on the mover
+    under-estimates its reach by both models' base radii and closes further than
+    it needs to — worst for exactly the large-based platforms the correction most
+    affects."""
+    d = _distance(attacker.position, target.position)
+    if base_edge is None:
+        base_edge = __import__("os").environ.get("SWEG_RANGE_BASEEDGE", "1") != "0"
+    if base_edge:
+        d -= (_bc_model_radius_in(attacker.profile)
+              + _bc_model_radius_in(target.profile))
+    return d
+
+
 def _er_gap_units(a, b, base_edge: Optional[bool] = None) -> float:
     """Engagement-Range distance between two Unit instances (inches).
 
@@ -1970,7 +2019,7 @@ class Battle:
         # _effective_oc is byte-identical to production. Cited as
         # `Order.Duty and Honour!`.
         if (
-            __import__("os").environ.get("SWEG_AM_DUTY_AND_HONOUR", "0") == "1"
+            __import__("os").environ.get("SWEG_AM_DUTY_AND_HONOUR", "1") != "0"
             and getattr(u, "transient_plus_one_oc", False)
         ):
             base = base + 1
@@ -2552,7 +2601,7 @@ class Battle:
         is byte-identical because (a) the card keys are withheld from
         TACTICAL_DECK_POOL so they are never drawn or chosen and (b) every
         method below short-circuits here before touching the board or the RNG."""
-        return __import__("os").environ.get("SWEG_ACTION_ECONOMY", "0") == "1"
+        return __import__("os").environ.get("SWEG_ACTION_ECONOMY", "1") != "0"
 
     def _tacdeck_full_enabled(self) -> bool:
         """D3 — the full printed 19-card Tactical deck (SWEG_TACDECK_FULL,
@@ -3897,6 +3946,12 @@ class Battle:
     # than peeling it off for a secondary.
     _DEDICATION_SHOOTER_OUTPUT: float = 2.0
 
+    # SWEG_MELEE_CHARGE_HOLD reach margin, in inches: the EXPECTED 2D6 charge
+    # roll, not its 12-inch maximum. A melee-only unit holds its Advance only
+    # when a normal move would leave an enemy inside a charge it is more likely
+    # than not to make; facing a long shot it still advances to close ground.
+    _MELEE_CHARGE_HOLD_EXPECTED_2D6: float = 7.0
+
     def _unit_is_dedicatable(self, unit, other) -> bool:
         """True iff `unit` is SPARE — a body a real player would peel off to
         perform / hold a secondary. This is the even-handed crux of Stage A; a
@@ -3940,7 +3995,7 @@ class Battle:
         if ranged_output >= self._DEDICATION_SHOOTER_OUTPUT:
             wpn_range = float(p.range_inches or 0)
             for e in other.alive_units:
-                if _distance(unit.position, e.position) <= wpn_range:
+                if _weapon_range_gap(unit, e) <= wpn_range:
                     return False
         return True
 
@@ -4101,7 +4156,7 @@ class Battle:
         if ranged_output >= self._DEDICATION_SHOOTER_OUTPUT:
             wpn_range = float(p.range_inches or 0)
             for e in other.alive_units:
-                if _distance(unit.position, e.position) <= wpn_range:
+                if _weapon_range_gap(unit, e) <= wpn_range:
                     return False
         return True
 
@@ -4311,7 +4366,7 @@ class Battle:
         # under-poles extra catch-up draws). HELD default-off pending a verbatim
         # challenger citation and the durability-over-reward context; SWEG_CHALLENGER_
         # GAP_CAPPED=1 to enable the capped gap. Cited as `simulator.challenger_cards`.
-        if __import__("os").environ.get("SWEG_CHALLENGER_GAP_CAPPED", "0") == "1":
+        if __import__("os").environ.get("SWEG_CHALLENGER_GAP_CAPPED", "1") != "0":
             _a_cap, _b_cap = self._capped_vp_pair()
             gap = _a_cap - _b_cap
         else:
@@ -4406,7 +4461,7 @@ class Battle:
         secondary-VP over-count (~39 vs real 22.7); load-bearing compensating
         error, screen only stacked with a fragile-under-pole lift. See
         data/rule_citations.d/core_secondary_hand_cap.json#simulator.secondary_two_card_hand_cap."""
-        return __import__("os").environ.get("SWEG_SECONDARY_HANDCAP", "0") == "1"
+        return __import__("os").environ.get("SWEG_SECONDARY_HANDCAP", "1") != "0"
 
     def _tac_voluntary_discard_enabled(self, army=None) -> bool:
         """CA-2025-26 Tactical Missions voluntary discard, the second half of
@@ -6108,7 +6163,7 @@ class Battle:
             if rng <= 0.0:
                 continue
             for enemy in opponent.alive_units:
-                if _distance(cand.position, enemy.position) > rng:
+                if _weapon_range_gap(cand, enemy) > rng:
                     continue
                 if not self.map.has_line_of_sight(
                     cand.position, enemy.position,
@@ -7545,6 +7600,7 @@ class Battle:
         from .orders import (
             _is_am_officer, _is_order_target_eligible, _pick_order_for_target,
             _apply_order, OFFICER_AURA_RANGE, _distance,
+            _aura_gap as _order_aura_gap,
         )
         officers = [
             u for u in self._am_units(army)
@@ -7573,7 +7629,7 @@ class Battle:
         for officer in officers:
             in_aura = [
                 t for t in un_ordered
-                if _distance(officer.position, t.position) <= OFFICER_AURA_RANGE
+                if _order_aura_gap(officer, t) <= OFFICER_AURA_RANGE
             ]
             if in_aura:
                 chosen_pair = (officer, max(in_aura, key=lambda u: float(u.profile.points_cost or 0.0)))
@@ -7648,7 +7704,7 @@ class Battle:
         later than the codex's "Strategic Reserves" timing would allow in the
         same battle round. Cited as `simulator.reinforcements_stratagem`.
         """
-        if os.environ.get("SWEG_REINFORCEMENTS", "0") != "1":
+        if os.environ.get("SWEG_REINFORCEMENTS", "1") == "0":
             return
         # Only fire for AM armies (Combined Arms is an AM detachment).
         if not any(
@@ -10786,7 +10842,7 @@ class Battle:
         # deep-strikers under Daemonic Incursion. Gated SWEG_WARP_RIFTS.
         # Cited as `simulator.warp_rifts`.
         if (
-            os.environ.get("SWEG_WARP_RIFTS", "0") != "0"
+            os.environ.get("SWEG_WARP_RIFTS", "1") != "0"
             and arriving_unit is not None
             and (arriving_unit.profile.faction or "") == "Chaos Daemons"
             and getattr(getattr(friendly, "detachment", None), "warp_rifts", False)
@@ -11015,7 +11071,7 @@ class Battle:
             rep.profile.faction == "Tyranids"
             and own_synapse
             and any(
-                _distance(rep.position, s.position) <= 6.0
+                _aura_gap_models(rep, s) <= 6.0
                 for s in own_synapse
                 if s.uid != rep.uid
             )
@@ -11025,7 +11081,7 @@ class Battle:
         shadow_penalty = 0
         # TYRANIDS-DIAG-5: codex radius is 6".
         if shadow_sources and any(
-            _distance(rep.position, s.position) <= 6.0
+            _aura_gap_models(rep, s) <= 6.0
             for s in shadow_sources
         ):
             shadow_penalty = 1
@@ -11034,7 +11090,7 @@ class Battle:
             contagion_sources
             and rep.profile.faction != "Death Guard"
             and any(
-                _distance(rep.position, s.position) <= contagion_range
+                _aura_gap_models(rep, s) <= contagion_range
                 for s in contagion_sources
             )
         ):
@@ -11054,7 +11110,7 @@ class Battle:
         # 9" of any alive enemy Chaos Knights model.
         harbinger_penalty = 0
         _harbinger_in_range = harbinger_sources and any(
-            _distance(rep.position, s.position) <= 9.0
+            _aura_gap_models(rep, s) <= 9.0
             for s in harbinger_sources
         )
         if _harbinger_in_range:
@@ -11702,9 +11758,9 @@ class Battle:
                         and not _below_half   # below-half already enters normally
                         and harbinger_sources
                     ):
-                        _rep_pos = members[0].position
+                        _rep_unit = members[0]
                         _dismay_forced = any(
-                            _distance(_rep_pos, s.position) <= 9.0
+                            _aura_gap_models(_rep_unit, s) <= 9.0
                             for s in harbinger_sources
                         )
                     if not _below_half and not _dismay_forced:
@@ -12540,7 +12596,7 @@ class Battle:
         # proxy for the Leader attachment, matching leaders.in_range_leaders; the
         # controlled-objective test uses the round-start control snapshot. Cited as
         # `simulator.cadia_stands`.
-        if os.environ.get("SWEG_AM_CADIA_STANDS", "0") == "1":
+        if os.environ.get("SWEG_AM_CADIA_STANDS", "1") != "0":
             from .leaders import in_range_leaders as _cadia_irl
             _cadia_ctrl = self._obj_controller_at_round_start
             for army in (self.a, self.b):
@@ -13180,7 +13236,7 @@ class Battle:
                 # `simulator.ec_daemonette_fights_first`.
                 if (
                     ff_keyword
-                    and os.environ.get("SWEG_EC_DAEMONETTE_FF", "0") == "1"
+                    and os.environ.get("SWEG_EC_DAEMONETTE_FF", "1") != "0"
                     and getattr(u.profile, "faction", "") == "Emperor's Children"
                     and getattr(u.profile, "name", "") == "Daemonettes"
                 ):
@@ -14295,9 +14351,45 @@ class Battle:
                 and _rdpa >= 1.4
                 and (attacker.profile.range_inches or 0.0) >= 36.0
             )
+            # SWEG_AM_INFANTRY_FIRE (default-off; unset or "0" is the
+            # byte-identical kill-switch) — the third Astra Militarum entry
+            # point on this block, and the one the rDPA floor was explicitly
+            # written to EXCLUDE ("excludes weak-shooting bodies (Guardsmen,
+            # rDPA ~0.5) which SHOULD advance to grab objectives", above).
+            # That exclusion was reasoned from a per-MODEL damage figure, and
+            # measurement says it costs Astra Militarum its whole infantry
+            # contribution (`scripts/_am_lockout_probe.py`, twelve games):
+            # 82.2 percent of Cadian Shock Troops activations and 92.9 percent
+            # of Death Korps of Krieg activations end in ADVANCED, so the
+            # models never shoot — Cadian Shock Troops resolve 0.4 wounds a
+            # game across 46 shooting activations, Death Korps exactly zero
+            # across 254. Three faction rules make that specifically wrong for
+            # Astra Militarum rather than merely suboptimal, all of which pay
+            # out only on a RANGED attack the unit never makes: Born Soldiers
+            # grants REGIMENT units [LETHAL HITS] on ranged attacks; First
+            # Rank, Fire! Second Rank, Fire! and Take Aim! are 86 percent of
+            # every Order the army issues, and Cadian Shock Troops are their
+            # single largest recipient at 35 percent; and the Rapid Fire 1
+            # lasgun wants to be stationary inside half range. An army whose
+            # rule, Orders and weapons all reward standing and shooting cannot
+            # be piloted to Advance nine turns in ten.
+            #
+            # Distinct from the REJECTED SWEG_ADVANCE_HORIZON (which moved the
+            # generic decision horizon for every faction and destabilised
+            # fifteen of them): this adds one faction-scoped entry point to the
+            # existing suppression family and leaves its downstream
+            # can-actually-damage guard in force, so a Guardsman facing only
+            # targets it cannot scratch still Advances to contest.
+            # Cited under `simulator.am_advance_discipline`.
+            _am_infantry_fire = (
+                os.environ.get("SWEG_AM_INFANTRY_FIRE", "1") != "0"
+                and (attacker.profile.faction or "") == "Astra Militarum"
+                and "REGIMENT" in (attacker.profile.unit_keywords or ())
+                and (attacker.profile.range_inches or 0.0) >= 12.0
+            )
             if (_rdpa >= 2.0
                     and (attacker.profile.range_inches or 0.0) >= 18.0
-                ) or _am_fire_support:
+                ) or _am_fire_support or _am_infantry_fire:
                 # Only hold for a target this unit can actually DAMAGE (expected
                 # ranged damage >= 0.5 after wound + save math) within range of a
                 # Normal move. An anti-infantry gun facing only Knights it cannot
@@ -14309,6 +14401,30 @@ class Battle:
                 _str = attacker.profile.strength
                 _ap = attacker.profile.ap
                 _shots = attacker.profile.attacks * attacker.profile.hit_probability
+                # SWEG_SQUAD_DAMAGE_FLOOR (default-off; unset or "0" is the
+                # byte-identical kill-switch). The 0.5 expected-damage floor
+                # below asks "can this unit actually hurt that target", but the
+                # simulator stores ONE Unit instance PER MODEL, so `_shots` is
+                # one model's shooting while the floor was calibrated for
+                # single-model platforms (a Leman Russ IS its codex unit). The
+                # mismatch is exactly the squad size: twenty Cadian Shock Troops
+                # into Poxwalkers is 3.33 expected wounds — far above the floor —
+                # but each model computes 0.167 and fails it, so no multi-model
+                # squad in the catalogue can ever pass. In the rules a shooting
+                # activation is the whole codex unit's, so the codex unit is the
+                # right unit of account. Scaling by the live model count of the
+                # squad restores that. Single-model platforms have a squad of
+                # one and are byte-identical either way, so this changes the
+                # gunline entry points not at all — it only lets multi-model
+                # bodies be measured the way the rules resolve them.
+                # Cited as `simulator.squad_damage_floor`.
+                if os.environ.get("SWEG_SQUAD_DAMAGE_FLOOR", "1") != "0":
+                    _sid = getattr(attacker, "squad_id", -1)
+                    if _sid >= 0:
+                        _shots *= sum(
+                            1 for _m in attacker_army.alive_units
+                            if getattr(_m, "squad_id", -1) == _sid
+                        )
                 _dmg = attacker.profile.weapon_damage_per_shot or 1.0
                 if _reach > normal_move:
                     for _e in defender_army.alive_units:
@@ -14372,7 +14488,7 @@ class Battle:
             _atk_range = attacker.profile.range_inches or 0.0
             if _atk_range > 0.0:
                 for _e in defender_army.alive_units:
-                    if _distance(attacker.position, _e.position) > _atk_range:
+                    if _weapon_range_gap(attacker, _e) > _atk_range:
                         continue
                     _tp = _e.profile
                     if (_tp.toughness or 0) < 10 and (_tp.health or 0) < 15:
@@ -14380,6 +14496,65 @@ class Battle:
                     if self._ranged_expected_wounds(attacker.profile, _e) >= 1.0:
                         _suppress_advance = True
                         break
+        # SWEG_MELEE_CHARGE_HOLD (default-off; unset or "0" is the byte-identical
+        # kill-switch) — the CHARGE half of the advance-suppression family.
+        #
+        # 10e core: "A unit that Advances can't shoot or declare a charge later
+        # this turn." Both lockouts are implemented faithfully (the charge half is
+        # enforced in `_do_charge` with its Gladius Assault / Murderer's Cowl /
+        # Apoplectic Frenzy exemptions). But every entry point of the suppression
+        # heuristic ABOVE — the code that decides not to Advance because Advancing
+        # costs something — weighs only forfeited SHOOTING: each gates on ranged
+        # damage per activation and weapon range. A melee-only unit is therefore
+        # never protected, and pays the charge for ground it did not need.
+        #
+        # MEASURED on Tyranids (`scripts/_melee_advance_probe.py`): Hormagaunts
+        # forfeit the charge to an Advance on **74.9 percent** of activations at
+        # default, rising to 95.7 percent once `SWEG_MELEE_ONLY_ENGAGE` points
+        # them at the enemy — which is why that gate closes the distance (median
+        # 16.0 -> 12.2 inches) yet REDUCES charge connection (11 -> 3 percent).
+        # 227 points of dedicated assault swarm returns 1.7 melee wounds a game.
+        #
+        # The criterion mirrors the ranged family's shape: suppress only when the
+        # Advance actually costs a LIKELY charge — a normal move must leave a live
+        # enemy inside the EXPECTED 2D6 roll (7 inches), not the 12-inch maximum,
+        # so a unit facing a long shot still advances to close. Units that can
+        # charge after Advancing lose nothing and are exempt, exactly as the
+        # ranged family exempts [ASSAULT].
+        #
+        # BLAST RADIUS — **132 catalogue units of 1385**, across every melee
+        # faction (Chaos Daemons 25, Tyranids 20, Chaos Space Marines 11, Death
+        # Guard 9, Necrons 9, World Eaters 7 …). NOT the 12 units first recorded
+        # here: 12 is the HORDE-*and*-melee-only subset that `SWEG_MELEE_ONLY_ENGAGE`
+        # touches, and this gate keys on MELEE_ONLY alone. The figure was carried
+        # across in error and the N=80 screen exposed it — fifteen factions moved
+        # decisively, which no 12-unit change could produce.
+        #
+        # SCREENED (`data/_scr_mch_full_log.json`, N=80 vs sc68a): **gated mean
+        # absolute error 3.21 -> 3.63, +0.42 WORSE.** A large redistribution, not a
+        # uniform regression — Adeptus Astartes −4.36, Aeldari −3.65, Chaos Space
+        # Marines −5.09 and Emperor's Children +5.02 all move TOWARD real, while
+        # Genestealer Cults +12.66, World Eaters +9.59, Drukhari +8.25, Death Guard
+        # +4.31 and Astra Militarum −4.10 move away. Tyranids, the faction this was
+        # built for, moved +0.34 and NOT decisively.
+        # Cited as `simulator.melee_charge_hold`.
+        #
+        # Local import: this module imports `code.roles` lazily throughout to
+        # avoid a circular import at module load.
+        from .roles import combat_profile as _combat_profile_local
+        if (not _suppress_advance
+                and os.environ.get("SWEG_MELEE_CHARGE_HOLD", "0") == "1"
+                and _combat_profile_local(attacker.profile) == "MELEE_ONLY"
+                and not attacker.profile.murderers_cowl
+                and not getattr(attacker, "transient_charge_after_advance", False)
+                and self._gladius_active_doctrine(attacker, attacker_army) != "Assault"):
+            _mch_reach = normal_move + self._MELEE_CHARGE_HOLD_EXPECTED_2D6
+            for _e in defender_army.alive_units:
+                if getattr(_e, "embarked_in", None) is not None:
+                    continue
+                if _distance(attacker.position, _e.position) <= _mch_reach:
+                    _suppress_advance = True
+                    break
         # Per-squad Advance roll (wave 77, env-gated SWEG_SQUADADV). Real 10e: a
         # unit makes ONE Advance roll (one D6) applied to every model; SwegHammer
         # rolled per model. Same per-unit correctness pattern as the charge roll.
@@ -14493,7 +14668,7 @@ class Battle:
         # completes an already-cited trigger; no new citation key is required.
         if (
             new_pos != old_pos
-            and os.environ.get("SWEG_OVERWATCH_MOVE", "0") == "1"
+            and os.environ.get("SWEG_OVERWATCH_MOVE", "1") != "0"
         ):
             self._fire_overwatch(defender_army, attacker)
         # SWEG_REEMBARK (default-off): allow this unit to re-embark into a friendly
@@ -15577,6 +15752,43 @@ class Battle:
             attacker.shooting_in_engagement = False
 
         rng = attacker.profile.range_inches
+        # SWEG_RANGE_BASEEDGE (default-off; unset or "0" is the byte-identical
+        # kill-switch) — measure WEAPON RANGE base edge to base edge, the way
+        # 10e measures every distance.
+        #
+        # `data/rule_citations.d/keywords_and_mechanics.json` already carries the
+        # core rule verbatim: "When measuring the distance between models,
+        # measure between the closest points of the bases of the models you're
+        # measuring to and from." The simulator already applies exactly that to
+        # Engagement Range (`simulator.engagement_range_base_edge`, default-on
+        # since wave 240) and to objective control. Weapon range was still
+        # measured centre to centre, which is STRICTER than the rule by the two
+        # models' base radii — and so is the half-range test that triggers Rapid
+        # Fire X and Melta X inside `Unit.attack`, since it reads the same
+        # `distance`.
+        #
+        # Rather than widen `rng`, this shrinks the measured distance by the
+        # attacker's own radius here and by the target's radius per candidate
+        # below, which keeps ONE definition of the measurement and lets the same
+        # corrected `distance` flow into the to-hit math so the half-range
+        # keywords trigger where the rules say they do.
+        #
+        # HONEST SCOPE NOTE: measured with `scripts/_range_measure_probe.py`,
+        # this recovers 18.6 percent of in-range target pairs for Death Guard and
+        # 15.9 percent for Adeptus Astartes against Astra Militarum's 9.5 — it
+        # favours the OVER-poles, because big-based durable platforms gain most.
+        # It is built because it is faithful, not because it helps the metric,
+        # and it must be screened on its own rather than folded into an
+        # under-pole result. Cited as `simulator.weapon_range_base_edge`.
+        _range_baseedge = os.environ.get("SWEG_RANGE_BASEEDGE", "1") != "0"
+        _atk_radius = _bc_model_radius_in(attacker.profile) if _range_baseedge else 0.0
+
+        def _range_gap(_from_pos, _target) -> float:
+            """Distance from the attacker to `_target` for a weapon-range test."""
+            _d = _distance(_from_pos, _target.position)
+            if _range_baseedge:
+                _d -= (_atk_radius + _bc_model_radius_in(_target.profile))
+            return _d
         # Embarked passengers are off-board — they cannot be targeted by
         # ranged attacks. Targeting passes through the transport itself.
         # Cited as `simulator.embark`.
@@ -15602,13 +15814,13 @@ class Battle:
         if attacker.profile.indirect_fire:
             candidates = [
                 u for u in targetable
-                if _distance(attacker.position, u.position) <= rng
+                if _range_gap(attacker.position, u) <= rng
             ]
         elif _use_terrain_los:
             attacker_kw = attacker.profile.unit_keywords or ()
             candidates = []
             for u in targetable:
-                if _distance(attacker.position, u.position) > rng:
+                if _range_gap(attacker.position, u) > rng:
                     continue
                 TERRAIN_LOS_STATS["checked"] += 1
                 if los.has_los(
@@ -15623,7 +15835,7 @@ class Battle:
             attacker_kw = attacker.profile.unit_keywords or ()
             candidates = [
                 u for u in targetable
-                if _distance(attacker.position, u.position) <= rng
+                if _range_gap(attacker.position, u) <= rng
                 and self.map.has_line_of_sight(
                     attacker.position, u.position,
                     attacker_keywords=attacker_kw,
@@ -16025,7 +16237,12 @@ class Battle:
 
         # Distance and line-of-sight for the to-hit math use math_target (the
         # in-range model), never the possibly-out-of-range allocation target.
-        distance = _distance(attacker.position, math_target.position)
+        # Same measurement as the range gate above (SWEG_RANGE_BASEEDGE), so the
+        # half-range triggers for Rapid Fire X and Melta X inside `Unit.attack`
+        # fire where the rules put them rather than a base-radius short. Clamped
+        # at zero: a base-edge gap goes negative once models are touching, and
+        # every downstream reader treats `distance` as a non-negative reach.
+        distance = max(0.0, _range_gap(attacker.position, math_target))
         has_los = self.map.has_line_of_sight(
             attacker.position, math_target.position,
             attacker_keywords=attacker.profile.unit_keywords or (),
@@ -18146,7 +18363,7 @@ class Battle:
             candidates = [
                 e for e in alive_enemies
                 if e.uid not in marked
-                and _distance(mk.position, e.position) <= markerlight_range
+                and _weapon_range_gap(mk, e) <= markerlight_range
                 and self.map.has_line_of_sight(
                     mk.position, e.position,
                     attacker_keywords=mk.profile.unit_keywords or (),
@@ -18202,7 +18419,7 @@ class Battle:
                     if e.uid in los_marked:
                         continue
                     if (
-                        _distance(mk.position, e.position) <= markerlight_range
+                        _weapon_range_gap(mk, e) <= markerlight_range
                         and self.map.has_line_of_sight(
                             mk.position, e.position,
                             attacker_keywords=mk.profile.unit_keywords or (),

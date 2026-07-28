@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
 
 
 def _action_economy_enabled() -> bool:
@@ -43,7 +43,7 @@ def _action_economy_enabled() -> bool:
     deck never draws them, the shuffle order is unchanged, and every downstream
     scoring / assignment path is unreachable. This is the byte-identical OFF
     contract."""
-    return os.environ.get("SWEG_ACTION_ECONOMY", "0") == "1"
+    return os.environ.get("SWEG_ACTION_ECONOMY", "1") != "0"
 
 if TYPE_CHECKING:
     from .army import Army
@@ -588,7 +588,9 @@ def score_round_delta(
     Returns four per-round-capped secondary VP values:
       * bring_it_down_vp — MONSTER/VEHICLE kill credit
       * no_prisoners_vp — generic enemy-unit-destroyed credit
-      * cull_the_horde_vp — kill credit for units that were ≥10 models
+      * cull_the_horde_vp — kill credit for units whose Starting Strength was
+        CULL_THE_HORDE_MIN_MODELS (13) or more. (This line previously said 10,
+        which never matched the constant or the citation.)
       * assassination_vp — kill credit for enemy CHARACTERs
 
     SECONDARY-SELECTION-V1: `chosen` is the iterable of secondary keys this
@@ -1029,6 +1031,30 @@ def _enemy_monster_vehicle_count(enemy_army: "Army") -> int:
     return n
 
 
+def _enemy_qualifying_horde_units(enemy_army: "Army") -> int:
+    """Count enemy units that could ever concede Cull the Horde.
+
+    Cull the Horde scores on destroying an enemy INFANTRY unit whose Starting
+    Strength was `CULL_THE_HORDE_MIN_MODELS` (13) or more. Like
+    `_enemy_monster_vehicle_count` this reads the whole roster, board and
+    reserves, because the picker fires at battle start.
+
+    The simulator stores one `Unit` instance per physical model, so a codex unit
+    is a GROUP of instances sharing a `squad_id` — this counts groups, never
+    instances. Counting instances would report every 13-model army as having 13
+    qualifying units and defeat the purpose. Single-model units (`squad_id < 0`)
+    can never reach 13 and are skipped.
+
+    Used only by `_pick_fixed_pair_full` under `SWEG_CULL_PICK_AWARE`.
+    """
+    sizes: Dict[int, int] = {}
+    for u in enemy_army.units:
+        sid = getattr(u, "squad_id", -1)
+        if sid >= 0:
+            sizes[sid] = sizes.get(sid, 0) + 1
+    return sum(1 for n in sizes.values() if n >= CULL_THE_HORDE_MIN_MODELS)
+
+
 def _own_mobile_unit_count(own_army: "Army") -> int:
     """Count units in the army with FLY or MOUNT keyword — proxy for "fast
     enough to project into the enemy DZ for Behind Enemy Lines"."""
@@ -1113,6 +1139,40 @@ def _pick_fixed_pair_full(own_army: "Army", enemy_army: "Army") -> List[str]:
     enemy_chars = sum(1 for u in enemy_army.units if _is_character(u))
     slot1 = "bring_it_down" if mv >= _BID_TARGET_THRESHOLD else "cull_the_horde"
     slot2 = "assassination" if enemy_chars >= 2 else "cull_the_horde"
+    # SWEG_CULL_PICK_AWARE (default-off, byte-identical when unset): do not note
+    # down Cull the Horde against a roster that cannot concede it.
+    #
+    # The two positive tests above are already composition-aware — Bring It Down
+    # requires _BID_TARGET_THRESHOLD enemy MONSTER/VEHICLE units, Assassination
+    # requires two or more enemy CHARACTERs — but Cull the Horde is the FALLBACK
+    # for both slots and is taken whenever those tests fail, with no check that
+    # the enemy fields a single qualifying unit. Cull scores only on destroying an
+    # enemy INFANTRY unit whose Starting Strength was CULL_THE_HORDE_MIN_MODELS
+    # (13) or more, so against an elite roster of five- and ten-model squads it is
+    # unscoreable. MEASURED with scripts/_cull_pick_waste_probe.py over all 1386
+    # ordered faction pairs: 294 picks take Cull and 231 of them — 78.6 percent —
+    # face an enemy with ZERO qualifying squads. The waste is near-uniform across
+    # factions (about 17.5 percent of every faction's pairs) because it is set by
+    # which OPPONENTS field thirteen-plus-model squads, and every faction faces
+    # the same field.
+    #
+    # 10e Pariah Nexus notes the two Fixed Missions down before the battle with
+    # both army lists known, so a composition-aware pick is what the rule
+    # describes; an unscoreable note-down is the artefact. The fall-through order
+    # is the one this function already documents for the duplicate case — No
+    # Prisoners first, being broad generic kill achievable against any roster,
+    # then Cleanse.
+    if (os.environ.get("SWEG_CULL_PICK_AWARE", "0") == "1"
+            and _enemy_qualifying_horde_units(enemy_army) == 0):
+        _slots = [slot1, slot2]
+        for _i, _slot in enumerate(_slots):
+            if _slot != "cull_the_horde":
+                continue
+            for _cand in ("no_prisoners", "cleanse"):
+                if _cand not in _slots:
+                    _slots[_i] = _cand
+                    break
+        slot1, slot2 = _slots
     if slot2 == slot1:
         for candidate in ("no_prisoners", "cleanse", "assassination",
                           "bring_it_down"):
