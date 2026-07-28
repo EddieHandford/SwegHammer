@@ -153,6 +153,30 @@ gap to be an era artefact.
 This is a hypothesis for the dispersion, not a demonstrated cause. Fixing the
 scoring split and re-measuring the spread is what would confirm it.
 
+### First test of that prediction (2026-07-28) — it holds
+
+`SWEG_OBJ_HOME` restores the home deployment-zone objective that real Pariah
+Nexus layouts carry and two thirds of these maps lack. Re-screened full matrix at
+N=80 against `sc69a`, **the spread ratio fell from 1.75 to 1.60** — the single
+clearest movement in the result, and the prediction above was recorded before the
+screen ran.
+
+That is direct support for the mechanism: giving both sides a guaranteed floor
+compresses outcomes, because primary is no longer winner-take-all.
+
+**The gate is still HOLD**, for the reason wave 185 originally found and this
+screen confirms more strongly: the artificial intelligence never contests an
+enemy home objective, so the same change hands uncontested holds to the durable
+armies that are already over-rated — Imperial Knights +3.58 and Chaos Knights
++2.49, both away from real, against wave 185's +1.18 and +1.21. Queue debt NE-17
+stands.
+
+Distance improved slightly (gated 2.85 → 2.77, band 7/22 → 9/22) and ordering
+nominally worsened (Spearman +0.282 → +0.223), but **that Spearman difference is
+not distinguishable from noise** at 22 factions, where the confidence interval on
+a correlation is roughly ±0.4. Neither headline decided this; the spread ratio
+did.
+
 ## The list-population proposal, and why it is WITHDRAWN
 
 The original conclusion drawn from the section above was to give each faction
