@@ -115,6 +115,44 @@ T'au Empire are the two most durable armies in the catalogue by this measure and
 both *under*-perform. The hypothesis is dead and the Votann result is local.
 (`scripts/_durability_residual_probe.py`.)
 
+## A MECHANISM for the over-dispersion (added 2026-07-28)
+
+The spread above was measured but not explained. There is now a candidate
+mechanism, and it is quantified against a cited source.
+
+| | primary | secondary | total | secondary share |
+|---|---|---|---|---|
+| real, Pariah Nexus, ~7,600 games | 29.1 | **22.7** | 51.8 | **43.8 percent** |
+| simulator, 231 battles, all 22 factions | 37.7 | **11.8** | 49.5 | **23.8 percent** |
+
+The simulator scores roughly **30 percent too much primary and 48 percent too
+little secondary**, while the **total comes out very nearly right**. That
+compensating-errors pattern is why it survived: any check of total victory
+points shows a believable number, and nothing reported the split until
+`scripts/_vp_split_probe.py`.
+
+Why this bears on dispersion: primary is board control, which is comparatively
+deterministic — the better-positioned army holds objectives and keeps holding
+them. Secondary is card-driven, with draw order, discard choices and mission
+variance. A simulator deciding games 76 percent on primary where reality decides
+them 56 percent on primary will produce systematically **more decisive outcomes
+than reality does**, which is exactly the excess spread documented above.
+
+Real figures: Goonhammer, "Hammer of Math: Stats from the First Month of Pariah
+Nexus, Part 2" (verbatim: "Players score an average of 22.7 VP on secondary per
+game") and its companion article for the 51.8 total, which is explicitly primary
+plus secondary excluding the Battle-Ready 10.
+
+**Era caveat:** that data is from June–July 2024, the Pariah Nexus launch window,
+against a May 2026 calibration target. Both are tenth edition on the same mission
+pack and the caps are structural, so the comparison is sound in kind — but norms
+may have shifted over two years of dataslates, so treat the exact magnitude as
+approximate. The direction is not in doubt: 22.7 against 11.8 is far too large a
+gap to be an era artefact.
+
+This is a hypothesis for the dispersion, not a demonstrated cause. Fixing the
+scoring split and re-measuring the spread is what would confirm it.
+
 ## The list-population proposal, and why it is WITHDRAWN
 
 The original conclusion drawn from the section above was to give each faction
