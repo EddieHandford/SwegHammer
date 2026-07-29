@@ -1162,13 +1162,45 @@ def _pick_fixed_pair_full(own_army: "Army", enemy_army: "Army") -> List[str]:
     # is the one this function already documents for the duplicate case — No
     # Prisoners first, being broad generic kill achievable against any roster,
     # then Cleanse.
+    # SUBSTITUTE ONLY INTO PASSIVE CARDS (corrected 2026-07-28 after the first
+    # screen). The original fall-through was ("no_prisoners", "cleanse"), which
+    # looked harmless — the duplicate-slot path below uses the same order — but
+    # CLEANSE IS AN ACTION CARD, and that made this gate do something it never
+    # claimed to.
+    #
+    # When both positive tests fail, slot1 and slot2 are BOTH cull_the_horde, so
+    # the old loop filled the first with No Prisoners and the second, that name
+    # now being taken, with Cleanse. Performing Cleanse commits a unit and locks
+    # it out of shooting and charging (`_unit_can_perform_action`, whose own
+    # docstring notes "a Knight's units are all productive shooters / fighters,
+    # so none pass ... a broad army has spare non-shooting bodies that do"). So a
+    # card-selection fix silently became a unit-commitment change.
+    #
+    # That is what the full-matrix screen measured: Imperial Knights +2.95 and
+    # Chaos Knights +4.80 — they are the hordeless ENEMY, so their opponents
+    # substituted, committed chaff to Cleanse, and fought with less — while
+    # Aeldari, which substitutes often because much of the field is elite, lost
+    # 6.38. The scoring swap was never the dominant term.
+    #
+    # The corrected order is passive-only and composition-aware, in the same
+    # style as the two tests above: No Prisoners is broad generic kill and is
+    # achievable against any roster, so it is always a legal replacement;
+    # Assassination needs an enemy CHARACTER and Bring It Down an enemy
+    # MONSTER or VEHICLE, so each is offered only where it can actually score.
+    # If nothing passive qualifies the slot KEEPS Cull the Horde — an
+    # unscoreable note-down is a smaller error than silently buying an Action.
     if (os.environ.get("SWEG_CULL_PICK_AWARE", "0") == "1"
             and _enemy_qualifying_horde_units(enemy_army) == 0):
+        _passive = ["no_prisoners"]
+        if enemy_chars >= 1:
+            _passive.append("assassination")
+        if mv >= 1:
+            _passive.append("bring_it_down")
         _slots = [slot1, slot2]
         for _i, _slot in enumerate(_slots):
             if _slot != "cull_the_horde":
                 continue
-            for _cand in ("no_prisoners", "cleanse"):
+            for _cand in _passive:
                 if _cand not in _slots:
                     _slots[_i] = _cand
                     break
