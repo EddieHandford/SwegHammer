@@ -1345,7 +1345,7 @@ class Battle:
             oc_by_obj: dict = {}
             sticky_by_obj: dict = {}
             dg_by_obj: dict = {}
-            # SWEG_OC_PER_MARKER (default-off while screening) — remove the
+            # SWEG_OC_PER_MARKER (ADOPTED default-on) — remove the
             # wave-67 one-marker-per-squad clamp. The real 10e Level of
             # Control is computed PER MARKER: "add together the OC
             # characteristics of all ... models within range" — every model
@@ -9030,7 +9030,7 @@ class Battle:
         8fb6-aff7-75ac-f206): "Once per battle, when this unit is selected to shoot
         in your Shooting phase, select one ranged weapon equipped by this model.
         Until the end of the phase, that weapon has the [DEVASTATING WOUNDS]
-        ability." Gated SWEG_TAU_NOVA_CHARGE (default-off during screen). Mirrors
+        ability." Gated SWEG_TAU_NOVA_CHARGE (ADOPTED default-on). Mirrors
         the Possessed Unholy Bloodshed once-per-battle pattern. APPROXIMATION: the
         real rule grants [DEVASTATING WOUNDS] to ONE chosen weapon; we grant the
         transient to the whole unit for the phase — the same whole-unit
@@ -9284,7 +9284,7 @@ class Battle:
         """
         if os.environ.get("SWEG_PAIN_TOKENS", "1") == "0":
             return
-        # SWEG_DRUKHARI_PFP_EMBARKED (default OFF, wave 249): when ON, the
+        # SWEG_DRUKHARI_PFP_EMBARKED (ADOPTED default-on, wave 249): when ON, the
         # Power From Pain Empower spend filters out Drukhari units that are
         # embarked in a transport. An embarked unit cannot shoot or fight
         # this round, so the transient_lethal_hits buff would expire unused
@@ -12600,7 +12600,7 @@ class Battle:
                     for obj in self.map.objectives
                 )
 
-        # Cadia Stands! (SWEG_AM_CADIA_STANDS, default-off -> byte-identical off):
+        # Cadia Stands! (SWEG_AM_CADIA_STANDS, ADOPTED default-on -> byte-identical off):
         # a Cadian Shock Troops squad led by a Cadian Command Squad officer, while
         # on an objective its own army CONTROLS, gains Benefit of Cover against
         # ranged attacks. Precomputed once per round here (cheap) so the per-attack
@@ -12682,8 +12682,45 @@ class Battle:
         # round T'au is the only faction reading the set and only its own
         # attackers benefit). The set is cleared at end-of-round below.
         # Cited as `simulator.markerlights`.
-        self._run_markerlight_phase(self.a, self.b)
-        self._run_markerlight_phase(self.b, self.a)
+        #
+        # SWEG_TAU_MARK_PER_PHASE (ADOPTED default-on; "0" is the kill-switch).
+        # The batching justification above does NOT hold for the frame every
+        # anchor is measured on. It is written for the alternating-activation
+        # loop, but the evaluation always runs VANILLA (`--sweghammer` is never
+        # passed), and `_run_round_vanilla_turns` gives each army its own
+        # Movement/Shooting/Charge/Fight block — a real per-army Shooting-phase
+        # barrier already exists.
+        #
+        # Batching costs fidelity in a specific, measurable way: BOTH armies
+        # mark here, before the first player has moved, shot or killed anything.
+        # So the SECOND player's marks are computed against a board state up to
+        # a full enemy turn out of date — stale positions, stale line of sight,
+        # and candidates that may already be dead. The real rule marks "at the
+        # start of your Shooting phase", against the board as it then stands.
+        #
+        # Gate ON: skip the batched call in vanilla and mark inside each army's
+        # own Shooting phase instead (see _run_round_vanilla_turns). Alternating
+        # activations keep the batched behaviour, since that mode genuinely has
+        # no per-army barrier to hang it on.
+        #
+        # ADOPTED default-on 2026-07-29 (owner ruling "adopt based on fidelity
+        # first"); `=0` is the byte-identical kill-switch restoring the batched
+        # round-start call. Screened T'au-scoped N=80 against sc71a: T'au 52.0 ->
+        # 55.8 (+3.72 +-3.45 decisive), crossing from 2.2 under to 1.5 over so
+        # the absolute error still improves, but gated mean absolute error 2.78
+        # -> 2.81 and three opponents drift away from real. Adopted on the rule
+        # text regardless — "at the start of your Shooting phase" is verbatim,
+        # and the ledger forbids gating a faithful mechanic off to protect the
+        # metric.
+        # Cited as `simulator.markerlights` and `simulator.tau_mark_per_phase`.
+        _mark_per_phase = (
+            os.environ.get("SWEG_TAU_MARK_PER_PHASE", "1") != "0"
+            and not self.rules.alternating_activations
+        )
+        self._mark_per_phase = _mark_per_phase
+        if not _mark_per_phase:
+            self._run_markerlight_phase(self.a, self.b)
+            self._run_markerlight_phase(self.b, self.a)
 
         if self.rules.alternating_activations:
             self._run_round_alternating(first, second)
@@ -12924,7 +12961,7 @@ class Battle:
             # entering-round (once/round) experiment did not test. Rounds 2-5
             # only (no round-1 primary). No-op unless the gate is set, so the OFF
             # path is byte-identical. Cited as `simulator.primary_vp_command_phase`.
-            # SWEG_R5_SECOND_LAST (default-off while screening) — the round-5
+            # SWEG_R5_SECOND_LAST (ADOPTED default-on) — the round-5
             # going-second exception. Chapter Approved 2025-26 scores Primary
             # at the "End of the Command phase (or the end of your turn if it
             # is the fifth battle round and you are going second)". The
@@ -13128,6 +13165,15 @@ class Battle:
             # Bumped unconditionally (see the `_phase_seq` docstring in
             # __init__). Cited as `simulator.stratagem_once_per_phase`.
             self._phase_seq += 1
+            # SWEG_TAU_MARK_PER_PHASE (default OFF): mark for THIS army now,
+            # against the board as it actually stands, instead of the batched
+            # round-start call in _run_round that computes both armies' marks
+            # before either has moved. See the gate comment there for why the
+            # batching justification does not apply to the vanilla frame.
+            # Byte-identical when the gate is unset: `_mark_per_phase` is then
+            # False and the round-start call ran as before.
+            if getattr(self, "_mark_per_phase", False):
+                self._run_markerlight_phase(active, other)
             # Squad rebuild Stage D (gate SWEG_SQUADSHOOT): clear the per-phase
             # split-fire plan so this army's Shooting phase plans fresh. Resetting
             # empty containers touches no game state and no RNG, so the OFF path
@@ -13237,7 +13283,7 @@ class Battle:
             def _fight_priority(u):
                 charging = u.uid in self._charging_this_round
                 ff_keyword = bool(getattr(u.profile, "fights_first", False))
-                # EC-DAEMONETTE-FF (env-gated SWEG_EC_DAEMONETTE_FF, default OFF).
+                # EC-DAEMONETTE-FF (env-gated SWEG_EC_DAEMONETTE_FF, ADOPTED default-on).
                 # Recovered 2026-06-29 from git c6b40b9 (lost in a re-anchor, not
                 # rejected). BSData v10.6.0 Chaos - Emperor's Children.cat.gz: the
                 # Daemonettes selectionEntry (id 06f6-b870-4e43-4ed9) carries a
@@ -14370,7 +14416,7 @@ class Battle:
                 and _rdpa >= 1.4
                 and (attacker.profile.range_inches or 0.0) >= 36.0
             )
-            # SWEG_AM_INFANTRY_FIRE (default-off; unset or "0" is the
+            # SWEG_AM_INFANTRY_FIRE (ADOPTED default-on; unset or "0" is the
             # byte-identical kill-switch) — the third Astra Militarum entry
             # point on this block, and the one the rDPA floor was explicitly
             # written to EXCLUDE ("excludes weak-shooting bodies (Guardsmen,
@@ -14420,7 +14466,7 @@ class Battle:
                 _str = attacker.profile.strength
                 _ap = attacker.profile.ap
                 _shots = attacker.profile.attacks * attacker.profile.hit_probability
-                # SWEG_SQUAD_DAMAGE_FLOOR (default-off; unset or "0" is the
+                # SWEG_SQUAD_DAMAGE_FLOOR (ADOPTED default-on; unset or "0" is the
                 # byte-identical kill-switch). The 0.5 expected-damage floor
                 # below asks "can this unit actually hurt that target", but the
                 # simulator stores ONE Unit instance PER MODEL, so `_shots` is
@@ -14664,7 +14710,7 @@ class Battle:
                 total_movement=float(move_distance),
             ))
 
-        # SWEG_OVERWATCH_MOVE (default-off, byte-identical off): Fire Overwatch
+        # SWEG_OVERWATCH_MOVE (ADOPTED default-on, byte-identical off): Fire Overwatch
         # just after an enemy unit ENDS a Normal or Advance move, not only after
         # a charge or a Reserves arrival. The cited Fire Overwatch trigger
         # (`simulator.fire_overwatch`, core stratagem) is verbatim "just after an
@@ -15771,7 +15817,7 @@ class Battle:
             attacker.shooting_in_engagement = False
 
         rng = attacker.profile.range_inches
-        # SWEG_RANGE_BASEEDGE (default-off; unset or "0" is the byte-identical
+        # SWEG_RANGE_BASEEDGE (ADOPTED default-on; unset or "0" is the byte-identical
         # kill-switch) — measure WEAPON RANGE base edge to base edge, the way
         # 10e measures every distance.
         #
@@ -16211,7 +16257,7 @@ class Battle:
         saved_cover = shoot_target.in_cover
         saved_heavy = shoot_target.in_heavy_cover
         # Angle-aware Benefit of Cover (terrain-and-line-of-sight program
-        # Phase 2a, env-gated SWEG_COVER_ANGLE, default off). The flat
+        # Phase 2a, env-gated SWEG_COVER_ANGLE, ADOPTED default-on). The flat
         # cover_at(target) lookup grants cover purely from the target's
         # position; the real 10e rule for area terrain is attacker-relative
         # (Map.cover_between: within a cover piece the attacker is not also
@@ -17227,7 +17273,7 @@ class Battle:
         saved_cover = target.in_cover
         saved_heavy = target.in_heavy_cover
         # Angle-aware Benefit of Cover (same substitution as Battle._do_shoot
-        # above, env-gated SWEG_COVER_ANGLE, default off, byte-identical off).
+        # above, env-gated SWEG_COVER_ANGLE, ADOPTED default-on, byte-identical off).
         # Cited as `simulator.benefit_of_cover_angle`.
         if os.environ.get("SWEG_COVER_ANGLE", "1") != "0":
             cover_type = self.map.cover_between(
@@ -18316,6 +18362,15 @@ class Battle:
         alive_enemies = opponent.alive_units
         if not alive_enemies:
             return
+        # The MARKERLIGHT carrier set is catalogue data, not a simulator
+        # decision — see data/overrides.json, where every T'au MARKERLIGHT
+        # keyword is hand-entered because BSData carries no Markerlight data
+        # at all (the string does not appear once in data/bsdata/parsed.json).
+        # Verified 2026-07-29 against the live 10e datasheets: exactly eight
+        # T'au datasheets carry the keyword — Darkstrider, Firesight Team,
+        # Breacher Team, Strike Team, Pathfinder Team, Sky Ray Gunship,
+        # Stealth Battlesuits and Manta (a Titanic flyer no archetype fields).
+        # Cited as `simulator.tau_markerlight_carriers`.
         _all_ml_units = [
             u for u in army.alive_units
             if "MARKERLIGHT" in (u.profile.unit_keywords or ())
@@ -19454,7 +19509,7 @@ class Battle:
         # 10e core rule (Wahapedia core rules, Stratagems, verbatim): "You
         # can use the same Stratagem multiple times during a battle, but
         # you cannot use the same Stratagem more than once in the same
-        # phase." Gated SWEG_STRAT_ONCE_PER_PHASE (default OFF). Scope
+        # phase." Gated SWEG_STRAT_ONCE_PER_PHASE (ADOPTED default-on). Scope
         # note: alternating-activation mode (`self.rules.alternating_
         # activations`) has no global phase boundary — `_phase_seq` is only
         # advanced by the vanilla IGOUGO turn structure — so enforcement

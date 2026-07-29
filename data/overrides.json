@@ -539,8 +539,28 @@
       "notes": "Riptide ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Riptide-Battlesuit (Base size). points_override removed 2026-05-15 Ã¢â¬â was 1180.58 from sweg_balance_mc (Lanchester-tainted), real GW is 180 pts/model; let base catalogue price it."
     },
     "t_au_empire_pathfinder_team": {
-      "stealth": true,
-      "notes": "SK-1: Pathfinder Team carries the Stealth core unit-keyword on its 10e T'au Empire datasheet (the 'Camo Cloaks / Stealth' wording in the unit composition section). BSData's T'au Empire.cat.gz attaches no Stealth infoLink to the Pathfinder Team selectionEntry Ã¢â¬â Stealth Battlesuits get it (verified, parsed.json stealth=True), but Pathfinders do not Ã¢â¬â so the mapper returns False. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Pathfinder-Team ; keyword definition cited under unit.stealth in data/rule_citations.d/keywords_and_mechanics.json."
+      "unit_keywords": [
+        "INFANTRY",
+        "MARKERLIGHT"
+      ],
+      "notes": "SK-1 WITHDRAWN 2026-07-29 - the stealth override was INVENTED and has been REMOVED. Verified against the live datasheet (https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Pathfinder-Team): the unit's ONLY core ability is 'CORE: Scouts 7\"', which is already modelled correctly as scout_distance=7; the word 'Stealth' appears nowhere on the page except navigation links to OTHER datasheets (Stealth Battlesuits, Remora Stealth Drones); the word 'camo' does not appear at all; and the keyword line is INFANTRY, GRENADES, MARKERLIGHT, PATHFINDER TEAM with no STEALTH. The mapper returned False and was RIGHT - the override forced a -1-to-hit defensive buff (units.py ranged hit-modifier site) the datasheet does not grant. The original justification is retained below for the record, and note that its own second half is true and supports the correction: BSData's T'au Empire.cat.gz attaches no Stealth infoLink to the Pathfinder Team selectionEntry Ã¢â¬â Stealth Battlesuits get it (verified, parsed.json stealth=True), but Pathfinders do not Ã¢â¬â so the mapper returns False. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Pathfinder-Team ; keyword definition cited under unit.stealth in data/rule_citations.d/keywords_and_mechanics.json."
+    },
+    "t_au_empire_darkstrider": {
+      "unit_keywords": [
+        "CHARACTER",
+        "EPIC HERO",
+        "INFANTRY",
+        "MARKERLIGHT"
+      ],
+      "notes": "Add MARKERLIGHT keyword. The 10e datasheet keyword line is INFANTRY, CHARACTER, EPIC HERO, MARKERLIGHT, DARKSTRIDER. BSData carries no Markerlight data at all (the string does not appear once in data/bsdata/parsed.json), so every MARKERLIGHT keyword in the catalogue is hand-entered here. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/datasheets.html (keyword line)."
+    },
+    "t_au_empire_firesight_team": {
+      "unit_keywords": [
+        "CHARACTER",
+        "INFANTRY",
+        "MARKERLIGHT"
+      ],
+      "notes": "Add MARKERLIGHT keyword. The 10e datasheet keyword line is INFANTRY, CHARACTER, MARKERLIGHT, FIRESIGHT TEAM. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/datasheets.html (keyword line)."
     },
     "t_au_empire_stealth_battlesuits": {
       "unit_keywords": [
