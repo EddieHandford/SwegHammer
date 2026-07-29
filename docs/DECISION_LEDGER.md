@@ -1,3 +1,142 @@
+## STANDING RULE 2026-07-29 — CHECK THE SUBJECT IS FIELDED BEFORE SCREENING A GATE
+
+**A verdict derived from a frame that cannot express its gate is unevidenced.**
+Five independent instances surfaced in a single session, so this is now a
+pre-flight step, not an observation.
+
+Full triage of all 148 gates (`scripts/_gate_inertness_sweep.py`, flipping each
+gate to the opposite of its true default and comparing determinism digests):
+**121 confirmed live, 5 confirmed structurally dead, 22 genuinely open.**
+
+**FIVE GATES ARE STRUCTURALLY DEAD** — the subject is never built, so every
+verdict ever recorded for them measured nothing, and each becomes live *and
+untested* the moment its faction's list is re-sourced:
+
+| gate | subject | note |
+|---|---|---|
+| `SWEG_DG_TYPHUS_MELEE_ONLY` | Typhus never fielded | **was ADOPTED default-on** (wave 260, fidelity-first) — the adoption changed nothing |
+| `SWEG_CSM_SORCERER_PRESCIENCE` | no Sorcerer fielded | built this session and held for exactly this reason |
+| `SWEG_IK_CANIS_SINGLE` | Canis Rex never fielded | corroborated independently by the dead-entry audit |
+| `SWEG_IK_ACHERON_INVULN` | no Acheron fielded | |
+| `SWEG_EC_DAEMONETTE_FF` | Daemonettes never fielded | corroborated independently |
+
+**SEVEN "BYTE-INERT" READINGS WERE SAMPLE-SIZE ARTEFACTS**, rescued by a 5×
+deeper frame (220 battles, `scripts/_detcheck_deep.py`): `SWEG_AM_CADIA_STANDS`,
+`SWEG_CK_DREAD_FOCUS`, `SWEG_CREED_TWO_ORDERS`, `SWEG_CREEPING_AFFLICTED`,
+`SWEG_EC_LUCIUS_FNP_FIX`, `SWEG_INVULN_SPLIT_FIX`, `SWEG_SECONDARY_PER_UNIT`.
+Note this **contradicts a ledger claim**: the wave-248 entry records
+`SWEG_CREED_TWO_ORDERS` as "measured BYTE-INERT (zero flips, every faction)".
+It is live at 220 battles.
+
+**THE DIGEST METHOD CANNOT FINISH THE JOB, AND ITS OWN CONTROL PROVES IT.**
+`SWEG_CULL_PICK_AWARE` stays flat even at 220 battles while being demonstrably
+live at N=80 — recorded as the best ordering gain of its session at r=−0.83. The
+evaluation frame is 36,960 games, roughly 168× the deep frame. **Do not raise the
+sample further; the decisive test is structural.** Ask whether the unit is built
+(`scripts/_declared_vs_fielded.py`, `scripts/_gate_subject_fielded.py`), not
+whether a digest moved.
+
+**TWO CAVEATS THAT MUST TRAVEL WITH THIS RESULT.** First, a "subject not found"
+result is only decisive when the needle is a real **datasheet name** — two
+first-pass results were withdrawn because "Bondsman" is an ability and "Guardian"
+was a guess at scope. Second, `SWEG_DURCACHE` and `SWEG_LOSCACHE` are caches:
+their inertness is *correct*, since a cache that changed results would be a bug.
+They are expected passes, not findings.
+
+**BOTH WITHDRAWN CASES WERE THEN RESOLVED PROPERLY**, by reading what the gates
+actually do rather than guessing their subject:
+
+- `SWEG_IK_BONDSMAN_SCOPED` excludes exactly three datasheets — Knight
+  Castellan, Knight Valiant and Canis Rex — from being Bondsman givers.
+  **None of the three is ever fielded** (the Imperial Knights archetype builds
+  Armigers, Cerastus Lancer/Atrapos, and the Knight Crusader/Defender/Errant/
+  Paladin/Preceptor/Warden), so the gate excludes nothing. Genuinely inert, for
+  a verified structural reason — a **sixth** dead gate, reached by the right
+  method after the wrong one was retracted.
+- `SWEG_AELDARI_BLITZ_RANGE` gates the 12-inch condition on the Blitzing
+  Firepower *stratagem*, not a unit. The ledger **already** records it as inert
+  with the mechanism stated — "0 flips gate-on, scoped N=20: eval games never
+  present a beyond-12-inch pick" — which independently corroborates the digest
+  reading. Condition-never-arises, not subject-never-fielded.
+
+## ADOPTED 2026-07-29 — the Pathfinder Team never carried a Markerlight (T'au under-pole)
+
+**A catalogue data defect, not a mechanic defect.** The T'au Guided chain was
+traced in three measured stages: uptime 3.5 percent with 68 percent of shooting
+phases producing no mark; the per-attempt gates were NOT the constraint (81
+percent of attempts reached a hit roll); the constraint was 1.73 attempts per
+phase. Cause: **the Pathfinder Team carried no MARKERLIGHT keyword**, despite
+being fielded at 13.8 models per army and being the faction's dedicated marking
+unit.
+
+Verified against the live datasheet (`KEYWORDS: INFANTRY, GRENADES, MARKERLIGHT,
+PATHFINDER TEAM`). Exactly eight 10th edition datasheets carry MARKERLIGHT —
+Darkstrider, Firesight Team, Breacher Team, Strike Team, Pathfinder Team, Sky Ray
+Gunship, Stealth Battlesuits, Manta. The catalogue had five. iter16 added the
+keyword to three of them from those same keyword lines and skipped the Pathfinder
+Team — while the Mont'ka template bumps that unit to `count=2` **explicitly to
+guarantee markerlight carriers**, so the seed bump was buying nothing.
+
+Adopted into `data/overrides.json` per rule 7 (where its three siblings already
+live), for Pathfinder Team, Darkstrider and Firesight Team. **No simulator logic
+changed** — the final diff adds only a comment to `_run_markerlight_phase`.
+Built first as a default-off gate and validated byte-identical (both digests
+matched production exactly) before screening; the adopted build reproduces the
+screened arm exactly with no environment variable set.
+
+MEASURED: marks per phase 0.42 → 0.78, zero-mark phases 68 → 46 percent, share of
+live enemy squads 3.5 → 6.5 percent. T'au-scoped paired N=80 versus `sc69a`
+(36,960 matched games, 439 flips) — T'au Empire 48.2 → 51.7, paired **+3.50
+±3.37 DECISIVE**, toward the real 54.3, gated error 1.88 → 0.00 and into the
+noise band. Gated mean absolute error 2.85 → 2.82. Four of five decisive movers
+go toward real (Chaos Space Marines −1.35 off the largest gated error in the
+table, Adeptus Mechanicus −0.94, Adeptus Custodes +0.71); one goes away (Necrons
+−0.91, already under). Scoping is exact, not an approximation:
+`_run_markerlight_phase` returns immediately for any non-T'au army.
+
+New production digests: narrow `a6b95f0365d2039b7c956e9a`, wide
+`a1c766b8211c026d7da77746`. Anchor `sc69a` is stale for T'au.
+
+**Honest sizing:** T'au contributed 1.88 of a 22-faction gated mean, so a perfect
+fix could only move the headline ~0.085; it moved 0.03. This was adopted because
+the datasheet carries the keyword and the simulator did not — fidelity-first, per
+the standing rule that gating a faithful mechanic off to protect the metric is
+forbidden.
+
+RE-ANCHOR `sc70a` (full N=80 on the adopted build) DELIVERED THE OWED ORDERING
+READ. Attribution is clean: the production digest was verified still
+`4aab205fbb99635db7c607db` immediately before the edit and unchanged all the way
+back to `sc69a`, so the whole delta is this one change. Spearman rank correlation
+**+0.282 → +0.365**, Pearson +0.249 → +0.260, gated mean absolute error 2.85 →
+2.82, factions inside the noise band **7/22 → 9/22** (T'au and Adeptus Mechanicus
+both entered), pairings inside 40-60 53.2 → 55.4 percent. The `sc69a` column was
+recomputed through the same code path by `scripts/_verify_diagnostics.py`, so the
+comparison is like-for-like rather than a quoted figure. The scoped screen
+predicted gated 2.82 and the independent full matrix returned exactly 2.82, which
+also validates the matchup-scoping method.
+
+JUDGE IT AS THE METRIC DOCUMENT DEMANDS: with 22 factions a correlation carries a
+wide confidence interval and is a trend across waves, never a single-wave verdict.
++0.083 of Spearman is the right direction and the first movement the ordering
+headline has shown, but it is ONE WAVE and not a fidelity proof. What did NOT
+move: spread ratio flat at 1.76, skill against the constant null still −3.289.
+The over-dispersion finding stands untouched — the simulator is still beaten by a
+constant.
+
+TWO FINDINGS RECORDED, NOT ACTED ON. (1) The same override sets `stealth: true`
+on the Pathfinder Team, justified by a "Camo Cloaks / Stealth" wording that does
+not exist — the datasheet's only core ability is `Scouts 7"`, already correctly
+captured as `scout_distance = 7`. The mapper returned False and was right. It
+cuts the opposite way to the keyword, so it is a fidelity correction, not a
+lever. (2) The whole marking model is the 10th edition **Index** version: there
+is no markerlight weapon in 10th edition at all (19 occurrences across the
+faction, every one a keyword line), yet the simulator models a 36-inch weapon
+with a Ballistic Skill roll. The real Codex rule is Observer/Spotted — any unit
+with For the Greater Good may mark, on visibility alone, at any range, paying by
+forgoing its own shooting. `rule_citations.d/tau_empire.json` already cites both
+incompatible versions side by side. The unmodelled forgo-shooting cost is a real
+tactical trade the piloting AI never has to make.
+
 ## ORDERING DIAGNOSTICS BUILT AND WIRED IN (2026-07-27)
 
 `evaluate_vs_meta` now prints an ORDERING DIAGNOSTICS block after the existing

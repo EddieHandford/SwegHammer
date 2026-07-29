@@ -1,3 +1,275 @@
+### 2026-07-29 (owner ruling) — ADOPTED on fidelity-first: per-phase marking and Prescience
+
+> **⭐⭐ PRODUCTION DIGESTS ARE NOW narrow `f2c675a8446a11235559663f`, wide
+> `09acc969cf25f9f0c2607d9e`.** Both kill-switches together
+> (`SWEG_TAU_MARK_PER_PHASE=0 SWEG_CSM_SORCERER_PRESCIENCE=0`) restore
+> `ca825421c960cc5dd31ba79c` exactly, so the adoption is fully reversible.
+> **Anchor `sc71a` is now stale** and a re-anchor is owed.
+
+Owner ruling: *"adopt based on fidelity first"*. Both held gates flipped
+default-on. `audit_rules` well-formed, `run.py --cli` exits 0,
+`gate_inventory` exits 0 across 149 gates (109 default-ON, 40 default-OFF).
+
+- **`SWEG_TAU_MARK_PER_PHASE`** — marking now happens at the start of each
+  army's own Shooting phase instead of batched at round start, where the second
+  player's marks were computed against a board a full enemy turn out of date.
+  The rule text is verbatim ("at the start of your Shooting phase"). **Adopted
+  despite costing 0.03 on the headline**: T'au 52.0 → 55.8 (+3.72 ±3.45
+  decisive) which crosses from 2.2 under to 1.5 over — absolute error still
+  improves — while Thousand Sons, Chaos Daemons and Adepta Sororitas each drift
+  about a point away from real. The ledger forbids gating a faithful mechanic
+  off to protect the metric, and a rising headline is pre-authorised.
+- **`SWEG_CSM_SORCERER_PRESCIENCE`** — the real −1 to Hit replaces an `fnp=5`
+  proxy. **Adoption is byte-inert and that was verified, not assumed**: no
+  Sorcerer is ever fielded, so the digest is unchanged by this gate alone. It
+  is adopted so the code states the real rule; when the list is re-sourced the
+  faithful mechanic is already in place rather than a proxy nobody re-checked.
+
+**I introduced comment drift and the tool caught it within a minute.** Flipping
+both defaults left two block headers reading "(default OFF, byte-identical when
+unset)". `scripts/gate_inventory` exited 1 and named both. Fixed at all three
+sites, including the consumption-site comment in `units.py`. That is the same
+failure this session spent a wave eliminating, and the checker earning its keep
+on its author is the point of having it.
+
+**T'au across the whole session:** 48.2 → 51.7 → 52.0 → **55.8** against a real
+54.3. Absolute error **6.1 → 1.5**, inside the noise band. The faction has
+crossed from under to over, so the markerlight chain may now slightly
+over-deliver — weigh that before any further markerlight work.
+
+### 2026-07-29 (later) — the gate-comment sweep, and a correction I owe the record
+
+**Documentation-only, provably behaviour-neutral.** Both digests unchanged
+throughout: narrow `16fc8f984d0f7e9d70e4216d`, wide `ca825421c960cc5dd31ba79c`.
+`audit_rules` clean, `run.py --cli` exits 0, and `scripts/gate_inventory`
+**exits 0 for the first time**.
+
+#### A correction: I said a gate was shelved when it was already live
+
+I recorded that `SWEG_CSM_ABILITIES` was "default OFF, one of the forty shelved
+gates" and warned that three of its four bundled abilities would inflate a
+faction already +4.8 over. **All of that was wrong.** The code reads
+`os.environ.get("SWEG_CSM_ABILITIES", "1") != "0"` — default ON. I trusted a
+comment reading "OFF (default)" over the code beneath it.
+
+It cost a full Chaos-scoped N=80 screen, which returned **zero flips in 36,960
+games** because production already had it enabled. Confirmed wired rather than
+dead by digest: production `ca825421…` versus `SWEG_CSM_ABILITIES=0` giving
+`a61bc88fe2f62ac470280972`. So the Dark Apostle's real "+1 to the Wound roll on
+melee" has been faithful in production all along.
+
+#### The sweep
+
+That made it three wrong conclusions from the same cause in one session
+(Aeldari #43, the Chaos Lord "fabrication", this). `scripts/gate_inventory`
+already existed, already worked, and had been failing silently as a pending
+item — it reported **20 contradictions**, every one the same direction: comment
+says default-OFF, code is default-ON.
+
+| | |
+|---|---|
+| contradictions before | 20 |
+| rewritten by script (flagged lines only, each printed for review) | 17 |
+| fixed by hand | 2 |
+| tool bugs found and fixed | 2 |
+| remaining | **0** |
+
+**The first attempt was rejected, deliberately.** A blunt phrase swap produced
+`SWEG_TAU_NOVA_CHARGE (default-ON during screen)` — correcting the default while
+leaving a clause implying the gate is still under trial. Replacing one
+misleading phrase with a differently misleading one is not a fix, so the rules
+were tightened to delete the stale temporal clauses, and two comments were
+routed to hand-editing because a word swap would have made them contradict
+themselves.
+
+**One was actively dangerous rather than merely stale.** `SWEG_WARGEAR_MUTEX`'s
+docstring said that when unset, the correction is skipped and "every unit is
+byte-identical to the legacy catalogue". The read is `!= "0"` — unset means the
+correction **is** applied. It asserted the over-armed legacy catalogue was
+production when the corrected one is.
+
+**Two genuine tool bugs.** `gate_inventory` matched gate names by substring, so
+`SWEG_TAC_DECK` matched prose about `SWEG_TAC_DECK_CONSUMER_FIX` — the same
+defect that made `_gate_verdict_triage.py` unreliable. And it flagged a
+deliberate dual read (a legacy path kept so a kill-switch reverts
+byte-identically) as drift. Both fixed, the exemption documented at the site
+rather than silently allowlisted.
+
+**Authoritative inventory: 148 gates, 107 default-ON, 41 default-OFF.** The
+forty-plus default-off figure this session has been reasoning about is now
+confirmed from the code rather than from prose.
+
+#### Also built: Sorcerer "Prescience" — faithful, and byte-inert
+
+The last genuine leader proxy. Real rule, verbatim: *"each time an attack
+targets that unit, subtract 1 from the Hit roll."* The simulator modelled it as
+`fnp=5`, which reduces damage after a wound instead of making the attack harder
+to land, and additionally saves against attacks that would have missed.
+
+Built behind `SWEG_CSM_SORCERER_PRESCIENCE` (default off, byte-identical
+verified), new `minus_one_to_hit` leader field consumed at the hit-modifier site
+**without** the `mode != "melee"` guard the adjacent Stealth and Smokescreen
+branches use — those are ranged-only, Prescience is not.
+
+**HELD, because it cannot be measured here.** The wide digest with the gate ON
+is identical to production, and the cause was checked rather than assumed: the
+Chaos Space Marines archetype **never fields a Sorcerer** (zero instances across
+10 built armies). Same shape as the Chaos Lord entry, and another instance of
+#31 — archetypes not fielding their declared entries. Reopen when the list is
+re-sourced. Direction is genuinely unknown and must not be predicted: a to-hit
+penalty beats a feel-no-pain roll against low-volume high-damage attacks and
+loses to it against massed weak ones.
+
+### 2026-07-29 — ADOPTED: the Pathfinder Team never carried a Markerlight
+
+> **⭐⭐ STANDING ANCHOR IS NOW `data/_anchor_sc70a_n80_log.json`** — gated mean
+> absolute error 2.82, raw 5.41, 9 of 22 factions inside the noise band,
+> Spearman +0.365. Production digests: narrow `a6b95f0365d2039b7c956e9a`, wide
+> `a1c766b8211c026d7da77746`.
+
+**First adoption in several waves.** Production digests CHANGE, as an adopted
+behaviour change must (previously `4aab205fbb99635db7c607db` and
+`f243047dbb6a7f45d64aae66`). `audit_rules` clean at 434 of 434, `run.py --cli`
+exits 0. **Nothing committed or pushed** (rule 3 — the standing push
+authorisation recorded in memory expired on 2026-07-07).
+
+#### The re-anchor: clean attribution, and the ordering headline moved
+
+`sc70a` is a full N=80 matrix on the adopted build. **The entire `sc69a` →
+`sc70a` delta is attributable to this one change**: the production digest was
+verified still `4aab205fbb99635db7c607db` immediately before the edit, unchanged
+all the way from `sc69a` (the 2026-07-28 entry records the same digest), so
+nothing else in the tree moved between the two anchors.
+
+| diagnostic | `sc69a` | `sc70a` |
+|---|---|---|
+| **Spearman rank correlation** (the headline) | +0.282 | **+0.365** |
+| Pearson correlation | +0.249 | +0.260 |
+| gated mean absolute error | 2.85 | **2.82** |
+| factions inside the noise band | 7/22 | **9/22** |
+| pairings inside 40–60 | 53.2% | 55.4% |
+| skill versus the constant null | −3.333 | −3.289 |
+| spread ratio | 1.75 | 1.76 |
+
+`sc69a`'s column is not a quoted historical figure — it was recomputed through
+the same code path by `scripts/_verify_diagnostics.py`, so the comparison is
+like-for-like.
+
+**Read this with the discipline the metric document demands.** The diagnostics
+block prints its own warning: with 22 factions a correlation carries a wide
+confidence interval, and it must be judged as a trend across waves, never as a
+single-wave verdict. So +0.083 of Spearman is the right *direction* on the
+ordering headline and the first movement it has shown, but it is **one wave and
+not a fidelity proof**. Note also what did NOT move: the spread ratio is flat at
+1.76 and skill against the constant null is still −3.289. The over-dispersion
+finding of 2026-07-27 stands untouched — the simulator remains beaten by a
+constant.
+
+Two factions entered the band: T'au Empire (gated 1.88 → 0.00) and Adeptus
+Mechanicus (0.61 → 0.00). The scoped screen predicted gated 2.82 and the
+independent full matrix returned exactly 2.82, which also validates the
+matchup-scoping method itself.
+
+#### The defect
+
+The T'au Empire under-pole (simulated 48.2 against a real 54.3) traced through
+three measured stages: Guided uptime 3.5 percent with two shooting phases in
+three producing no mark at all; the gates on each attempt were NOT the constraint
+(81 percent of attempts reached a hit roll); the constraint was the number of
+attempts, 1.73 per phase. The reason is that **the Pathfinder Team carries no
+MARKERLIGHT keyword** — 13.8 models fielded per army, contributing exactly zero
+marking attempts.
+
+Verified against the live datasheet, which reads `KEYWORDS: INFANTRY, GRENADES,
+MARKERLIGHT, PATHFINDER TEAM`. Reading every keyword line on the datasheets
+index, exactly eight 10th edition datasheets carry MARKERLIGHT — Darkstrider,
+Firesight Team, Breacher Team, Strike Team, Pathfinder Team, Sky Ray Gunship,
+Stealth Battlesuits and Manta. The catalogue had five.
+
+The repository documents its own oversight. The Mont'ka template bumps Pathfinder
+Team to `count=2` **explicitly to guarantee markerlight carriers**, and the
+companion iter16 overrides added the keyword to Strike Team, Breacher Team and
+Sky Ray Gunship from those same keyword lines — skipping the one unit named for
+the job. The seed bump has been buying nothing for its stated purpose since.
+
+#### What was measured
+
+Built first as a default-off gate and validated byte-identical (both digests
+matched production exactly), then screened, then adopted into
+`data/overrides.json` per rule 7 — where its three siblings already live — and
+the gate deleted. The adopted build reproduces the screened arm exactly
+(0.78 / 46 percent / 6.5 percent) with no environment variable set, and the
+catalogue is unchanged at 1385 units.
+
+| | before | after |
+|---|---|---|
+| marks per shooting phase | 0.42 | 0.78 |
+| phases with zero marks | 68% | 46% |
+| share of live enemy squads marked | 3.5% | 6.5% |
+
+T'au-scoped paired screen against `sc69a`, N=80, 36,960 matched games, 439 flips.
+Scoping is exact here, not an approximation: `_run_markerlight_phase` returns
+immediately for any non-T'au army, so the change cannot touch a game T'au is not
+in, and the scoped run covers T'au's full row and column (3,360 cells).
+
+| mover | simulated | real | direction |
+|---|---|---|---|
+| **T'au Empire** +3.50 ±3.37 | 48.2 → 51.7 | 54.3 | toward — gated 1.88 → 0.00, enters the noise band |
+| Chaos Space Marines −1.35 | 61.5 → 60.1 | 55.6 | toward — was the single largest gated error at 3.37 |
+| Adeptus Mechanicus −0.94 | 49.2 → 48.2 | 44.4 | toward |
+| Adeptus Custodes +0.71 | 48.4 → 49.1 | 49.5 | toward |
+| Necrons −0.91 | 49.3 → 48.4 | 53.5 | **away** — already under |
+
+Gated mean absolute error 2.85 → **2.82**.
+
+**State the size honestly: this is a fidelity fix, not a metric fix.** T'au's
+beyond-noise contribution was 1.88 of a 22-faction mean, so even a perfect
+correction could only move the headline by about 0.085, and it moved it 0.03.
+The case for adoption is that the datasheet plainly carries the keyword and the
+simulator did not. Four of five decisive movers going toward real is the
+supporting evidence, not the justification.
+
+**A caveat, since discharged.** A scoped run deliberately refuses to print the
+ordering diagnostics, because Spearman cannot be computed across factions that
+never played — so the rank-correlation read the 2026-07-27 entry made the
+headline was not available from the screen alone. The `sc70a` re-anchor above
+supplies it.
+
+#### ALSO FIXED: the invented Stealth on the same datasheet
+
+The Pathfinder override also set `stealth: true`, justified by a "Camo Cloaks /
+Stealth" wording that does not exist. The unit's only core ability is
+`CORE: Scouts 7"`, already modelled correctly as `scout_distance = 7`. The
+override forced a −1-to-hit ranged defensive buff (the `units.py` site where
+Stealth and Smokescreen compose) that the datasheet does not grant. **Removed.**
+The original note is retained, labelled withdrawn, because its own second half —
+that BSData attaches no Stealth link to the Pathfinder entry, so the mapper
+returns False — is true and *supports* the correction. The author documented the
+right evidence and then overrode it.
+
+Screened T'au-scoped against `sc70a` (36,960 matched games, 237 flips): T'au
+51.7 → 52.0, paired **+0.38 ±2.45 indeterminate**, no faction decisive, T'au
+stays in band, gated mean absolute error 2.82 → 2.78.
+
+**A prediction of mine was wrong and is corrected here.** I expected removing a
+−1-to-hit from a faction still 2.6 under real to push T'au *down*, and recorded
+that before running it. It moved mildly up. The interval spans zero, so the
+honest reading is "no measurable harm" rather than "a gain" — but the
+fidelity-versus-metric tension I brace for did not materialise. Kept as a
+SEPARATE change from the keyword addition per rule 14: two independent commits.
+
+#### One further finding from the same datasheet, recorded and NOT acted on
+
+- **The whole marking model is the 10th edition Index version.** There is no
+  markerlight *weapon* in 10th edition at all — 19 occurrences across the
+  faction, every one a keyword line. The simulator models marking as a 36-inch
+  weapon with a Ballistic Skill roll. The real Codex rule is Observer/Spotted:
+  any unit with For the Greater Good may mark, on visibility alone, at any
+  range, and pays by forgoing its own shooting. The repository already cites
+  both incompatible versions side by side in `rule_citations.d/tau_empire.json`.
+  The unmodelled forgo-shooting cost is a real tactical trade the piloting AI
+  never has to make.
+
 ### 2026-07-28 — three screens, three holds, and where the residual actually lives
 
 **Nothing adopted. Anchor `sc69a` unchanged.** Twenty-one commits, all pushed;
