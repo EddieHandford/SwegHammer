@@ -412,6 +412,15 @@
     "scope": "unit-led"
   },
 
+  "LeaderAbility.Prescience": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Sorcerer",
+    "rule_name": "Prescience (Psychic)",
+    "quoted_text": "While this model is leading a unit, each time an attack targets that unit, subtract 1 from the Hit roll.",
+    "trigger": "any attack — ranged or melee — targets a unit led by a Chaos Space Marines Sorcerer; gated by env var SWEG_CSM_SORCERER_PRESCIENCE (default OFF, byte-identical when unset because the leader entry only sets minus_one_to_hit when the gate is on and the field defaults False everywhere else)",
+    "effect": "Subtract 1 from the Hit roll. Implemented as the LeaderAbility field `minus_one_to_hit`, merged into the defender-side buff dict by effective_buffs and consumed at the hit-modifier site in code/units.py Unit.attack, DELIBERATELY WITHOUT the `mode != \"melee\"` guard used by the adjacent Stealth and Smokescreen branches — those abilities are ranged-only, whereas Prescience says \"each time an attack targets that unit\" with no such restriction, so it applies in the Fight phase too. Collapses with any other -1 source via the existing plus-or-minus-1 modifier cap rather than stacking, and two Prescience-bearing leaders on one unit do not stack to -2 (the merge is a boolean OR). REPLACES A WRONG-MECHANIC PROXY: the entry previously carried fnp=5, a feel-no-pain roll, which reduces damage after a successful wound instead of making the attack harder to land AND additionally saves against attacks that would have missed — over-crediting the ability at both ends. Gate OFF restores fnp=5 exactly.",
+    "scope": "unit-led"
+  },
+
   "LeaderAbility.The Destroyer Hive": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/Typhus",
     "rule_name": "The Destroyer Hive",

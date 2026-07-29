@@ -1087,8 +1087,8 @@ _TACTICAL_TRACK_MIN_UNITS: int = 8   # broad-enough roster to spread + redraw
 def _tac_deck_enabled() -> bool:
     """M2 real 2-card Tactical secondary deck — CONSUMER gate-read.
 
-    GATE-MISMATCH FIX (SWEG_TAC_DECK_CONSUMER_FIX, default-off while
-    screening): the deck was ADOPTED default-on at wave 210, but only the
+    GATE-MISMATCH FIX (SWEG_TAC_DECK_CONSUMER_FIX, ADOPTED default-on; "0"
+    is the kill-switch): the deck was ADOPTED default-on at wave 210, but only the
     simulator-side read (`Battle._tac_deck_enabled`, `!= "0"` = default-ON)
     was flipped — this module-side read stayed at `== "1"` (default-OFF), so
     at production defaults the two halves of the pipeline DISAGREED: the

@@ -3441,7 +3441,7 @@ def _sacrificial_chaff_target(
     if battle is None:
         return None
     own_is_army_a = friendly is battle.a
-    # SWEG_CHAFF_COMMIT_CAP (default-off; unset or "0" is the byte-identical
+    # SWEG_CHAFF_COMMIT_CAP (ADOPTED default-on; unset or "0" is the byte-identical
     # kill-switch) — cap how many units may be COMMITTED to the enemy
     # deployment zone at once, instead of only declining once one has ARRIVED.
     #

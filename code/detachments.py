@@ -1799,7 +1799,7 @@ PLAGUE_COMPANY = Detachment(
         "Awakened Dynasty placeholder pending a real Plague Company "
         "stratagem pull."
     ),
-    # SWEG_DG_PLAGUE_NO_NECRON_PROTOCOLS (wave-260, default-off) — fabrication
+    # SWEG_DG_PLAGUE_NO_NECRON_PROTOCOLS (wave-260, ADOPTED default-on) — fabrication
     # removal. AWAKENED_DYNASTY_STRATAGEMS is a placeholder; no Plague Company
     # stratagem has a real Death Guard citation in data/rule_citations.json or
     # data/rule_citations.d/. The Protocol dispatchers seek a NECRONS unit,

@@ -127,7 +127,8 @@ def _am_battleline_specials_enabled() -> bool:
 
 
 def _wargear_mutex_enabled() -> bool:
-    """True when SWEG_WARGEAR_MUTEX == '1' (default-OFF). Resolves the
+    """True unless SWEG_WARGEAR_MUTEX == '0' (ADOPTED default-on; '0' is the
+    byte-identical kill-switch). Resolves the
     wargear-mutex catalogue defect: the BSData mapper's flat weapon walk
     collects EVERY option of a datasheet's mutually-exclusive / optional wargear
     groups as independently-firing profiles, so a single-model vehicle fires
@@ -138,9 +139,11 @@ def _wargear_mutex_enabled() -> bool:
     mutex-alternative and optional-slot weapons named in _WARGEAR_MUTEX_DROPS,
     leaving each corrected unit a legal datasheet-default loadout. Read
     per-build (not cached) so tests can toggle it via os.environ within a
-    process; when unset (or any value other than '1'), _build_catalog skips the
-    correction entirely and every unit is byte-identical to the legacy
-    catalogue. See data/rule_citations.d/wargear_mutex.json."""
+    process; when set to '0', _build_catalog skips the correction entirely and
+    every unit is byte-identical to the legacy catalogue. NOTE the direction:
+    at production defaults the correction IS applied, so the legacy
+    over-armed catalogue is the kill-switch path, not the default one.
+    See data/rule_citations.d/wargear_mutex.json."""
     return os.environ.get("SWEG_WARGEAR_MUTEX", "1") != "0"
 
 
@@ -3029,7 +3032,7 @@ class Unit:
             # is added to hit_mod_delta and composes with any other +1-to-hit
             # source through the existing 10e +/-1 Hit-modifier cap
             # (hit_mod_clamped, ~line 2976) — never doubles. Env-gated
-            # SWEG_VOTANN_PRIORITISED_EFFICIENCY (default OFF); OFF leaves this
+            # SWEG_VOTANN_PRIORITISED_EFFICIENCY (ADOPTED default-on); OFF leaves this
             # path dead so the retired-rule-zeroed Votann behaviour stays
             # byte-identical to the pre-change baseline. Cited as
             # `simulator.prioritised_efficiency`.
@@ -3591,6 +3594,25 @@ class Unit:
             # Cited as LeaderAbility.Prince of Darkness in
             # data/rule_citations.d/leaders.json.
             if mode != "melee" and tgt_buffs.get("grants_stealth_aura"):
+                hit_mod_delta -= 1
+
+            # ---- Chaos Space Marines Sorcerer "Prescience" (gated
+            # SWEG_CSM_SORCERER_PRESCIENCE, ADOPTED default-on; "0" is the
+            # kill-switch, restoring the fnp=5 proxy. `minus_one_to_hit` is only
+            # ever set on the leader entry when the gate is on and defaults
+            # False everywhere else, so the kill-switch path is exact).
+            # Wahapedia, Sorcerer datasheet: "While this model is leading a
+            # unit, each time an attack targets that unit, subtract 1 from the
+            # Hit roll."
+            # NOTE the deliberate absence of a `mode != "melee"` guard. The two
+            # branches above are ranged-only because Stealth and Smokescreen are
+            # ranged-only; Prescience says "each time an attack targets that
+            # unit" with no such restriction, so it must apply in the Fight
+            # phase too. Collapses with the other -1 sources via the +-1
+            # modifier cap below rather than stacking.
+            # Cited as LeaderAbility.Prescience in
+            # data/rule_citations.d/leaders.json.
+            if tgt_buffs.get("minus_one_to_hit"):
                 hit_mod_delta -= 1
 
             # ---- Death Guard Contagions of Nurgle — chosen-Plague Skullsquirm

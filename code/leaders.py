@@ -175,6 +175,18 @@ class LeaderAbility:
     # code/units.py Unit.attack. See docs/OVERPOLE_UNIT_AUDIT.md rank 3
     # and rule_citations.d/leaders.json `LeaderAbility.The Destroyer Hive`.
     fnp_melee_only: int = 7                 # 7 = none; fires on MELEE damage only
+    # SWEG_CSM_SORCERER_PRESCIENCE — Chaos Space Marines Sorcerer "Prescience".
+    # A DEFENSIVE -1 to the Hit roll on EVERY attack targeting the led unit,
+    # ranged and melee alike: "While this model is leading a unit, each time an
+    # attack targets that unit, subtract 1 from the Hit roll." The simulator
+    # modelled this as `fnp=5`, which is a different mechanic — damage reduction
+    # after a wound instead of a to-hit penalty, and it also protects against
+    # attacks that would have MISSED anyway. Consumed via tgt_buffs at the
+    # hit-modifier site in code/units.py Unit.attack, alongside the ranged-only
+    # Stealth / Smokescreen composition but deliberately WITHOUT that branch's
+    # `mode != "melee"` guard, since Prescience is not ranged-only.
+    # Cited as `LeaderAbility.Prescience`.
+    minus_one_to_hit: bool = False          # -1 to Hit for attacks targeting the led unit
     # End-of-round healing: restore N HP to the nearest wounded friendly in
     # aura range (or to the leader itself if none are wounded).
     heal_per_round: int = 0
@@ -437,6 +449,35 @@ _DG_TYPHUS_MELEE_ONLY: bool = os.environ.get("SWEG_DG_TYPHUS_MELEE_ONLY", "1") !
 # all-damage behaviour, byte-identical.
 # ADOPTED default-on (wave 260, fidelity-first); =0 kill-switch.
 _DG_CONTAGION_MELEE_WOUND: bool = os.environ.get("SWEG_DG_CONTAGION_MELEE_WOUND", "1") != "0"
+
+# SWEG_CSM_SORCERER_PRESCIENCE (ADOPTED default-on; "0" is the kill-switch) —
+# replaces the Chaos Space Marines Sorcerer's flavour proxy with the real rule.
+# Wahapedia, Sorcerer datasheet: "Prescience (Psychic): While this model is
+# leading a unit, each time an attack targets that unit, subtract 1 from the
+# Hit roll."
+# The simulator models this as `fnp=5`. That is a DIFFERENT MECHANIC in two
+# ways: it reduces damage after a successful wound rather than making the
+# attack harder to land, and it also saves against attacks that would have
+# missed anyway — so it over-credits the ability at both ends.
+# Gate ON: the entry carries `minus_one_to_hit=True` and drops `fnp`, and the
+# hit-modifier site in code/units.py applies -1 to every attack targeting the
+# led unit. Gate OFF (default): the legacy `fnp=5` proxy, unchanged.
+# DIRECTION IS NOT OBVIOUS and cannot be measured on the current frame: a to-hit
+# penalty is strictly better than a feel-no-pain roll against low-volume
+# high-damage attacks and strictly worse against massed weak ones.
+#
+# ADOPTED default-on 2026-07-29 (owner ruling "adopt based on fidelity first");
+# `=0` is the kill-switch restoring the fnp=5 proxy. Adoption is BYTE-INERT on
+# the present evaluation frame and that was verified, not assumed: the Chaos
+# Space Marines archetype never fields a Sorcerer (zero instances across ten
+# built armies), so the wide digest is identical gate-on and gate-off. It is
+# adopted anyway because the code should state the real rule — the moment the
+# list is re-sourced to include a Sorcerer, the faithful mechanic is already
+# there rather than a proxy nobody re-checked.
+# Cited as `LeaderAbility.Prescience`.
+_CSM_SORCERER_PRESCIENCE: bool = (
+    os.environ.get("SWEG_CSM_SORCERER_PRESCIENCE", "1") != "0"
+)
 
 _CSM_APOSTLE_HOSTS = (
     ("chaos_space_marines_legionaries", "chaos_space_marines_chosen",
@@ -892,7 +933,14 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("thousand_sons_scarab_occult_terminators",))),
     # Chaos Space Marines (legacy "Chaos Space Marines squad" not in 10e BSData;
     # use the closest battleline that is, otherwise let the heuristic decide.)
-    ("Sorcerer",           LeaderAbility(name="Prescience",                 aura_range=6.0, fnp=5,
+    # Sorcerer "Prescience": the real rule is a defensive -1 to the Hit roll on
+    # every attack targeting the led unit, not a feel-no-pain roll. Both fields
+    # are declared here and SWEG_CSM_SORCERER_PRESCIENCE selects which is set,
+    # so gate-OFF is byte-identical to the legacy entry. See the gate comment
+    # above and `LeaderAbility.Prescience` in rule_citations.d/leaders.json.
+    ("Sorcerer",           LeaderAbility(name="Prescience",                 aura_range=6.0,
+                                          fnp=7 if _CSM_SORCERER_PRESCIENCE else 5,
+                                          minus_one_to_hit=_CSM_SORCERER_PRESCIENCE,
                                           host_keys=_CSM_SORCERER_HOSTS)),
     # Dark Apostle: the real 10e ability is "Dark Zealotry" — "+1 to the Wound
     # roll" on melee attacks while a Dark Apostle model is leading the unit.
@@ -1361,7 +1409,7 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # contributed to Drukhari's +20.5pt gated overshoot. Dropped to NO-FLAG
     # + host_keys-only, matching the SC5-1 Skysplinter pattern.
     #
-    # SWEG_DRUKHARI_SUCCUBUS_SUSTAIN (default OFF, wave 249): restores the
+    # SWEG_DRUKHARI_SUCCUBUS_SUSTAIN (ADOPTED default-on, wave 249): restores the
     # Succubus "Storm of Blades" leader ability via the already-wired
     # `sustained_hits_melee` field in LeaderAbility (code/units.py:3726-3729
     # merges the field into `effective_sustained_hits` for melee attacks only,
@@ -1660,6 +1708,10 @@ _NEUTRAL_BUFFS: Dict[str, object] = {
     "plus_one_strength_ranged": False,
     "plus_one_toughness": False,
     "plus_one_ap_melee": False,
+    # Chaos Space Marines Sorcerer "Prescience" — defensive -1 to Hit on EVERY
+    # attack targeting the led unit (SWEG_CSM_SORCERER_PRESCIENCE). Default
+    # False, so the buff dict shape is unchanged for every existing call site.
+    "minus_one_to_hit": False,
     # DAEMONS-DIAG-7: Skulltaker "Lord of Decapitations" — led unit's melee
     # attacks gain [DEVASTATING WOUNDS]. Default False; only True when Skulltaker
     # is alive and leading Bloodletters.
@@ -2076,6 +2128,11 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         _merge_min(buffs, ability, "fnp")
         # SWEG_DG_TYPHUS_MELEE_ONLY: melee-only feel-no-pain proxy (Typhus gate).
         _merge_min(buffs, ability, "fnp_melee_only")
+        # SWEG_CSM_SORCERER_PRESCIENCE: defensive -1 to Hit on every attack
+        # targeting the led unit. Boolean OR — two Prescience-bearing leaders on
+        # one unit do not stack to -2, matching the 10e wording ("subtract 1
+        # from the Hit roll"), and the hit-modifier site caps the delta anyway.
+        _merge_bool(buffs, ability, "minus_one_to_hit")
         # LEADERABILITY-SCHEMA: Greater Daemon locus fields. Booleans OR
         # together — multiple loci of the same type don't stack numerically
         # in 10e (you either get +1 S / +1 T / +1 AP from a locus or you

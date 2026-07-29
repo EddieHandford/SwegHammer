@@ -69,6 +69,17 @@ CLAIM = re.compile(r'default[- ]?(on|off)\b', re.I)
 # almost certainly about it.
 WINDOW = int(os.environ.get("GI_WINDOW", "40"))
 
+# Gates DELIBERATELY read with two different defaults, where the second read is
+# a legacy path preserved so a kill-switch reverts byte-identically. These are
+# correct code, not drift, and each is documented at the read site.
+#
+#   SWEG_TAC_DECK — code/secondaries.py:1111-1113. When
+#   SWEG_TAC_DECK_CONSUMER_FIX is on (the default) this module reads the gate
+#   default-ON so it MATCHES the simulator's read; when the fix is switched off
+#   the older mismatched `== "1"` read is kept so the revert is byte-identical.
+#   Flagging that pair would train the reader to ignore this section.
+INTENTIONAL_DUAL_READ = {"SWEG_TAC_DECK"}
+
 
 def _default_of(has_default: str, op: str, rhs: str) -> str:
     """Resolve whether the FEATURE is on when the environment variable is unset.
@@ -120,12 +131,27 @@ def main() -> int:
                     # this a wide window picks up any nearby "default off" prose
                     # about a different gate, which is how a checker like this
                     # turns into noise nobody reads.
-                    if name not in ctx:
+                    #
+                    # The name must match WHOLE. A plain substring test makes
+                    # every gate a false match for its own longer siblings —
+                    # SWEG_TAC_DECK matched prose about
+                    # SWEG_TAC_DECK_CONSUMER_FIX and reported a contradiction
+                    # that did not exist. Same defect that made
+                    # scripts/_gate_verdict_triage.py unreliable.
+                    if not re.search(name + r"(?![A-Z0-9_])", ctx):
                         continue
                     c = CLAIM.search(ctx)
                     if c:
                         claims.append((j + 1, c.group(1).upper(),
                                        ctx.strip()[:88]))
+                # A gate with an INTENTIONAL dual read has a block that must
+                # describe BOTH states ("with the fix ON ... with it OFF the
+                # legacy read is preserved"), so a single-state check will
+                # always fire on one of them. Suppressed for the same reason
+                # the dual read itself is: it is correct code, and a checker
+                # that cries wolf here is one nobody runs.
+                if name in INTENTIONAL_DUAL_READ:
+                    claims = []
                 if claims and not any(cl == state for _, cl, _ in claims):
                     ln, claimed, text = claims[0]
                     contradictions.append(
@@ -133,7 +159,8 @@ def main() -> int:
 
     # A gate read in several places with DIFFERENT defaults is its own hazard.
     inconsistent = {n: v for n, v in gates.items()
-                    if len({s for _, _, s in v}) > 1}
+                    if len({s for _, _, s in v}) > 1
+                    and n not in INTENTIONAL_DUAL_READ}
 
     on = sorted(n for n, v in gates.items() if v[0][2] == "ON")
     off = sorted(n for n, v in gates.items() if v[0][2] == "OFF")

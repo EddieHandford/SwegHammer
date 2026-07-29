@@ -507,9 +507,22 @@ HAMMER_AND_ANVIL = Map(
 
 def _tipping_point_objectives(width: float, height: float) -> tuple:
     """
-    Tipping Point (Pariah Nexus mission): one central objective worth more
-    than the rest, four corner-ish objectives at midfield. Forces a fight
-    over the centre while contesting four outer points.
+    Tipping Point (Pariah Nexus mission): one central objective plus four
+    corner-ish objectives at midfield.
+
+    NOT SOURCED. These coordinates are a designed layout, not the real
+    deployment card's marker placement — nothing in this module cites a
+    Pariah Nexus diagram (see task #62). Two specific doubts are on record and
+    unresolved: Tabletop Battles describes Tipping Point as reusing "the
+    objective positioning from Crucible of Battle", which this does not match
+    (Crucible sits at y=45/15, this at y=39/21); and the real deployment zones
+    are stepped rather than the flat 12-inch strip the Map object applies.
+
+    An earlier version of this docstring said the central objective was "worth
+    more than the rest". It never was — every objective here carries the
+    default vp_per_round of 5, the centre included. Corrected rather than
+    implemented, because the real per-marker value IS 5 in Pariah Nexus and
+    the claim appears to have been intent that was never built.
     """
     cx, cy = width / 2.0, height / 2.0
     return (
