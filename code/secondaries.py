@@ -905,6 +905,19 @@ def score_position_delta(
         # Army B's enemy DZ is the low-y strip.
         enemy_dz_lo = 0.0
         enemy_dz_hi = map_.deployment_width
+    # SWEG_MAP_REAL_GEOMETRY: when the map carries a sourced deployment polygon,
+    # test against the real SHAPE instead of the flat strip above. No real Pariah
+    # Nexus zone is a flat strip — they are diagonal, stepped, quadrant, or 18
+    # inches deep — so the strip test both admits points outside the real zone
+    # and excludes points inside it. `_enemy_dz_poly` stays None when no polygon
+    # is present, so every map without sourced geometry is byte-identical.
+    _enemy_dz_poly = (map_.deployment_polygon_b if own_is_army_a
+                      else map_.deployment_polygon_a) or None
+
+    def _in_enemy_dz(pos) -> bool:
+        if _enemy_dz_poly is not None:
+            return map_.in_deployment_zone(pos, is_army_a=not own_is_army_a)
+        return enemy_dz_lo <= pos[1] <= enemy_dz_hi
 
     import os as _os
     if _os.environ.get("SWEG_SECONDARY") == "1":
@@ -936,7 +949,7 @@ def score_position_delta(
                 _quarters.add((0 if ux < cx else 1, 0 if uy < cy else 1))
                 if (ux - cx) ** 2 + (uy - cy) ** 2 <= 36.0:   # within 6" of centre
                     _all_beyond_centre = False
-                if not (enemy_dz_lo <= uy <= enemy_dz_hi):
+                if not _in_enemy_dz((ux, uy)):
                     _all_in_enemy_dz = False
             # Engage: the squad is wholly within ONE quarter and clear of centre.
             if len(_quarters) == 1 and _all_beyond_centre:
@@ -958,7 +971,7 @@ def score_position_delta(
             qy = 0 if uy < cy else 1
             quadrants_occupied.add((qx, qy))
             # Enemy DZ check (count units for the CA-2025-26 BEL 1-vs-2+ tier).
-            if enemy_dz_lo <= uy <= enemy_dz_hi:
+            if _in_enemy_dz((ux, uy)):
                 enemy_dz_count += 1
 
     # LC-2: gate Engage / BEL behind the per-round tactical-secondary

@@ -9,6 +9,89 @@ import os
 
 from .map import Map, Objective, Terrain, TerrainType
 
+# ---------------------------------------------------------------------------
+# REAL Pariah Nexus deployment geometry, read off the official deployment cards
+# (https://wahapedia.ru/wh40k10ed/img/maps/cards/) on 2026-07-29 and measured
+# from the printed dimension arrows. Gated by SWEG_MAP_REAL_GEOMETRY, default
+# OFF: this is a FRAME change that re-bases the metric and cannot be paired
+# against an existing anchor, so adopting it needs a deliberate re-anchor.
+#
+# The cards draw the long axis horizontally; this board is 44 wide by 60 high,
+# so card-long maps to y and card-short to x. Army A holds low y.
+#
+# WHY IT MATTERS: every one of the five real cards places an objective INSIDE
+# each player's deployment zone. The simulator's own layouts place none on three
+# of five rotation maps, so Defend Stronghold (control an objective in your own
+# zone) and Extend Battle Lines (own zone AND no-man's-land) cannot be scored by
+# either player there. That is a geometric ceiling on secondary scoring which no
+# piloting can lift, against a simulator scoring 11.8 secondary victory points
+# versus a real 22.7. Confirms the wave-185 hypothesis at the quincunx docstring
+# below, which until now rested on reasoning rather than on the cards.
+_REAL_GEOMETRY = os.environ.get("SWEG_MAP_REAL_GEOMETRY", "0") == "1"
+
+# Crucible of Battle — DIAGONAL triangles, not strips.
+_CRUCIBLE_REAL_A = ((0.0, 0.0), (44.0, 0.0), (44.0, 30.0))
+_CRUCIBLE_REAL_B = ((0.0, 30.0), (0.0, 60.0), (44.0, 60.0))
+_CRUCIBLE_REAL_OBJ = (
+    Objective(name="Centre",    x=22.0, y=30.0),
+    Objective(name="A Home",    x=34.0, y=14.0),
+    Objective(name="A Forward", x=8.0,  y=20.0),
+    Objective(name="B Home",    x=10.0, y=46.0),
+    Objective(name="B Forward", x=36.0, y=40.0),
+)
+
+# Tipping Point — STEPPED 12 and 20 inches. The objective layout is NOT
+# identical to Crucible of Battle: two satellites match exactly and two differ
+# by two inches (22 against 20), correcting a secondary source that called them
+# the same layout.
+_TIPPING_REAL_A = ((0.0, 0.0), (0.0, 12.0), (22.0, 12.0),
+                   (22.0, 20.0), (44.0, 20.0), (44.0, 0.0))
+_TIPPING_REAL_B = ((44.0, 60.0), (44.0, 48.0), (22.0, 48.0),
+                   (22.0, 40.0), (0.0, 40.0), (0.0, 60.0))
+_TIPPING_REAL_OBJ = (
+    Objective(name="The Tipping Point", x=22.0, y=30.0),
+    Objective(name="A Home",            x=34.0, y=14.0),
+    Objective(name="A Forward",         x=8.0,  y=22.0),
+    Objective(name="B Home",            x=10.0, y=46.0),
+    Objective(name="B Forward",         x=36.0, y=38.0),
+)
+
+# Hammer and Anvil — flat strips EIGHTEEN inches deep, not twelve, and the
+# objectives form a CROSS rather than the straight line the legacy layout uses.
+_HAMMER_REAL_A = ((0.0, 0.0), (44.0, 0.0), (44.0, 18.0), (0.0, 18.0))
+_HAMMER_REAL_B = ((0.0, 42.0), (44.0, 42.0), (44.0, 60.0), (0.0, 60.0))
+_HAMMER_REAL_OBJ = (
+    Objective(name="Centre",     x=22.0, y=30.0),
+    Objective(name="A Home",     x=22.0, y=10.0),
+    Objective(name="B Home",     x=22.0, y=50.0),
+    Objective(name="West Flank", x=6.0,  y=30.0),
+    Objective(name="East Flank", x=38.0, y=30.0),
+)
+
+# Search and Destroy — OPPOSING QUADRANTS, one objective 14 and 10 inches into
+# each of the four quadrants plus a centre marker. The card also prints a 9-inch
+# deployment-exclusion radius around the centre, which is NOT modelled here.
+_SEARCH_REAL_A = ((22.0, 0.0), (44.0, 0.0), (44.0, 30.0), (22.0, 30.0))
+_SEARCH_REAL_B = ((0.0, 30.0), (22.0, 30.0), (22.0, 60.0), (0.0, 60.0))
+_SEARCH_REAL_OBJ = (
+    Objective(name="Centre",       x=22.0, y=30.0),
+    Objective(name="A Home",       x=34.0, y=14.0),
+    Objective(name="B Home",       x=10.0, y=46.0),
+    Objective(name="Neutral West", x=10.0, y=14.0),
+    Objective(name="Neutral East", x=34.0, y=46.0),
+)
+
+# NOT CONVERTED, with the reasons recorded rather than guessed:
+#   Take and Hold is a MISSION, not a deployment, so no card defines its marker
+#   placement; the layout there is the simulator's own design.
+#   Sweeping Engagement deploys from the LONG edges, so its zones split along
+#   the short axis (x) rather than along y. The deployment convention throughout
+#   this project, including code/secondaries.py, assumes A is low-y, so
+#   representing it needs that convention generalised first. It is already out
+#   of the rotation for an unrelated reason (wrong footprint), so nothing
+#   regresses by leaving it.
+# ---------------------------------------------------------------------------
+
 
 def _quincunx_objectives(width: float, height: float) -> tuple:
     """
@@ -17,12 +100,12 @@ def _quincunx_objectives(width: float, height: float) -> tuple:
     a third of the way in from each board edge.
 
     Wave 185 (#66 map-objective fidelity, env-gated SWEG_OBJ_HOME): the legacy
-    quincunx places ALL five markers in No Man's Land (inset_y=0.25 → y=15/45 on a
+    quincunx places ALL five markers in No Man's Land (inset_y=0.25 â†’ y=15/45 on a
     44x60 board whose 12" deployment zones are y<=12 / y>=48), so a HOME objective
     in a player's own deployment zone NEVER exists. That makes the real
     Chapter Approved 2025-26 board secondaries Defend Stronghold (control an
     objective in your OWN deployment zone) and Extend Battle Lines (own zone AND
-    No Man's Land) mathematically UNACHIEVABLE — a scoring-fidelity gap, not a
+    No Man's Land) mathematically UNACHIEVABLE â€” a scoring-fidelity gap, not a
     rule the real game has (those cards are scored in real play, so real
     deployment maps DO place home objectives in deployment zones). The gated layout
     re-lays the four outer markers to the faithful HOME + FLANK pattern: one home
@@ -33,7 +116,7 @@ def _quincunx_objectives(width: float, height: float) -> tuple:
     """
     cx, cy = width / 2.0, height / 2.0
     if os.environ.get("SWEG_OBJ_HOME") == "1":
-        # Home objective ~8" from each short edge → inside the 12"-deep
+        # Home objective ~8" from each short edge â†’ inside the 12"-deep
         # deployment zone, as on the real Pariah Nexus deployment maps; two flank
         # markers at mid-board (No Man's Land); centre unchanged.
         home_inset = 8.0
@@ -139,7 +222,7 @@ def _competitive_terrain(width: float, height: float, dense_layout=None) -> tupl
         ("Mid Barricade",   0.10, 0.46, 6.0, 2.0, L),
     )
     out = []
-    # A large central ruin mass, self-symmetric about the centre — the spine
+    # A large central ruin mass, self-symmetric about the centre â€” the spine
     # that denies the dead-centre cross-table sightline.
     cw, ch = 8.0, 8.0
     out.append(Terrain("Central Ruin", width / 2.0 - cw / 2.0,
@@ -156,7 +239,7 @@ def _competitive_terrain(width: float, height: float, dense_layout=None) -> tupl
 
 
 # ---------------------------------------------------------------------------
-# SWEG_TERRAIN_DENSE — sourced competitive Pariah Nexus tournament layouts
+# SWEG_TERRAIN_DENSE â€” sourced competitive Pariah Nexus tournament layouts
 # ---------------------------------------------------------------------------
 #
 # The Wave-97 default `_competitive_terrain` reproduces the competitive DENSITY
@@ -178,7 +261,7 @@ def _competitive_terrain(width: float, height: float, dense_layout=None) -> tupl
 # three Woods. The GHG diagrams give board-edge measurements but are isometric-
 # tinged top-downs, so exact per-piece coordinates are APPROXIMATED from the
 # sourced piece counts, footprint sizes and placement pattern (central mass plus
-# flanking ruins, per-deployment structure), NOT transcribed pixel-for-pixel — an
+# flanking ruins, per-deployment structure), NOT transcribed pixel-for-pixel â€” an
 # approximation the citation records explicitly.
 #
 # EVEN-HANDED / PRIME DIRECTIVE. Each layout is built by 180-degree rotational
@@ -188,8 +271,8 @@ def _competitive_terrain(width: float, height: float, dense_layout=None) -> tupl
 # deployment zone onto the other and neither side gets a terrain advantage. The
 # terrain is faction-neutral and is NOT tuned to move any faction's win rate; only
 # the terrain changes, the mission's deployment zones and objectives are untouched.
-# Ruins are the existing line-of-sight-blocking RUIN type (passable — the 10e
-# INFANTRY/BEAST move-through-walls rule — and grant Benefit of Cover); no piece is
+# Ruins are the existing line-of-sight-blocking RUIN type (passable â€” the 10e
+# INFANTRY/BEAST move-through-walls rule â€” and grant Benefit of Cover); no piece is
 # IMPASSABLE, so no objective marker can ever fall inside impassable terrain.
 #
 # Each named layout is a list of LOWER-half seed pieces `(name, x, y, w, h, type)`
@@ -198,7 +281,7 @@ def _competitive_terrain(width: float, height: float, dense_layout=None) -> tupl
 # 180-degree image, so they are emitted once). Cited `terrain.competitive_density`.
 
 _DENSE_LAYOUTS = {
-    # Crucible of Battle — diagonal deployment: a heavier ruin mass on one
+    # Crucible of Battle â€” diagonal deployment: a heavier ruin mass on one
     # diagonal (big corner bastion) with a central knot sealing the centre lane.
     "crucible_of_battle": (
         (
@@ -210,7 +293,7 @@ _DENSE_LAYOUTS = {
         ),
         (),
     ),
-    # Hammer and Anvil — two big central redoubts stacked across the centreline
+    # Hammer and Anvil â€” two big central redoubts stacked across the centreline
     # with flanking ruins ahead of each deployment zone.
     "hammer_and_anvil": (
         (
@@ -224,7 +307,7 @@ _DENSE_LAYOUTS = {
             ("Central Copse", 5.0, 5.0, "O"),
         ),
     ),
-    # Tipping Point — three ruin columns (left / centre / right) ringing the
+    # Tipping Point â€” three ruin columns (left / centre / right) ringing the
     # central objective, which sits in a central copse.
     "tipping_point": (
         (
@@ -238,7 +321,7 @@ _DENSE_LAYOUTS = {
             ("Central Copse", 5.0, 5.0, "O"),
         ),
     ),
-    # Search and Destroy — corner clusters of ruins with a central ruin sealing
+    # Search and Destroy â€” corner clusters of ruins with a central ruin sealing
     # the middle (opposing-corner push).
     "search_and_destroy": (
         (
@@ -250,7 +333,7 @@ _DENSE_LAYOUTS = {
         ),
         (),
     ),
-    # Take and Hold — the symmetric Dawn of War three-by-three grid of ruins with
+    # Take and Hold â€” the symmetric Dawn of War three-by-three grid of ruins with
     # a central copse over the middle no-man's-land.
     "take_and_hold": (
         (
@@ -264,7 +347,7 @@ _DENSE_LAYOUTS = {
             ("Central Copse", 5.0, 5.0, "O"),
         ),
     ),
-    # Sweeping Engagement — long-axis spine: flanking ruins with a central ruin
+    # Sweeping Engagement â€” long-axis spine: flanking ruins with a central ruin
     # and a forward chevron ahead of each deployment zone.
     "sweeping_engagement": (
         (
@@ -364,7 +447,10 @@ CRUCIBLE_OF_BATTLE = Map(
     name="Crucible of Battle",
     width=44.0,
     height=60.0,
-    objectives=_quincunx_objectives(44.0, 60.0),
+    objectives=(_CRUCIBLE_REAL_OBJ if _REAL_GEOMETRY
+                else _quincunx_objectives(44.0, 60.0)),
+    deployment_polygon_a=_CRUCIBLE_REAL_A if _REAL_GEOMETRY else (),
+    deployment_polygon_b=_CRUCIBLE_REAL_B if _REAL_GEOMETRY else (),
     # Diagonal asymmetry: heavy terrain on the NE-SW diagonal, light on NW-SE.
     # Large ruin top-right, wooded copse mid-left, two short barricade ridges
     # bridging them, one impassable wall blocking centre.
@@ -393,7 +479,15 @@ SEARCH_AND_DESTROY = Map(
     name="Search and Destroy",
     width=44.0,
     height=60.0,
-    objectives=_search_and_destroy_objectives(44.0, 60.0),
+    objectives=(_SEARCH_REAL_OBJ if _REAL_GEOMETRY
+                else _search_and_destroy_objectives(44.0, 60.0)),
+    deployment_polygon_a=_SEARCH_REAL_A if _REAL_GEOMETRY else (),
+    deployment_polygon_b=_SEARCH_REAL_B if _REAL_GEOMETRY else (),
+    # The card's printed 9-inch no-deployment radius around board centre. Needed
+    # for correctness here, not flavour: the four quadrants meet at the centre,
+    # so without it the central objective falls on a zone corner and is wrongly
+    # credited to one side.
+    deployment_exclusion_radius=9.0 if _REAL_GEOMETRY else 0.0,
     # Corner deployment: NW and SE clusters of terrain, central no-man's-land
     # mostly open. Players push out of corners across exposed ground to
     # contest mid-board objectives.
@@ -432,10 +526,10 @@ SWEEPING_ENGAGEMENT = Map(
 # Sweeping Engagement at the 2000-point Strike Force footprint (44x60). The
 # original SWEEPING_ENGAGEMENT above is a 44x90 Onslaught-size board, which is
 # the wrong footprint for the 2000-point rotation, so it was excluded from
-# PARIAH_NEXUS_2K_ROTATION — leaving Sweeping Engagement, one of the five real
+# PARIAH_NEXUS_2K_ROTATION â€” leaving Sweeping Engagement, one of the five real
 # Pariah Nexus deployments, untested at 2000 points. This 44x60 version restores
 # it at the correct size so the full deployment set can be screened. Gated into
-# the rotation via SWEG_FULL_DEPLOY_ROTATION (default-off, byte-identical) — see
+# the rotation via SWEG_FULL_DEPLOY_ROTATION (default-off, byte-identical) â€” see
 # PARIAH_NEXUS_2K_ROTATION_FULL and evaluate_vs_meta._pick_rotation_map.
 SWEEPING_ENGAGEMENT_2K = Map(
     name="Sweeping Engagement (2K)",
@@ -479,7 +573,7 @@ def _hammer_and_anvil_objectives(width: float, height: float) -> tuple:
     """
     Hammer and Anvil (Pariah Nexus mission): short-edge deployment with the
     map's long axis running between the deployment zones. 5 objectives
-    strung along the long axis. Long travel distance — slow factions
+    strung along the long axis. Long travel distance â€” slow factions
     struggle to project across the map.
     """
     cx = width / 2.0
@@ -496,7 +590,10 @@ HAMMER_AND_ANVIL = Map(
     name="Hammer and Anvil",
     width=44.0,
     height=60.0,
-    objectives=_hammer_and_anvil_objectives(44.0, 60.0),
+    objectives=(_HAMMER_REAL_OBJ if _REAL_GEOMETRY
+                else _hammer_and_anvil_objectives(44.0, 60.0)),
+    deployment_polygon_a=_HAMMER_REAL_A if _REAL_GEOMETRY else (),
+    deployment_polygon_b=_HAMMER_REAL_B if _REAL_GEOMETRY else (),
     # Short-edge deployment (DZ width=12.0 on each short edge, leaving a 36"
     # no-man's-land along the long axis). Terrain alternates side-to-side
     # along the long axis to channel movement.
@@ -511,7 +608,7 @@ def _tipping_point_objectives(width: float, height: float) -> tuple:
     corner-ish objectives at midfield.
 
     NOT SOURCED. These coordinates are a designed layout, not the real
-    deployment card's marker placement — nothing in this module cites a
+    deployment card's marker placement â€” nothing in this module cites a
     Pariah Nexus diagram (see task #62). Two specific doubts are on record and
     unresolved: Tabletop Battles describes Tipping Point as reusing "the
     objective positioning from Crucible of Battle", which this does not match
@@ -519,7 +616,7 @@ def _tipping_point_objectives(width: float, height: float) -> tuple:
     are stepped rather than the flat 12-inch strip the Map object applies.
 
     An earlier version of this docstring said the central objective was "worth
-    more than the rest". It never was — every objective here carries the
+    more than the rest". It never was â€” every objective here carries the
     default vp_per_round of 5, the centre included. Corrected rather than
     implemented, because the real per-marker value IS 5 in Pariah Nexus and
     the claim appears to have been intent that was never built.
@@ -538,13 +635,17 @@ TIPPING_POINT = Map(
     name="Tipping Point",
     width=44.0,
     height=60.0,
-    objectives=_tipping_point_objectives(44.0, 60.0),
+    objectives=(_TIPPING_REAL_OBJ if _REAL_GEOMETRY
+                else _tipping_point_objectives(44.0, 60.0)),
+    deployment_polygon_a=_TIPPING_REAL_A if _REAL_GEOMETRY else (),
+    deployment_polygon_b=_TIPPING_REAL_B if _REAL_GEOMETRY else (),
     # Central objective surrounded by 4 satellite objectives. Terrain
-    # forms a ring around the centre — taking it requires committing
+    # forms a ring around the centre â€” taking it requires committing
     # through exposed lanes between the ring features.
     terrain=_competitive_terrain(44.0, 60.0, dense_layout="tipping_point"),
     deployment_width=12.0,
 )
+
 
 
 STOCK_MAPS = {
@@ -554,14 +655,14 @@ STOCK_MAPS = {
     "crucible_of_battle":  CRUCIBLE_OF_BATTLE,
     "search_and_destroy":  SEARCH_AND_DESTROY,
     "sweeping_engagement": SWEEPING_ENGAGEMENT,
-    # SC4-D — additional Pariah Nexus mission shapes for eval rotation.
+    # SC4-D â€” additional Pariah Nexus mission shapes for eval rotation.
     "take_and_hold":       TAKE_AND_HOLD,
     "hammer_and_anvil":    HAMMER_AND_ANVIL,
     "tipping_point":       TIPPING_POINT,
     "sweeping_engagement_2k": SWEEPING_ENGAGEMENT_2K,
 }
 
-# SC4-D — Pariah Nexus mission rotation. evaluate_vs_meta cycles through
+# SC4-D â€” Pariah Nexus mission rotation. evaluate_vs_meta cycles through
 # this list per (faction-pair, seed) so each pair sees variety. Keeps
 # `DEFAULT_MAP` (COMBAT_PATROL_BASIC) for one-off battles / tests that
 # don't need a curated rotation.
@@ -574,7 +675,7 @@ PARIAH_NEXUS_2K_ROTATION: tuple = (
 )
 
 # Full deployment rotation including Sweeping Engagement at the correct 2000-point
-# 44x60 footprint — restores the fifth real Pariah Nexus deployment that the base
+# 44x60 footprint â€” restores the fifth real Pariah Nexus deployment that the base
 # rotation omits (the stock SWEEPING_ENGAGEMENT is 44x90, the wrong size for 2K).
 # Gated via SWEG_FULL_DEPLOY_ROTATION (default-off) in
 # evaluate_vs_meta._pick_rotation_map so the production frame is byte-identical
@@ -601,15 +702,15 @@ DEFAULT_MAP = COMBAT_PATROL_BASIC
 # Our stock maps don't all match those exact footprints, but we tag each with
 # a sensible points range so the front end can auto-select or filter.
 MAP_POINTS_RANGE = {
-    "combat_patrol":       (250, 1250),   # 44 x 60, ruin + barricade — Combat Patrol / Incursion
-    "open_plains":         (500, 2000),   # 44 x 60, sparse terrain — Strike Force friendly
-    "urban_sprawl":        (1500, 3500),  # 44 x 90, asymmetric — Strike Force / Onslaught
-    "crucible_of_battle":  (750, 2000),   # 44 x 60, diagonal asymmetry — Incursion / Strike Force
-    "search_and_destroy":  (750, 2000),   # 44 x 60, corner deployment — Incursion / Strike Force
-    "sweeping_engagement": (1500, 3500),  # 44 x 90, long-axis Strike Force — Strike Force / Onslaught
-    "take_and_hold":       (750, 2000),   # 44 x 60, 4 mid-board objectives — Strike Force
-    "hammer_and_anvil":    (750, 2000),   # 44 x 60, short-edge deployment — Strike Force
-    "tipping_point":       (750, 2000),   # 44 x 60, central + 4 satellites — Strike Force
+    "combat_patrol":       (250, 1250),   # 44 x 60, ruin + barricade â€” Combat Patrol / Incursion
+    "open_plains":         (500, 2000),   # 44 x 60, sparse terrain â€” Strike Force friendly
+    "urban_sprawl":        (1500, 3500),  # 44 x 90, asymmetric â€” Strike Force / Onslaught
+    "crucible_of_battle":  (750, 2000),   # 44 x 60, diagonal asymmetry â€” Incursion / Strike Force
+    "search_and_destroy":  (750, 2000),   # 44 x 60, corner deployment â€” Incursion / Strike Force
+    "sweeping_engagement": (1500, 3500),  # 44 x 90, long-axis Strike Force â€” Strike Force / Onslaught
+    "take_and_hold":       (750, 2000),   # 44 x 60, 4 mid-board objectives â€” Strike Force
+    "hammer_and_anvil":    (750, 2000),   # 44 x 60, short-edge deployment â€” Strike Force
+    "tipping_point":       (750, 2000),   # 44 x 60, central + 4 satellites â€” Strike Force
 }
 
 

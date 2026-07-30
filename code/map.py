@@ -109,6 +109,33 @@ class Terrain:
         return self.x <= px <= self.x2 and self.y <= py <= self.y2
 
 
+def _point_in_polygon(point: Tuple[float, float],
+                      poly: Tuple[Tuple[float, float], ...]) -> bool:
+    """Ray-casting point-in-polygon, inclusive of the boundary.
+
+    The boundary is deliberately inclusive: a real objective marker placed
+    exactly on a zone edge is IN that zone, and two of the sourced layouts put
+    markers on or very near an edge. An exclusive test would silently drop them
+    and reproduce the very defect this exists to fix.
+    """
+    px, py = point
+    n = len(poly)
+    inside = False
+    for i in range(n):
+        x1, y1 = poly[i]
+        x2, y2 = poly[(i + 1) % n]
+        # On-edge counts as inside (collinear and within the segment's box).
+        if abs((x2 - x1) * (py - y1) - (y2 - y1) * (px - x1)) < 1e-9:
+            if (min(x1, x2) - 1e-9 <= px <= max(x1, x2) + 1e-9
+                    and min(y1, y2) - 1e-9 <= py <= max(y1, y2) + 1e-9):
+                return True
+        if (y1 > py) != (y2 > py):
+            xint = x1 + (py - y1) * (x2 - x1) / (y2 - y1)
+            if px < xint:
+                inside = not inside
+    return inside
+
+
 @dataclass(frozen=True)
 class Objective:
     """A scoring objective. Side with more OC within control_radius scores it."""
@@ -129,6 +156,55 @@ class Map:
     terrain: Tuple[Terrain, ...] = ()
     objectives: Tuple[Objective, ...] = ()
     deployment_width: float = 12.0   # each side gets a strip of this depth
+    # Real deployment-zone SHAPES, as closed polygons in board inches.
+    #
+    # `deployment_width` above models every zone as a flat strip of one depth,
+    # which no real Pariah Nexus deployment actually is. Read off the official
+    # deployment cards 2026-07-29: Crucible of Battle is a pair of DIAGONAL
+    # triangles, Tipping Point is STEPPED 12 and 20 inches, Sweeping Engagement
+    # is STEPPED 8 and 14 inches, Search and Destroy is OPPOSING QUADRANTS, and
+    # Hammer and Anvil is a flat strip but EIGHTEEN inches deep, not twelve.
+    #
+    # That matters beyond flavour. Every one of the five real cards places an
+    # objective INSIDE each player's zone, and the flat-12-inch approximation
+    # moves the boundary away from where the real marker sits — which is why
+    # Defend Stronghold (control an objective in your own zone) and Extend
+    # Battle Lines (own zone AND no-man's-land) are under-scoreable here.
+    #
+    # Empty means "fall back to the flat strip", so every existing map is
+    # unaffected. Army A holds the low-y zone and army B the high-y zone, the
+    # same convention code/secondaries.py already uses.
+    deployment_polygon_a: Tuple[Tuple[float, float], ...] = ()
+    deployment_polygon_b: Tuple[Tuple[float, float], ...] = ()
+    # Some deployment cards forbid deploying within N inches of board centre.
+    # Search and Destroy prints a 9-inch exclusion, which is not decoration: its
+    # four quadrant zones MEET at the centre, so without the exclusion the
+    # central objective sits exactly on a zone corner and a boundary-inclusive
+    # test hands it to whichever side is checked first. The real card gives it to
+    # nobody. Zero means no exclusion, so every other map is unaffected.
+    deployment_exclusion_radius: float = 0.0
+
+    def in_deployment_zone(self, point: Tuple[float, float],
+                           is_army_a: bool) -> bool:
+        """Is this point inside that army's deployment zone?
+
+        Uses the real polygon when the map carries one, otherwise the legacy
+        flat strip, so maps without a sourced shape behave exactly as before.
+        Army A holds the low-y zone, army B the high-y zone.
+        """
+        poly = (self.deployment_polygon_a if is_army_a
+                else self.deployment_polygon_b)
+        if not poly:
+            px, py = point
+            if is_army_a:
+                return py <= self.deployment_width
+            return py >= self.height - self.deployment_width
+        if self.deployment_exclusion_radius > 0.0:
+            cx, cy = self.width / 2.0, self.height / 2.0
+            r = self.deployment_exclusion_radius
+            if (point[0] - cx) ** 2 + (point[1] - cy) ** 2 <= r * r:
+                return False
+        return _point_in_polygon(point, poly)
 
     def is_blocked(self, point: Tuple[float, float]) -> bool:
         """True if a unit cannot stand at this point (impassable terrain)."""

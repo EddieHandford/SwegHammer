@@ -34,18 +34,30 @@ def audit(keys, label: str) -> None:
         m = STOCK_MAPS[key]
         lo = m.deployment_width
         hi = m.height - m.deployment_width
-        inside = [o for o in m.objectives if o.y <= lo or o.y >= hi]
+        # Use the MAP'S OWN predicate, not a re-implemented flat-strip test.
+        # With SWEG_MAP_REAL_GEOMETRY on, zones are polygons (diagonal, stepped,
+        # quadrant), and a strip test both misses markers that are really inside
+        # and admits ones that are not — an earlier version of this script
+        # under-counted the sourced layouts for exactly that reason.
+        def _zone(o):
+            if m.in_deployment_zone((o.x, o.y), is_army_a=True):
+                return "A"
+            if m.in_deployment_zone((o.x, o.y), is_army_a=False):
+                return "B"
+            return ""
+        inside = [o for o in m.objectives if _zone(o)]
         if inside:
             with_dz += 1
-        print(f"  {m.name:<28} {len(m.objectives)} objectives, "
-              f"deployment strips y<={lo:.0f} and y>={hi:.0f}")
+        shape = ("real polygons" if m.deployment_polygon_a
+                 else f"flat strips y<={lo:.0f} and y>={hi:.0f}")
+        print(f"  {m.name:<28} {len(m.objectives)} objectives, {shape}")
         for o in m.objectives:
-            tag = ""
-            if o.y <= lo or o.y >= hi:
-                tag = "  <-- IN a deployment zone"
+            z = _zone(o)
+            tag = f"  <-- IN army {z}'s deployment zone" if z else ""
+            if z and not m.deployment_polygon_a:
                 if abs(o.y - lo) < 1e-6 or abs(o.y - hi) < 1e-6:
                     tag += " (exactly ON the boundary)"
-            print(f"      {o.name:<20} y={o.y:>5.1f}{tag}")
+            print(f"      {o.name:<20} x={o.x:>5.1f} y={o.y:>5.1f}{tag}")
         print(f"      -> {len(inside)} of {len(m.objectives)} in a "
               f"deployment zone")
         print()
