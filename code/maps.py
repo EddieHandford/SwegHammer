@@ -12,9 +12,25 @@ from .map import Map, Objective, Terrain, TerrainType
 # ---------------------------------------------------------------------------
 # REAL Pariah Nexus deployment geometry, read off the official deployment cards
 # (https://wahapedia.ru/wh40k10ed/img/maps/cards/) on 2026-07-29 and measured
-# from the printed dimension arrows. Gated by SWEG_MAP_REAL_GEOMETRY, default
-# OFF: this is a FRAME change that re-bases the metric and cannot be paired
-# against an existing anchor, so adopting it needs a deliberate re-anchor.
+# from the printed dimension arrows. SWEG_MAP_REAL_GEOMETRY is ADOPTED
+# default-on ("0" is the kill-switch), under the owner ruling to adopt on
+# fidelity first. This is a FRAME change: it re-bases the metric and cannot be
+# paired against an older anchor, so every figure predating it is on a different
+# frame and a fresh re-anchor is mandatory.
+#
+# MEASURED, 22 factions, geometry off versus on, against real primary 29.1 and
+# secondary 22.7:
+#   mean primary   34.27 -> 31.78  (error +5.17 -> +2.68, roughly HALF removed)
+#   mean secondary 12.50 -> 12.30  (error -10.20 -> -10.40, flat)
+# So it halves the primary over-scoring and does NOTHING for secondary. The
+# hypothesis that objective geometry starved the home-objective secondary cards
+# is FALSIFIED — that gap is behavioural, not geometric.
+#
+# It also moves the headline the "wrong" way, and that is expected rather than a
+# regression: gated mean absolute error 2.78 -> 3.35, because primary and
+# secondary errors had been CANCELLING and correcting one exposed the other.
+# Spearman rank correlation, which this project treats as the real signal,
+# IMPROVED +0.375 -> +0.396 and Pearson +0.270 -> +0.334.
 #
 # The cards draw the long axis horizontally; this board is 44 wide by 60 high,
 # so card-long maps to y and card-short to x. Army A holds low y.
@@ -27,7 +43,7 @@ from .map import Map, Objective, Terrain, TerrainType
 # piloting can lift, against a simulator scoring 11.8 secondary victory points
 # versus a real 22.7. Confirms the wave-185 hypothesis at the quincunx docstring
 # below, which until now rested on reasoning rather than on the cards.
-_REAL_GEOMETRY = os.environ.get("SWEG_MAP_REAL_GEOMETRY", "0") == "1"
+_REAL_GEOMETRY = os.environ.get("SWEG_MAP_REAL_GEOMETRY", "1") != "0"
 
 # Crucible of Battle — DIAGONAL triangles, not strips.
 _CRUCIBLE_REAL_A = ((0.0, 0.0), (44.0, 0.0), (44.0, 30.0))

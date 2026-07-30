@@ -1,3 +1,104 @@
+### 2026-07-30 — ADOPTED: real map geometry. It halves the PRIMARY error and does nothing for secondary.
+
+> **⭐⭐ STANDING ANCHOR IS NOW `data/_anchor_sc72a_n80_log.json`** — gated mean
+> absolute error 3.35, raw 6.28, 8 of 22 factions in band, Spearman +0.396.
+> Production digests narrow `f2a90c67ace2c47b21632bb7`, wide
+> `e55c3750394f852814e638cc`; `SWEG_MAP_REAL_GEOMETRY=0` restores
+> `09acc969cf25f9f0c2607d9e`. **Every figure predating this is on a different
+> frame** — do not compare across it without saying so.
+
+`sc72a` reproduces the earlier geometry frame run exactly (gated 3.35, Spearman
++0.396, spread 2.04), which is the expected determinism check: that run already
+carried both adopted gates plus the geometry, so it *was* production.
+
+#### What moved, and it is more informative than the headline
+
+| faction | `sc71a` | `sc72a` | real | |
+|---|---|---|---|---|
+| Death Guard | 58.6 (gated 8.37) | **56.2 (5.99)** | 47.6 | much improved |
+| Aeldari | 51.4 (6.73) | **49.3 (4.67)** | 41.5 | improved |
+| **T'au Empire** | 52.0 (0.00) | **59.4 (0.91)** | 54.3 | **overshot, +5.1** |
+| Emperor's Children | 39.2 (8.49) | 36.0 (11.64) | 53.3 | worse |
+| Astra Militarum | 36.4 (5.67) | 33.5 (8.64) | 45.3 | worse |
+| Chaos Daemons | 45.2 (4.21) | 41.1 (8.33) | 52.6 | worse |
+
+The two largest OVER-poles improved and the UNDER-poles worsened. That is what
+falling primary victory points does in a closed matrix: armies that won by holding
+objectives lose ground, and armies already starved fall further. It is the same
+mechanism as the aggregate result, seen per faction.
+
+**T'AU HAS OVERSHOT AND THE NEXT CHANGE THERE MUST BE SUBTRACTIVE.** Across this
+session it went 48.2 → 51.7 → 52.0 → 55.8 → **59.4** against a real 54.3, so from
+6.1 under to 5.1 over. The markerlight keyword, the per-phase timing and the
+geometry have compounded. Do not add further T'au power without re-measuring; the
+markerlight chain is now the prime suspect for over-delivery.
+
+Read off the official Pariah Nexus deployment cards (screenshotted and measured
+from the printed dimension arrows), then adopted default-on under the
+fidelity-first ruling. `gate_inventory` clean at 150 gates, `audit_rules`
+well-formed, `run.py --cli` exits 0.
+
+#### The prediction I built this on was wrong
+
+The hypothesis was that objective geometry starved the home-objective secondary
+cards. Measured across all 22 factions, geometry off versus on, against real
+primary 29.1 and secondary 22.7:
+
+| | off | on | real | error off → on |
+|---|---|---|---|---|
+| mean primary | 34.27 | **31.78** | 29.10 | +5.17 → **+2.68** |
+| mean secondary | 12.50 | 12.30 | 22.70 | −10.20 → −10.40 |
+| mean total | 46.77 | 44.07 | 51.80 | −5.03 → −7.73 |
+
+**Placing a real home objective inside every deployment zone moved secondary
+scoring by two tenths of a point.** Objective geometry is NOT what starves the
+secondary cards. Recorded as falsified, not reframed — I expected the opposite.
+
+What it did do is remove **roughly half the primary over-scoring error**, the
+first movement on the primary side this session, and it is sourced verbatim
+rather than reasoned.
+
+#### Why the headline gets worse, and why that is not a regression
+
+The full N=80 frame run read gated mean absolute error **3.35** against `sc71a`'s
+2.78, and spread ratio 2.04 against 1.76. But **Spearman improved +0.375 →
++0.396** and Pearson +0.270 → +0.334.
+
+Primary and secondary errors had been **cancelling** in the total. Correcting one
+exposed the other, so totals fell further below real and win rates shifted. Per
+the ordering diagnostics' own guidance, correlation up is the fidelity signal,
+and distance falling with correlation flat is convergence toward the mean. Here
+correlation is up and distance is up — the opposite of the failure pattern.
+
+Caveat: that frame run also carried the two gates adopted the day before, so it
+is not single-variable against `sc71a`. The primary/secondary table above IS
+clean — both arms ran on the same adopted build with only the geometry differing.
+
+#### What the real geometry actually is
+
+Not one real deployment zone is a flat strip. Crucible of Battle is a pair of
+**diagonal triangles**; Tipping Point is **stepped 12 and 20 inches**; Sweeping
+Engagement is **stepped 8 and 14**; Search and Destroy is **opposing quadrants**
+with a 9-inch centre exclusion; Hammer and Anvil is flat but **eighteen** inches
+deep, and its objectives form a **cross**, not the straight line modelled before.
+`Map` gained deployment polygons and a centre-exclusion radius, since a scalar
+depth cannot express any of that.
+
+Take and Hold is left alone: it is a *mission*, not a deployment, so no card
+defines its markers. Sweeping Engagement is left alone too — it deploys from the
+long edges, so its zones split along x, and the project's "army A holds low y"
+convention needs generalising first.
+
+#### The remaining defect is now isolated
+
+About **ten points of secondary victory points** per player per game are missing,
+and it is **behavioural, not geometric**. Suspects in order: the #47 blocker that
+neither army contests an enemy home objective (now proven unaffected by correct
+geometry); whether the piloting layer plays for drawn cards at all, given #52
+records only ~7 of 19 drawable Tactical cards are pursuit-routed; and re-measuring
+the per-card zero-scoring of #46, whose sharpest case was unscoreable for a reason
+that no longer applies.
+
 ### 2026-07-29 (owner ruling) — ADOPTED on fidelity-first: per-phase marking and Prescience
 
 > **⭐⭐ PRODUCTION DIGESTS ARE NOW narrow `f2c675a8446a11235559663f`, wide

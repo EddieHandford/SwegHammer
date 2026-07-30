@@ -1,3 +1,56 @@
+## ADOPTED 2026-07-30 — real map geometry. Halves the PRIMARY error; the secondary gap is NOT geometric.
+
+`SWEG_MAP_REAL_GEOMETRY`, default-on, `"0"` is the kill-switch. Read off the
+official Pariah Nexus deployment cards (screenshotted, measured from the printed
+dimension arrows) rather than reasoned. Production digests narrow
+`f2a90c67ace2c47b21632bb7`, wide `e55c3750394f852814e638cc`.
+
+**A FRAME CHANGE.** Objective positions move, so every game diverges: this cannot
+be paired against an older anchor, `paired_delta` is meaningless for it, and every
+figure predating it is on a different frame.
+
+**THE HYPOTHESIS IT WAS BUILT ON IS FALSIFIED.** The claim was that objective
+geometry starved the home-objective secondary cards. Measured across all 22
+factions, both arms on the same build with only the geometry differing, against
+real primary 29.1 and secondary 22.7:
+
+| | off | on | error off → on |
+|---|---|---|---|
+| mean primary | 34.27 | **31.78** | +5.17 → **+2.68** |
+| mean secondary | 12.50 | 12.30 | −10.20 → −10.40 |
+
+Placing a real home objective inside every deployment zone moved secondary by
+**two tenths of a point**. Objective geometry is not what starves the secondary
+cards. What it did do is remove roughly **half the primary over-scoring error** —
+the first movement on the primary side, and verbatim sourced.
+
+**WHY THE HEADLINE WORSENS AND WHY THAT IS NOT A REGRESSION.** Gated mean
+absolute error 2.78 → 3.35, spread ratio 1.76 → 2.04, but **Spearman +0.375 →
++0.396** and Pearson +0.270 → +0.334. Primary and secondary errors had been
+**cancelling** in the total; correcting one exposed the other. Per the ordering
+diagnostics' own guidance, correlation up is the fidelity signal and distance
+down with correlation flat is convergence toward the mean — this is the opposite
+of the failure pattern. **Do not revert this on a distance reading.**
+
+**WHAT THE REAL GEOMETRY IS.** No real zone is a flat strip: Crucible of Battle
+diagonal triangles, Tipping Point stepped 12/20, Sweeping Engagement stepped 8/14,
+Search and Destroy opposing quadrants with a 9-inch centre exclusion, Hammer and
+Anvil flat but **18** inches with objectives in a cross rather than a line. `Map`
+gained deployment polygons plus a centre-exclusion radius, because a scalar depth
+cannot express any of it. Take and Hold is untouched (a mission, not a deployment,
+so no card defines its markers); Sweeping Engagement is untouched (long-edge
+deployment splits zones along x, which needs the "army A holds low y" convention
+generalised first).
+
+**THE REMAINING DEFECT, NOW ISOLATED.** About ten points of secondary victory
+points per player per game are missing and the cause is **behavioural**. Suspects
+in order: the wave-185/#47 blocker that neither army contests an enemy home
+objective (now proven unaffected by correct geometry); whether the piloting layer
+plays for drawn cards at all, given only ~7 of 19 drawable Tactical cards are
+pursuit-routed; and re-measuring per-card zero-scoring, whose sharpest case
+(Extend Battle Lines) was previously unscoreable for a reason that no longer
+applies.
+
 ## STANDING RULE 2026-07-29 — CHECK THE SUBJECT IS FIELDED BEFORE SCREENING A GATE
 
 **A verdict derived from a frame that cannot express its gate is unevidenced.**
