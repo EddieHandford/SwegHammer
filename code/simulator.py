@@ -4221,7 +4221,21 @@ class Battle:
 
     def _obj_in_own_dz(self, obj, own_is_army_a: bool) -> bool:
         """True if the objective sits in the scoring side's own deployment zone.
-        Army A deploys low-y, B high-y."""
+        Army A deploys low-y, B high-y.
+
+        Uses the map's own predicate when it carries a real deployment polygon,
+        and the legacy flat strip otherwise. THIS MATTERED: when
+        SWEG_MAP_REAL_GEOMETRY was first adopted, only the secondaries module was
+        switched to the polygon test and this helper was left on the flat strip.
+        Three of the four sourced maps place their home objective at y=14, which
+        fails `y <= 12`, so every real home objective was silently reclassified as
+        No Man's Land. Extend Battle Lines needs own-zone AND No Man's Land, so it
+        scored ZERO from 29 holds, and Defend Stronghold scored once in fourteen.
+        Measured, not inferred — see the per-card yield probe.
+        """
+        if self.map.deployment_polygon_a or self.map.deployment_polygon_b:
+            return self.map.in_deployment_zone((obj.x, obj.y),
+                                               is_army_a=own_is_army_a)
         dz = self.map.deployment_width
         if own_is_army_a:
             return obj.y <= dz
@@ -4229,7 +4243,16 @@ class Battle:
 
     def _obj_in_nml(self, obj) -> bool:
         """True if the objective is in No Man's Land (outside both deployment
-        zones) — symmetric, so it needs no side argument."""
+        zones) — symmetric, so it needs no side argument.
+
+        Polygon-aware for the same reason as `_obj_in_own_dz`: with real geometry
+        the zones are diagonal, stepped or quadrant, so "outside both" cannot be
+        expressed as a y-band.
+        """
+        if self.map.deployment_polygon_a or self.map.deployment_polygon_b:
+            pt = (obj.x, obj.y)
+            return not (self.map.in_deployment_zone(pt, is_army_a=True)
+                        or self.map.in_deployment_zone(pt, is_army_a=False))
         dz = self.map.deployment_width
         return dz < obj.y < (self.map.height - dz)
 
